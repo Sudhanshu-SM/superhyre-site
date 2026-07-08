@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SuperHyre — website
 
-## Getting Started
+A static, responsive two-page site built from the `superhyre` Figma design (orange variant).
+No build step, no dependencies — just HTML, CSS, and a little vanilla JS. Fonts load from Google Fonts.
 
-First, run the development server:
+## Pages
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- `index.html` — home: SUPERHYRE hero (Creation-of-Adam hands), then a **pinned
+  horizontal-scroll** feature section. As you scroll down, the section locks in place and the
+  three cards (Vetting / Speed / People) move sideways; once you reach the end, vertical
+  scrolling resumes. On phones the pin is disabled and the cards stack.
+- `talent.html` — "we talent engineer": the article content plus a testimonial carousel
+  (Steve Jobs / Paul Graham) with arrows and dots.
+
+The two pages link to each other through the header, the hero buttons, and the footer.
+
+## Files
+
+```
+superhyre/
+├── index.html
+├── talent.html
+├── .nojekyll
+├── README.md
+└── assets/
+    ├── hero-hands.png      # hands behind the SUPERHYRE wordmark
+    ├── card-vetting.png    # "Vetting that goes past the resume"
+    ├── card-speed.png      # "Speed that doesn't cut corners"
+    └── card-people.png     # "The people are already here"
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Images are your Figma exports. To refresh any of them, re-export from Figma and overwrite the
+file with the same name — the pages pick it up automatically.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Deploy to GitHub Pages
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+A git repo is already initialized here (branch `main`). To publish:
 
-## Learn More
+1. Create an empty repo named **superhyre** on github.com (no README).
+2. From this folder:
+   ```bash
+   cd ~/Desktop/superhyre
+   git remote add origin https://github.com/<your-username>/superhyre.git
+   git push -u origin main
+   ```
+3. On GitHub: **Settings → Pages → Source: Deploy from a branch → `main` / `/ (root)` → Save.**
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Live at `https://<your-username>.github.io/superhyre/` in about a minute.
+The final `git push` needs your GitHub login, so run it yourself.
