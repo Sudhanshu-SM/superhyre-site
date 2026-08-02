@@ -18,9 +18,34 @@
 <body>
 <div class="page">
 
-  <header class="topbar">
+  <header class="topbar" id="topbar">
+    <button type="button" class="cta-talk-btn contact-link" aria-label="Let's talk">
+      <span>Let's talk</span>
+      <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <line x1="7" y1="17" x2="17" y2="7"></line>
+        <polyline points="7 7 17 7 17 17"></polyline>
+      </svg>
+    </button>
     <a class="brand" href="index.html" aria-label="SuperHyre home">SUPER<span class="accent">HYRE</span></a>
+    <button class="menu-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="nav-overlay"><span class="burger"></span></button>
   </header>
+
+  <div class="nav-overlay" id="nav-overlay" aria-hidden="true">
+    <nav class="nav-links" aria-label="Main">
+      <a href="talent.html" class="nav-link" style="--i:0">About</a>
+      <a href="index.html#process" class="nav-link" style="--i:1">How we work</a>
+      <a href="index.html#features" class="nav-link" style="--i:2">Why us</a>
+      <a href="#" class="nav-link contact-link" style="--i:3">Contact</a>
+    </nav>
+    <div class="overlay-footer">
+      <p>&copy; 2026 SuperHyre. All rights reserved.</p>
+      <div class="overlay-socials">
+        <a href="https://www.linkedin.com/company/superhyre01/about/" target="_blank" rel="noopener">LinkedIn</a>
+        <a href="#">Twitter</a>
+        <a href="#">GitHub</a>
+      </div>
+    </div>
+  </div>
 
   <section class="article">
     <div class="article-inner">
@@ -92,6 +117,7 @@
     <p class="modal-num">or email <a href="mailto:punith@superhyre.com">punith@superhyre.com</a></p>
   </div>
 </div>
+<script src="nav.js"></script>
 <script src="contact.js"></script>
 <script src="talent.js"></script>
 </body>

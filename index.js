@@ -99,7 +99,8 @@
     var intro = gsap.timeline({ defaults: { ease: 'power4.out' } });
     intro
       .from('.hero-kicker', { y: 20, opacity: 0, duration: 0.7 })
-      .from('.hero-title .line-inner', { yPercent: 112, duration: 1.15, stagger: 0.12 }, '-=0.3')
+      .from('.hero-title .line-1 span', { y: 70, opacity: 0, duration: 0.9, stagger: 0.14 }, '-=0.3')
+      .from('.hero-title .line-2', { y: 60, opacity: 0, duration: 0.9 }, '-=0.5')
       .from('.hero-sub', { y: 20, opacity: 0, duration: 0.7 }, '-=0.5')
       .from('.hero-cta .pill', { y: 18, opacity: 0, duration: 0.6, stagger: 0.08 }, '-=0.4');
 

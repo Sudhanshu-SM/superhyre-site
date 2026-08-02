@@ -18,18 +18,45 @@
 <body>
 <div class="page">
 
-  <header class="topbar">
+  <header class="topbar" id="topbar">
+    <button type="button" class="cta-talk-btn contact-link" aria-label="Let's talk">
+      <span>Let's talk</span>
+      <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <line x1="7" y1="17" x2="17" y2="7"></line>
+        <polyline points="7 7 17 7 17 17"></polyline>
+      </svg>
+    </button>
     <a class="brand" href="index.html" aria-label="SuperHyre home">SUPER<span class="accent">HYRE</span></a>
+    <button class="menu-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="nav-overlay"><span class="burger"></span></button>
   </header>
+
+  <div class="nav-overlay" id="nav-overlay" aria-hidden="true">
+    <nav class="nav-links" aria-label="Main">
+      <a href="talent.html" class="nav-link" style="--i:0">About</a>
+      <a href="#process" class="nav-link" style="--i:1">How we work</a>
+      <a href="#features" class="nav-link" style="--i:2">Why us</a>
+      <a href="#" class="nav-link contact-link" style="--i:3">Contact</a>
+    </nav>
+    <div class="overlay-footer">
+      <p>&copy; 2026 SuperHyre. All rights reserved.</p>
+      <div class="overlay-socials">
+        <a href="https://www.linkedin.com/company/superhyre01/about/" target="_blank" rel="noopener">LinkedIn</a>
+        <a href="#">Twitter</a>
+        <a href="#">GitHub</a>
+      </div>
+    </div>
+  </div>
 
   <section class="hero" id="hero">
     <div class="hero-glow" aria-hidden="true"></div>
     <div class="hero-container">
       <p class="hero-kicker"><span class="slash">//</span> the hire-first studio</p>
       <h1 class="hero-title">
-        <span class="line line-1"><span class="line-inner">Recruitment</span></span>
-        <span class="line line-2"><span class="line-inner">Rebuilt</span></span>
-        <span class="line line-3"><span class="line-inner">Delivered<span class="cursor" aria-hidden="true"></span></span></span>
+        <div class="line-1">
+          <span class="text-black">Recruitment</span>
+          <span class="text-orange">Rebuilt</span>
+        </div>
+        <div class="line-2 text-muted">Delivered<span class="cursor" aria-hidden="true"></span></div>
       </h1>
       <p class="hero-sub">Wrong channels. Generic outreach. Week-two fallout. We rebuild hiring from the first post to the first paycheck.</p>
       <div class="hero-cta">
@@ -218,6 +245,7 @@
     <p class="modal-num">or email <a href="mailto:punith@superhyre.com">punith@superhyre.com</a></p>
   </div>
 </div>
+<script src="nav.js"></script>
 <script src="contact.js"></script>
 <script src="index.js"></script>
 </body>
