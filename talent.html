@@ -10,39 +10,31 @@
 <meta name="description" content="We call it talent engineering: applying an engineering and first-principles mindset to hunting elite talent." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Fanwood+Text:ital@0;1&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@800;900&family=Fanwood+Text:ital@0;1&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="style.css" />
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
 </head>
 <body>
 <div class="page">
 
   <header class="topbar">
-    <a class="logo" href="index.html" aria-label="SuperHyre home">
-      <img class="logo-img" src="assets/logo.svg" alt="SuperHyre"
-           onerror="if(this.dataset.tried){this.style.display='none';this.nextElementSibling.style.display='block';}else{this.dataset.tried=1;this.src='assets/logo.png';}">
-      <svg style="display:none" viewBox="0 0 31 62" xmlns="http://www.w3.org/2000/svg" fill="#EA5A1E">
-        <rect x="15.5" y="0" width="15.5" height="15.5"/><rect x="0" y="15.5" width="15.5" height="15.5"/>
-        <rect x="15.5" y="31" width="15.5" height="15.5"/><rect x="0" y="46.5" width="15.5" height="15.5"/>
-      </svg>
-    </a>
-    <a href="index.html" class="get-started contact-link">get started</a>
+    <a class="brand" href="index.html" aria-label="SuperHyre home">SUPER<span class="accent">HYRE</span></a>
   </header>
 
   <section class="article">
-    <span class="tick a"></span><span class="tick b"></span>
-    <span class="tick c"></span><span class="tick d"></span>
     <div class="article-inner">
-      <h1 class="title">we talent<br>engineer</h1>
-      <p>The best startup hires don't come from job boards, they come from understanding exactly where a company is in its arc and what kind of person thrives at that inflection point.</p>
-      <p>At SuperHyre, we've built our entire process around that insight. We call it talent engineering - applying an engineering and first-principles mindset to hunting elite talent, rather than doing traditional HR work.</p>
-      <p>That means we don't start with a database and a keyword search. We start with the problem: what does this role need to solve, what does the ideal person look like from first principles, and where are they most likely hiding.</p>
-      <p>Our sourcing is AI-native, our shortlists are ruthlessly filtered, and our judgment is calibrated against hundreds of startup hiring patterns.</p>
-      <p class="tight">We don't hand you a stack of profiles to sift through.</p>
-      <p class="lead-out">We hand you a decision.</p>
+      <h1 class="title">we <em>talent</em><br>engineer</h1>
+      <p data-reveal>The best startup hires don't come from job boards, they come from understanding exactly where a company is in its arc and what kind of person thrives at that inflection point.</p>
+      <p data-reveal>At SuperHyre, we've built our entire process around that insight. We call it talent engineering - applying an engineering and first-principles mindset to hunting elite talent, rather than doing traditional HR work.</p>
+      <p data-reveal>That means we don't start with a database and a keyword search. We start with the problem: what does this role need to solve, what does the ideal person look like from first principles, and where are they most likely hiding.</p>
+      <p data-reveal>Our sourcing is AI-native, our shortlists are ruthlessly filtered, and our judgment is calibrated against hundreds of startup hiring patterns.</p>
+      <p class="tight" data-reveal>We don't hand you a stack of profiles to sift through.</p>
+      <p class="lead-out" data-reveal>We hand you a decision.</p>
     </div>
   </section>
 
-  <section class="quotes">
+  <section class="quotes" id="quotes">
     <div class="q-side left"><blockquote id="ql-text"></blockquote><p class="who"><span id="ql-who"></span><span class="org" id="ql-org"></span></p></div>
     <div class="q-side right"><blockquote id="qr-text"></blockquote><p class="who"><span id="qr-who"></span><span class="org" id="qr-org"></span></p></div>
     <button class="q-btn q-prev" aria-label="Previous quote">&#8249;</button>
@@ -52,6 +44,15 @@
       <p class="who"><span id="q-who"></span><span class="org" id="q-org"></span></p>
     </div>
     <div class="q-dots" id="q-dots"></div>
+  </section>
+
+  <section class="cta-final">
+    <h2 data-reveal>Hiring for a role<br>that <em>matters?</em></h2>
+    <p data-reveal>Tell us who you're looking for. We'll come back with a shortlist &mdash; not a stack of resumes.</p>
+    <div class="pills" data-reveal>
+      <a href="#" class="pill pill-solid contact-link">start hiring</a>
+      <a href="#" class="pill pill-outline contact-link">let's talk</a>
+    </div>
   </section>
 
   <footer>
@@ -67,7 +68,7 @@
         <div class="col"><h4>Company</h4><ul><li><a href="talent.html">About</a></li><li><a href="#">Careers</a></li><li><a href="#" class="contact-link">Contact us</a></li></ul></div>
       </div>
       <div class="stair">
-        <a href="index.html" class="cta cta-top">how we work <span class="arrow">&#8599;</span></a>
+        <a href="index.html#process" class="cta cta-top">how we work <span class="arrow">&#8599;</span></a>
         <span class="sq sq1"></span>
         <span class="sq sq2"></span>
         <a href="index.html" class="cta cta-bot">start hiring <span class="arrow">&#8599;</span></a>

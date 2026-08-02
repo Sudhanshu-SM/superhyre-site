@@ -1,5 +1,5 @@
-/* SuperHyre — talent page: testimonial carousel.
-   Shows the active quote centred, with the previous/next quotes faded on each side. */
+/* SuperHyre — talent page: testimonial carousel + scroll reveals.
+   Degrades gracefully: without GSAP the page stays fully visible. */
 (function () {
   var quotes = [
     {
@@ -17,7 +17,8 @@
   var lt = document.getElementById('ql-text'), lw = document.getElementById('ql-who'), lo = document.getElementById('ql-org');
   var rt = document.getElementById('qr-text'), rw = document.getElementById('qr-who'), ro = document.getElementById('qr-org');
   var dots = document.getElementById('q-dots');
-  if (!t) return;
+  var prev = document.querySelector('.q-prev'), next = document.querySelector('.q-next');
+  if (!t || !dots || !prev || !next) return;
 
   quotes.forEach(function (_, idx) {
     var b = document.createElement('button');
@@ -26,15 +27,39 @@
     dots.appendChild(b);
   });
 
+  var hasGsap = typeof gsap !== 'undefined';
+
   function render() {
     var q = quotes[i], p = quotes[(i - 1 + n) % n], nx = quotes[(i + 1) % n];
-    t.textContent = '“' + q.t + '”'; w.textContent = q.who; o.textContent = q.org;
-    lt.textContent = '“' + p.t + '”'; lw.textContent = p.who; lo.textContent = p.org;
-    rt.textContent = '“' + nx.t + '”'; rw.textContent = nx.who; ro.textContent = nx.org;
+    if (hasGsap) {
+      gsap.to('.quote', { opacity: 0, y: 14, duration: 0.18, onComplete: function () {
+        paint(q, p, nx);
+        gsap.to('.quote', { opacity: 1, y: 0, duration: 0.35, ease: 'power2.out' });
+      }});
+    } else {
+      paint(q, p, nx);
+    }
     Array.prototype.forEach.call(dots.children, function (d, idx) { d.className = idx === i ? 'on' : ''; });
   }
 
-  document.querySelector('.q-prev').addEventListener('click', function () { i = (i - 1 + n) % n; render(); });
-  document.querySelector('.q-next').addEventListener('click', function () { i = (i + 1) % n; render(); });
+  function paint(q, p, nx) {
+    t.textContent = '\u201C' + q.t + '\u201D'; w.textContent = q.who; o.textContent = q.org;
+    lt.textContent = '\u201C' + p.t + '\u201D'; lw.textContent = p.who; lo.textContent = p.org;
+    rt.textContent = '\u201C' + nx.t + '\u201D'; rw.textContent = nx.who; ro.textContent = nx.org;
+  }
+
+  prev.addEventListener('click', function () { i = (i - 1 + n) % n; render(); });
+  next.addEventListener('click', function () { i = (i + 1) % n; render(); });
   render();
+
+  if (hasGsap && typeof ScrollTrigger !== 'undefined') {
+    gsap.registerPlugin(ScrollTrigger);
+    gsap.utils.toArray('[data-reveal]').forEach(function (el) {
+      gsap.from(el, {
+        opacity: 0, y: 34,
+        duration: 0.9, ease: 'power3.out',
+        scrollTrigger: { trigger: el, start: 'top 85%' }
+      });
+    });
+  }
 })();

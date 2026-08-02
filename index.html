@@ -10,48 +10,130 @@
 <meta name="description" content="SuperHyre exists because the old way of hiring is costing companies more than they admit. Recruitment, rebuilt." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Fanwood+Text:ital@0;1&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@800;900&family=Fanwood+Text:ital@0;1&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="style.css" />
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
 </head>
 <body>
 <div class="page">
 
   <header class="topbar">
-    <a class="logo" href="index.html" aria-label="SuperHyre home">
-      <img class="logo-img" src="assets/logo.svg" alt="SuperHyre"
-           onerror="if(this.dataset.tried){this.style.display='none';this.nextElementSibling.style.display='block';}else{this.dataset.tried=1;this.src='assets/logo.png';}">
-      <svg style="display:none" viewBox="0 0 31 62" xmlns="http://www.w3.org/2000/svg" fill="#EA5A1E">
-        <rect x="15.5" y="0" width="15.5" height="15.5"/><rect x="0" y="15.5" width="15.5" height="15.5"/>
-        <rect x="15.5" y="31" width="15.5" height="15.5"/><rect x="0" y="46.5" width="15.5" height="15.5"/>
-      </svg>
-    </a>
-    <a href="talent.html" class="get-started contact-link">get started</a>
+    <a class="brand" href="index.html" aria-label="SuperHyre home">SUPER<span class="accent">HYRE</span></a>
   </header>
 
-  <section class="hero">
-    <span class="tick a"></span><span class="tick b"></span>
-    <span class="tick c"></span><span class="tick d"></span>
-    <div class="hero-stage">
-      <svg class="wordmark" viewBox="0 0 1180 184" role="img" aria-label="SuperHyre" xmlns="http://www.w3.org/2000/svg">
-        <text x="590" y="146" text-anchor="middle" textLength="1170" lengthAdjust="spacingAndGlyphs"
-          font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" font-weight="500" font-size="180" fill="#0a0a0a"
-        >SUPER<tspan fill="#EA5A1E">HYRE</tspan></text>
-      </svg>
-      <img class="hands" src="assets/hero-hands.svg" alt="Two hands reaching toward each other"
-           onerror="this.onerror=null;this.src='assets/hero-hands.png'">
-      <div class="hero-text">
-        <p class="kicker">Recruitment, Rebuilt.</p>
-        <p class="lede">Most hiring processes are broken<br>before you even post the job.</p>
-        <p class="hero-body">Wrong channels. Generic outreach.<br>Resumes that look good on paper<br>and fall apart in week two.<br>SuperHyre exists because the old<br>way of hiring is costing companies<br>more than they admit.</p>
+  <section class="hero" id="hero">
+    <div class="hero-glow" aria-hidden="true"></div>
+    <div class="hero-container">
+      <p class="hero-kicker"><span class="slash">//</span> the hire-first studio</p>
+      <h1 class="hero-title">
+        <span class="line line-1"><span class="line-inner">Recruitment</span></span>
+        <span class="line line-2"><span class="line-inner">Rebuilt</span></span>
+        <span class="line line-3"><span class="line-inner">Delivered<span class="cursor" aria-hidden="true"></span></span></span>
+      </h1>
+      <p class="hero-sub">Wrong channels. Generic outreach. Week-two fallout. We rebuild hiring from the first post to the first paycheck.</p>
+      <div class="hero-cta">
+        <a href="talent.html" class="pill pill-solid">start hiring</a>
+        <a href="#process" class="pill pill-ghost">how we work <span class="arrow">&#8594;</span></a>
       </div>
-      <a href="talent.html" class="pill pill-solid start">start hiring</a>
-      <a href="talent.html" class="pill pill-outline see">see how we work</a>
     </div>
   </section>
 
-  <section class="features" id="how">
-    <div class="features__sticky">
-      <div class="features__track">
+  <div class="marquee" aria-hidden="true">
+    <div class="marquee-track">
+      <span>Vetting that goes past the resume&ensp;·&ensp;Speed that doesn't cut corners&ensp;·&ensp;The people are already here&ensp;·&ensp;Shortlists in 48 hours&ensp;·&ensp;No job boards, no keyword searches&ensp;·&ensp;</span>
+      <span>Vetting that goes past the resume&ensp;·&ensp;Speed that doesn't cut corners&ensp;·&ensp;The people are already here&ensp;·&ensp;Shortlists in 48 hours&ensp;·&ensp;No job boards, no keyword searches&ensp;·&ensp;</span>
+    </div>
+  </div>
+
+  <section class="stats" aria-label="SuperHyre by the numbers">
+    <div class="stats-grid">
+      <!-- PLACEHOLDER STATS: replace data-count / data-suffix with real numbers when available -->
+      <div class="stat" data-reveal>
+        <div class="stat-num"><span data-count="48" data-suffix="">48</span><sup>hrs</sup></div>
+        <p class="stat-label">to a vetted shortlist</p>
+      </div>
+      <div class="stat" data-reveal>
+        <div class="stat-num"><span data-count="3" data-suffix="">3</span></div>
+        <p class="stat-label">screening stages before your desk</p>
+      </div>
+      <div class="stat" data-reveal>
+        <div class="stat-num"><span data-count="100" data-suffix="%">100%</span></div>
+        <p class="stat-label">of our pool is pre-vetted</p>
+      </div>
+      <div class="stat" data-reveal>
+        <div class="stat-num"><span data-count="40" data-suffix="+">40+</span></div>
+        <p class="stat-label">industries and geographies covered</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="problems" id="problems">
+    <h2 data-reveal>The old way of hiring<br>is <em>broken.</em></h2>
+    <p class="problems-lead" data-reveal>Before you even post the job, the process is already losing you time, money, and the people who matter.</p>
+    <div class="problem-row" data-reveal>
+      <p class="problem-num"><i>/01</i></p>
+      <h3 class="problem-title">Wrong channels</h3>
+      <p class="problem-text">Most hiring starts on the same job boards everyone else posts to. Same noise, same candidates, same results.</p>
+    </div>
+    <div class="problem-row" data-reveal>
+      <p class="problem-num"><i>/02</i></p>
+      <h3 class="problem-title">Generic outreach</h3>
+      <p class="problem-text">Copy-paste messages get copy-paste replies. The people you actually want don't respond to mail-merge.</p>
+    </div>
+    <div class="problem-row" data-reveal>
+      <p class="problem-num"><i>/03</i></p>
+      <h3 class="problem-title">Resumes that fall apart in week two</h3>
+      <p class="problem-text">A resume is a promise, not proof. Looks good on paper, gone by the second week.</p>
+    </div>
+  </section>
+
+  <section class="process" id="process">
+    <div class="process-head">
+      <h2 data-reveal>We built our process<br>around <em>your hiring calendar,</em><br>not ours.</h2>
+      <p class="sub" data-reveal>From first principles to a decision — a shortlist in 48 hours is the baseline, not the pitch.</p>
+    </div>
+    <div class="process-stack">
+      <div class="process-line"><i></i></div>
+
+      <div class="step" data-step>
+        <p class="step-tag">Day 0 &mdash; define the problem</p>
+        <h3>We don't start with a<br>database and a <span>keyword search.</span></h3>
+        <p>We start with what this role needs to solve, and what kind of person thrives at that exact inflection point in your company's arc.</p>
+        <p class="step-note">First-principles sourcing, calibrated against hundreds of startup hiring patterns.</p>
+      </div>
+
+      <div class="step" data-step>
+        <p class="step-tag">48 hours &mdash; the shortlist</p>
+        <h3>A shortlist in 48 hours<br>is the <span>baseline,</span> not the pitch.</h3>
+        <p>Multi-stage screening before anyone reaches your desk. By the time you're talking to a candidate, we already have.</p>
+        <p class="step-note">AI-native sourcing, ruthlessly filtered by hand.</p>
+      </div>
+
+      <div class="step" data-step>
+        <p class="step-tag">Day 7 &mdash; the conversations</p>
+        <h3>Deep conversations,<br>before <span>you</span> spend an hour.</h3>
+        <p>We run the reference-grade checks and the honest conversations. What surfaces to you is a candidate who has already been tested.</p>
+        <p class="step-note">We don't scrape LinkedIn on your behalf. Our pool is curated, active, and pre-vetted.</p>
+      </div>
+
+      <div class="step" data-step>
+        <p class="step-tag">Day 30 &mdash; the decision</p>
+        <h3>We don't hand you a stack<br>of profiles to <span>sift through.</span></h3>
+        <p>We hand you a decision.</p>
+        <p class="step-note">The best startup hires don't come from job boards &mdash; they come from understanding exactly where a company is in its arc.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="features" id="features">
+    <div class="pan-wrap">
+      <div class="pan-track">
+        <div class="pan-head">
+          <h2 data-reveal>Why it <em>works</em></h2>
+          <p data-reveal>Three reasons the old way of hiring is costing you more than you admit &mdash; and what we do differently.</p>
+          <a href="talent.html" class="pill pill-solid">start hiring</a>
+        </div>
         <article class="card">
           <div class="media"><img src="assets/card-vetting.svg" alt="" onerror="this.onerror=null;this.src='assets/card-vetting.png'"></div>
           <div class="card-body">
@@ -77,6 +159,28 @@
     </div>
   </section>
 
+  <section class="quotes" id="quotes">
+    <h2>The people we hire are <em>the company.</em></h2>
+    <div class="q-side left"><blockquote id="ql-text"></blockquote><p class="who"><span id="ql-who"></span><span class="org" id="ql-org"></span></p></div>
+    <div class="q-side right"><blockquote id="qr-text"></blockquote><p class="who"><span id="qr-who"></span><span class="org" id="qr-org"></span></p></div>
+    <button class="q-btn q-prev" aria-label="Previous quote">&#8249;</button>
+    <button class="q-btn q-next" aria-label="Next quote">&#8250;</button>
+    <div class="quote">
+      <blockquote id="q-text"></blockquote>
+      <p class="who"><span id="q-who"></span><span class="org" id="q-org"></span></p>
+    </div>
+    <div class="q-dots" id="q-dots"></div>
+  </section>
+
+  <section class="cta-final">
+    <h2 data-reveal>We hand you<br>a <em>decision.</em></h2>
+    <p data-reveal>Tell us who you're hiring for. We'll come back with a shortlist &mdash; not a stack of resumes.</p>
+    <div class="pills" data-reveal>
+      <a href="talent.html" class="pill pill-solid">start hiring</a>
+      <a href="#" class="pill pill-outline contact-link">let's talk</a>
+    </div>
+  </section>
+
   <footer>
     <div class="footer-top">
       <div class="footer-cols">
@@ -90,7 +194,7 @@
         <div class="col"><h4>Company</h4><ul><li><a href="talent.html">About</a></li><li><a href="#">Careers</a></li><li><a href="#" class="contact-link">Contact us</a></li></ul></div>
       </div>
       <div class="stair">
-        <a href="talent.html" class="cta cta-top">how we work <span class="arrow">&#8599;</span></a>
+        <a href="#process" class="cta cta-top">how we work <span class="arrow">&#8599;</span></a>
         <span class="sq sq1"></span>
         <span class="sq sq2"></span>
         <a href="talent.html" class="cta cta-bot">start hiring <span class="arrow">&#8599;</span></a>
