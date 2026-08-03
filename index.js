@@ -106,6 +106,27 @@
   setTimeout(revealCards, 100);
 })();
 
+/* ---------- hero background video: autoplay + reduced-motion ---------- */
+(function () {
+  var v = document.querySelector('.hero-bg-video');
+  if (!v) return;
+  v.muted = true;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    v.pause();
+    return;
+  }
+  var tried = 0;
+  function tryPlay() {
+    if (tried >= 6) return;
+    tried++;
+    var p = v.play();
+    if (p && p.catch) p.catch(function () {});
+    setTimeout(tryPlay, 600);
+  }
+  v.addEventListener('loadeddata', tryPlay);
+  tryPlay();
+})();
+
 /* ---------- ethos quote carousel (GSAP text swap — index only) ---------- */
 (function () {
   var slides = document.querySelectorAll('.ethos-slide');
