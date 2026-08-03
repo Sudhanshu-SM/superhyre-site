@@ -12,8 +12,11 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@800;900&family=Fanwood+Text:ital@0;1&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="style.css" />
+<link rel="stylesheet" href="https://unpkg.com/lenis@1.3.25/dist/lenis.css" />
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script defer src="https://unpkg.com/lenis@1.3.25/dist/lenis.min.js"></script>
+<script defer src="lenis.js"></script>
 </head>
 <body>
 <div class="page">
@@ -49,7 +52,10 @@
 
   <section class="article">
     <div class="article-inner">
-      <h1 class="title">we <em>talent</em><br>engineer</h1>
+      <h1 class="title">
+        <span class="mask-line"><span class="mask-line-inner">we <em>talent</em></span></span>
+        <span class="mask-line"><span class="mask-line-inner">engineer</span></span>
+      </h1>
       <p data-reveal>The best startup hires don't come from job boards, they come from understanding exactly where a company is in its arc and what kind of person thrives at that inflection point.</p>
       <p data-reveal>At SuperHyre, we've built our entire process around that insight. We call it talent engineering - applying an engineering and first-principles mindset to hunting elite talent, rather than doing traditional HR work.</p>
       <p data-reveal>That means we don't start with a database and a keyword search. We start with the problem: what does this role need to solve, what does the ideal person look like from first principles, and where are they most likely hiding.</p>
@@ -72,7 +78,7 @@
   </section>
 
   <section class="cta-final">
-    <h2 data-reveal>Hiring for a role<br>that <em>matters?</em></h2>
+    <h2><span class="mask-line"><span class="mask-line-inner">Hiring for a role<br>that <em>matters?</em></span></span></h2>
     <p data-reveal>Tell us who you're looking for. We'll come back with a shortlist &mdash; not a stack of resumes.</p>
     <div class="pills" data-reveal>
       <a href="#" class="pill pill-solid contact-link">start hiring</a>

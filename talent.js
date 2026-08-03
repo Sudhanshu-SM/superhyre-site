@@ -1,5 +1,6 @@
 /* SuperHyre — talent page: testimonial carousel + scroll reveals.
    Degrades gracefully: without GSAP the page stays fully visible. */
+document.addEventListener('DOMContentLoaded', function () {
 (function () {
   var quotes = [
     {
@@ -63,3 +64,4 @@
     });
   }
 })();
+});

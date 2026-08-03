@@ -145,12 +145,17 @@ img{display:block;max-width:100%;}
 .overlay-footer a:hover{color:#E45325;}
 .overlay-socials{display:flex;gap:22px;}
 
-/* ---------------- Hero (index) ---------------- */
+/* ---------------- Hero (index, pinned) ---------------- */
 .hero-section{
   width:100vw;margin-left:calc(50% - 50vw);
-  padding:4rem 0 0 0;
-  display:flex;flex-direction:column;align-items:center;
+  position:sticky;top:0;height:100vh;z-index:1;
+  display:flex;flex-direction:column;justify-content:center;align-items:center;
   background-color:#FAFAFA;
+  overflow:hidden;
+}
+/* everything that follows slides over the pinned hero */
+.hero-section ~ section,.hero-section ~ .marquee-banner,.hero-section ~ footer{
+  position:relative;z-index:2;
 }
 .hero-headline{
   font-family:'Bebas Neue','Oswald','Impact',sans-serif;
@@ -158,6 +163,7 @@ img{display:block;max-width:100%;}
   font-size:clamp(4.5rem,11vw,12rem);font-weight:800;
   line-height:.88;letter-spacing:-.01em;
   text-transform:uppercase;text-align:center;
+  will-change:transform,opacity;
 }
 .hero-headline .word-recruitment{color:#0A0A0A;}
 .hero-headline .highlight-orange{color:#E45325;}
@@ -171,7 +177,22 @@ img{display:block;max-width:100%;}
   font-family:'Suisse Int\'l','Suisse Intl',-apple-system,sans-serif;
   font-size:clamp(1rem,1.25vw,1.2rem);color:#555555;
   max-width:580px;text-align:center;
-  margin-top:1.5rem;margin-bottom:3.5rem;line-height:1.5;
+  margin-top:1.5rem;line-height:1.5;
+}
+
+/* ---------------- Masked line reveals (JS-driven) ---------------- */
+html.js-motion{scroll-behavior:auto!important;}
+.mask-line{display:block;}
+.js-motion .mask-line{overflow:hidden;}
+.js-motion .mask-line-inner{transform:translateY(110%);}
+@media(prefers-reduced-motion:reduce){
+  .js-motion .mask-line-inner{transform:none!important;}
+}
+
+/* ---------------- Section seam line (features sweep) ---------------- */
+.section-line{
+  display:block;width:100%;height:2px;background-color:#E45325;
+  transform-origin:left center;margin-bottom:2rem;
 }
 
 .pill{
@@ -682,7 +703,7 @@ body.no-scroll{overflow:hidden;}
 @media(max-width:980px){
 }
 @media(max-width:860px){
-  .hero-section{padding:3rem 0 0;}
+  .hero-section{padding:0;}
   .stats-section,.problem-section{padding:4rem 1.25rem;}
   .process-section{padding:4rem 1.25rem;}
   .problem-card{flex-direction:column;gap:.75rem;}
@@ -713,4 +734,6 @@ body.no-scroll{overflow:hidden;}
   html{scroll-behavior:auto;}
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;}
   .marquee-track{animation:none;transform:none;}
+  .hero-section{position:static;height:auto;overflow:visible;}
+  .hero-section ~ section,.hero-section ~ .marquee-banner,.hero-section ~ footer{position:static;z-index:auto;}
 }
