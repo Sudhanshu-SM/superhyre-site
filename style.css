@@ -642,6 +642,37 @@ body.no-scroll{overflow:hidden;}
   font-family:'Inter',sans-serif;font-size:.95rem;
   margin:.75rem 0;color:#DDDDDD;
 }
+/* ---------------- Footer Infinite Marquee ---------------- */
+.footer-marquee-wrapper{
+  background-color:#0A0A0A;width:100%;overflow:hidden;
+  padding:4rem 0 3rem 0;border-top:1px solid #1A1A1A;
+  white-space:nowrap;
+}
+.footer-marquee-link{text-decoration:none;display:block;}
+.footer-marquee-track{
+  display:flex;width:max-content;
+  animation:marqueeScroll 45s linear infinite;
+}
+.footer-marquee-wrapper:hover .footer-marquee-track{animation-play-state:paused;}
+.marquee-content{display:flex;align-items:center;gap:4rem;padding-right:4rem;}
+.marquee-content span{
+  font-family:'Suisse Int\'l','Suisse Intl',-apple-system,sans-serif;
+  font-size:clamp(4.5rem,12vw,9.5rem);font-weight:800;line-height:.9;
+  color:#FFFFFF;letter-spacing:-.03em;text-transform:capitalize;
+  display:inline-block;
+  transition:color .3s ease;
+}
+.marquee-content .dot-accent{
+  color:#FF0000;font-size:clamp(4rem,10vw,7rem);
+  transform:scaleX(1);
+}
+.footer-marquee-link:hover .marquee-content span{color:#FF6000;}
+.footer-marquee-link:hover .marquee-content .dot-accent{color:#FFFFFF;}
+@keyframes marqueeScroll{
+  0%{transform:translateX(0%);}
+  100%{transform:translateX(-50%);}
+}
+
 .footer-bottom{
   border-top:1px solid #1A1A1A;padding:1.5rem 0;
   text-align:center;font-size:.85rem;color:#666666;
