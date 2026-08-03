@@ -256,48 +256,106 @@
     </div>
   </section>
 
-  <section class="quotes" id="quotes">
-    <h2>The people we hire are <em>the company.</em></h2>
-    <div class="q-side left"><blockquote id="ql-text"></blockquote><p class="who"><span id="ql-who"></span><span class="org" id="ql-org"></span></p></div>
-    <div class="q-side right"><blockquote id="qr-text"></blockquote><p class="who"><span id="qr-who"></span><span class="org" id="qr-org"></span></p></div>
-    <button class="q-btn q-prev" aria-label="Previous quote">&#8249;</button>
-    <button class="q-btn q-next" aria-label="Next quote">&#8250;</button>
-    <div class="quote">
-      <blockquote id="q-text"></blockquote>
-      <p class="who"><span id="q-who"></span><span class="org" id="q-org"></span></p>
-    </div>
-    <div class="q-dots" id="q-dots"></div>
-  </section>
+  <!-- SECTION 1: INTERACTIVE ETHOS CAROUSEL (WHITE) -->
+  <section class="ethos-slider-section">
+    <div class="container ethos-container">
+      <div class="slider-controls-top">
+        <span class="slide-counter" id="slideCounter">01 / 04</span>
+      </div>
 
-  <section class="cta-final">
-    <h2 data-reveal>We hand you<br>a <em>decision.</em></h2>
-    <p data-reveal>Tell us who you're hiring for. We'll come back with a shortlist &mdash; not a stack of resumes.</p>
-    <div class="pills" data-reveal>
-      <a href="talent.html" class="pill pill-solid">start hiring</a>
-      <a href="#" class="pill pill-outline contact-link">let's talk</a>
-    </div>
-  </section>
-
-  <footer>
-    <div class="footer-top">
-      <div class="footer-cols">
-        <div class="socials">
-          <a href="https://www.linkedin.com/company/superhyre01/about/" target="_blank" rel="noopener" aria-label="LinkedIn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.45 20.45h-3.56v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.34V9h3.42v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 110-4.13 2.06 2.06 0 010 4.13zM7.12 20.45H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.72v20.56C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.72V1.72C24 .77 23.2 0 22.22 0z"/></svg></a>
-          <a href="#" aria-label="Facebook"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.1 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.79-4.69 4.53-4.69 1.31 0 2.69.24 2.69.24v2.97h-1.52c-1.49 0-1.96.93-1.96 1.89v2.25h3.33l-.53 3.49h-2.8V24C19.61 23.1 24 18.1 24 12.07z"/></svg></a>
-          <a href="#" aria-label="X"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.24 2.25h3.31l-7.23 8.26L22.85 21.75h-6.66l-5.22-6.82-5.97 6.82H1.69l7.73-8.84L1.15 2.25h6.83l4.71 6.23 5.55-6.23zm-1.16 17.52h1.83L7.01 4.13H5.04l12.04 15.64z"/></svg></a>
-          <a href="mailto:punith@superhyre.com" aria-label="Email"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="16" rx="1.5"/><path d="M3 6l9 7 9-7"/></svg></a>
+      <!-- Carousel Wrapper -->
+      <div class="ethos-carousel">
+        <!-- Slide 1 -->
+        <div class="ethos-slide active">
+          <h2 class="ethos-quote">THE PEOPLE WE HIRE ARE <span class="highlight-orange">THE COMPANY.</span></h2>
+          <p class="ethos-author">&mdash; Our Core Engineering Philosophy</p>
         </div>
-        <div class="col"><h4>Resources</h4><ul><li><a href="#">Blog</a></li><li><a href="#">Case Studies</a></li><li><a href="#">FAQ</a></li></ul></div>
-        <div class="col"><h4>Company</h4><ul><li><a href="talent.html">About</a></li><li><a href="#">Careers</a></li><li><a href="#" class="contact-link">Contact us</a></li></ul></div>
+        <!-- Slide 2 -->
+        <div class="ethos-slide">
+          <h2 class="ethos-quote">A SHORTLIST IN 48 HOURS IS THE <span class="highlight-orange">BASELINE,</span> NOT THE PITCH.</h2>
+          <p class="ethos-author">&mdash; Execution Standard</p>
+        </div>
+        <!-- Slide 3 -->
+        <div class="ethos-slide">
+          <h2 class="ethos-quote">NO LINKEDIN SCRAPING. ONLY <span class="highlight-orange">PRE-VETTED TALENT.</span></h2>
+          <p class="ethos-author">&mdash; Quality Assurance</p>
+        </div>
+        <!-- Slide 4 -->
+        <div class="ethos-slide">
+          <h2 class="ethos-quote">BUILT AROUND YOUR <span class="highlight-orange">HIRING CALENDAR,</span> NOT OURS.</h2>
+          <p class="ethos-author">&mdash; Client Partnership</p>
+        </div>
       </div>
-      <div class="stair">
-        <a href="#process" class="cta cta-top">how we work <span class="arrow">&#8599;</span></a>
-        <span class="sq sq1"></span>
-        <span class="sq sq2"></span>
-        <a href="talent.html" class="cta cta-bot">start hiring <span class="arrow">&#8599;</span></a>
+
+      <!-- Slider Nav Buttons -->
+      <div class="slider-nav">
+        <button class="nav-btn prev-btn" id="prevSlide" aria-label="Previous Slide">&#8592;</button>
+        <button class="nav-btn next-btn" id="nextSlide" aria-label="Next Slide">&#8594;</button>
       </div>
     </div>
-    <p class="copyright">© 2026 superhyre. All rights reserved.</p>
+  </section>
+
+  <!-- SECTION 2: ORANGE CTA BANNER -->
+  <section class="cta-banner-section">
+    <div class="container cta-container">
+      <h2 class="cta-title">WE HAND YOU A <span class="cta-underline">DECISION.</span></h2>
+      <p class="cta-subtitle">
+        Tell us who you're hiring for. We'll come back with a shortlisted pool — not a stack of unvetted resumes.
+      </p>
+      <div class="cta-actions">
+        <a href="talent.html" class="btn-cta-dark">START HIRING <span class="arrow">&#8594;</span></a>
+        <a href="#" class="btn-cta-outline contact-link">LET'S TALK</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 3: REFINED FOOTER -->
+  <footer class="site-footer">
+    <div class="container footer-container">
+      <!-- Brand Column -->
+      <div class="footer-col footer-brand">
+        <h3 class="footer-logo"><span class="logo-white">SUPER</span><span class="logo-orange">HYRE</span><span class="logo-dot">.</span></h3>
+        <p class="footer-desc">Recruitment rebuilt for high-growth technical teams.</p>
+        <div class="footer-socials">
+          <a href="https://www.linkedin.com/company/superhyre01/about/" target="_blank" rel="noopener" aria-label="LinkedIn">LN</a>
+          <a href="#" aria-label="X/Twitter">X</a>
+          <a href="#" aria-label="GitHub">GH</a>
+        </div>
+      </div>
+
+      <!-- Links Column 1 -->
+      <div class="footer-col">
+        <h4 class="footer-col-title">NAVIGATION</h4>
+        <ul>
+          <li><a href="#process">How We Work</a></li>
+          <li><a href="#features">Why It Works</a></li>
+          <li><a href="#process">Process</a></li>
+          <li><a href="talent.html">Case Studies</a></li>
+        </ul>
+      </div>
+
+      <!-- Links Column 2 -->
+      <div class="footer-col">
+        <h4 class="footer-col-title">COMPANY</h4>
+        <ul>
+          <li><a href="talent.html">About Us</a></li>
+          <li><a href="#">Privacy Policy</a></li>
+          <li><a href="#" class="contact-link">Contact</a></li>
+        </ul>
+      </div>
+
+      <!-- Action / Badge Column -->
+      <div class="footer-col footer-cta-card">
+        <span class="footer-badge">AVAILABLE NOW</span>
+        <p class="footer-card-text">Ready to scale your engineering team?</p>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <div class="container footer-bottom-container">
+        <p>&copy; 2026 SuperHyre Inc. All rights reserved.</p>
+      </div>
+    </div>
   </footer>
 
 </div>

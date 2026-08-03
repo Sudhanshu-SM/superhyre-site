@@ -100,6 +100,37 @@
   setTimeout(revealCards, 100);
 })();
 
+/* ---------- ethos quote carousel (vanilla — index only) ---------- */
+(function () {
+  var slides = document.querySelectorAll('.ethos-slide');
+  var prevBtn = document.getElementById('prevSlide');
+  var nextBtn = document.getElementById('nextSlide');
+  var counter = document.getElementById('slideCounter');
+  if (!slides.length || !nextBtn || !prevBtn) return;
+
+  var currentSlide = 0;
+  var totalSlides = slides.length;
+
+  function updateSlide(index) {
+    slides.forEach(function (slide, i) {
+      slide.classList.toggle('active', i === index);
+    });
+    if (counter) {
+      counter.textContent = '0' + (index + 1) + ' / 0' + totalSlides;
+    }
+  }
+
+  nextBtn.addEventListener('click', function () {
+    currentSlide = (currentSlide + 1) % totalSlides;
+    updateSlide(currentSlide);
+  });
+
+  prevBtn.addEventListener('click', function () {
+    currentSlide = (currentSlide - 1 + totalSlides) % totalSlides;
+    updateSlide(currentSlide);
+  });
+})();
+
 (function () {
   if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') return;
   gsap.registerPlugin(ScrollTrigger);
