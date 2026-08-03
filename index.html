@@ -10,7 +10,7 @@
 <meta name="description" content="SuperHyre exists because the old way of hiring is costing companies more than they admit. Recruitment, rebuilt." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@800;900&family=Fanwood+Text:ital@0;1&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@800;900&family=Fanwood+Text:ital@0;1&family=IBM+Plex+Sans:wght@300;400;500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="style.css" />
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
@@ -75,116 +75,184 @@
     </div>
   </section>
 
-  <section class="stats" aria-label="SuperHyre by the numbers">
-    <div class="stats-grid">
-      <!-- PLACEHOLDER STATS: replace data-count / data-suffix with real numbers when available -->
-      <div class="stat" data-reveal>
-        <div class="stat-num"><span data-count="48" data-suffix="">48</span><sup>hrs</sup></div>
-        <p class="stat-label">to a vetted shortlist</p>
-      </div>
-      <div class="stat" data-reveal>
-        <div class="stat-num"><span data-count="3" data-suffix="">3</span></div>
-        <p class="stat-label">screening stages before your desk</p>
-      </div>
-      <div class="stat" data-reveal>
-        <div class="stat-num"><span data-count="100" data-suffix="%">100%</span></div>
-        <p class="stat-label">of our pool is pre-vetted</p>
-      </div>
-      <div class="stat" data-reveal>
-        <div class="stat-num"><span data-count="40" data-suffix="+">40+</span></div>
-        <p class="stat-label">industries and geographies covered</p>
-      </div>
-    </div>
-  </section>
-
-  <section class="problems" id="problems">
-    <h2 data-reveal>The old way of hiring<br>is <em>broken.</em></h2>
-    <p class="problems-lead" data-reveal>Before you even post the job, the process is already losing you time, money, and the people who matter.</p>
-    <div class="problem-row" data-reveal>
-      <p class="problem-num"><i>/01</i></p>
-      <h3 class="problem-title">Wrong channels</h3>
-      <p class="problem-text">Most hiring starts on the same job boards everyone else posts to. Same noise, same candidates, same results.</p>
-    </div>
-    <div class="problem-row" data-reveal>
-      <p class="problem-num"><i>/02</i></p>
-      <h3 class="problem-title">Generic outreach</h3>
-      <p class="problem-text">Copy-paste messages get copy-paste replies. The people you actually want don't respond to mail-merge.</p>
-    </div>
-    <div class="problem-row" data-reveal>
-      <p class="problem-num"><i>/03</i></p>
-      <h3 class="problem-title">Resumes that fall apart in week two</h3>
-      <p class="problem-text">A resume is a promise, not proof. Looks good on paper, gone by the second week.</p>
-    </div>
-  </section>
-
-  <section class="process" id="process">
-    <div class="process-head">
-      <h2 data-reveal>We built our process<br>around <em>your hiring calendar,</em><br>not ours.</h2>
-      <p class="sub" data-reveal>From first principles to a decision — a shortlist in 48 hours is the baseline, not the pitch.</p>
-    </div>
-    <div class="process-stack">
-      <div class="process-line"><i></i></div>
-
-      <div class="step" data-step>
-        <p class="step-tag">Day 0 &mdash; define the problem</p>
-        <h3>We don't start with a<br>database and a <span>keyword search.</span></h3>
-        <p>We start with what this role needs to solve, and what kind of person thrives at that exact inflection point in your company's arc.</p>
-        <p class="step-note">First-principles sourcing, calibrated against hundreds of startup hiring patterns.</p>
-      </div>
-
-      <div class="step" data-step>
-        <p class="step-tag">48 hours &mdash; the shortlist</p>
-        <h3>A shortlist in 48 hours<br>is the <span>baseline,</span> not the pitch.</h3>
-        <p>Multi-stage screening before anyone reaches your desk. By the time you're talking to a candidate, we already have.</p>
-        <p class="step-note">AI-native sourcing, ruthlessly filtered by hand.</p>
-      </div>
-
-      <div class="step" data-step>
-        <p class="step-tag">Day 7 &mdash; the conversations</p>
-        <h3>Deep conversations,<br>before <span>you</span> spend an hour.</h3>
-        <p>We run the reference-grade checks and the honest conversations. What surfaces to you is a candidate who has already been tested.</p>
-        <p class="step-note">We don't scrape LinkedIn on your behalf. Our pool is curated, active, and pre-vetted.</p>
-      </div>
-
-      <div class="step" data-step>
-        <p class="step-tag">Day 30 &mdash; the decision</p>
-        <h3>We don't hand you a stack<br>of profiles to <span>sift through.</span></h3>
-        <p>We hand you a decision.</p>
-        <p class="step-note">The best startup hires don't come from job boards &mdash; they come from understanding exactly where a company is in its arc.</p>
-      </div>
-    </div>
-  </section>
-
-  <section class="features" id="features">
-    <div class="pan-wrap">
-      <div class="pan-track">
-        <div class="pan-head">
-          <h2 data-reveal>Why it <em>works</em></h2>
-          <p data-reveal>Three reasons the old way of hiring is costing you more than you admit &mdash; and what we do differently.</p>
-          <a href="talent.html" class="pill pill-solid">start hiring</a>
+  <!-- STATS SECTION (BENTO GRID) -->
+  <section class="stats-section">
+    <div class="container">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <h3 class="stat-number" data-target="48" data-unit="hrs">0</h3>
+          <p class="stat-label">to a vetted shortlist</p>
         </div>
-        <article class="card">
-          <div class="media"><img src="assets/card-vetting.svg" alt="" onerror="this.onerror=null;this.src='assets/card-vetting.png'"></div>
-          <div class="card-body">
-            <h3 class="card-title">Vetting that goes past the resume</h3>
-            <p class="card-text">Multi-stage screening before anyone reaches your desk. By the time you're talking to a candidate, we already have.</p>
-          </div>
-        </article>
-        <article class="card">
-          <div class="media"><img src="assets/card-speed.svg" alt="" onerror="this.onerror=null;this.src='assets/card-speed.png'"></div>
-          <div class="card-body">
-            <h3 class="card-title">Speed that doesn't cut corners</h3>
-            <p class="card-text">A shortlist in 48 hours is the baseline, not the pitch. We built our process around your hiring calendar, not ours.</p>
-          </div>
-        </article>
-        <article class="card">
-          <div class="media"><img src="assets/card-people.svg" alt="" onerror="this.onerror=null;this.src='assets/card-people.png'"></div>
-          <div class="card-body">
-            <h3 class="card-title">The people are already here</h3>
-            <p class="card-text">We don't scrape LinkedIn on your behalf. Our talent pool is curated, active, and pre-vetted across industries and geographies.</p>
-          </div>
-        </article>
+        <div class="stat-card">
+          <h3 class="stat-number" data-target="3" data-unit="">0</h3>
+          <p class="stat-label">screening stages before your desk</p>
+        </div>
+        <div class="stat-card">
+          <h3 class="stat-number" data-target="100" data-unit="%">0</h3>
+          <p class="stat-label">of our pool is pre-vetted</p>
+        </div>
+        <div class="stat-card">
+          <h3 class="stat-number" data-target="40" data-unit="+">0</h3>
+          <p class="stat-label">industries &amp; geographies covered</p>
+        </div>
       </div>
+    </div>
+  </section>
+
+  <!-- PROBLEM STATEMENT SECTION -->
+  <section class="problem-section">
+    <div class="container">
+      <div class="problem-header">
+        <h2 class="problem-title">
+          THE OLD WAY OF HIRING IS <span class="highlight-orange">BROKEN.</span>
+        </h2>
+        <p class="problem-subtitle">
+          Before you even post the job, the process is already losing you time, money, and the people who matter.
+        </p>
+      </div>
+
+      <div class="problem-cards">
+        <div class="problem-card">
+          <span class="card-index">/01</span>
+          <div class="card-content">
+            <h3>Wrong Channels</h3>
+            <p>Most hiring starts on the same job boards everyone else posts to. Same noise, same candidates, same results.</p>
+          </div>
+        </div>
+
+        <div class="problem-card">
+          <span class="card-index">/02</span>
+          <div class="card-content">
+            <h3>Generic Outreach</h3>
+            <p>Copy-paste messages get copy-paste replies. The people you actually want don't respond to mail-merge.</p>
+          </div>
+        </div>
+
+        <div class="problem-card">
+          <span class="card-index">/03</span>
+          <div class="card-content">
+            <h3>Resumes That Fall Apart in Week Two</h3>
+            <p>A resume is a promise, not proof. Looks good on paper, gone by the second week.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PROCESS TIMELINE SECTION -->
+  <section class="process-section" id="process">
+    <div class="container process-container">
+
+      <!-- Section Header -->
+      <div class="process-header">
+        <h2 class="process-main-title">
+          WE BUILT OUR PROCESS AROUND <span class="highlight-orange">YOUR HIRING CALENDAR,</span> NOT OURS.
+        </h2>
+        <p class="process-main-subtitle">
+          From first principles to a decision — a shortlist in 48 hours is the baseline, not the pitch.
+        </p>
+      </div>
+
+      <!-- Timeline Wrapper -->
+      <div class="timeline-wrapper">
+        <!-- Animated Vertical Line -->
+        <div class="timeline-line-track">
+          <div class="timeline-line-progress" id="timelineProgress"></div>
+        </div>
+
+        <!-- Timeline Cards -->
+        <div class="timeline-events">
+
+          <!-- Step 1 -->
+          <div class="timeline-card" data-step="1">
+            <div class="timeline-node"></div>
+            <div class="card-meta">DAY 0 &mdash; DEFINE THE PROBLEM</div>
+            <h3 class="card-headline">WE DON'T START WITH A <span class="highlight-orange">JOB DESCRIPTION.</span></h3>
+            <p class="card-body">We start by understanding what the role actually needs to accomplish. Alignment on day zero prevents mishires on day thirty.</p>
+          </div>
+
+          <!-- Step 2 -->
+          <div class="timeline-card" data-step="2">
+            <div class="timeline-node"></div>
+            <div class="card-meta">48 HOURS &mdash; THE SHORTLIST</div>
+            <h3 class="card-headline">A SHORTLIST IN 48 HOURS IS THE <span class="highlight-orange">BASELINE,</span> NOT THE PITCH.</h3>
+            <p class="card-body">Multi-stage screening before anyone reaches your desk. By the time you're talking to a candidate, we already have.</p>
+            <span class="card-tagline">AI-native sourcing, ruthlessly filtered by hand.</span>
+          </div>
+
+          <!-- Step 3 -->
+          <div class="timeline-card" data-step="3">
+            <div class="timeline-node"></div>
+            <div class="card-meta">DAY 7 &mdash; THE CONVERSATIONS</div>
+            <h3 class="card-headline">DEEP CONVERSATIONS, BEFORE <span class="highlight-orange">YOU SPEND AN HOUR.</span></h3>
+            <p class="card-body">We run the reference-grade checks and the honest conversations. What surfaces to you is a candidate who has already been tested.</p>
+            <span class="card-tagline">We don't scrape LinkedIn on your behalf. Our pool is curated, active, and pre-vetted.</span>
+          </div>
+
+          <!-- Step 4 -->
+          <div class="timeline-card" data-step="4">
+            <div class="timeline-node"></div>
+            <div class="card-meta">DAY 30 &mdash; THE DECISION</div>
+            <h3 class="card-headline">WE DON'T HAND YOU A STACK OF PROFILES TO <span class="highlight-orange">SIFT THROUGH.</span></h3>
+            <p class="card-body">We hand you a decision.</p>
+            <span class="card-tagline">The best startup hires don't come from job boards — they come from understanding exactly where a company is in its arc.</span>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- WHY IT WORKS SECTION -->
+  <section class="why-it-works-section" id="features">
+    <div class="container">
+
+      <!-- Header Block -->
+      <div class="why-header">
+        <div class="why-title-wrapper">
+          <h2 class="why-title">WHY IT <span class="highlight-orange">WORKS.</span></h2>
+          <p class="why-subtitle">
+            Three reasons the old way of hiring is costing you more than you admit — and what we do differently.
+          </p>
+        </div>
+        <a href="#" class="btn-primary-orange contact-link">
+          START HIRING <span class="btn-arrow">&#8594;</span>
+        </a>
+      </div>
+
+      <!-- 3-Column Feature Cards Grid -->
+      <div class="why-cards-grid">
+
+        <!-- Feature 1 -->
+        <div class="why-card">
+          <span class="why-card-num">/01</span>
+          <h3 class="why-card-title">VETTING PAST THE RESUME</h3>
+          <p class="why-card-desc">
+            Multi-stage screening before anyone reaches your desk. By the time you're talking to a candidate, we already have.
+          </p>
+        </div>
+
+        <!-- Feature 2 -->
+        <div class="why-card">
+          <span class="why-card-num">/02</span>
+          <h3 class="why-card-title">SPEED THAT DOESN'T CUT CORNERS</h3>
+          <p class="why-card-desc">
+            A shortlist in 48 hours is the baseline, not the pitch. We built our process around your hiring calendar, not ours.
+          </p>
+        </div>
+
+        <!-- Feature 3 -->
+        <div class="why-card">
+          <span class="why-card-num">/03</span>
+          <h3 class="why-card-title">CURATED, ACTIVE TALENT POOL</h3>
+          <p class="why-card-desc">
+            We don't scrape public job boards. Our candidates are pre-vetted, high-intent engineers ready to make an immediate impact.
+          </p>
+        </div>
+
+      </div>
+
     </div>
   </section>
 

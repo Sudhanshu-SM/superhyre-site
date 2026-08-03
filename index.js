@@ -1,6 +1,105 @@
 /* SuperHyre — home page motion (GSAP ScrollTrigger).
    All effects degrade gracefully: without GSAP (or with reduced
    motion) every section stays fully visible and static. */
+
+/* ---------- bento stat count-up (vanilla — runs without GSAP) ---------- */
+(function () {
+  var statElements = document.querySelectorAll('.stat-number');
+  if (!statElements.length) return;
+
+  function startCountAnimation(el) {
+    var target = parseInt(el.getAttribute('data-target'), 10);
+    var unit = el.getAttribute('data-unit') || '';
+    var duration = 1500;
+    var startTime = performance.now();
+
+    function updateCount(currentTime) {
+      var progress = Math.min((currentTime - startTime) / duration, 1);
+      var eased = 1 - (1 - progress) * (1 - progress);
+      var currentVal = Math.floor(eased * target);
+
+      el.innerHTML = currentVal + '<span class="stat-unit">' + unit + '</span>';
+
+      if (progress < 1) {
+        requestAnimationFrame(updateCount);
+      } else {
+        el.innerHTML = target + '<span class="stat-unit">' + unit + '</span>';
+      }
+    }
+
+    requestAnimationFrame(updateCount);
+  }
+
+  var observer = new IntersectionObserver(
+    function (entries, obs) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          startCountAnimation(entry.target);
+          obs.unobserve(entry.target);
+        }
+      });
+    },
+    { threshold: 0.2 }
+  );
+
+  statElements.forEach(function (stat) { observer.observe(stat); });
+})();
+
+/* ---------- process timeline: line fill + card highlight (vanilla — runs without GSAP) ---------- */
+(function () {
+  var timelineWrapper = document.querySelector('.timeline-wrapper');
+  var timelineProgress = document.getElementById('timelineProgress');
+  if (!timelineWrapper) return;
+
+  window.addEventListener('scroll', function () {
+    var rect = timelineWrapper.getBoundingClientRect();
+    var totalHeight = rect.height;
+    var currentScroll = window.innerHeight / 2 - rect.top;
+    var progress = Math.min(Math.max(currentScroll / totalHeight, 0), 1);
+    if (timelineProgress) {
+      timelineProgress.style.height = (progress * 100) + '%';
+    }
+  });
+
+  var timelineCards = document.querySelectorAll('.timeline-card');
+
+  function revealCards() {
+    timelineCards.forEach(function (card) {
+      if (card.getBoundingClientRect().top < window.innerHeight) {
+        card.classList.add('is-active');
+      }
+    });
+  }
+
+  if (!('IntersectionObserver' in window)) {
+    timelineCards.forEach(function (card) { card.classList.add('is-active'); });
+    return;
+  }
+
+  var observerOptions = {
+    root: null,
+    rootMargin: '0px 0px -10% 0px',
+    threshold: 0.15
+  };
+
+  var cardObserver = new IntersectionObserver(
+    function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-active');
+        }
+      });
+    },
+    observerOptions
+  );
+
+  timelineCards.forEach(function (card) {
+    cardObserver.observe(card);
+  });
+
+  setTimeout(revealCards, 100);
+})();
+
 (function () {
   if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') return;
   gsap.registerPlugin(ScrollTrigger);
@@ -70,23 +169,21 @@
     });
   });
 
-  /* ---------- stat count-up ---------- */
-  gsap.utils.toArray('.stat').forEach(function (stat) {
-    var num = stat.querySelector('[data-count]');
-    if (!num) return;
-    var target = parseFloat(num.getAttribute('data-count')) || 0;
-    var suffix = num.getAttribute('data-suffix') || '';
-    var obj = { v: 0 };
-    ScrollTrigger.create({
-      trigger: stat, start: 'top 88%', once: true,
-      onEnter: function () {
-        gsap.to(obj, {
-          v: target, duration: 1.6, ease: 'power2.out',
-          onUpdate: function () {
-            num.textContent = Math.round(obj.v) + suffix;
-          }
-        });
-      }
+  /* ---------- dark sections: staggered reveals ---------- */
+  gsap.utils.toArray('.stat-card').forEach(function (el) {
+    gsap.from(el, {
+      opacity: 0, y: 34, duration: 0.7, ease: 'power3.out',
+      scrollTrigger: { trigger: el, start: 'top 90%' }
+    });
+  });
+  gsap.from('.problem-header', {
+    opacity: 0, y: 30, duration: 0.8, ease: 'power3.out',
+    scrollTrigger: { trigger: '.problem-header', start: 'top 88%' }
+  });
+  gsap.utils.toArray('.problem-card').forEach(function (el) {
+    gsap.from(el, {
+      opacity: 0, y: 40, duration: 0.8, ease: 'power3.out',
+      scrollTrigger: { trigger: el, start: 'top 88%' }
     });
   });
 
@@ -106,36 +203,18 @@
     });
   });
 
-  /* ---------- process: progress line ---------- */
-  mm.add('(prefers-reduced-motion: no-preference)', function () {
-    var line = document.querySelector('.process-line i');
-    if (!line) return;
-    gsap.to(line, {
-      scaleY: 1, ease: 'none',
-      scrollTrigger: {
-        trigger: '.process-stack', start: 'top 70%', end: 'bottom 30%', scrub: 0.6
-      }
-    });
+  /* ---------- why it works: header + card reveals ---------- */
+  gsap.from('.why-title-wrapper', {
+    opacity: 0, y: 30, duration: 0.8, ease: 'power3.out',
+    scrollTrigger: { trigger: '.why-header', start: 'top 88%' }
   });
-
-  /* ---------- features: horizontal pan (desktop only) ---------- */
-  mm.add('(min-width: 861px) and (prefers-reduced-motion: no-preference)', function () {
-    var wrap = document.querySelector('.pan-wrap');
-    var track = document.querySelector('.pan-track');
-    if (!wrap || !track) return;
-
-    gsap.to(track, {
-      x: function () { return -(track.scrollWidth - wrap.clientWidth); },
-      ease: 'none',
-      scrollTrigger: {
-        trigger: wrap,
-        start: 'top top',
-        end: function () { return '+=' + (track.scrollWidth - wrap.clientWidth); },
-        pin: true,
-        scrub: 1,
-        invalidateOnRefresh: true
-      }
-    });
+  gsap.from('.why-header .btn-primary-orange', {
+    opacity: 0, y: 20, duration: 0.7, ease: 'power3.out', delay: 0.15,
+    scrollTrigger: { trigger: '.why-header', start: 'top 88%' }
+  });
+  gsap.from('.why-card', {
+    opacity: 0, y: 40, duration: 0.8, ease: 'power3.out', stagger: 0.12,
+    scrollTrigger: { trigger: '.why-cards-grid', start: 'top 85%' }
   });
 
   ScrollTrigger.refresh();
