@@ -217,16 +217,27 @@ img{display:block;max-width:100%;}
 .pill-outline{background:#fff;color:var(--ink);border:1px solid var(--accent);}
 .pill-outline:hover{background:var(--accent-wash);}
 
-/* ---------------- Marquee (one per page) ---------------- */
-.marquee{
-  background:var(--accent);color:#fff;overflow:hidden;padding:16px 0;
-  border-top:1px solid var(--ink);border-bottom:1px solid var(--ink);
+/* ---------------- Marquee (full-bleed, ESE-style) ---------------- */
+.marquee-section{
+  width:100vw;margin-left:calc(50% - 50vw);
+  overflow:hidden;background:transparent;padding:2rem 0;
+  white-space:nowrap;user-select:none;
 }
-.marquee-track{display:flex;width:max-content;animation:marquee 26s linear infinite;}
-.marquee span{
-  font-family:var(--pixel);font-size:24px;letter-spacing:.6px;white-space:nowrap;padding-right:38px;
+.marquee-track{
+  display:flex;gap:4rem;align-items:center;width:max-content;
+  padding-right:4rem; /* mirrors the gap so the -50% loop is seamless */
+  animation:scrollMarquee 30s linear infinite;
 }
-@keyframes marquee{from{transform:translateX(0);}to{transform:translateX(-50%);}}
+.marquee-track span{
+  font-family:'Suisse Int\'l','Suisse Intl',-apple-system,sans-serif;
+  font-size:clamp(6rem,14vw,15rem);font-weight:800;
+  text-transform:lowercase;letter-spacing:-.04em;line-height:.85;
+  color:var(--ink);white-space:nowrap;
+}
+.marquee-track .text-stroke{
+  color:transparent;-webkit-text-stroke:2px #E45325;
+}
+@keyframes scrollMarquee{from{transform:translateX(0);}to{transform:translateX(-50%);}}
 
 /* ---------------- Stats band ---------------- */
 .stats{background:var(--paper-warm);border-bottom:1px solid var(--rule);padding:64px clamp(24px,5vw,64px);}
@@ -443,5 +454,5 @@ body.no-scroll{overflow:hidden;}
   html{scroll-behavior:auto;}
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;}
   .hero-title .cursor{opacity:1;animation:none;}
-  .marquee-track{animation:none;transform:none;width:100%;flex-wrap:wrap;justify-content:center;}
+  .marquee-track{animation:none;transform:none;}
 }
