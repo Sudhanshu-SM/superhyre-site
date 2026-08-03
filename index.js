@@ -90,41 +90,20 @@
     });
   });
 
-  /* ---------- hero intro (STRV-style) ---------- */
+  /* ---------- hero intro ---------- */
   mm.add('(prefers-reduced-motion: no-preference)', function () {
-    var heroEl = document.querySelector('.hero');
-    if (!heroEl || !document.querySelector('.hero-title')) return;
-    document.documentElement.classList.add('js-anim');
+    var heroEl = document.querySelector('.hero-section');
+    if (!heroEl || !document.querySelector('.hero-headline')) return;
 
     var intro = gsap.timeline({ defaults: { ease: 'power4.out' } });
     intro
-      .from('.hero-kicker', { y: 20, opacity: 0, duration: 0.7 })
-      .from('.hero-title .line-1 span', { y: 70, opacity: 0, duration: 0.9, stagger: 0.14 }, '-=0.3')
-      .from('.hero-title .line-2', { y: 60, opacity: 0, duration: 0.9 }, '-=0.5')
-      .from('.hero-sub', { y: 20, opacity: 0, duration: 0.7 }, '-=0.5')
-      .from('.hero-cta .pill', { y: 18, opacity: 0, duration: 0.6, stagger: 0.08 }, '-=0.4');
+      .from('.hero-headline', { y: 44, opacity: 0, duration: 0.9 })
+      .from('.hero-description', { y: 22, opacity: 0, duration: 0.7 }, '-=0.5');
 
-    gsap.to('.hero-container', {
-      yPercent: -12, opacity: 0, ease: 'none',
-      scrollTrigger: { trigger: heroEl, start: 'top top', end: 'bottom 20%', scrub: 0.6 }
+    gsap.to(['.hero-headline', '.hero-description'], {
+      yPercent: -14, opacity: 0, ease: 'none',
+      scrollTrigger: { trigger: heroEl, start: 'top top', end: 'bottom 25%', scrub: 0.6 }
     });
-
-    if (window.matchMedia('(pointer: fine)').matches) {
-      var title = document.querySelector('.hero-title');
-      var glow = document.querySelector('.hero-glow');
-      if (!title || !glow) return;
-      var tX = gsap.quickTo(title, 'x', { duration: 0.9, ease: 'power3.out' });
-      var tY = gsap.quickTo(title, 'y', { duration: 0.9, ease: 'power3.out' });
-      var gX = gsap.quickTo(glow, 'x', { duration: 1.3, ease: 'power3.out' });
-      var gY = gsap.quickTo(glow, 'y', { duration: 1.3, ease: 'power3.out' });
-      heroEl.addEventListener('mousemove', function (e) {
-        var r = heroEl.getBoundingClientRect();
-        var nx = ((e.clientX - r.left) / r.width - 0.5) * 2;
-        var ny = ((e.clientY - r.top) / r.height - 0.5) * 2;
-        tX(nx * 12); tY(ny * 7); gX(nx * 30); gY(ny * 22);
-      });
-      heroEl.addEventListener('mouseleave', function () { tX(0); tY(0); gX(0); gY(0); });
-    }
   });
 
   /* ---------- process: progress line ---------- */
