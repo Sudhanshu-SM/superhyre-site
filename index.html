@@ -98,29 +98,9 @@
     </div>
   </div>
 
-  <!-- STATS SECTION (BENTO GRID) -->
-  <section class="stats-section dark-section" data-bg-reveal>
-    <span class="section-bg" aria-hidden="true"></span>
-    <div class="container">
-      <div class="stats-grid">
-        <div class="stat-card">
-          <h3 class="stat-number" data-target="48" data-unit="hrs">0</h3>
-          <p class="stat-label">to a vetted shortlist</p>
-        </div>
-        <div class="stat-card">
-          <h3 class="stat-number" data-target="3" data-unit="">0</h3>
-          <p class="stat-label">screening stages before your desk</p>
-        </div>
-        <div class="stat-card">
-          <h3 class="stat-number" data-target="100" data-unit="%">0</h3>
-          <p class="stat-label">of our pool is pre-vetted</p>
-        </div>
-        <div class="stat-card">
-          <h3 class="stat-number" data-target="40" data-unit="+">0</h3>
-          <p class="stat-label">industries &amp; geographies covered</p>
-        </div>
-      </div>
-    </div>
+  <!-- STATS SECTION (React Bits scroll-expand cards) -->
+  <section id="stats-expand-section" class="stats-expand-section">
+    <div id="scroll-expand-cards-root"></div>
   </section>
 
   <!-- PROBLEM STATEMENT SECTION -->
@@ -132,35 +112,12 @@
           THE OLD WAY OF HIRING IS <span class="highlight-orange">BROKEN.</span>
         </h2>
           <p class="problem-subtitle description-text" data-scroll-reveal>
-            Before you even post the job, the process is already losing you time, money, and the people who matter.
+            Before you even post the job, the process is already losing you time, money, and the engineering talent that matters.
           </p>
       </div>
 
-      <div class="problem-cards">
-        <div class="problem-card">
-          <span class="card-index">/01</span>
-          <div class="card-content">
-            <h3>Wrong Channels</h3>
-            <p>Most hiring starts on the same job boards everyone else posts to. Same noise, same candidates, same results.</p>
-          </div>
-        </div>
-
-        <div class="problem-card">
-          <span class="card-index">/02</span>
-          <div class="card-content">
-            <h3>Generic Outreach</h3>
-            <p>Copy-paste messages get copy-paste replies. The people you actually want don't respond to mail-merge.</p>
-          </div>
-        </div>
-
-        <div class="problem-card">
-          <span class="card-index">/03</span>
-          <div class="card-content">
-            <h3>Resumes That Fall Apart in Week Two</h3>
-            <p>A resume is a promise, not proof. Looks good on paper, gone by the second week.</p>
-          </div>
-        </div>
-      </div>
+      <!-- React Bits Scroll Stack (problem cards) -->
+      <div id="scroll-stack-problem-root"></div>
     </div>
   </section>
 
@@ -240,7 +197,7 @@
       <!-- Header Block -->
       <div class="why-header">
         <div class="why-title-wrapper">
-          <div class="section-eyebrow typewriter-subheading">03 / WHY IT WORKS</div>
+          <div class="section-eyebrow typewriter-subheading">03 / THE ADVANTAGE</div>
           <h2 class="why-title" data-kinetic-heading="WHY IT WORKS." data-level="h2">WHY IT <span class="highlight-orange">WORKS.</span></h2>
           <p class="why-subtitle description-text" data-scroll-reveal>
             Three reasons the old way of hiring is costing you more than you admit — and what we do differently.
@@ -258,7 +215,7 @@
         <div class="why-card">
           <span class="why-card-num">/01</span>
           <h3 class="why-card-title roll-heading">VETTING PAST THE RESUME</h3>
-          <p class="why-card-desc">
+          <p class="why-card-desc description-text" data-scroll-reveal>
             Multi-stage screening before anyone reaches your desk. By the time you're talking to a candidate, we already have.
           </p>
         </div>
@@ -267,7 +224,7 @@
         <div class="why-card">
           <span class="why-card-num">/02</span>
           <h3 class="why-card-title roll-heading">SPEED THAT DOESN'T CUT CORNERS</h3>
-          <p class="why-card-desc">
+          <p class="why-card-desc description-text" data-scroll-reveal>
             A shortlist in 48 hours is the baseline, not the pitch. We built our process around your hiring calendar, not ours.
           </p>
         </div>
@@ -276,7 +233,7 @@
         <div class="why-card">
           <span class="why-card-num">/03</span>
           <h3 class="why-card-title roll-heading">CURATED, ACTIVE TALENT POOL</h3>
-          <p class="why-card-desc">
+          <p class="why-card-desc description-text" data-scroll-reveal>
             We don't scrape public job boards. Our candidates are pre-vetted, high-intent engineers ready to make an immediate impact.
           </p>
         </div>

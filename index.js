@@ -2,49 +2,6 @@
    All effects degrade gracefully: without GSAP (or with reduced
    motion) every section stays fully visible and static. */
 
-/* ---------- bento stat count-up (vanilla — runs without GSAP) ---------- */
-(function () {
-  var statElements = document.querySelectorAll('.stat-number');
-  if (!statElements.length) return;
-
-  function startCountAnimation(el) {
-    var target = parseInt(el.getAttribute('data-target'), 10);
-    var unit = el.getAttribute('data-unit') || '';
-    var duration = 1500;
-    var startTime = performance.now();
-
-    function updateCount(currentTime) {
-      var progress = Math.min((currentTime - startTime) / duration, 1);
-      var eased = 1 - (1 - progress) * (1 - progress);
-      var currentVal = Math.floor(eased * target);
-
-      el.innerHTML = currentVal + '<span class="stat-unit">' + unit + '</span>';
-
-      if (progress < 1) {
-        requestAnimationFrame(updateCount);
-      } else {
-        el.innerHTML = target + '<span class="stat-unit">' + unit + '</span>';
-      }
-    }
-
-    requestAnimationFrame(updateCount);
-  }
-
-  var observer = new IntersectionObserver(
-    function (entries, obs) {
-      entries.forEach(function (entry) {
-        if (entry.isIntersecting) {
-          startCountAnimation(entry.target);
-          obs.unobserve(entry.target);
-        }
-      });
-    },
-    { threshold: 0.2 }
-  );
-
-  statElements.forEach(function (stat) { observer.observe(stat); });
-})();
-
 /* ---------- process timeline: line fill + card highlight (vanilla — runs without GSAP) ---------- */
 (function () {
   var timelineWrapper = document.querySelector('.timeline-wrapper');
@@ -362,20 +319,6 @@ document.addEventListener('DOMContentLoaded', function () {
         opacity: 0, y: 24,
         duration: 0.9, ease: 'power3.out',
         scrollTrigger: { trigger: el, start: 'top 85%' }
-      });
-    });
-
-    /* ---------- dark sections: staggered reveals ---------- */
-    gsap.utils.toArray('.stat-card').forEach(function (el) {
-      gsap.from(el, {
-        opacity: 0, y: 24, scale: 0.94, duration: 0.7, ease: 'power3.out',
-        scrollTrigger: { trigger: el, start: 'top 66%' }
-      });
-    });
-    gsap.utils.toArray('.problem-card').forEach(function (el) {
-      gsap.from(el, {
-        opacity: 0, y: 70, scale: 0.96, duration: 0.8, ease: 'power3.out',
-        scrollTrigger: { trigger: el, start: 'top 24%', once: true }
       });
     });
 

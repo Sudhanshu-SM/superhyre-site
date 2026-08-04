@@ -2,8 +2,10 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import MouseFollower from './MouseFollower';
 import TypingSubheading from './TypingSubheading';
-import ScrollRevealWrapper from './ScrollRevealWrapper';
 import { initKineticHeadings } from './KineticHeadingWrapper';
+import { initScrollReveal } from './ScrollRevealWrapper';
+import { initScrollExpandCards } from './ScrollExpandCards';
+import { initScrollStackCards } from './ScrollStackCards';
 
 const rootElement = document.getElementById('react-cursor-root');
 
@@ -25,27 +27,15 @@ document.querySelectorAll('.typewriter-subheading').forEach((el) => {
   );
 });
 
-function initScrollReveal() {
-  document.querySelectorAll('[data-scroll-reveal]').forEach((container) => {
-    const text =
-      container.getAttribute('data-scroll-reveal') ||
-      (container.innerText || '').trim();
-    const baseOpacity = parseFloat(container.getAttribute('data-base-opacity')) || 0.15;
-    const enableBlur = (container.getAttribute('data-blur') || 'true') !== 'false';
-    const root = ReactDOM.createRoot(container);
-    root.render(
-      <React.StrictMode>
-        <ScrollRevealWrapper
-          text={text.trim()}
-          baseOpacity={baseOpacity}
-          enableBlur={enableBlur}
-        />
-      </React.StrictMode>
-    );
-  });
-}
-
 if (typeof window !== 'undefined') {
-  document.addEventListener('DOMContentLoaded', initKineticHeadings);
-  document.addEventListener('DOMContentLoaded', initScrollReveal);
+  document.addEventListener('DOMContentLoaded', () => {
+    // 1. Mount kinetic text on main section headings only (h1/h2)
+    initKineticHeadings();
+    // 2. Mount scroll reveals on description copy
+    initScrollReveal();
+    // 3. Mount the React Bits scroll-expand stats cards
+    initScrollExpandCards();
+    // 4. Mount the React Bits scroll-stack problem cards
+    initScrollStackCards();
+  });
 }

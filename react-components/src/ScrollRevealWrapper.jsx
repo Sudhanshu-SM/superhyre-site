@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import ReactDOM from 'react-dom/client';
 
 /* Scroll Reveal — adapted from React Bits ScrollReveal-JS-TW for the
    vanilla-hosted micro-bundle:
@@ -93,3 +94,27 @@ const ScrollRevealWrapper = ({
 };
 
 export default ScrollRevealWrapper;
+
+/* Hydrates every [data-scroll-reveal] paragraph with the scrub reveal.
+   Runs independently of the kinetic heading initializer on DOM ready. */
+export function initScrollReveal() {
+  document.querySelectorAll('[data-scroll-reveal]').forEach((container) => {
+    const text =
+      container.getAttribute('data-scroll-reveal') ||
+      (container.innerText || '').trim();
+    const baseOpacity =
+      parseFloat(container.getAttribute('data-base-opacity')) || 0.15;
+    const enableBlur =
+      (container.getAttribute('data-blur') || 'true') !== 'false';
+    const root = ReactDOM.createRoot(container);
+    root.render(
+      <React.StrictMode>
+        <ScrollRevealWrapper
+          text={text.trim()}
+          baseOpacity={baseOpacity}
+          enableBlur={enableBlur}
+        />
+      </React.StrictMode>
+    );
+  });
+}

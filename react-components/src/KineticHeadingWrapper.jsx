@@ -67,6 +67,7 @@ export function initKineticHeadings() {
           words={words}
           className="kinetic-root"
           staticRender={reduced}
+          entrance={!reduced}
         />
       </React.StrictMode>
     );

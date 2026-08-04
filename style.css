@@ -48,9 +48,9 @@
 
 *{box-sizing:border-box;margin:0;padding:0;}
 *,*::before,*::after{border:none!important;outline:none;}
-html{scroll-behavior:smooth;width:100%;max-width:100%;overflow-x:hidden;background-color:#0D0D0D;}
+html{scroll-behavior:smooth;width:100%;max-width:100%;overflow-x:clip;background-color:#0D0D0D;}
 body{
-  width:100%;max-width:100%;overflow-x:hidden;
+  width:100%;max-width:100%;overflow-x:clip;
   background-color:#0D0D0D;color:#F5F5F5;font-family:var(--serif);
   -webkit-font-smoothing:antialiased;line-height:1.45;
 }
@@ -339,37 +339,139 @@ html.js-motion{scroll-behavior:auto!important;}
 }
 @keyframes scrollMarquee{from{transform:translateX(0);}to{transform:translateX(-50%);}}
 
-/* ---------------- Dark sections (stats bento + problems) ---------------- */
-.stats-section,.problem-section{
+/* ---------------- Dark sections (stats expand + problems) ---------------- */
+.problem-section{
   width:100%;
   background-color:#0D0D0D;color:#F5F5F5;
   padding:5rem 2rem;border-bottom:1px solid #1A1A1A;
 }
 .container{width:100%;max-width:1200px;margin:0 auto;padding:0 1rem;}
 
-/* ---------------- Stats bento grid ---------------- */
-.stats-grid{
-  display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
-  gap:1.5rem;
+/* ---------------- Stats scroll-expand (React Bits ScrollExpand) ---------------- */
+.stats-expand-section{
+  width:100%;
+  background-color:#0A0A0A;color:#F5F5F5;
+  padding:4rem 2rem 0;
+  border-bottom:1px solid #1A1A1A;
 }
-.stat-card{
-  background:#141414;border:1px solid #222222;border-radius:8px;
-  padding:2.5rem 1.5rem;text-align:center;
-  transition:transform .3s ease,border-color .3s ease,box-shadow .3s ease;
+.scroll-expand-wrap{
+  position:relative;
+  width:100%;
+  max-width:760px;
+  margin:0 auto;
+  min-height:88vh;
+  display:flex;
+  flex-direction:column;
+  justify-content:flex-end;
 }
-.stat-card:hover{
-  transform:translateY(-4px);border-color:#E45325;
-  box-shadow:0 8px 24px rgba(228,83,37,.12);
+.scroll-expand-frame{
+  width:100%;
+  padding-bottom:7rem;
 }
-.stat-number{
-  font-family:'Bebas Neue','Oswald',sans-serif;
-  font-size:clamp(3rem,5vw,4.5rem);font-weight:700;
-  color:#E45325;line-height:1;margin-bottom:.5rem;
+.scroll-expand-stack{
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  gap:1.4rem;
 }
-.stat-unit{font-size:.7em;color:#E45325;margin-left:2px;}
-.stat-label{
+.scroll-expand-card{
+  position:sticky;
+  bottom:0;
+  min-height:clamp(300px,44vh,440px);
+  display:flex;
+  flex-direction:column;
+  background:#121212;
+  border:1px solid #222222;
+  border-radius:16px;
+  padding:2.5rem 2.75rem 2.75rem;
+  transform:scale(.92);
+  transform-origin:bottom center;
+  filter:blur(3px);
+  opacity:.5;
+  transition:transform .65s cubic-bezier(.22,1,.36,1),filter .5s ease,opacity .5s ease;
+  will-change:transform,filter,opacity;
+  z-index:1;
+}
+.scroll-expand-card.is-active{
+  transform:scale(1);
+  filter:blur(0);
+  opacity:1;
+  z-index:3;
+}
+.scroll-expand-card.is-static{
+  transform:none;
+  filter:none;
+  opacity:1;
+  z-index:1;
+}
+.scroll-expand-index{
+  position:absolute;
+  top:1.5rem;right:1.9rem;
   font-family:'Inter',sans-serif;
-  font-size:.95rem;color:#888888;letter-spacing:.01em;
+  font-size:.72rem;font-weight:500;
+  letter-spacing:.28em;
+  color:#6A6A6A;
+}
+.scroll-expand-stat{
+  font-family:'Bebas Neue','Oswald',sans-serif;
+  font-size:clamp(4.5rem,10vw,7.5rem);
+  font-weight:400;
+  line-height:.9;
+  letter-spacing:-.01em;
+  color:#FF4D00;
+  text-transform:uppercase;
+  margin:0 0 .4rem;
+}
+.scroll-expand-subtitle{
+  font-family:'Inter',sans-serif;
+  font-size:clamp(.95rem,1.6vw,1.15rem);
+  font-weight:600;
+  text-transform:uppercase;
+  letter-spacing:.14em;
+  color:#F5F5F5;
+  margin:0;
+}
+.scroll-expand-desc{
+  margin:auto 0 0;
+  padding-top:1.5rem;
+  font-size:1.02rem;
+  color:#A8A8A8;
+  max-width:56ch;
+  opacity:0;
+  transform:translateY(10px);
+  transition:opacity .55s ease .12s,transform .55s ease .12s;
+}
+.scroll-expand-card.is-active .scroll-expand-desc{
+  opacity:1;
+  transform:translateY(0);
+}
+.scroll-expand-hint{
+  position:fixed;
+  bottom:2.25rem;left:50%;
+  transform:translateX(-50%);
+  z-index:50;
+  display:flex;
+  align-items:center;
+  gap:.7rem;
+  font-family:'Inter',sans-serif;
+  font-size:.74rem;
+  letter-spacing:.3em;
+  text-transform:uppercase;
+  color:#9A9A9A;
+  pointer-events:none;
+  opacity:1;
+  transition:opacity .45s ease;
+}
+.scroll-expand-hint.is-hidden{opacity:0;}
+.scroll-expand-chev{
+  width:8px;height:8px;
+  border-right:1.5px solid #FF4D00;
+  border-bottom:1.5px solid #FF4D00;
+  animation:chev-bob 1.4s ease-in-out infinite;
+}
+@keyframes chev-bob{
+  0%,100%{transform:translateY(-3px) rotate(45deg);}
+  50%{transform:translateY(3px) rotate(45deg);}
 }
 
 /* ---------------- Section headings (shared) ---------------- */
@@ -379,10 +481,15 @@ html.js-motion{scroll-behavior:auto!important;}
 }
 .cta-final h2 em{font-style:italic;color:var(--accent);}
 
-/* ---------------- Problem statement (dark cards) ---------------- */
+/* ---------------- Problem statement (React Bits scroll stack) ---------------- */
 .problem-header{
   overflow:visible;height:auto;
   margin-bottom:3.5rem;padding-bottom:1rem;text-align:left;
+  /* pins to the viewport top while the cards stack below it */
+  position:sticky;top:0;z-index:6;
+}
+.problem-header::before{
+  content:'';position:absolute;inset:0 -50vw;z-index:-1;background:#0D0D0D;
 }
 .problem-title{
   font-family:'Bebas Neue','Oswald',sans-serif;
@@ -396,30 +503,45 @@ html.js-motion{scroll-behavior:auto!important;}
   font-family:'Inter',sans-serif;font-size:1.15rem;color:#A0A0A0;
   max-width:600px;margin-top:1rem;line-height:1.5;
 }
-.problem-cards{display:flex;flex-direction:column;gap:1.5rem;position:relative;}
-.problem-card{
-  display:flex;align-items:center;gap:2rem;
-  background:#141414;border:1px solid #222222;border-radius:8px;
-  padding:2rem 2.5rem;
-  height:auto;min-height:auto;
-  /* page-stack: each card pins and the next slides over it */
-  position:sticky;top:12vh;
-  box-shadow:0 20px 50px rgba(0,0,0,.35);
-  transition:border-color .3s ease,background-color .3s ease,box-shadow .3s ease;
+.scroll-stack-list{
+  display:flex;flex-direction:column;gap:1rem;position:relative;
+  max-width:760px;margin:0 auto;
 }
-.problem-card:nth-child(2){top:15vh;}
-.problem-card:nth-child(3){top:18vh;}
-.problem-card:hover{
-  border-color:#E45325;background:#181818;
-  box-shadow:0 0 0 1px rgba(228,83,37,.35),0 8px 32px rgba(228,83,37,.18);
+.scroll-stack-card{
+  position:sticky;
+  height:clamp(300px,40vh,420px);
+  display:flex;flex-direction:column;
+  background:#141414;border:1px solid #262626!important;border-radius:16px;
+  padding:2.25rem 2.5rem 2.5rem;
+  box-shadow:0 20px 50px rgba(0,0,0,.45);
+  z-index:1;
+  transition:transform .5s ease,filter .5s ease;
+  will-change:transform,filter;
 }
-.card-index{font-family:'Bebas Neue',sans-serif;font-size:2rem;color:#E45325;opacity:.9;line-height:1;}
-.card-content h3{
+.scroll-stack-card.is-covered{
+  transform:scale(.96);
+  filter:brightness(.72);
+}
+.scroll-stack-number{
+  font-family:'Inter',sans-serif;
+  font-size:.85rem;font-weight:600;
+  letter-spacing:.3em;
+  color:#FF6000;
+  margin-bottom:.9rem;
+}
+.scroll-stack-title{
   font-family:'Bebas Neue','Oswald',sans-serif;
-  font-size:2.2rem;color:#FFFFFF;letter-spacing:.02em;
-  margin-bottom:.5rem;text-transform:uppercase;
+  font-size:clamp(2.2rem,4.5vw,3.4rem);
+  font-weight:600;line-height:1.02;
+  letter-spacing:.02em;text-transform:uppercase;
+  color:#FFFFFF;margin:0 0 .75rem;
 }
-.card-content p{font-family:'Inter',sans-serif;font-size:1rem;color:#A0A0A0;line-height:1.6;margin:0;}
+.scroll-stack-desc{
+  font-size:1.05rem;
+  color:#A0A0A0;line-height:1.5;
+  max-width:56ch;
+  margin:auto 0 0;
+}
 
 /* ---------------- Process timeline (stark white) ---------------- */
 .process-section{
@@ -850,12 +972,9 @@ body.no-scroll{overflow:hidden;}
 }
 @media(max-width:860px){
   .hero-section{padding:0;}
-  .stats-section,.problem-section{padding:4rem 1.25rem;}
-  .problem-card{top:6vh;}
-  .problem-card:nth-child(2){top:9vh;}
-  .problem-card:nth-child(3){top:12vh;}
+  .stats-expand-section{padding:4rem 1.25rem 0;}
+  .problem-section{padding:4rem 1.25rem;}
   .process-section{padding:4rem 1.25rem;}
-  .problem-card{flex-direction:column;gap:.75rem;}
   .timeline-wrapper{padding-left:2.25rem;}
   .timeline-node{left:-2.25rem;}
   .why-it-works-section{padding:4rem 1.25rem;}
@@ -934,8 +1053,8 @@ body.no-scroll{overflow:hidden;}
   display:inline-block;
 }
 
-/* ---------- Heading layout lock: restore original heading typography ---------- */
-h1,h2,h3,.heading-text{
+/* ---------- Heading layout lock: primary section titles only ---------- */
+h1,h2,.heading-text{
   font-family:inherit;
   text-transform:uppercase;
   letter-spacing:-0.01em;
@@ -944,10 +1063,13 @@ h1,h2,h3,.heading-text{
 }
 
 /* ---------- Kinetic text headings (Magic UI kinetic-text port) ---------- */
-/* Containers keep their original block layout; typography inherits from
-   the native heading rules (Bebas Neue stacks, original clamps, etc.) */
-[data-kinetic-heading]{
+/* Scoped exclusively to primary section titles (h1/h2); sub-card titles
+   (h3) are untouched and remain static. Typography inherits from the
+   native heading rules (Bebas Neue stacks, original clamps, etc.) */
+h1[data-kinetic-heading],
+h2[data-kinetic-heading]{
   display:block;
+  width:100%;
 }
 .kinetic-root{
   display:inline-flex;
