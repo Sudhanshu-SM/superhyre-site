@@ -886,3 +886,22 @@ body.no-scroll{overflow:hidden;}
   .hero-section{position:static;height:auto;overflow:visible;}
   .hero-section ~ section,.hero-section ~ .marquee-banner,.hero-section ~ footer{position:static;z-index:auto;}
 }
+
+/* ---------- 3D roll headings ---------- */
+
+/* Container line wrapper hiding clipped overflow */
+.roll-text-line {
+  display: inline-block;
+  overflow: hidden;
+  line-height: 1.1;
+  perspective: 1000px;
+  vertical-align: top;
+  margin-right: 0.25em; /* Spacing between words */
+}
+
+/* Individual 3D rolling word element */
+.roll-inner {
+  display: inline-block;
+  transform-origin: bottom center;
+  will-change: transform, opacity;
+}

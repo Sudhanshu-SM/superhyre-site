@@ -250,9 +250,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     var intro = gsap.timeline({ defaults: { ease: 'power4.out' } });
     intro
-      .fromTo('.hero-section .mask-line-inner', { yPercent: 110, immediateRender: true }, { yPercent: 0, duration: 0.95, stagger: 0.12 }, 0.1)
-      .from('.hero-eyebrow', { y: 22, opacity: 0, duration: 0.7 }, '-=0.45')
-      .from('.status-badge', { y: 12, opacity: 0, duration: 0.5 }, '-=0.3')
+      .from('.hero-eyebrow', { y: 22, opacity: 0, duration: 0.7 }, 0.1)
+      .from('.status-badge', { y: 12, opacity: 0, duration: 0.5 }, '-=0.45')
       .from('.hero-pills .hero-pill', { scale: 0.8, opacity: 0, transformOrigin: 'top center', duration: 0.5, ease: 'back.out(1.6)', stagger: 0.07 }, '-=0.3');
 
     var isMobile = window.matchMedia('(max-width: 768px)').matches;
@@ -286,13 +285,45 @@ document.addEventListener('DOMContentLoaded', function () {
       });
     });
 
-    /* masked line reveals (section titles, index + talent) */
-    gsap.utils.toArray('.mask-line-inner').forEach(function (line) {
-      if (line.closest('.hero-section')) return;
-      gsap.fromTo(line, { yPercent: 110 }, {
-        yPercent: 0, duration: 0.85, ease: 'power3.out',
-        scrollTrigger: { trigger: line.closest('.mask-line'), start: 'top 62%', once: true }
+    /* 3D roll headings: auto-split .roll-heading into .roll-inner words and
+       roll them up in a stagger on scroll (index page) */
+    var rollHeadings = gsap.utils.toArray('.roll-heading');
+    rollHeadings.forEach(function (heading) {
+      var parts = [];
+      function collect(node) {
+        if (node.nodeType === 3) {
+          node.textContent.trim().split(/\s+/).forEach(function (w) {
+            if (w) parts.push({ t: w, c: '' });
+          });
+        } else if (node.nodeType === 1 && node.textContent.trim()) {
+          var cls = typeof node.className === 'string' ? node.className : '';
+          node.textContent.trim().split(/\s+/).forEach(function (w) {
+            if (w) parts.push({ t: w, c: cls });
+          });
+        }
+      }
+      heading.childNodes.forEach(collect);
+      var html = '';
+      parts.forEach(function (p, i) {
+        var punct = /^[.,!?;:]+$/.test(p.t);
+        if (i > 0 && !punct) html += ' ';
+        html += '<span class="roll-text-line"><span class="roll-inner' +
+          (p.c ? ' ' + p.c : '') + '">' + p.t + '</span></span>';
       });
+      heading.innerHTML = html;
+
+      gsap.fromTo(heading.querySelectorAll('.roll-inner'),
+        { y: '120%', rotateX: -75, opacity: 0 },
+        {
+          y: '0%', rotateX: 0, opacity: 1,
+          duration: 0.85, ease: 'power3.out', stagger: 0.06,
+          scrollTrigger: {
+            trigger: heading,
+            start: 'top 85%',
+            toggleActions: 'play none none reverse'
+          }
+        }
+      );
     });
 
     /* seam line sweep on the Why It Works section */
