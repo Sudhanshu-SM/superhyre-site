@@ -19,6 +19,7 @@
 <script defer src="lenis.js"></script>
 </head>
 <body>
+<div id="react-cursor-root"></div>
 <div class="page">
 
   <header class="topbar" id="topbar">
@@ -33,7 +34,7 @@
     <button class="menu-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="nav-overlay"><span class="burger"></span></button>
   </header>
 
-  <div class="nav-overlay" id="nav-overlay" aria-hidden="true">
+  <div class="nav-overlay dark-section" id="nav-overlay" aria-hidden="true">
     <nav class="nav-links" aria-label="Main">
       <a href="talent.html" class="nav-link" style="--i:0">About</a>
       <a href="#process" class="nav-link" style="--i:1">How we work</a>
@@ -60,6 +61,11 @@
 
     <!-- Hero Content -->
     <div class="hero-content">
+    <!-- Eyebrow subtitle (above main headline) -->
+    <p class="hero-eyebrow">
+      WE REBUILD HIRING FROM THE FIRST POST TO THE FIRST PAYCHECK
+    </p>
+
     <!-- Clean Big Headline -->
     <h1 class="hero-headline">
       <span class="mask-line"><span class="mask-line-inner">
@@ -69,11 +75,6 @@
         <span class="word-delivered">DELIVERED</span><span class="blinking-dot">.</span>
       </span></span>
     </h1>
-
-    <!-- Sub-description (Buttons Removed) -->
-    <p class="hero-description">
-      Wrong channels. Generic outreach. Week-two fallout. We rebuild hiring from the first post to the first paycheck.
-    </p>
 
     <!-- Status badge + metric pills -->
     <div class="status-badge"><span class="pulse-dot" aria-hidden="true"></span>NOW BOOKING NEW TEAMS</div>
@@ -102,7 +103,7 @@
   </div>
 
   <!-- STATS SECTION (BENTO GRID) -->
-  <section class="stats-section" data-bg-reveal>
+  <section class="stats-section dark-section" data-bg-reveal>
     <span class="section-bg" aria-hidden="true"></span>
     <div class="container">
       <div class="stats-grid">
@@ -127,7 +128,7 @@
   </section>
 
   <!-- PROBLEM STATEMENT SECTION -->
-  <section class="problem-section">
+  <section class="problem-section dark-section">
     <div class="container">
       <div class="problem-header">
         <div class="section-eyebrow" data-eyebrow>01 / THE PROBLEM</div>
@@ -168,7 +169,7 @@
   </section>
 
   <!-- PROCESS TIMELINE SECTION -->
-  <section class="process-section" id="process" data-bg-reveal>
+  <section class="process-section dark-section" id="process" data-bg-reveal>
     <span class="section-bg" aria-hidden="true"></span>
     <div class="container process-container">
 
@@ -237,7 +238,7 @@
   </section>
 
   <!-- WHY IT WORKS SECTION -->
-  <section class="why-it-works-section" id="features" data-bg-reveal>
+  <section class="why-it-works-section dark-section" id="features" data-bg-reveal>
     <span class="section-bg" aria-hidden="true"></span>
     <span class="section-line" aria-hidden="true"></span>
     <div class="container">
@@ -292,7 +293,7 @@
   </section>
 
   <!-- SECTION 1: INTERACTIVE ETHOS CAROUSEL (WHITE) -->
-  <section class="ethos-slider-section" data-bg-reveal>
+  <section class="ethos-slider-section dark-section" data-bg-reveal>
     <span class="section-bg" aria-hidden="true"></span>
     <div class="container ethos-container">
       <div class="slider-controls-top">
@@ -332,7 +333,7 @@
   </section>
 
   <!-- SECTION 2: ORANGE CTA BANNER -->
-  <section class="cta-banner-section" data-bg-reveal>
+  <section class="cta-banner-section bg-orange section-orange dark-section" data-bg-reveal>
     <span class="section-bg" aria-hidden="true"></span>
     <div class="container cta-container">
       <div class="section-eyebrow cta-eyebrow" data-eyebrow>05 / THE DECISION</div>
@@ -357,7 +358,7 @@
   </section>
 
   <!-- SECTION 3: REFINED FOOTER -->
-  <footer class="site-footer">
+  <footer class="site-footer dark-section">
     <div class="container footer-container">
       <!-- Brand Column -->
       <div class="footer-col footer-brand">
@@ -440,6 +441,7 @@
     <p class="modal-num">or email <a href="mailto:punith@superhyre.com">punith@superhyre.com</a></p>
   </div>
 </div>
+<script src="react-components/dist/cursor-bundle.js"></script>
 <script src="nav.js"></script>
 <script src="contact.js"></script>
 <script src="index.js"></script>

@@ -201,11 +201,13 @@ img{display:block;max-width:100%;}
   animation:blink 1.2s infinite ease-in-out;margin-left:.02em;
 }
 @keyframes blink{0%,100%{opacity:1;}50%{opacity:.15;}}
-.hero-description{
-  font-family:'Suisse Int\'l','Suisse Intl',-apple-system,sans-serif;
-  font-size:clamp(1rem,1.25vw,1.2rem);color:#555555;
-  max-width:580px;text-align:center;
-  margin-top:1.5rem;line-height:1.5;
+/* ---------------- Hero eyebrow subtitle (above headline) ---------------- */
+.hero-eyebrow{
+  font-family:'Inter',sans-serif;
+  font-size:clamp(.75rem,1.1vw,.9rem);
+  font-weight:600;letter-spacing:.12em;text-transform:uppercase;
+  color:#272121;text-align:center;
+  margin-top:0;margin-bottom:1.5rem;opacity:.85;
 }
 
 /* ---------------- Status badge + pulse dot ---------------- */

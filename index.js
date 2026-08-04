@@ -251,7 +251,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var intro = gsap.timeline({ defaults: { ease: 'power4.out' } });
     intro
       .fromTo('.hero-section .mask-line-inner', { yPercent: 110, immediateRender: true }, { yPercent: 0, duration: 0.95, stagger: 0.12 }, 0.1)
-      .from('.hero-description', { y: 22, opacity: 0, duration: 0.7 }, '-=0.45')
+      .from('.hero-eyebrow', { y: 22, opacity: 0, duration: 0.7 }, '-=0.45')
       .from('.status-badge', { y: 12, opacity: 0, duration: 0.5 }, '-=0.3')
       .from('.hero-pills .hero-pill', { scale: 0.8, opacity: 0, transformOrigin: 'top center', duration: 0.5, ease: 'back.out(1.6)', stagger: 0.07 }, '-=0.3');
 
@@ -260,9 +260,16 @@ document.addEventListener('DOMContentLoaded', function () {
       scale: isMobile ? 1.3 : 1.6, opacity: 0.1, ease: 'none',
       scrollTrigger: { trigger: heroEl, start: 'top top', end: 'bottom top', scrub: true }
     });
-    gsap.to('.hero-description', {
-      opacity: 0, ease: 'none',
-      scrollTrigger: { trigger: heroEl, start: 'top top', end: 'bottom 25%', scrub: true }
+    /* eyebrow: reversible fade-out as the hero scrolls away (created after
+       the intro finishes so the two tweens never fight over the same props) */
+    intro.eventCallback('onComplete', function () {
+      gsap.to('.hero-eyebrow', {
+        opacity: 0, y: -30, ease: 'none',
+        scrollTrigger: {
+          trigger: heroEl, start: 'top top', end: 'bottom top',
+          scrub: true, toggleActions: 'play reverse play reverse'
+        }
+      });
     });
   });
 
