@@ -1,143 +1,334 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom/client';
 
-// React Bits ScrollExpand pattern (ScrollExpandContainer) ported for the
-// SuperHyre stats section: cards stack at the bottom of the viewport
-// (sticky bottom), and each card expands to full focus (scale/blur/
-// opacity) as it crosses the viewport's vertical center line while
-// scrolling. The fixed hint fades once the last card is in focus, then
-// the section scrolls away naturally into 01 / THE PROBLEM.
+// React Bits ScrollExpand (media-frame variant) ported for the
+// SuperHyre stats section: a compact rounded frame (42% x 58%,
+// 24px radius) pins to the viewport and expands to full bleed via
+// clip-path as the page scrolls, with the giant metric fading out
+// while the subtitle / narrative / example crossfade in. Four
+// frames stack sequentially, then the section hands off to 01.
 
-const statsData = [
-  {
-    id: 1,
-    stat: '48HRS',
-    title: 'To a vetted shortlist',
-    description:
-      'Our high-velocity talent matching protocol sources, screens, and delivers fully aligned engineering candidates within two business days.',
-  },
-  {
-    id: 2,
-    stat: '3',
-    title: 'Screening stages before your desk',
-    description:
-      'Every profile undergoes algorithmic code verification, live technical architecture defense, and deep culture alignment checks.',
-  },
-  {
-    id: 3,
-    stat: '100%',
-    title: 'Of our pool is pre-vetted',
-    description:
-      'No passive resumes or unverified credentials. Every candidate in our ecosystem has active, evaluated performance scores.',
-  },
-  {
-    id: 4,
-    stat: '40+',
-    title: 'Industries & geographies covered',
-    description:
-      'From seed-stage startups to enterprise scale, across North America, Europe, and LATAM remote tech hubs.',
-  },
-];
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
-const ScrollExpandCards = ({ items, scrollHintText = 'Scroll to expand card' }) => {
-  const wrapRef = useRef(null);
-  const intersecting = useRef(new Set());
-  const [activeCard, setActiveCard] = useState(null);
-  const [lastCardVisible, setLastCardVisible] = useState(false);
-  const [inView, setInView] = useState(false);
-  const reduced =
-    typeof window !== 'undefined' &&
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const smoothstep = (edge0, edge1, x) => {
+  const t = clamp((x - edge0) / (edge1 - edge0 || 1e-6), 0, 1);
+  return t * t * (3 - 2 * t);
+};
+
+const ScrollExpand = ({
+  src = '',
+  mediaType = 'image',
+  poster = '',
+  alt = '',
+  title = '',
+  scrollHint = '',
+  startWidth = 42,
+  startHeight = 58,
+  startRadius = 24,
+  endRadius = 0,
+  mediaZoom = 1.35,
+  scrollDistance = 1.2,
+  holdDistance = 0.35,
+  smoothing = 0.1,
+  overlayScrim = 0.45,
+  useWindowScroll = true,
+  enabled = true,
+  children,
+  className = '',
+  style,
+  ...rest
+}) => {
+  const rootRef = useRef(null);
+  const trackRef = useRef(null);
+  const stageRef = useRef(null);
+  const frameRef = useRef(null);
+  const mediaRef = useRef(null);
+  const titleRef = useRef(null);
+  const overlayRef = useRef(null);
+  const scrimRef = useRef(null);
+  const hintRef = useRef(null);
+
+  const propsRef = useRef({});
+  propsRef.current = {
+    startWidth,
+    startHeight,
+    startRadius,
+    endRadius,
+    mediaZoom,
+    scrollDistance,
+    holdDistance,
+    smoothing,
+    overlayScrim,
+    useWindowScroll,
+    enabled,
+  };
+
+  const applyProgress = useCallback((p) => {
+    const frame = frameRef.current;
+    const media = mediaRef.current;
+    if (!frame || !media) return;
+    const c = propsRef.current;
+
+    const e = smoothstep(0, 1, p);
+
+    const w = c.startWidth + (100 - c.startWidth) * e;
+    const h = c.startHeight + (100 - c.startHeight) * e;
+    const ix = Math.max(0, (100 - w) / 2);
+    const iy = Math.max(0, (100 - h) / 2);
+    const r = c.startRadius + (c.endRadius - c.startRadius) * e;
+    frame.style.clipPath = `inset(${iy}% ${ix}% ${iy}% ${ix}% round ${r}px)`;
+
+    media.style.transform = `scale(${c.mediaZoom + (1 - c.mediaZoom) * e})`;
+
+    if (scrimRef.current) scrimRef.current.style.opacity = `${c.overlayScrim * e}`;
+
+    if (titleRef.current) {
+      const out = smoothstep(0.4, 0.88, p);
+      titleRef.current.style.opacity = `${1 - out}`;
+      titleRef.current.style.transform = `translate3d(0, ${-28 * out}px, 0) scale(${1 + 0.06 * out})`;
+    }
+
+    if (hintRef.current) {
+      const gone = smoothstep(0, 0.12, p);
+      hintRef.current.style.opacity = `${1 - gone}`;
+      hintRef.current.style.transform = `translate3d(0, ${8 * gone}px, 0)`;
+    }
+
+    if (overlayRef.current) {
+      const inn = smoothstep(0.68, 1, p);
+      overlayRef.current.style.opacity = `${inn}`;
+      overlayRef.current.style.transform = `translate3d(0, ${18 * (1 - inn)}px, 0)`;
+    }
+  }, []);
 
   useEffect(() => {
-    if (reduced || !wrapRef.current) return;
-    const cards = wrapRef.current.querySelectorAll('[data-card]');
-    if (!cards.length) return;
-    const set = intersecting.current;
-    const io = new IntersectionObserver(
-      (entries) => {
-        let changed = false;
-        entries.forEach((entry) => {
-          const idx = parseInt(entry.target.dataset.card, 10);
-          if (entry.isIntersecting) {
-            if (!set.has(idx)) {
-              set.add(idx);
-              changed = true;
-            }
-          } else if (set.delete(idx)) {
-            changed = true;
-          }
-        });
-        if (!changed) return;
-        if (set.size) {
-          const top = Math.max(...set);
-          setActiveCard(top);
-          if (top === items.length - 1) setLastCardVisible(true);
-        } else {
-          setActiveCard(null);
-        }
-      },
-      { rootMargin: '0px 0px -50% 0px' }
-    );
-    cards.forEach((card) => io.observe(card));
-    return () => {
-      io.disconnect();
-      set.clear();
+    const root = rootRef.current;
+    const track = trackRef.current;
+    const stage = stageRef.current;
+    if (!root || !track || !stage) return;
+
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    let raf = 0;
+    let current = 0;
+    let target = 0;
+    let stageH = 0;
+    let running = false;
+
+    const measure = () => {
+      const c = propsRef.current;
+      stageH = c.useWindowScroll ? window.innerHeight : root.clientHeight;
+      if (stageH <= 0) return;
+      stage.style.height = `${stageH}px`;
+      track.style.height = `${stageH * (1 + Math.max(0, c.scrollDistance) + Math.max(0, c.holdDistance))}px`;
+
+      const w = root.clientWidth || stageH;
+      stage.style.setProperty('--se-title-size', `${clamp(w * 0.11, 28, 110)}px`);
     };
-  }, [items.length, reduced]);
 
-  useEffect(() => {
-    if (reduced || !wrapRef.current) return;
-    const io = new IntersectionObserver(
-      ([entry]) => setInView(entry.isIntersecting),
-      { threshold: 0 }
-    );
-    io.observe(wrapRef.current);
-    return () => io.disconnect();
-  }, [reduced]);
+    const readProgress = () => {
+      const c = propsRef.current;
+      if (!c.enabled) return 1;
+      const span = stageH * Math.max(0.01, c.scrollDistance);
+      if (c.useWindowScroll) {
+        const top = track.getBoundingClientRect().top;
+        return clamp(-top / span, 0, 1);
+      }
+      return clamp(root.scrollTop / span, 0, 1);
+    };
 
-  const hintVisible = !reduced && inView && !lastCardVisible;
+    const tick = () => {
+      const c = propsRef.current;
+      const k = c.smoothing <= 0 ? 1 : 1 - Math.exp(-1 / (60 * c.smoothing));
+      current += (target - current) * k;
+      if (Math.abs(target - current) < 0.0004) {
+        current = target;
+        running = false;
+      }
+      applyProgress(current);
+      raf = running ? requestAnimationFrame(tick) : 0;
+    };
+
+    const kick = () => {
+      if (running) return;
+      running = true;
+      if (!raf) raf = requestAnimationFrame(tick);
+    };
+
+    const onScroll = () => {
+      target = readProgress();
+      if (propsRef.current.smoothing <= 0 || reduceMotion) {
+        current = target;
+        applyProgress(current);
+        return;
+      }
+      kick();
+    };
+
+    const onResize = () => {
+      measure();
+      target = readProgress();
+      current = target;
+      applyProgress(current);
+    };
+
+    measure();
+    target = readProgress();
+    current = target;
+    applyProgress(current);
+
+    const scroller = useWindowScroll ? window : root;
+    scroller.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onResize);
+    const ro = new ResizeObserver(onResize);
+    ro.observe(root);
+
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      scroller.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onResize);
+      ro.disconnect();
+    };
+  }, [applyProgress, useWindowScroll]);
+
+  const media = src ? (
+    mediaType === 'video' ? (
+      <video
+        ref={mediaRef}
+        className="se-media"
+        src={src}
+        poster={poster}
+        autoPlay
+        muted
+        loop
+        playsInline
+      />
+    ) : (
+      <img ref={mediaRef} className="se-media" src={src} alt={alt} draggable={false} />
+    )
+  ) : (
+    <div ref={mediaRef} className="se-media" aria-hidden="true" />
+  );
 
   return (
-    <div className="scroll-expand-wrap" ref={wrapRef}>
-      <div className="scroll-expand-frame">
-        <div className="scroll-expand-stack">
-          {items.map((item, i) => (
-            <div
-              key={item.id}
-              data-card={i}
-              className={`scroll-expand-card${activeCard === i ? ' is-active' : ''}${reduced ? ' is-static' : ''}`}
-            >
-              <span className="scroll-expand-index">{`0${i + 1}`}</span>
-              <h3 className="scroll-expand-stat">{item.stat}</h3>
-              <p className="scroll-expand-subtitle">{item.title}</p>
-              <p className="scroll-expand-desc description-text">
-                {item.description}
-              </p>
+    <div
+      ref={rootRef}
+      className={`se-root ${className}`.trim()}
+      style={style}
+      {...rest}
+    >
+      <div ref={trackRef} className="se-track">
+        <div ref={stageRef} className="se-stage">
+          <div ref={frameRef} className="se-frame">
+            {media}
+            <div ref={scrimRef} className="se-scrim" />
+            {children ? (
+              <div ref={overlayRef} className="se-overlay">
+                {children}
+              </div>
+            ) : null}
+          </div>
+          {title ? (
+            <div ref={titleRef} className="se-title">
+              {title}
             </div>
-          ))}
+          ) : null}
+          {scrollHint ? (
+            <div ref={hintRef} className="se-hint">
+              {scrollHint}
+            </div>
+          ) : null}
         </div>
-        <p
-          className={`scroll-expand-hint${hintVisible ? '' : ' is-hidden'}`}
-          aria-hidden="true"
-        >
-          {scrollHintText}
-          <span className="scroll-expand-chev" />
-        </p>
       </div>
     </div>
   );
 };
 
+const scrollExpandStatsData = [
+  {
+    id: '01',
+    stat: '48HRS',
+    subheadingHtml:
+      'TO A VETTED <span class="font-kreol italic font-normal">S</span>HORTLIST',
+    descriptionHtml:
+      'Our high-velocity talent matching protocol bypasses standard resume queuing to <strong>source, screen, and deliver</strong> fully aligned engineering leads within two business days.',
+    example:
+      'A Series-B fintech client requested two Senior Full-Stack React/Django developers on Monday morning; candidate interviews were locked in by Wednesday.',
+  },
+  {
+    id: '02',
+    stat: '3',
+    subheadingHtml:
+      'SCREENING <span class="font-kreol italic font-normal">S</span>TAGES BEFORE YOUR DESK',
+    descriptionHtml:
+      'Every profile undergoes <strong>rigorous algorithmic code checks</strong>, live system architecture defense, and deep culture alignment vetting before you ever review them.',
+    example:
+      'Out of 150 raw applicants, only 4 candidates pass our strict technical benchmark to reach your calendar.',
+  },
+  {
+    id: '03',
+    stat: '100%',
+    subheadingHtml:
+      'OF OUR POOL IS <span class="font-kreol italic font-normal">P</span>RE-VETTED',
+    descriptionHtml:
+      'We maintain an active network of top-tier engineers with <strong>verified work histories</strong> and real code assessments—zero unverified PDF resumes.',
+    example:
+      'Immediate access to engineers who have already solved production scale challenges in high-growth environments.',
+  },
+  {
+    id: '04',
+    stat: '40+',
+    subheadingHtml:
+      'INDUSTRIES & <span class="font-kreol italic font-normal">G</span>EOGRAPHIES COVERED',
+    descriptionHtml:
+      'Extensive talent coverage across North America, Europe, and key emerging technology hubs, spanning <strong>Fintech, AI Infrastructure</strong>, SaaS, and HealthTech.',
+    example:
+      'Seamless hiring across multiple time zones with localized compliance and onboarding support.',
+  },
+];
+
+const StatOverlay = ({ card }) => (
+  <div className="se-content">
+    <div className="se-stat">{card.stat}</div>
+    <h3
+      className="se-subheading font-wf-sans"
+      dangerouslySetInnerHTML={{ __html: card.subheadingHtml }}
+    />
+    <p
+      className="se-desc font-wf-sans"
+      dangerouslySetInnerHTML={{ __html: card.descriptionHtml }}
+    />
+    {card.example ? (
+      <div className="se-example-block">
+        <span className="se-example-label">EXAMPLE</span>
+        <p className="se-example font-wf-sans">&ldquo;{card.example}&rdquo;</p>
+      </div>
+    ) : null}
+  </div>
+);
+
 export function initScrollExpandCards() {
-  const mountNode = document.getElementById('scroll-expand-cards-root');
+  const mountNode = document.getElementById('scroll-expand-stats-root');
   if (!mountNode) return;
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const root = ReactDOM.createRoot(mountNode);
   root.render(
     <React.StrictMode>
-      <ScrollExpandCards items={statsData} />
+      <div className="se-section">
+        {scrollExpandStatsData.map((card) => (
+          <ScrollExpand
+            key={card.id}
+            title={card.stat}
+            scrollHint="Scroll inside the frame to expand"
+            useWindowScroll
+            enabled={!reduced}
+          >
+            <StatOverlay card={card} />
+          </ScrollExpand>
+        ))}
+      </div>
     </React.StrictMode>
   );
 }
 
-export default ScrollExpandCards;
+export default ScrollExpand;
