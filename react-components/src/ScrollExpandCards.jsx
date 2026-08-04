@@ -249,7 +249,7 @@ const scrollExpandStatsData = [
     id: '01',
     stat: '48HRS',
     subheadingHtml:
-      'TO A VETTED <span class="font-kreol italic font-normal">S</span>HORTLIST',
+      'TO A VET<span class="font-kreol italic font-normal">T</span>ED SHORTL<span class="font-kreol italic font-normal">I</span>ST',
     descriptionHtml:
       'Our high-velocity talent matching protocol bypasses standard resume queuing to <strong>source, screen, and deliver</strong> fully aligned engineering leads within two business days.',
     example:
@@ -259,7 +259,7 @@ const scrollExpandStatsData = [
     id: '02',
     stat: '3',
     subheadingHtml:
-      'SCREENING <span class="font-kreol italic font-normal">S</span>TAGES BEFORE YOUR DESK',
+      'SCREEN<span class="font-kreol italic font-normal">I</span>NG STAG<span class="font-kreol italic font-normal">E</span>S BEFORE YOUR DESK',
     descriptionHtml:
       'Every profile undergoes <strong>rigorous algorithmic code checks</strong>, live system architecture defense, and deep culture alignment vetting before you ever review them.',
     example:
@@ -269,7 +269,7 @@ const scrollExpandStatsData = [
     id: '03',
     stat: '100%',
     subheadingHtml:
-      'OF OUR POOL IS <span class="font-kreol italic font-normal">P</span>RE-VETTED',
+      'OF OUR P<span class="font-kreol italic font-normal">O</span>OL IS PRE-VET<span class="font-kreol italic font-normal">T</span>ED',
     descriptionHtml:
       'We maintain an active network of top-tier engineers with <strong>verified work histories</strong> and real code assessments—zero unverified PDF resumes.',
     example:
@@ -279,7 +279,7 @@ const scrollExpandStatsData = [
     id: '04',
     stat: '40+',
     subheadingHtml:
-      'INDUSTRIES & <span class="font-kreol italic font-normal">G</span>EOGRAPHIES COVERED',
+      'INDUS<span class="font-kreol italic font-normal">T</span>RIES & GEOGR<span class="font-kreol italic font-normal">A</span>PHIES COVERED',
     descriptionHtml:
       'Extensive talent coverage across North America, Europe, and key emerging technology hubs, spanning <strong>Fintech, AI Infrastructure</strong>, SaaS, and HealthTech.',
     example:

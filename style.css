@@ -31,9 +31,15 @@
   font-display:swap;
 }
 .font-wf-sans{font-family:'WF Visual Sans Variable',system-ui,-apple-system,sans-serif;}
-.font-kreol{font-family:'Kreolstandard',Georgia,serif;}
+.font-kreol{font-family:'Kreolstandard',Georgia,serif !important;}
 .italic{font-style:italic;}
 .font-normal{font-weight:400;}
+/* optical tweak: mid-word italic letters flow naturally without breaking kerning */
+h3 .font-kreol{
+  display:inline-block;
+  transform:translateY(-0.5px);
+  margin:0 0.02em;
+}
 
 :root{
   /* brand core (unchanged) */
