@@ -7,6 +7,7 @@ import { initScrollReveal } from './ScrollRevealWrapper';
 import { initScrollExpandCards } from './ScrollExpandCards';
 import { initScrollStackCards } from './ScrollStackCards';
 import { initHorizontalWhyItWorks } from './HorizontalWhyItWorks';
+import { initProcessAccordion } from './ProcessAccordion';
 
 const rootElement = document.getElementById('react-cursor-root');
 
@@ -40,5 +41,7 @@ if (typeof window !== 'undefined') {
     initScrollStackCards();
     // 5. Mount the horizontal why-it-works rows (GSAP clip-path wipe)
     initHorizontalWhyItWorks();
+    // 6. Mount the hiring-process hover-expand accordion
+    initProcessAccordion();
   });
 }

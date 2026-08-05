@@ -37,6 +37,13 @@
   font-style:normal;
   font-display:swap;
 }
+@font-face{
+  font-family:'Kumbh Sans';
+  src:url('/fonts/KumbhSans-Variable.woff2') format('woff2');
+  font-weight:100 900;
+  font-style:normal;
+  font-display:swap;
+}
 .font-wf-sans{font-family:'WF Visual Sans Variable',system-ui,-apple-system,sans-serif;}
 .font-kreol{font-family:'Kreolstandard',Georgia,serif !important;}
 .font-outfit{font-family:'Outfit Variable',system-ui,-apple-system,sans-serif;}
@@ -655,6 +662,64 @@ html.js-motion{scroll-behavior:auto!important;}
   background-color:#E45325;transition:height .1s linear;
 }
 .timeline-events{display:flex;flex-direction:column;gap:6rem;}
+/* ---------------- Process hover-expand accordion ---------------- */
+#process-accordion-root{position:relative;z-index:1;}
+.accordion-container{
+  display:flex;flex-direction:column;gap:.5rem;
+  width:100%;height:auto;
+}
+.accordion-panel{
+  position:relative;overflow:hidden;border-radius:12px;
+  padding:2rem;
+  display:flex;flex-direction:column;justify-content:flex-end;align-items:flex-start;
+  cursor:pointer;flex:1;min-height:180px;
+  transition:flex .5s cubic-bezier(.4,0,.2,1);
+}
+.accordion-panel.is-active{flex:8;}
+.accordion-collapsed{
+  position:absolute;inset:0;padding:2rem;
+  display:flex;align-items:flex-end;
+  opacity:1;transition:opacity .3s ease;
+}
+.accordion-collapsed span{
+  font-family:'Kumbh Sans',sans-serif;font-weight:700;
+  font-size:1.4rem;letter-spacing:.08em;text-transform:uppercase;
+  color:#FFFFFF;white-space:nowrap;
+  transform-origin:0 100%;
+}
+.accordion-panel.is-active .accordion-collapsed{opacity:0;pointer-events:none;}
+.accordion-content{
+  position:relative;z-index:1;
+  display:flex;flex-direction:column;justify-content:space-between;
+  height:100%;width:100%;
+  opacity:0;transform:scale(.95);
+  transition:opacity .5s ease,transform .5s ease;
+  pointer-events:none;
+}
+.accordion-panel.is-active .accordion-content{opacity:1;transform:scale(1);pointer-events:auto;}
+.accordion-tag{
+  font-family:'Kumbh Sans',sans-serif;font-weight:400;
+  font-size:.7rem;letter-spacing:.24em;text-transform:uppercase;
+  color:rgba(255,255,255,.75);
+}
+.accordion-title{
+  font-family:'Kumbh Sans',sans-serif !important;
+  font-weight:400 !important;
+  font-size:clamp(1.3rem,2.2vw,2rem);line-height:1.2;
+  text-transform:uppercase;color:#FFFFFF;
+  max-width:24ch;
+}
+.accordion-desc{
+  font-family:'Chalet','Helvetica Neue',Helvetica,Arial,sans-serif !important;
+  font-weight:700 !important;
+  font-size:1.05rem;line-height:1.55;
+  color:rgba(255,255,255,.92);max-width:46ch;
+}
+@media(min-width:768px){
+  .accordion-container{flex-direction:row;height:450px;}
+  .accordion-panel{min-height:0;justify-content:flex-start;}
+  .accordion-collapsed span{transform:rotate(-90deg) translateX(1.5rem);}
+}
 /* ---------------- Timeline cards & animation fix ---------------- */
 .timeline-card{
   position:relative;
@@ -781,7 +846,10 @@ html.js-motion{scroll-behavior:auto!important;}
   .right-content{width:50%;min-height:180px;padding:2.5rem;}
 }
 @media(max-width:1024px){
-  .banner-title{line-height:1.15;}
+  .banner-title{
+    font-size:clamp(2rem,4vw,54.4143px);
+    line-height:1.15;
+  }
 }
 .why-it-works-section{
   background-color:#0D0D0D;color:#F5F5F5;
