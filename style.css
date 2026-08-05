@@ -294,6 +294,10 @@ html.js-motion{scroll-behavior:auto!important;}
   letter-spacing:.22em;text-transform:uppercase;color:#E45325;
   margin-bottom:1rem;
 }
+[data-tagtypewriter]{
+  display:inline-block;min-height:1em;line-height:1.2;
+  visibility:visible;opacity:1;
+}
 .cta-eyebrow{color:rgba(17,17,17,.65);}
 
 /* ---------------- Word-level text reveal (JS-driven) ---------------- */
@@ -1033,6 +1037,8 @@ body.no-scroll{overflow:hidden;}
 .slide-counter{
   font-family:'Inter',sans-serif;font-size:.78rem;font-weight:600;
   letter-spacing:.22em;text-transform:uppercase;color:#FF4301;
+  display:inline-block;min-height:1em;line-height:1.2;
+  visibility:visible;opacity:1;
 }
 .ethos-carousel{position:relative;min-height:220px;margin:2.5rem 0;overflow:hidden;}
 .ethos-slide{
@@ -1049,7 +1055,7 @@ body.no-scroll{overflow:hidden;}
   opacity:1;visibility:visible;display:block;
 }
 .slide-element{
-  display:block;will-change:transform,opacity;
+  display:block;
 }
 .ethos-quote{
   font-family:'Bebas Neue','Oswald',sans-serif;

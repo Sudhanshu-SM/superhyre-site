@@ -106,6 +106,9 @@
       current.classList.remove('active');
       next.classList.add('active');
       currentIndex = nextIndex;
+      if (typeof gsap !== 'undefined') {
+        gsap.set(next, { clearProps: 'opacity,transform' });
+      }
       if (counter) {
         var tag = next.getAttribute('data-eyebrow');
         if (counter.textContent !== tag) counter.textContent = tag;
@@ -113,7 +116,10 @@
       if (typeof gsap !== 'undefined') {
         gsap.fromTo(next.querySelectorAll('.slide-element'), { y: 40, opacity: 0 }, {
           y: 0, opacity: 1, duration: 0.6, stagger: 0.1, ease: 'power3.out',
-          onComplete: function () { animating = false; }
+          onComplete: function () {
+            gsap.set(next.querySelectorAll('.slide-element'), { clearProps: 'transform,opacity' });
+            animating = false;
+          }
         });
       } else {
         animating = false;
@@ -123,10 +129,10 @@
     if (typeof gsap === 'undefined') { revealNext(); return; }
 
     animating = true;
-    gsap.to(current.querySelectorAll('.slide-element'), {
-      y: -20, opacity: 0, duration: 0.3, stagger: 0.05, ease: 'power2.in',
-      onComplete: revealNext
-    });
+      gsap.to(current.querySelectorAll('.slide-element'), {
+        y: -20, opacity: 0, duration: 0.3, stagger: 0.05, ease: 'power2.in',
+        onComplete: revealNext
+      });
   }
 
   function changeSlide(direction) {
@@ -150,6 +156,7 @@
         text: finalText,
         duration: 1.2,
         ease: 'none',
+        immediateRender: false,
         scrollTrigger: {
           trigger: el,
           start: 'top 88%',
@@ -392,8 +399,10 @@ document.addEventListener('DOMContentLoaded', function () {
       });
     }
 
-    /* section eyebrows: strike in first */
+    /* section eyebrows: strike in first (exclude .ethos-slide, whose data-eyebrow
+       is a carousel tag read by the counter, not a reveal target) */
     gsap.utils.toArray('[data-eyebrow]').forEach(function (el) {
+      if (el.classList && el.classList.contains('ethos-slide')) return;
       gsap.from(el, {
         opacity: 0, y: 14, duration: 0.6, ease: 'power3.out',
         scrollTrigger: { trigger: el, start: 'top 70%', once: true }
@@ -423,6 +432,9 @@ document.addEventListener('DOMContentLoaded', function () {
     if (firstQuote) {
       gsap.fromTo('.ethos-slide.active .slide-element', { y: 40, opacity: 0 }, {
         y: 0, opacity: 1, duration: 0.6, stagger: 0.1, ease: 'power3.out',
+        onComplete: function () {
+          gsap.set('.ethos-slide.active .slide-element', { clearProps: 'transform,opacity' });
+        },
         scrollTrigger: { trigger: '.ethos-carousel', start: 'top bottom', once: true }
       });
     }
