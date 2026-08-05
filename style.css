@@ -25,13 +25,21 @@
 }
 @font-face{
   font-family:'Kreolstandard';
-  src:url('/fonts/Kreolstandard.woff2') format('woff2');
-  font-weight:400 700;
-  font-style:italic,normal;
+  src:url('/fonts/Kreolstandard.otf') format('opentype');
+  font-weight:500;
+  font-style:italic;
+  font-display:swap;
+}
+@font-face{
+  font-family:'Outfit Variable';
+  src:url('/fonts/OutfitVariable.woff2') format('woff2');
+  font-weight:100 900;
+  font-style:normal;
   font-display:swap;
 }
 .font-wf-sans{font-family:'WF Visual Sans Variable',system-ui,-apple-system,sans-serif;}
 .font-kreol{font-family:'Kreolstandard',Georgia,serif !important;}
+.font-outfit{font-family:'Outfit Variable',system-ui,-apple-system,sans-serif;}
 .italic{font-style:italic;}
 .font-normal{font-weight:400;}
 /* optical tweak: mid-word italic letters flow naturally without breaking kerning */
@@ -696,7 +704,85 @@ html.js-motion{scroll-behavior:auto!important;}
   color:#666666;margin-top:1rem;font-style:italic;
 }
 
-/* ---------------- Why it works (dark editorial, 3-col) ---------------- */
+/* ---------------- Why it works (horizontal split rows) ---------------- */
+.row-item{
+  display:flex;flex-direction:column;
+  width:100%;min-height:170px;
+  background-color:#0D0D0D;
+  border:1px solid #222222;border-radius:8px;overflow:hidden;
+  position:relative;
+}
+.row-item + .row-item{margin-top:1.25rem;}
+.left-banner{
+  width:100%;
+  display:flex;align-items:center;justify-content:flex-start;
+  padding:2rem;
+  position:relative;
+}
+.left-banner.cc-orange{background-color:#FF4D00;}
+.left-banner.cc-blue{background-color:#1E69FF;}
+.left-banner.cc-gold{background-color:#E5B800;}
+.left-banner.cc-pink{background-color:#FF5599;}
+.left-banner.cc-cyan{background-color:#00C2D1;}
+.left-banner.cc-light .banner-title{color:#111111;}
+.left-banner.cc-dark .banner-title{color:#FFFFFF;}
+/* banner titles: WF Visual Sans Variable 500, 54.41px, no numeric prefixes */
+.banner-title{
+  position:relative;z-index:1;
+  font-family:'WF Visual Sans Variable',Arial,sans-serif;
+  font-weight:500;font-style:normal;
+  font-size:clamp(2.2rem,3.8vw,54.4143px);
+  line-height:clamp(2.3rem,3.96vw,56.5909px);
+  letter-spacing:-0.01em;text-transform:uppercase;
+}
+/* stipple + SVG-noise textures on selected banners (cards 1 & 4) */
+.left-banner.textured-banner-1{
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/></svg>"),
+    radial-gradient(rgba(0,0,0,.25) 1px,transparent 0);
+  background-size:140px 140px,8px 8px;
+}
+.left-banner.textured-banner-4{
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/></svg>"),
+    radial-gradient(rgba(0,0,0,.2) 1px,transparent 0);
+  background-size:140px 140px,6px 6px;
+}
+.right-content{
+  width:100%;
+  display:flex;flex-direction:column;justify-content:center;
+  gap:.5rem;padding:1.5rem 2rem;
+  background-color:#0D0D0D;
+  font-family:'WF Visual Sans Variable',Arial,sans-serif;
+}
+.row-eyebrow{
+  font-family:'WF Visual Sans Variable',Arial,sans-serif;
+  font-weight:500;font-size:.72rem;letter-spacing:.22em;
+  text-transform:uppercase;color:#8A8A8A;
+}
+.row-title{
+  font-family:'WF Visual Sans Variable',Arial,sans-serif;
+  font-weight:500;font-style:normal;
+  font-size:1.35rem;line-height:1.25;
+  text-transform:uppercase;color:#FF4D00;letter-spacing:.02em;
+}
+.section-description{
+  font-family:'WF Visual Sans Variable',Arial,sans-serif;
+  font-weight:400;font-style:normal;
+  font-size:19.8414px;line-height:29.7621px;
+  color:#FFFFFF;max-width:56ch;
+}
+.section-description strong{font-weight:700;color:#FFFFFF;}
+.row-example{
+  font-family:'WF Visual Sans Variable',Arial,sans-serif;
+  font-weight:400;font-size:.875rem;font-style:italic;color:#8A8A8A;
+}
+@media(min-width:768px){
+  .row-item{flex-direction:row;}
+  .left-banner{width:50%;min-height:180px;padding:2.5rem;}
+  .right-content{width:50%;min-height:180px;padding:2.5rem;}
+}
+@media(max-width:1024px){
+  .banner-title{line-height:1.15;}
+}
 .why-it-works-section{
   background-color:#0D0D0D;color:#F5F5F5;
   padding:7rem 2rem;width:100%;border-top:1px solid #1A1A1A;
@@ -731,30 +817,7 @@ html.js-motion{scroll-behavior:auto!important;}
 .btn-arrow{transition:transform .2s ease;}
 .btn-primary-orange:hover .btn-arrow{transform:translateX(4px);}
 .why-cards-grid{
-  display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:2rem;
-}
-.why-card{
-  background:#141414;border:1px solid #222222;border-radius:8px;
-  padding:2rem 2.5rem;
-  min-height:auto;height:auto;
-  display:flex;flex-direction:column;justify-content:center;align-items:flex-start;
-  transition:border-color .3s ease,transform .3s ease,box-shadow .3s ease;
-}
-.why-card:hover{
-  border-color:#E45325;transform:translateY(-5px);
-  box-shadow:0 10px 30px rgba(228,83,37,.1);
-}
-.why-card-num{
-  font-family:'Bebas Neue',sans-serif;font-size:2rem;
-  color:#E45325;display:block;margin-bottom:1rem;
-}
-.why-card-title{
-  font-family:'Bebas Neue','Oswald',sans-serif;
-  font-size:1.8rem;color:#FFFFFF;margin-bottom:.75rem;
-  letter-spacing:.02em;text-transform:uppercase;
-}
-.why-card-desc{
-  font-family:'Inter',sans-serif;font-size:1rem;color:#999999;line-height:1.6;
+  display:flex;flex-direction:column;gap:1.25rem;
 }
 
 /* ---------------- Testimonials ---------------- */

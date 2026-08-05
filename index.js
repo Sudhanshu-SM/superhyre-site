@@ -331,10 +331,6 @@ document.addEventListener('DOMContentLoaded', function () {
       opacity: 0, y: 16, duration: 0.7, ease: 'power3.out', delay: 0.15,
       scrollTrigger: { trigger: '.why-header', start: 'top 66%' }
     });
-    gsap.from('.why-card', {
-      opacity: 0, y: 32, duration: 0.8, ease: 'power3.out', stagger: 0.12,
-      scrollTrigger: { trigger: '.why-cards-grid', start: 'top 66%' }
-    });
 
     /* ---------- cta: buttons strike in after the orange bg sweep ---------- */
     gsap.from('.cta-actions .btn-cta-dark, .cta-actions .btn-cta-outline', {

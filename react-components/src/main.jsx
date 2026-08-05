@@ -6,6 +6,7 @@ import { initKineticHeadings } from './KineticHeadingWrapper';
 import { initScrollReveal } from './ScrollRevealWrapper';
 import { initScrollExpandCards } from './ScrollExpandCards';
 import { initScrollStackCards } from './ScrollStackCards';
+import { initHorizontalWhyItWorks } from './HorizontalWhyItWorks';
 
 const rootElement = document.getElementById('react-cursor-root');
 
@@ -37,5 +38,7 @@ if (typeof window !== 'undefined') {
     initScrollExpandCards();
     // 4. Mount the React Bits scroll-stack problem cards
     initScrollStackCards();
+    // 5. Mount the horizontal why-it-works rows (GSAP clip-path wipe)
+    initHorizontalWhyItWorks();
   });
 }
