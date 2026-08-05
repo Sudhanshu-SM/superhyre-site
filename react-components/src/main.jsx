@@ -8,6 +8,8 @@ import { initScrollExpandCards } from './ScrollExpandCards';
 import { initScrollStackCards } from './ScrollStackCards';
 import { initHorizontalWhyItWorks } from './HorizontalWhyItWorks';
 import { initProcessAccordion } from './ProcessAccordion';
+import { initUiverseStartHiringButton } from './UiverseStartHiringButton';
+import { initUiverseLetsTalkButton } from './UiverseLetsTalkButton';
 
 const rootElement = document.getElementById('react-cursor-root');
 
@@ -43,5 +45,9 @@ if (typeof window !== 'undefined') {
     initHorizontalWhyItWorks();
     // 6. Mount the hiring-process hover-expand accordion
     initProcessAccordion();
+    // 7. Mount the Uiverse "START HIRING" gooey button (Section 05 CTA)
+    initUiverseStartHiringButton();
+    // 8. Mount the Uiverse "LET'S TALK" button (Section 05 CTA)
+    initUiverseLetsTalkButton();
   });
 }

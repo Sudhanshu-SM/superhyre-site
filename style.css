@@ -908,19 +908,6 @@ html.js-motion{scroll-behavior:auto!important;}
   font-family:'Inter',sans-serif;font-size:1.1rem;color:#888888;
   margin-top:1rem;max-width:550px;line-height:1.5;
 }
-.btn-primary-orange{
-  display:inline-flex;align-items:center;gap:.75rem;
-  background-color:#E45325;color:#FFFFFF;
-  font-family:'Inter',sans-serif;font-weight:700;font-size:.95rem;
-  padding:1rem 2rem;border-radius:4px;text-decoration:none;letter-spacing:.05em;
-  transition:background-color .3s ease,transform .2s ease,box-shadow .3s ease;
-}
-.btn-primary-orange:hover{
-  background-color:#FF5A26;transform:translateY(-2px);
-  box-shadow:0 8px 20px rgba(228,83,37,.3);
-}
-.btn-arrow{transition:transform .2s ease;}
-.btn-primary-orange:hover .btn-arrow{transform:translateX(4px);}
 .why-cards-grid{
   display:flex;flex-direction:column;gap:1.25rem;
 }
@@ -1108,12 +1095,18 @@ body.no-scroll{overflow:hidden;}
   color:#222222;margin-bottom:2.5rem;max-width:650px;margin-left:auto;margin-right:auto;
 }
 .cta-actions{
-  display:flex;justify-content:center;align-items:center;gap:1.5rem;flex-wrap:wrap;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:1.5rem;margin-top:2.5rem;
+}
+@media(min-width:640px){
+  .cta-actions{flex-direction:row;gap:2.5rem;}
 }
 .btn-cta-dark{
   background-color:#454545;color:#FFFFFF;
   font-family:'Inter',sans-serif;font-weight:700;
   padding:1rem 2.2rem;border-radius:4px;text-decoration:none;
+  display:inline-flex;align-items:center;justify-content:center;
+  box-sizing:border-box;line-height:1;
   transition:background-color .3s ease,transform .2s ease;
 }
 .btn-cta-dark:hover{background-color:#111111;transform:translateY(-2px);}
@@ -1121,6 +1114,8 @@ body.no-scroll{overflow:hidden;}
   border:1px solid #111111;color:#111111;
   font-family:'Inter',sans-serif;font-weight:700;
   padding:1rem 2.2rem;border-radius:4px;text-decoration:none;
+  display:inline-flex;align-items:center;justify-content:center;
+  box-sizing:border-box;line-height:1;
   transition:background-color .3s ease,color .3s ease;
 }
 .btn-cta-outline:hover{background-color:#111111;color:#FFFFFF;}
