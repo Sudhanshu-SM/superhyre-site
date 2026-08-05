@@ -1031,8 +1031,8 @@ body.no-scroll{overflow:hidden;}
   min-height:280px;position:relative;
 }
 .slide-counter{
-  font-family:'Inter',sans-serif;font-size:.9rem;font-weight:700;
-  letter-spacing:.1em;color:#888888;
+  font-family:'Inter',sans-serif;font-size:.78rem;font-weight:600;
+  letter-spacing:.22em;text-transform:uppercase;color:#FF4301;
 }
 .ethos-carousel{position:relative;min-height:220px;margin:2.5rem 0;overflow:hidden;}
 .ethos-slide{
@@ -1062,6 +1062,13 @@ body.no-scroll{overflow:hidden;}
 .ethos-quote .highlight-orange{color:#FF6000;}
 .ethos-author{
   font-family:'Inter',sans-serif;font-size:1rem;color:#444444;margin-top:1rem;
+}
+.ethos-description{
+  font-family:'WF Visual Sans Variable',Arial,sans-serif;
+  font-weight:400;
+  font-size:clamp(1rem,1.2vw,1.125rem);
+  line-height:1.625;color:#A3A3A3;
+  margin-top:.75rem;max-width:42rem;
 }
 .slider-nav{display:flex;gap:1rem;}
 .nav-btn{
@@ -1267,6 +1274,11 @@ body.no-scroll{overflow:hidden;}
 @keyframes typewriter-blink{
   0%,49%{opacity:1;}
   50%,100%{opacity:0;}
+}
+[data-tagtypewriter].is-typing::after{
+  content:'';display:inline-block;width:2px;height:.9em;
+  background:#FF4301;margin-left:2px;vertical-align:-.08em;
+  animation:typewriter-blink 1s steps(1) infinite;
 }
 
 /* ---------- PPNeue description typography ---------- */

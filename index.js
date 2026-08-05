@@ -107,7 +107,8 @@
       next.classList.add('active');
       currentIndex = nextIndex;
       if (counter) {
-        counter.textContent = '0' + (currentIndex + 1) + ' / 0' + totalSlides;
+        var tag = next.getAttribute('data-eyebrow');
+        if (counter.textContent !== tag) counter.textContent = tag;
       }
       if (typeof gsap !== 'undefined') {
         gsap.fromTo(next.querySelectorAll('.slide-element'), { y: 40, opacity: 0 }, {
@@ -136,6 +137,31 @@
 
   nextBtn.addEventListener('click', function () { changeSlide('next'); });
   prevBtn.addEventListener('click', function () { changeSlide('prev'); });
+
+  /* ---------- typewriter eyebrows (GSAP TextPlugin + ScrollTrigger) ---------- */
+  document.addEventListener('DOMContentLoaded', function () {
+    if (typeof gsap === 'undefined') return;
+    gsap.registerPlugin(ScrollTrigger, gsap.core.globals().TextPlugin);
+
+    document.querySelectorAll('[data-tagtypewriter]').forEach(function (el) {
+      var finalText = el.getAttribute('data-tagtypewriter') || el.textContent.trim();
+
+      gsap.fromTo(el, { text: '' }, {
+        text: finalText,
+        duration: 1.2,
+        ease: 'none',
+        scrollTrigger: {
+          trigger: el,
+          start: 'top 88%',
+          toggleActions: 'play none none reverse'
+        },
+        onUpdate: function () {
+          var p = this.progress();
+          el.classList.toggle('is-typing', p > 0 && p < 1);
+        }
+      });
+    });
+  });
 })();
 
 document.addEventListener('DOMContentLoaded', function () {
