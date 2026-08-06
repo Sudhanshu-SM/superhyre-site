@@ -51,13 +51,27 @@ export function BackgroundVideo() {
     // Decode the whole clip into frame canvases (background, sequential seeks
     // so we never flood the media pipeline — happens once).
     const video = document.createElement('video');
-    video.src = VIDEO_SRC;
+    video.src = VIDEO_SRC; // eager: first frame paints ASAP
     video.preload = 'auto';
     video.muted = true;
     video.playsInline = true;
 
     const decodeAll = async () => {
       try {
+        // Prefetch the whole clip into a Blob first. Sequential 4K seeks issue
+        // one range request each against the server (measured ~270ms/seek), so
+        // the 90-frame decode dragged on for ~a minute after a hard refresh —
+        // the canvas looked frozen/broken until it finished. Seeks against a
+        // local Blob are memory operations and finish in a couple of seconds.
+        try {
+          const resp = await fetch(VIDEO_SRC);
+          if (resp.ok) {
+            const blob = await resp.blob();
+            video.src = URL.createObjectURL(blob);
+          }
+        } catch {
+          /* fall back to the network src already set above */
+        }
         await new Promise<void>((resolve) => {
           if (video.readyState >= 1) resolve();
           else video.addEventListener('loadedmetadata', () => resolve());

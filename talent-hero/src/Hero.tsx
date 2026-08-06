@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useTypewriter } from './useTypewriter';
 
-const EMAIL = 'hello@superhyre.com';
-
-const CAPABILITY_TAGS = ['Senior Engineers', '48-Hour Shortlist', 'Full-Stack & Systems', 'Direct Team Access'];
+const HERO_POINTS = [
+  'Elite Software Engineers',
+  '48-Hour Pipeline',
+  'Precision Shortlists',
+  'Direct Client Communication'
+];
 
 const HEADLINE =
   'Glad you stopped in. High-growth technical teams tend to find us. Which engineering roles are we shortlisting for you?';
@@ -50,28 +53,21 @@ export function Hero() {
           )}
         </p>
 
-        {/* Capability Tags + Reach Us */}
+        {/* Hero Feature Highlights (unique vs. trust cards) + Reach Us */}
         <div
-          className={`flex flex-wrap items-center gap-2.5 transition-all duration-400 ${
+          className={`flex flex-wrap items-center gap-x-6 gap-y-3 pt-2 transition-all duration-400 ${
             visible ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0'
           }`}
           style={{ transitionTimingFunction: 'ease', transitionDuration: '0.4s' }}
         >
-          {CAPABILITY_TAGS.map((tag) => (
-            <span
-              key={tag}
-              className="sh-tag-pill cursor-pointer rounded-full border border-black/15 bg-white/90 px-4 py-2 text-xs font-bold text-black shadow-sm backdrop-blur-sm transition-all hover:border-black hover:bg-black hover:text-white sm:text-sm"
-            >
-              {tag}
-            </span>
+          {HERO_POINTS.map((point) => (
+            <div key={point} className="flex items-center gap-2">
+              <span className="text-sm font-black text-[#FF6000]" aria-hidden="true">
+                ✓
+              </span>
+              <span className="text-sm font-bold tracking-tight text-black/90 sm:text-base">{point}</span>
+            </div>
           ))}
-
-          <a
-            href={`mailto:${EMAIL}`}
-            className="sh-reach-pill flex items-center gap-2 rounded-full border border-black bg-black/80 px-4 py-2 text-xs font-bold text-white backdrop-blur-sm transition-all hover:border-[#FF6000] hover:bg-[#FF6000] sm:text-sm"
-          >
-            Reach us: <span className="underline">{EMAIL}</span>
-          </a>
         </div>
       </div>
     </main>
