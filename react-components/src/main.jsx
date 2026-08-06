@@ -10,6 +10,7 @@ import { initHorizontalWhyItWorks } from './HorizontalWhyItWorks';
 import { initProcessAccordion } from './ProcessAccordion';
 import { initUiverseStartHiringButton } from './UiverseStartHiringButton';
 import { initUiverseLetsTalkButton } from './UiverseLetsTalkButton';
+import { initSocialIcons } from './SocialIcons';
 
 const rootElement = document.getElementById('react-cursor-root');
 
@@ -49,5 +50,7 @@ if (typeof window !== 'undefined') {
     initUiverseStartHiringButton();
     // 8. Mount the Uiverse "LET'S TALK" button (Section 05 CTA)
     initUiverseLetsTalkButton();
+    // 9. Mount the animated social icon tooltips (footer)
+    initSocialIcons();
   });
 }
