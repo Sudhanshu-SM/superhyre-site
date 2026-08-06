@@ -8,10 +8,11 @@
 <link rel="icon" href="favicon.ico" sizes="any" />
 <link rel="apple-touch-icon" href="assets/logo.svg" />
 <meta name="description" content="We call it talent engineering: applying an engineering and first-principles mindset to hunting elite talent." />
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@800;900&family=Fanwood+Text:ital@0;1&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+<link rel="preconnect" href="https://db.onlinewebfonts.com" crossorigin />
+<link href="https://db.onlinewebfonts.com/c/5ac3fe7c6abd2f62067f266d89671492?family=HelveticaNowDisplay-Medium" rel="stylesheet" />
+<link href="https://db.onlinewebfonts.com/c/1aa3377e489837a26d019bba501e779d?family=HelveticaNowDisplayW01-Rg" rel="stylesheet" />
 <link rel="stylesheet" href="style.css" />
+<link rel="stylesheet" href="talent-hero.css" />
 <link rel="stylesheet" href="https://unpkg.com/lenis@1.3.25/dist/lenis.css" />
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
@@ -21,49 +22,8 @@
 <body>
 <div class="page">
 
-  <header class="topbar" id="topbar">
-    <button type="button" class="cta-talk-btn contact-link" aria-label="Let's talk">
-      <span>Let's talk</span>
-      <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <line x1="7" y1="17" x2="17" y2="7"></line>
-        <polyline points="7 7 17 7 17 17"></polyline>
-      </svg>
-    </button>
-    <a class="brand" href="index.html" aria-label="SuperHyre home">SUPER<span class="accent">HYRE</span></a>
-    <button class="menu-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="nav-overlay"><span class="burger"></span></button>
-  </header>
-
-  <div class="nav-overlay" id="nav-overlay" aria-hidden="true">
-    <nav class="nav-links" aria-label="Main">
-      <a href="talent.html" class="nav-link" style="--i:0">About</a>
-      <a href="index.html#process" class="nav-link" style="--i:1">How we work</a>
-      <a href="index.html#features" class="nav-link" style="--i:2">Why us</a>
-      <a href="#" class="nav-link contact-link" style="--i:3">Contact</a>
-    </nav>
-    <div class="overlay-footer">
-      <p>&copy; 2026 SuperHyre. All rights reserved.</p>
-      <div class="overlay-socials">
-        <a href="https://www.linkedin.com/company/superhyre01/about/" target="_blank" rel="noopener">LinkedIn</a>
-        <a href="#">Twitter</a>
-        <a href="#">GitHub</a>
-      </div>
-    </div>
-  </div>
-
-  <section class="article">
-    <div class="article-inner">
-      <h1 class="title">
-        <span class="mask-line"><span class="mask-line-inner">we <em>talent</em></span></span>
-        <span class="mask-line"><span class="mask-line-inner">engineer</span></span>
-      </h1>
-      <p data-reveal>The best startup hires don't come from job boards, they come from understanding exactly where a company is in its arc and what kind of person thrives at that inflection point.</p>
-      <p data-reveal>At SuperHyre, we've built our entire process around that insight. We call it talent engineering - applying an engineering and first-principles mindset to hunting elite talent, rather than doing traditional HR work.</p>
-      <p data-reveal>That means we don't start with a database and a keyword search. We start with the problem: what does this role need to solve, what does the ideal person look like from first principles, and where are they most likely hiding.</p>
-      <p data-reveal>Our sourcing is AI-native, our shortlists are ruthlessly filtered, and our judgment is calibrated against hundreds of startup hiring patterns.</p>
-      <p class="tight" data-reveal>We don't hand you a stack of profiles to sift through.</p>
-      <p class="lead-out" data-reveal>We hand you a decision.</p>
-    </div>
-  </section>
+  <!-- REACT HERO LANDING: talent-hero-bundle.js mounts into #talent-hero-root -->
+  <div id="talent-hero-root"></div>
 
   <section class="quotes" id="quotes">
     <div class="q-side left"><blockquote id="ql-text"></blockquote><p class="who"><span id="ql-who"></span><span class="org" id="ql-org"></span></p></div>
@@ -123,8 +83,8 @@
     <p class="modal-num">or email <a href="mailto:punith@superhyre.com">punith@superhyre.com</a></p>
   </div>
 </div>
-<script src="nav.js"></script>
 <script src="contact.js"></script>
 <script src="talent.js"></script>
+<script src="talent-hero-bundle.js"></script>
 </body>
 </html>
