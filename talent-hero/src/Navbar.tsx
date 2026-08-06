@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type MouseEvent } from 'react';
 
 const NAV_LINKS: { label: string; href: string }[] = [
   { label: 'Advantage', href: 'index.html#features' },
@@ -6,6 +6,19 @@ const NAV_LINKS: { label: string; href: string }[] = [
   { label: 'Philosophy', href: 'index.html#philosophy' },
   { label: 'Decision', href: 'index.html#decision' }
 ];
+
+// Mirrors index.html's `cta-talk-btn contact-link`: opens the shared
+// #contactModal (contact.js only binds static .contact-link nodes, so the
+// React-mounted navbar must open it directly).
+function openContactModal(e: MouseEvent<HTMLAnchorElement>) {
+  e.preventDefault();
+  const modal = document.getElementById('contactModal') as HTMLElement | null;
+  if (!modal) return;
+  modal.hidden = false;
+  document.body.classList.add('modal-open');
+  const closeBtn = modal.querySelector('.modal-close') as HTMLElement | null;
+  closeBtn?.focus();
+}
 
 export function Navbar() {
   const [open, setOpen] = useState(false);
@@ -47,13 +60,21 @@ export function Navbar() {
           ))}
         </nav>
 
-        {/* Desktop CTA */}
+        {/* Desktop CTA — LET'S TALK ↗ (index signature: tracking-widest caps,
+            black → #FF6000 on hover, inline arrow drifts up-right) */}
         <a
-          href="index.html#contact"
-          className="hidden font-body text-[21px] text-black underline underline-offset-2 transition-colors hover:text-[#FF6000] md:block"
+          href="#contact"
+          onClick={openContactModal}
+          className="group hidden items-center gap-1.5 py-1 font-body text-xs font-extrabold uppercase tracking-widest text-black transition-colors hover:text-[#FF6000] sm:text-sm md:inline-flex"
           style={{ fontFamily: 'var(--font-body)' }}
         >
-          Let's Talk
+          <span>LET'S TALK</span>
+          <span
+            aria-hidden="true"
+            className="inline-block transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+          >
+            ↗
+          </span>
         </a>
 
         {/* Mobile Hamburger */}
@@ -97,12 +118,21 @@ export function Navbar() {
           </a>
         ))}
         <a
-          href="index.html#contact"
-          onClick={() => setOpen(false)}
-          className="font-body text-[32px] font-medium text-black"
+          href="#contact"
+          onClick={(e) => {
+            setOpen(false);
+            openContactModal(e);
+          }}
+          className="group inline-flex items-center gap-1.5 font-body text-[32px] font-extrabold uppercase tracking-widest text-black"
           style={{ fontFamily: 'var(--font-body)' }}
         >
-          Let's Talk
+          <span>LET'S TALK</span>
+          <span
+            aria-hidden="true"
+            className="inline-block transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+          >
+            ↗
+          </span>
         </a>
       </div>
     </>
