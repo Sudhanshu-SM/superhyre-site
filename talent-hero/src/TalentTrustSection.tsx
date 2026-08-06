@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 interface AssuranceCard {
   stat: string;
   statColor: string;
@@ -12,7 +14,7 @@ const ASSURANCES: AssuranceCard[] = [
     statColor: '#FF6000',
     title: 'PRACTITIONER VETTING',
     description:
-      "Your candidates aren't screened by keyword-matching HR reps. Every profile is evaluated directly by senior software engineers who test production-grade system design and code quality before shortlisting.",
+      "Your candidates aren't screened by keyword-matching HR reps. Every profile is evaluated directly by senior software engineers who test production-grade system design and code quality.",
     footerTag: 'TECHNICAL RIGOR'
   },
   {
@@ -33,10 +35,63 @@ const ASSURANCES: AssuranceCard[] = [
   }
 ];
 
+function FlipCardItem({ item }: { item: AssuranceCard }) {
+  const [isFlipped, setIsFlipped] = useState(false);
+
+  return (
+    <div
+      className={`sh-flip-card ${isFlipped ? 'sh-flip-card-flipped' : ''}`}
+      onClick={() => setIsFlipped((v) => !v)}
+    >
+      <div className="sh-flip-card-inner">
+        {/* FRONT SIDE */}
+        <div className="sh-flip-card-front">
+          <div className="flex h-full flex-col justify-between p-8">
+            <div>
+              <span
+                className="mb-4 block text-5xl font-black tracking-tight sm:text-6xl"
+                style={{ color: item.statColor }}
+              >
+                {item.stat}
+              </span>
+              <h3 className="text-lg font-extrabold uppercase tracking-tight text-black">{item.title}</h3>
+            </div>
+            <div className="sh-flip-card-divider flex items-center justify-between pt-6 text-[11px] font-bold uppercase tracking-wider text-neutral-400">
+              <span>TAP OR HOVER TO FLIP</span>
+              <span className="text-sm text-[#FF6000]" aria-hidden="true">
+                ↻
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* BACK SIDE */}
+        <div className="sh-flip-card-back">
+          <div className="flex h-full flex-col justify-between p-8 text-left">
+            <div>
+              <span className="mb-3 block text-xs font-extrabold uppercase tracking-widest text-[#FF6000]">
+                OPERATIONAL STANDARD
+              </span>
+              <h4 className="mb-3 text-sm font-black uppercase leading-tight tracking-wider text-black">
+                {item.title}
+              </h4>
+              <p className="text-sm leading-relaxed text-neutral-700">{item.description}</p>
+            </div>
+            <div className="sh-flip-card-divider flex items-center justify-between pt-6 text-[11px] font-bold uppercase tracking-wider text-neutral-400">
+              <span>{item.footerTag}</span>
+              <span className="text-[#FF6000]">✓</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function TalentTrustSection() {
   return (
     <section
-      className="sh-trust-section relative z-20 w-full bg-white px-6 py-20 text-black md:px-16"
+      className="relative z-20 w-full bg-white px-6 py-20 text-black md:px-16"
       style={{ fontFamily: 'var(--font-body)' }}
     >
       <div className="mx-auto max-w-7xl">
@@ -48,37 +103,82 @@ export function TalentTrustSection() {
             Recruitment Engineered for Results.
           </h2>
           <p className="text-base font-medium text-neutral-600 sm:text-lg">
-            We removed traditional agency friction so you can hire elite technical talent with complete confidence.
+            We removed traditional agency friction. Tap or hover over each pillar to reveal our operational standards.
           </p>
         </div>
 
         <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
           {ASSURANCES.map((item) => (
-            <div
-              key={item.title}
-              className="sh-trust-card flex flex-col justify-between rounded-2xl border border-neutral-200/80 bg-neutral-50/80 p-8 transition-all duration-300 hover:-translate-y-1 hover:border-black hover:shadow-xl"
-            >
-              <div>
-                <span
-                  className="mb-4 block text-5xl font-black tracking-tight sm:text-6xl"
-                  style={{ color: item.statColor }}
-                >
-                  {item.stat}
-                </span>
-
-                <h3 className="mb-3 text-sm font-extrabold uppercase tracking-wider text-black">{item.title}</h3>
-
-                <p className="text-sm leading-relaxed text-neutral-600">{item.description}</p>
-              </div>
-
-              <div className="sh-trust-divider mt-8 flex items-center justify-between border-t border-neutral-200/80 pt-6 text-[11px] font-bold uppercase tracking-wider text-neutral-400">
-                <span>{item.footerTag}</span>
-                <span className="text-[#FF6000]">✓</span>
-              </div>
-            </div>
+            <FlipCardItem key={item.title} item={item} />
           ))}
         </div>
       </div>
+
+      <style>{`
+        /* 3D flip mechanics adapted from the Uiverse card snippet, with
+           WebKit unblur hardening: -webkit-font-smoothing subpixel +
+           translateZ(1px) + prefixed backface/preserve rules keep rotated
+           card text crisp on iOS/Safari. The site-wide style.css ships
+           border:none !important, so face borders and dividers are
+           re-asserted here with !important. */
+        .sh-flip-card {
+          background-color: transparent;
+          width: 100%;
+          min-height: 330px;
+          height: 100%;
+          perspective: 1000px;
+          cursor: pointer;
+          user-select: none;
+        }
+        .sh-flip-card-inner {
+          position: relative;
+          width: 100%;
+          height: 100%;
+          text-align: left;
+          transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+          transform-style: preserve-3d;
+          -webkit-transform-style: preserve-3d;
+        }
+        /* Hover flip applies only on fine-pointer devices — on touch,
+           sticky :hover would fight the click-state toggle. */
+        @media (hover: hover) {
+          .sh-flip-card:hover .sh-flip-card-inner {
+            transform: rotateY(180deg);
+            -webkit-transform: rotateY(180deg);
+          }
+        }
+        .sh-flip-card-flipped .sh-flip-card-inner {
+          transform: rotateY(180deg);
+          -webkit-transform: rotateY(180deg);
+        }
+        .sh-flip-card-front,
+        .sh-flip-card-back {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          -webkit-backface-visibility: hidden !important;
+          backface-visibility: hidden !important;
+          border-radius: 1.25rem;
+          border: 1px solid rgba(0, 0, 0, 0.1) !important;
+          -webkit-font-smoothing: subpixel-antialiased;
+          transform: translateZ(1px);
+          -webkit-transform: translateZ(1px);
+        }
+        .sh-flip-card-front {
+          background-color: #fafafa;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+        }
+        .sh-flip-card-back {
+          background-color: #ffffff;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+          transform: rotateY(180deg) translateZ(1px);
+          -webkit-transform: rotateY(180deg) translateZ(1px);
+        }
+        .sh-flip-card-divider {
+          border-top: 1px solid rgba(0, 0, 0, 0.1) !important;
+        }
+      `}</style>
     </section>
   );
 }

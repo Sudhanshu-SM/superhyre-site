@@ -103,18 +103,32 @@ export function BackgroundVideo() {
       rafId = requestAnimationFrame(loop);
     };
 
+    // Device-aware scrub engine: horizontal mouse tracking on fine pointers,
+    // scroll-position tracking on coarse/touch screens (<768px or touch).
+    const isCoarse = window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 768;
+
     const handleMouseMove = (e: MouseEvent) => {
+      if (isCoarse) return;
       targetProgress = e.clientX / window.innerWidth;
+    };
+
+    const handleScroll = () => {
+      if (!isCoarse) return;
+      const scrollMax = Math.min(window.innerHeight, 800);
+      const p = window.scrollY / scrollMax;
+      targetProgress = Math.min(Math.max(p, 0), 1);
     };
 
     decodeAll();
     window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     rafId = requestAnimationFrame(loop);
 
     return () => {
       active = false;
       window.removeEventListener('resize', resize);
       window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('scroll', handleScroll);
       if (rafId !== null) {
         cancelAnimationFrame(rafId);
         rafId = null;
