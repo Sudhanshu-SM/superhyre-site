@@ -1175,7 +1175,7 @@ body.no-scroll{overflow:hidden;}
   padding:4rem 0 3rem 0;border-top:1px solid #1A1A1A;
   white-space:nowrap;
 }
-.footer-marquee-link{text-decoration:none;display:block;}
+.footer-marquee-link{text-decoration:none;display:block;cursor:pointer;}
 .footer-marquee-track{
   display:flex;width:max-content;
   animation:marqueeScroll 45s linear infinite;

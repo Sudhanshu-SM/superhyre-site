@@ -249,7 +249,9 @@ Error generating stack: `+o.message+`
           height: 8px;
         }
 
-        /* Crisp 48px circular base */
+        /* Crisp 48px circular base — no shadow, no outline: a box-shadow
+           on the dark footer reads as a faint dark ring / halo behind the
+           button, so it is intentionally stripped. */
         .sh-circle {
           position: relative;
           width: 48px;
@@ -262,7 +264,8 @@ Error generating stack: `+o.message+`
           justify-content: center;
           overflow: hidden;
           text-decoration: none;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+          box-shadow: none;
+          outline: none;
           transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
         }
 
@@ -285,10 +288,15 @@ Error generating stack: `+o.message+`
           transition: height 0.3s cubic-bezier(0.25, 1, 0.5, 1);
         }
 
+        .sh-circle:focus-visible {
+          outline: 2px solid #ffffff;
+          outline-offset: 2px;
+        }
+
         .sh-circle-hover {
           color: #ffffff;
           transform: translateY(-4px);
-          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+          box-shadow: none;
         }
 
         .sh-circle-hover .sh-filled {

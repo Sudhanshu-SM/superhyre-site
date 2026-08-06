@@ -57,3 +57,24 @@ body {
 #talent-hero-root .sh-reach-pill:hover {
   border-color: #ff6000 !important;
 }
+
+/* ———————————————————————————————————————————————————————————————
+   TalentTrustSection: style.css ships `border:none !important` globally,
+   which kills every border in the trust grid — restore the few the design
+   needs, scoped to the trust root.
+   ——————————————————————————————————————————————————————————————— */
+#talent-trust-root .sh-trust-section {
+  border-top: 1px solid #e5e5e5 !important;
+}
+
+#talent-trust-root .sh-trust-card {
+  border: 1px solid #e5e5e5 !important;
+}
+
+#talent-trust-root .sh-trust-card:hover {
+  border-color: #000000 !important;
+}
+
+#talent-trust-root .sh-trust-divider {
+  border-top: 1px solid #e5e5e5 !important;
+}
