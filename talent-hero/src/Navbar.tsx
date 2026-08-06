@@ -15,17 +15,15 @@ export function Navbar() {
   return (
     <>
       {/* Desktop / Mobile Bar */}
-      <header className="fixed top-0 left-0 right-0 z-10 flex items-center justify-between px-5 py-4 sm:px-8 sm:py-5">
-        {/* Logo */}
-        <a href="index.html" className="flex items-center gap-2">
+      <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between border-b border-black/5 bg-white/85 px-5 py-4 backdrop-blur-md sm:px-8">
+        {/* Logo: SUPER (Black) + HYRE (#FF6000), no trailing dot */}
+        <a href="index.html" className="flex items-center">
           <span
-            className="font-heading text-[21px] sm:text-[26px] tracking-tight text-black"
+            className="font-heading text-[21px] font-black tracking-tight text-black sm:text-[26px]"
             style={{ fontFamily: 'var(--font-heading)' }}
           >
-            SUPERHYRE
-          </span>
-          <span className="text-[#FF4301]" style={{ fontFamily: 'var(--font-heading)' }}>
-            .
+            SUPER
+            <span className="text-[#FF6000]">HYRE</span>
           </span>
         </a>
 
@@ -35,7 +33,7 @@ export function Navbar() {
             <span key={link.label} className="flex items-center gap-2">
               <a
                 href={link.href}
-                className="font-body text-[21px] text-black transition-opacity hover:opacity-60"
+                className="font-body text-[21px] text-black transition-colors hover:text-[#FF6000]"
                 style={{ fontFamily: 'var(--font-body)' }}
               >
                 {link.label}
@@ -52,7 +50,7 @@ export function Navbar() {
         {/* Desktop CTA */}
         <a
           href="index.html#contact"
-          className="hidden font-body text-[21px] text-black underline underline-offset-2 transition-opacity hover:opacity-60 md:block"
+          className="hidden font-body text-[21px] text-black underline underline-offset-2 transition-colors hover:text-[#FF6000] md:block"
           style={{ fontFamily: 'var(--font-body)' }}
         >
           Let's Talk

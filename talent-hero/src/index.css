@@ -31,3 +31,29 @@ body {
 .typewriter-cursor {
   animation: blink 1s step-end infinite;
 }
+
+/* ———————————————————————————————————————————————————————————————
+   The site-wide style.css ships `*,*::before,*::after { border:none
+   !important }` which kills every Tailwind border inside the hero
+   island. Re-assert the few borders the design needs with scoped
+   `!important` rules (higher specificity wins in the !important tier).
+   ——————————————————————————————————————————————————————————————— */
+#talent-hero-root header {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05) !important;
+}
+
+#talent-hero-root .sh-tag-pill {
+  border: 1px solid rgba(0, 0, 0, 0.15) !important;
+}
+
+#talent-hero-root .sh-tag-pill:hover {
+  border-color: #000000 !important;
+}
+
+#talent-hero-root .sh-reach-pill {
+  border: 1px solid #000000 !important;
+}
+
+#talent-hero-root .sh-reach-pill:hover {
+  border-color: #ff6000 !important;
+}

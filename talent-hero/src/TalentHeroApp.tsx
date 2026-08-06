@@ -5,7 +5,7 @@ import './index.css';
 
 export function TalentHeroApp() {
   return (
-    <div className="relative h-screen w-full overflow-hidden bg-white">
+    <div className="relative min-h-screen w-full overflow-hidden bg-white">
       <BackgroundVideo />
       <Navbar />
       <Hero />
