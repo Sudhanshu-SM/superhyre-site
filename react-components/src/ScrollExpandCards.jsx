@@ -248,8 +248,7 @@ const scrollExpandStatsData = [
   {
     id: '01',
     stat: '48HRS',
-    subheadingHtml:
-      'TO A VET<span class="font-kreol italic font-normal">T</span>ED SHORTL<span class="font-kreol italic font-normal">I</span>ST',
+    subheading: 'TO A VETTED SHORTLIST',
     descriptionHtml:
       'Our high-velocity talent matching protocol bypasses standard resume queuing to <strong>source, screen, and deliver</strong> fully aligned engineering leads within two business days.',
     example:
@@ -258,8 +257,7 @@ const scrollExpandStatsData = [
   {
     id: '02',
     stat: '3',
-    subheadingHtml:
-      'SCREEN<span class="font-kreol italic font-normal">I</span>NG STAG<span class="font-kreol italic font-normal">E</span>S BEFORE YOUR DESK',
+    subheading: 'SCREENING STAGES BEFORE YOUR DESK',
     descriptionHtml:
       'Every profile undergoes <strong>rigorous algorithmic code checks</strong>, live system architecture defense, and deep culture alignment vetting before you ever review them.',
     example:
@@ -268,8 +266,7 @@ const scrollExpandStatsData = [
   {
     id: '03',
     stat: '100%',
-    subheadingHtml:
-      'OF OUR P<span class="font-kreol italic font-normal">O</span>OL IS PRE-VET<span class="font-kreol italic font-normal">T</span>ED',
+    subheading: 'OF OUR POOL IS PRE-VETTED',
     descriptionHtml:
       'We maintain an active network of top-tier engineers with <strong>verified work histories</strong> and real code assessments—zero unverified PDF resumes.',
     example:
@@ -278,8 +275,7 @@ const scrollExpandStatsData = [
   {
     id: '04',
     stat: '40+',
-    subheadingHtml:
-      'INDUS<span class="font-kreol italic font-normal">T</span>RIES & GEOGR<span class="font-kreol italic font-normal">A</span>PHIES COVERED',
+    subheading: 'INDUSTRIES & GEOGRAPHIES COVERED',
     descriptionHtml:
       'Extensive talent coverage across North America, Europe, and key emerging technology hubs, spanning <strong>Fintech, AI Infrastructure</strong>, SaaS, and HealthTech.',
     example:
@@ -290,10 +286,7 @@ const scrollExpandStatsData = [
 const StatOverlay = ({ card }) => (
   <div className="se-content">
     <div className="se-stat">{card.stat}</div>
-    <h3
-      className="se-subheading font-wf-sans"
-      dangerouslySetInnerHTML={{ __html: card.subheadingHtml }}
-    />
+    <h3 className="se-subheading">{card.subheading}</h3>
     <p
       className="se-desc font-wf-sans"
       dangerouslySetInnerHTML={{ __html: card.descriptionHtml }}

@@ -486,19 +486,23 @@ html.js-motion{scroll-behavior:auto!important;}
   text-shadow:0 4px 30px rgba(255,77,0,.35);
 }
 .se-subheading{
-  font-family:'WF Visual Sans Variable',system-ui,-apple-system,sans-serif;
-  font-weight:500;
+  font-family:'Archivo','Helvetica Neue',Helvetica,Arial,sans-serif !important;
+  font-style:normal !important;
+  font-weight:700 !important;
   font-size:clamp(1.75rem,3.2vw,2.25rem);
   line-height:1.15;
-  letter-spacing:.06em;
+  letter-spacing:.05em;
   text-transform:uppercase;
-  color:#F97316;
+  color:#FF6000;
   margin:0 0 1.5rem;
   text-shadow:0 2px 18px rgba(0,0,0,.6);
 }
-.se-subheading .font-kreol{
-  font-style:italic;
-  font-weight:400;
+.se-subheading .font-kreol,
+.se-subheading i,
+.se-subheading em{
+  font-family:'Archivo','Helvetica Neue',Helvetica,Arial,sans-serif !important;
+  font-style:normal !important;
+  font-weight:inherit !important;
 }
 .se-desc{
   margin:0 auto 1.5rem;

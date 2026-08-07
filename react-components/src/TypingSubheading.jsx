@@ -16,20 +16,33 @@ export default function TypingSubheading({
   const [isVisible, setIsVisible] = useState(false);
   const [typed, setTyped] = useState('');
   const [started, setStarted] = useState(false);
+  const [runId, setRunId] = useState(0);
   const elementRef = useRef(null);
+  const wasVisible = useRef(false);
 
   const reduceMotion =
     typeof window !== 'undefined' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   useEffect(() => {
+    if (reduceMotion) {
+      setIsVisible(true);
+      setStarted(true);
+      return;
+    }
+
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) {
+        const now = entry.isIntersecting;
+        if (now && !wasVisible.current) {
           setIsVisible(true);
           setStarted(true);
-          observer.disconnect();
+          setRunId((r) => r + 1);
         }
+        if (!now) {
+          setIsVisible(false);
+        }
+        wasVisible.current = now;
       },
       { threshold: 0.5 }
     );
@@ -43,6 +56,7 @@ export default function TypingSubheading({
 
   useEffect(() => {
     if (!started || reduceMotion) return;
+    setTyped('');
     let i = 0;
     const id = setInterval(() => {
       i += 1;
@@ -50,7 +64,7 @@ export default function TypingSubheading({
       if (i >= text.length) clearInterval(id);
     }, speed);
     return () => clearInterval(id);
-  }, [started, text, speed, reduceMotion]);
+  }, [runId, started, text, speed, reduceMotion]);
 
   const done = typed.length >= text.length;
   const showText = reduceMotion ? text : started ? typed : '';
