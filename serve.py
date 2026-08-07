@@ -50,6 +50,9 @@ class RangeRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header('Content-Length', str(size))
         self.send_header('Content-Type', self.guess_type(path))
         self.send_header('Last-Modified', self.date_time_string(fs.st_mtime))
+        self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+        self.send_header('Pragma', 'no-cache')
+        self.send_header('Expires', '0')
         self.end_headers()
         return f
 

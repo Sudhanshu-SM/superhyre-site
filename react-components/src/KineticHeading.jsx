@@ -30,39 +30,52 @@ const KineticText = ({
   const fullText = words.flatMap((w) => w.chars.map((x) => x.c)).join('');
 
   useEffect(() => {
+    // Entrance runs from an IntersectionObserver instead of a ScrollTrigger
+    // start position. ScrollTrigger's `start` is computed from the viewport
+    // height once, and on phones the browser address bar collapses during
+    // scroll, shifting that position so the reveal silently never fires.
+    // IntersectionObserver is layout-based, so it stays correct on every
+    // device regardless of viewport-height changes or Lenis smoothing.
     if (!entrance || staticRender) return;
     const el = tagRef.current;
     const gsap = window.gsap;
-    const ScrollTrigger = window.ScrollTrigger;
-    if (!el || !gsap || !ScrollTrigger) return;
+    if (!el || !gsap) return;
     const letters = el.querySelectorAll('.kinetic-letter');
     if (!letters.length) return;
-    gsap.registerPlugin(ScrollTrigger);
-    const tween = gsap.fromTo(
-      letters,
-      {
-        opacity: 0,
-        y: 10,
-        filter: 'blur(4px)',
-      },
-      {
-        opacity: 1,
-        y: 0,
-        filter: 'blur(0px)',
-        duration: 0.5,
-        ease: 'power2.out',
-        stagger: 0.02,
-        scrollTrigger: {
-          trigger: el,
-          start: 'top 85%',
-          toggleActions: 'play none none reverse',
-        },
-      }
-    );
-    return () => {
-      if (tween.scrollTrigger) tween.scrollTrigger.kill();
-      tween.kill();
+
+    const hidden = { opacity: 0, y: 10, filter: 'blur(4px)' };
+    const shown = {
+      opacity: 1,
+      y: 0,
+      filter: 'blur(0px)',
+      duration: 0.5,
+      ease: 'power2.out',
+      stagger: 0.02,
     };
+    const play = () => {
+      gsap.killTweensOf(letters);
+      gsap.fromTo(letters, hidden, shown);
+    };
+    const reset = () => {
+      gsap.killTweensOf(letters);
+      gsap.set(letters, hidden);
+    };
+
+    if (typeof IntersectionObserver === 'undefined') {
+      play();
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) play();
+          else reset();
+        });
+      },
+      { rootMargin: '0px 0px -10% 0px', threshold: 0 }
+    );
+    io.observe(el);
+    return () => io.disconnect();
   }, [entrance, staticRender]);
 
   return (

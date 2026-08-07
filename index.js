@@ -144,29 +144,49 @@
   nextBtn.addEventListener('click', function () { changeSlide('next'); });
   prevBtn.addEventListener('click', function () { changeSlide('prev'); });
 
-  /* ---------- typewriter eyebrows (GSAP TextPlugin + ScrollTrigger) ---------- */
+  /* ---------- typewriter eyebrows (GSAP TextPlugin + IntersectionObserver) ---------- */
   document.addEventListener('DOMContentLoaded', function () {
     if (typeof gsap === 'undefined') return;
-    gsap.registerPlugin(ScrollTrigger, gsap.core.globals().TextPlugin);
+    /* TextPlugin ships as a UMD global — register it explicitly, otherwise
+       `text:` tweens silently no-op (gsap.core.globals() is unreliable here). */
+    if (typeof window !== 'undefined' && window.TextPlugin) {
+      gsap.registerPlugin(window.TextPlugin);
+    } else {
+      var tp = gsap.core.globals().TextPlugin;
+      if (tp) gsap.registerPlugin(tp);
+    }
 
     document.querySelectorAll('[data-tagtypewriter]').forEach(function (el) {
       var finalText = el.getAttribute('data-tagtypewriter') || el.textContent.trim();
 
-      gsap.fromTo(el, { text: '' }, {
-        text: finalText,
-        duration: 1.2,
-        ease: 'none',
-        immediateRender: false,
-        scrollTrigger: {
-          trigger: el,
-          start: 'top 88%',
-          toggleActions: 'play none none reverse'
-        },
-        onUpdate: function () {
-          var p = this.progress();
-          el.classList.toggle('is-typing', p > 0 && p < 1);
-        }
-      });
+      function play() {
+        el.classList.add('is-typing');
+        gsap.killTweensOf(el);
+        gsap.fromTo(el, { text: '' }, {
+          text: finalText,
+          duration: 1.2,
+          ease: 'none',
+          overwrite: true
+        });
+      }
+
+      function reset() {
+        el.classList.remove('is-typing');
+        gsap.killTweensOf(el);
+        if (el.textContent !== finalText) gsap.set(el, { text: finalText });
+      }
+
+      if (typeof IntersectionObserver === 'undefined') {
+        play();
+        return;
+      }
+
+      new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (entry.isIntersecting) play();
+          else reset();
+        });
+      }, { rootMargin: '0px 0px -10% 0px', threshold: 0 }).observe(el);
     });
   });
 })();
@@ -423,7 +443,8 @@ document.addEventListener('DOMContentLoaded', function () {
       });
     });
 
-    /* ethos: initial quote entrance when the carousel scrolls into view */
+    /* ethos: initial quote entrance when the carousel scrolls into view.
+       Re-runs on every scroll-in so the title reveal replays each time. */
     var firstQuote = document.querySelector('.ethos-slide.active .ethos-quote');
     if (firstQuote) {
       gsap.fromTo('.ethos-slide.active .slide-element', { y: 40, opacity: 0 }, {
@@ -431,7 +452,11 @@ document.addEventListener('DOMContentLoaded', function () {
         onComplete: function () {
           gsap.set('.ethos-slide.active .slide-element', { clearProps: 'transform,opacity' });
         },
-        scrollTrigger: { trigger: '.ethos-carousel', start: 'top bottom', once: true }
+        scrollTrigger: {
+          trigger: '.ethos-carousel',
+          start: 'top 85%',
+          toggleActions: 'restart none none reset'
+        }
       });
     }
 

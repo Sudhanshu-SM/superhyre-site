@@ -55,7 +55,12 @@ function buildWords(chars) {
 }
 
 export function initKineticHeadings() {
-  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Entrance animation stays active for every visitor (desktop request and
+  // mobile); it degrades to a plain static render only if GSAP or
+  // ScrollTrigger failed to load. A mobile "reduce motion" OS setting alone
+  // must not kill the reveal, or mobile users never see it.
+  const noMotion =
+    typeof window.gsap === 'undefined' || typeof window.ScrollTrigger === 'undefined';
   document.querySelectorAll('[data-kinetic-heading]').forEach((container) => {
     const words = buildWords(extractChars(container));
     const level = container.dataset.level || 'h2';
@@ -66,8 +71,8 @@ export function initKineticHeadings() {
           as={level}
           words={words}
           className="kinetic-root"
-          staticRender={reduced}
-          entrance={!reduced}
+          staticRender={noMotion}
+          entrance={!noMotion}
         />
       </React.StrictMode>
     );

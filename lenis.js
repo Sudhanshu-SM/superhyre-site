@@ -20,6 +20,20 @@
   gsap.ticker.add(function (time) { lenis.raf(time * 1000); });
   gsap.ticker.lagSmoothing(0);
 
+  /* Recompute every ScrollTrigger start/end point once Lenis, GSAP and the
+     layout are fully initialised (fonts/images can shift offsets). The
+     rAF handles the first pass; the window load fires again after heavy
+     assets settle so triggers never fire prematurely off-screen. */
+  requestAnimationFrame(function () {
+    ScrollTrigger.refresh();
+  });
+  window.addEventListener('load', function onLoad() {
+    requestAnimationFrame(function () {
+      ScrollTrigger.refresh();
+    });
+    window.removeEventListener('load', onLoad);
+  });
+
   /* Route in-page anchors through Lenis so the smoothing never fights a native jump. */
   document.addEventListener('click', function (e) {
     var anchor = e.target && e.target.closest ? e.target.closest('a[href^="#"]') : null;
