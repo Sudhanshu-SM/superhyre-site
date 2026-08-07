@@ -322,5 +322,84 @@
 <script src="nav.js"></script>
 <script src="contact.js"></script>
 <script src="index.js"></script>
+<script>
+  // Cross-page scroll restore + glide: talent.html stores the target in
+  // sessionStorage before navigating here. index.html's hero video, fonts and
+  // React bundles resize the page for many seconds, and framer-motion's
+  // scroll-suspension restore can yank the viewport back to the top mid-settle.
+  // Fix: land on the section with a long, soft glide (Lenis retargets the
+  // glide every frame, so it rides the layout grow with no hard cut), then
+  // keep a fast poller AND a scroll-event watchdog armed for ~12s. Corrections
+  // are short smooth glides too — no abrupt snaps while the page settles.
+  // Chrome's scroll-anchoring is disabled during the window so it can't fight.
+  (function () {
+    var targetSection = sessionStorage.getItem('targetSection');
+    if (!targetSection) return;
+    sessionStorage.removeItem('targetSection');
+    try { history.scrollRestoration = 'manual'; } catch (e) {}
+
+    var root = document.scrollingElement || document.documentElement;
+    root.style.overflowAnchor = 'none'; // neutralize Chrome scroll-anchoring while settling
+
+    var expire = Date.now() + 12000;
+    var lastGlideUntil = 0; // guard: never restart a glide while one is still running
+
+    function inView(el) {
+      var rect = el.getBoundingClientRect();
+      return rect.top >= -60 && rect.top < window.innerHeight * 0.75;
+    }
+
+    // Ease-in-out cubic: calm launch and landing, no overshoot. Speed is kept
+    // roughly constant by scaling the glide duration with the distance, so a
+    // small layout nudge glides gently and a big mid-load shift still reads
+    // as one smooth ride instead of a whip. Lenis retargets an element every
+    // frame, so a single glide rides the page growth to the finish line.
+    function easeInOut(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+
+    function glideDuration(dist, ride) {
+      var lo = ride ? 1.1 : 0.5;
+      var hi = ride ? 2.2 : 1.7;
+      return Math.max(lo, Math.min(hi, dist / 8000));
+    }
+
+    function anchor(el, ride) {
+      var dist = Math.abs(el.getBoundingClientRect().top);
+      var dur = glideDuration(dist, ride);
+      lastGlideUntil = Date.now() + dur * 1000 + 100;
+      if (window.__lenis && typeof window.__lenis.scrollTo === 'function') {
+        window.__lenis.scrollTo(el, { offset: 0, duration: dur, easing: easeInOut });
+      } else if (ride) {
+        window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY, behavior: 'smooth' });
+      } else {
+        root.style.scrollBehavior = 'auto';
+        window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY);
+      }
+    }
+
+    // Periodic re-check while the page settles.
+    var tick = setInterval(function () {
+      if (Date.now() > expire) { clearInterval(tick); return; }
+      var el = document.getElementById(targetSection);
+      if (!el || inView(el) || Date.now() < lastGlideUntil) return;
+      anchor(el, false);
+    }, 120);
+
+    // Scroll-event watchdog: reacts to anything pulling the page away, stays
+    // armed until the settle window fully elapses.
+    function onScroll() {
+      if (Date.now() > expire) { window.removeEventListener('scroll', onScroll); return; }
+      var el = document.getElementById(targetSection);
+      if (!el || inView(el) || Date.now() < lastGlideUntil) return;
+      anchor(el, false);
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+
+    // Initial smooth ride.
+    setTimeout(function () {
+      var el = document.getElementById(targetSection);
+      if (el) anchor(el, true);
+    }, 60);
+  })();
+</script>
 </body>
 </html>

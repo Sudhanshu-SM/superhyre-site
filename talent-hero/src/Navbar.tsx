@@ -5,21 +5,36 @@ import { useEffect, useRef, useState } from 'react';
 // which are styled by the shared style.css — same typography, hover colors,
 // burger→X morph and nav-in stagger. The element set stays talent's own
 // (brand + hamburger + 4 overlay links).
-const NAV_LINKS: { label: string; href: string }[] = [
-  { label: 'Advantage', href: 'index.html#features' },
-  { label: 'Process', href: 'index.html#process' },
-  { label: 'Philosophy', href: 'index.html#philosophy' },
-  { label: 'Decision', href: 'index.html#decision' }
+const NAV_LINKS: { label: string; id: string }[] = [
+  { label: 'Advantage', id: 'features' },
+  { label: 'Process', id: 'process' },
+  { label: 'Philosophy', id: 'philosophy' },
+  { label: 'Decision', id: 'decision' }
 ];
 
-// Mirrors nav.js setState() (index.html): toggles .is-active on the overlay,
-// .is-open on the trigger, locks body scroll, focuses the first nav link.
+// Cross-page nav: when on talent.html, store the section intent in
+// sessionStorage and load index.html; a small listener there (added in
+// index.html) defers the scroll until layout settles, so the page no
+// longer snaps back to the hero after navigating in from talent.
 export function Navbar() {
   const [open, setOpen] = useState(false);
   const overlayRef = useRef<HTMLDivElement>(null);
 
   const toggle = () => setOpen((v) => !v);
 
+  const handleCrossPageNav = (id: string) => {
+    setOpen(false);
+    if (window.location.pathname === '/' || window.location.pathname.endsWith('index.html')) {
+      const el = document.getElementById(id);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+sessionStorage.setItem('targetSection', id);
+    window.location.href = 'index.html';
+  };
+
+  // Mirrors nav.js setState() (index.html): toggles .is-active on the overlay,
+  // .is-open on the trigger, locks body scroll, focuses the first nav link.
   useEffect(() => {
     const overlay = overlayRef.current;
     document.body.classList.toggle('no-scroll', open);
@@ -85,10 +100,13 @@ export function Navbar() {
           {NAV_LINKS.map((link, idx) => (
             <a
               key={link.label}
-              href={link.href}
+              href={`index.html#${link.id}`}
               className="nav-link"
               style={{ '--i': idx } as React.CSSProperties}
-              onClick={() => setOpen(false)}
+              onClick={(e) => {
+                e.preventDefault();
+                handleCrossPageNav(link.id);
+              }}
             >
               {link.label}
             </a>
