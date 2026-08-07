@@ -1,19 +1,83 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom/client';
 
 // Floating "Back to Top" trigger — Uiverse minimal text-button design.
 // Same markup/CSS as the styled-components version, but the styles are
 // inlined in a scoped <style> so no runtime CSS-in-JS library is shipped
 // (keeps cursor-bundle lean). Scoped under .back-to-top-wrap.
+//
+// Adaptive color: while scrolling over light/white sections the white glyphs
+// would vanish, so the wrapper samples the background luminance behind the
+// button and flips to brand orange (#FF6000) automatically.
 
 const BackToTop = () => {
   const [isVisible, setIsVisible] = useState(false);
+  const [onLight, setOnLight] = useState(false);
+  const wrapRef = useRef(null);
+  const ticking = useRef(false);
 
   useEffect(() => {
+    const bgLum = (el) => {
+      const bg = getComputedStyle(el).backgroundColor;
+      const m = bg.match(/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)/);
+      if (!m) return -1;
+      const alpha = m[4] === undefined ? 1 : parseFloat(m[4]);
+      if (alpha <= 0.05) return -1;
+      return (0.299 * +m[1] + 0.587 * +m[2] + 0.114 * +m[3]) / 255;
+    };
+
+    const sectionBehindPoint = (bx, by) => {
+      const sections = Array.from(document.querySelectorAll('footer, section, #stats-expand-section'));
+      for (const sec of sections) {
+        // The fixed hero wrapper paints a white video canvas over every section
+        // (it follows the viewport, never leaves it) — skip it explicitly so it
+        // can't make every background read as "light".
+        if (sec.classList && sec.classList.contains('hero-section')) continue;
+        const r = sec.getBoundingClientRect();
+        if (r.left <= bx && bx <= r.right && r.top <= by && by <= r.bottom) {
+          const lum = bgLum(sec);
+          if (lum >= 0) return lum;
+        }
+      }
+      return -1;
+    };
+
+    const sampleBackground = () => {
+      // Which section is under the button right now? Read that section's own
+      // background — geometry, not hit-testing, so the site's fixed hero-video
+      // overlay can't obscure the result. A luminance > 0.6 (white/light)
+      // flips the button to brand orange; anything else keeps white glyphs.
+      const by = window.innerHeight - 52; // button vertical centre
+      let light = false;
+      for (const dx of [-140, -92, -46]) {
+        const lum = sectionBehindPoint(window.innerWidth + dx, by);
+        if (lum > 0.6) { light = true; break; }
+        if (lum < 0) continue;
+      }
+      setOnLight(light);
+    };
+
+    const onScroll = () => {
+      if (ticking.current) return;
+      ticking.current = true;
+      requestAnimationFrame(() => {
+        ticking.current = false;
+        sampleBackground();
+      });
+    };
+
     const toggleVisibility = () => setIsVisible(window.scrollY > 400);
+
     window.addEventListener('scroll', toggleVisibility, { passive: true });
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
     toggleVisibility();
-    return () => window.removeEventListener('scroll', toggleVisibility);
+    sampleBackground();
+    return () => {
+      window.removeEventListener('scroll', toggleVisibility);
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+    };
   }, []);
 
   const scrollToTop = () => {
@@ -26,7 +90,10 @@ const BackToTop = () => {
   };
 
   return (
-    <div className={`back-to-top-wrap${isVisible ? '' : ' is-hidden'}`}>
+    <div
+      ref={wrapRef}
+      className={`back-to-top-wrap${isVisible ? '' : ' is-hidden'}${onLight ? ' on-light' : ''}`}
+    >
       <button type="button" aria-label="Back to top" onClick={scrollToTop} tabIndex={isVisible ? 0 : -1}>
         <div className="text">
           <span>Back</span>
@@ -63,6 +130,12 @@ const BackToTop = () => {
           pointer-events: none;
         }
 
+        /* Over light/white sections: flip white glyphs to brand orange so
+           the button stays visible (no hover needed). */
+        .back-to-top-wrap.on-light button {
+          color: #FF6000;
+        }
+
         .back-to-top-wrap button {
           width: 140px;
           height: 56px;
@@ -73,6 +146,7 @@ const BackToTop = () => {
           position: relative;
           padding-bottom: 2em;
           cursor: pointer;
+          transition: color 0.3s ease;
         }
 
         .back-to-top-wrap button > div,
