@@ -1013,20 +1013,47 @@ footer{display:flex;flex-direction:column;padding:56px 24px 24px;min-height:660p
 /* ---------------- Contact modal ---------------- */
 body.modal-open{overflow:hidden;}
 body.no-scroll{overflow:hidden;}
-.modal-overlay{position:fixed;inset:0;background:rgba(10,10,10,.55);display:flex;align-items:center;justify-content:center;padding:24px;z-index:100;}
+.modal-overlay{position:fixed;inset:0;background:rgba(10,10,10,.7);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:24px;z-index:100;}
 .modal-overlay[hidden]{display:none;}
-.modal{position:relative;background:#fff;border:1px solid var(--accent);border-radius:20px;width:100%;max-width:430px;padding:44px 38px 34px;text-align:center;box-shadow:0 24px 70px rgba(0,0,0,.28);animation:modal-in .18s ease-out;}
+.modal{
+  position:relative;background:#fff;border:1px solid #F1F1F1;border-radius:24px;
+  width:100%;max-width:430px;padding:48px 40px 36px;text-align:center;
+  box-shadow:0 30px 80px rgba(0,0,0,.3);animation:modal-in .18s ease-out;
+  font-family:'Archivo','Helvetica Neue',Helvetica,Arial,sans-serif;
+}
 @keyframes modal-in{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:none;}}
-.modal-close{position:absolute;top:12px;right:16px;background:none;border:none;font-size:30px;line-height:1;color:var(--ink);cursor:pointer;font-family:var(--ui);padding:4px;transition:color .15s;}
-.modal-close:hover{color:var(--accent);}
-.modal-title{font-family:var(--pixel);color:var(--accent);font-size:36px;line-height:1.05;margin-bottom:14px;}
-.modal-text{font-family:var(--serif);font-size:18px;line-height:1.55;color:var(--ink-2);margin-bottom:28px;}
-.modal-wa{display:inline-flex;align-items:center;gap:11px;background:var(--accent);color:#fff;font-family:var(--pixel);font-size:21px;text-decoration:none;border-radius:100px;padding:14px 30px;box-shadow:var(--shadow-accent);transition:background .15s;}
-.modal-wa:hover{background:var(--accent-deep);}
-.modal-wa svg{width:23px;height:23px;fill:#fff;}
-.modal-num{font-family:var(--ui);font-weight:300;font-size:15px;color:var(--ink-mut);margin-top:18px;}
-.modal-num a{color:var(--accent);text-decoration:none;font-weight:400;}
-.modal-num a:hover{text-decoration:underline;}
+.modal-close{
+  position:absolute;top:16px;right:16px;background:none;border:none;cursor:pointer;
+  padding:6px;line-height:0;color:#9CA3AF;transition:color .2s;
+}
+.modal-close:hover{color:#FF6000;}
+.modal-close svg{width:20px;height:20px;stroke:currentColor;stroke-width:2;fill:none;}
+.modal-eyebrow{
+  font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;
+  letter-spacing:.22em;text-transform:uppercase;color:#9CA3AF;margin-bottom:10px;
+}
+.modal-title{
+  font-family:'Archivo','Helvetica Neue',sans-serif;font-weight:800;
+  font-size:clamp(30px,8vw,38px);letter-spacing:-.02em;line-height:1.02;
+  text-transform:uppercase;color:#FF6000;margin-bottom:16px;
+}
+.modal-text{
+  font-family:'Inter',sans-serif;font-size:15px;font-weight:500;line-height:1.6;
+  color:#4B5563;margin:0 auto 28px;max-width:320px;
+}
+.modal-text strong{color:#0A0A0A;font-weight:800;}
+.modal-wa{
+  display:flex;align-items:center;justify-content:center;gap:12px;width:100%;
+  background:#FF6000;color:#fff;font-family:'Archivo','Helvetica Neue',sans-serif;
+  font-weight:800;font-size:14px;letter-spacing:.14em;text-transform:uppercase;
+  text-decoration:none;border-radius:16px;padding:18px 24px;
+  box-shadow:0 12px 28px rgba(255,96,0,.32);transition:background-color .2s,box-shadow .2s;
+}
+.modal-wa:hover{background:#0A0A0A;box-shadow:0 16px 32px rgba(0,0,0,.3);}
+.modal-wa svg{width:22px;height:22px;fill:#fff;flex:none;}
+.modal-num{font-family:'Inter',sans-serif;font-weight:600;font-size:13px;color:#6B7280;margin-top:16px;line-height:1.5;}
+.modal-num a{color:#FF6000;text-decoration:none;font-weight:800;transition:color .15s;}
+.modal-num a:hover{text-decoration:underline;color:#0A0A0A;}
 
 /* ---------------- Ethos carousel (index, white) ---------------- */
 .ethos-slider-section{

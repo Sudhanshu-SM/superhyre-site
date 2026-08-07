@@ -8,6 +8,9 @@
 <link rel="icon" href="favicon.ico" sizes="any" />
 <link rel="apple-touch-icon" href="assets/logo.svg" />
 <meta name="description" content="We call it talent engineering: applying an engineering and first-principles mindset to hunting elite talent." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800;900&family=IBM+Plex+Mono:wght@700&family=Inter:wght@400;500;600;800&display=swap" rel="stylesheet" />
 <link rel="preconnect" href="https://db.onlinewebfonts.com" crossorigin />
 <link href="https://db.onlinewebfonts.com/c/5ac3fe7c6abd2f62067f266d89671492?family=HelveticaNowDisplay-Medium" rel="stylesheet" />
 <link href="https://db.onlinewebfonts.com/c/1aa3377e489837a26d019bba501e779d?family=HelveticaNowDisplayW01-Rg" rel="stylesheet" />
@@ -112,11 +115,14 @@
 
 <div class="modal-overlay" id="contactModal" hidden>
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="contactTitle">
-    <button class="modal-close" type="button" aria-label="Close">&times;</button>
-    <h3 class="modal-title" id="contactTitle">Let's talk</h3>
-    <p class="modal-text">Tell us who you're hiring for. We'll come back with a shortlist &mdash; not a stack of resumes.</p>
+    <button class="modal-close" type="button" aria-label="Close">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <p class="modal-eyebrow">Direct Access</p>
+    <h3 class="modal-title" id="contactTitle">Let&rsquo;s talk</h3>
+    <p class="modal-text">Tell us who you're hiring for. We'll come back with a shortlisted pool of vetted talent &mdash; <strong>not a stack of resumes.</strong></p>
     <a class="modal-wa" href="https://wa.me/917676228319?text=Hi%20SuperHyre%2C%20I%27d%20like%20to%20talk%20about%20hiring." target="_blank" rel="noopener">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.47 14.38c-.29-.15-1.7-.84-1.96-.93-.26-.1-.45-.15-.64.15-.19.29-.74.93-.9 1.12-.17.19-.33.22-.62.07-.29-.15-1.22-.45-2.32-1.43-.86-.77-1.44-1.71-1.6-2-.17-.29-.02-.45.13-.6.13-.13.29-.33.44-.5.15-.17.19-.29.29-.48.1-.19.05-.36-.02-.5-.07-.15-.64-1.55-.88-2.12-.23-.56-.47-.48-.64-.49l-.55-.01c-.19 0-.5.07-.76.36-.26.29-1 .98-1 2.38s1.02 2.76 1.17 2.95c.15.19 2.02 3.08 4.9 4.32.68.29 1.22.47 1.63.6.69.22 1.31.19 1.8.12.55-.08 1.7-.69 1.94-1.37.24-.67.24-1.24.17-1.37-.07-.12-.26-.19-.55-.34zM12.05 21.5h-.01a9.4 9.4 0 01-4.8-1.32l-.34-.2-3.57.94.95-3.48-.22-.36a9.4 9.4 0 01-1.44-5.01c0-5.2 4.23-9.43 9.44-9.43 2.52 0 4.89.98 6.67 2.77a9.36 9.36 0 012.76 6.67c0 5.2-4.23 9.43-9.44 9.43zm8.03-17.46A11.31 11.31 0 0012.05.7C5.79.7.7 5.79.7 12.04c0 1.99.52 3.94 1.51 5.66L.6 23.4l5.83-1.53a11.3 11.3 0 005.62 1.43h.01c6.26 0 11.35-5.09 11.35-11.34 0-3.03-1.18-5.88-3.33-8.02z"/></svg>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.29.173-1.414zm-5.419 9.118a9.401 9.401 0 01-4.794-1.312l-5.198 1.351 1.359-5.045C2.048 16.827 1.6 15.354 1.6 13.808c.003-5.27 4.287-9.554 9.558-9.554a9.7 9.7 0 016.881 2.853c1.897 1.896 2.943 4.418 2.945 7.104-.003 5.271-4.288 9.555-9.558 9.555l-.373-.002zm8.03-17.46A11.313 11.313 0 0012.05.7C5.79.7.7 5.79.7 12.04c0 2 .522 3.95 1.511 5.678L.6 23.4l5.744-1.507a11.31 11.31 0 005.709 1.456l.004-.001c6.26 0 11.353-5.093 11.353-11.353 0-3.033-1.181-5.884-3.326-8.03z"/></svg>
       Chat on WhatsApp
     </a>
     <p class="modal-num">or call &middot; text <a href="tel:+917676228319">+91 76762 28319</a></p>
