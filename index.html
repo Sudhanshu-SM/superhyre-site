@@ -328,6 +328,12 @@
   // keep a fast poller AND a scroll-event watchdog armed for ~12s. Corrections
   // are short smooth glides too — no abrupt snaps while the page settles.
   // Chrome's scroll-anchoring is disabled during the window so it can't fight.
+  // The watchdog only fights the PAGE's own yanks: the moment the visitor
+  // interacts (wheel, touch, keys, any pointer press — including the
+  // Back-to-top button) it permanently hands the scroll over to them, so it
+  // never pulls the page back to the section against their intent. After
+  // takeover it only corrects a single-frame teleport (the page's own
+  // window.scrollTo) while they're off the input for 300ms+.
   (function () {
     var targetSection = sessionStorage.getItem('targetSection');
     if (!targetSection) return;
@@ -339,6 +345,25 @@
 
     var expire = Date.now() + 12000;
     var lastGlideUntil = 0; // guard: never restart a glide while one is still running
+
+    // User-takeover lock: the moment the visitor actually starts interacting
+    // with the page at all (wheel, touch, keys, or a pointer press — including
+    // the Back-to-top button), the watchdog stops glueing them to the landing
+    // section for good. From then on it only steps in for a single-frame
+    // teleport (>= a full viewport in one scroll event — the page's own
+    // window.scrollTo), and only when the visitor has been off it for 300ms.
+    // So the visitor can freely scroll up / use Back-to-top right after landing
+    // without the page pulling them back down.
+    var userTookOver = false;
+    var lastUserInput = 0;
+    function trackInput(e) {
+      if (e.isTrusted) { lastUserInput = Date.now(); userTookOver = true; }
+    }
+    ['wheel', 'touchstart', 'touchmove', 'pointerdown', 'keydown'].forEach(function (type) {
+      window.addEventListener(type, trackInput, { capture: true, passive: true });
+    });
+    function justEngaged() { return Date.now() - lastUserInput < 300; }
+    var lastScrollY = window.scrollY || 0;
 
     function inView(el) {
       var rect = el.getBoundingClientRect();
@@ -372,20 +397,30 @@
       }
     }
 
-    // Periodic re-check while the page settles.
+    // Periodic re-check while the page settles. Only glues the section while
+    // the visitor hasn't taken over yet — never fights their scroll.
     var tick = setInterval(function () {
       if (Date.now() > expire) { clearInterval(tick); return; }
       var el = document.getElementById(targetSection);
-      if (!el || inView(el) || Date.now() < lastGlideUntil) return;
+      if (!el || inView(el) || Date.now() < lastGlideUntil || userTookOver) return;
       anchor(el, false);
     }, 120);
 
-    // Scroll-event watchdog: reacts to anything pulling the page away, stays
-    // armed until the settle window fully elapses.
+    // Scroll-event watchdog: corrects the page's own yanks. Before the visitor
+    // takes over, any drift away from the section is glued back. After that,
+    // only a single-frame teleport gets corrected — and only when the visitor
+    // isn't mid-gesture — so Back-to-top and manual scrolls are never fought.
     function onScroll() {
       if (Date.now() > expire) { window.removeEventListener('scroll', onScroll); return; }
+      var y = window.scrollY || 0;
+      var teleport = Math.abs(y - lastScrollY) > window.innerHeight * 0.9;
+      lastScrollY = y;
       var el = document.getElementById(targetSection);
       if (!el || inView(el) || Date.now() < lastGlideUntil) return;
+      if (userTookOver) {
+        if (teleport && !justEngaged()) anchor(el, false);
+        return;
+      }
       anchor(el, false);
     }
     window.addEventListener('scroll', onScroll, { passive: true });
