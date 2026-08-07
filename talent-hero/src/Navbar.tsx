@@ -55,8 +55,8 @@ export function Navbar() {
             justifySelf: 'start',
             fontFamily: "'Archivo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
             fontWeight: 750,
-            fontSize: '16.8px',
-            lineHeight: '24.36px'
+            fontSize: '20px',
+            lineHeight: '29px'
           }}
         >
           SUPER<span className="accent">HYRE</span>

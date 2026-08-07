@@ -34,6 +34,27 @@ export function Hero() {
 
   return (
     <main className="relative z-[1] min-h-screen overflow-hidden px-5 pb-16 pt-28 sm:px-8 sm:pt-32 md:px-10">
+      {/* Gooey filter defs for the LET'S TALK hover liquid (START HIRING parity) */}
+      <svg
+        aria-hidden="true"
+        focusable="false"
+        width="0"
+        height="0"
+        style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }}
+      >
+        <defs>
+          <filter id="sh-gooey">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur" />
+            <feColorMatrix
+              in="blur"
+              mode="matrix"
+              values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 19 -9"
+              result="goo"
+            />
+            <feComposite in="SourceGraphic" in2="goo" operator="atop" />
+          </filter>
+        </defs>
+      </svg>
       <div className="relative z-10 flex min-h-[calc(100vh-7rem)] max-w-2xl flex-col justify-center">
         {/* Recruitment Label (no AI-agent references) */}
         <div className="pointer-events-none mb-6 select-none">
@@ -92,14 +113,20 @@ export function Hero() {
           <button
             type="button"
             onClick={openContactModal}
-            className="group inline-flex items-center gap-3 rounded-full bg-[#FF6000] px-8 py-4 text-sm font-extrabold uppercase tracking-widest text-white shadow-lg transition-all duration-300 hover:scale-[1.02] hover:bg-black active:scale-[0.98] sm:text-base"
+            className="sh-lt-btn group inline-flex items-center gap-3 overflow-hidden rounded-full bg-[#FF6000] px-8 py-4 text-sm font-extrabold uppercase tracking-widest text-white shadow-lg active:scale-[0.98] sm:text-base"
           >
-            <span>LET'S TALK</span>
-            <span
-              aria-hidden="true"
-              className="inline-block transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
-            >
-              ↗
+            <span className="sh-goo-container" aria-hidden="true">
+              <span className="sh-goo-bubble" />
+              <span className="sh-goo-bubble sh-goo-bubble--b" />
+            </span>
+            <span className="sh-lt-text flex items-center gap-3">
+              <span>LET'S TALK</span>
+              <span
+                aria-hidden="true"
+                className="inline-block transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+              >
+                ↗
+              </span>
             </span>
           </button>
         </div>

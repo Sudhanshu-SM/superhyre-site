@@ -55,6 +55,81 @@ body {
   background: transparent !important;
 }
 
+/* Circular hamburger badge blends with the navbar instead of white */
+#talent-hero-root .topbar .menu-toggle {
+  background: rgba(230, 230, 230, 0.8);
+}
+
+#talent-hero-root .topbar .menu-toggle:hover {
+  background: #0a0a0a;
+  border-color: #0a0a0a;
+}
+
+#talent-hero-root .topbar .menu-toggle.is-open,
+#talent-hero-root .topbar .menu-toggle.is-open:hover {
+  background: transparent;
+}
+
+/* ———————————————————————————————————————————————————————————————
+   LET'S TALK — gooey liquid hover (parity with index.html START HIRING).
+   A filter def with id `sh-gooey` lives in Hero.tsx. The rigid rounded
+   button clips the liquid inside; two white bubbles bloom over it and the
+   text inverts to black, exactly like the START HIRING button's hover.
+   ——————————————————————————————————————————————————————————————— */
+#talent-hero-root .sh-lt-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  isolation: isolate;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#talent-hero-root .sh-lt-btn:hover {
+  transform: translateY(-2px);
+}
+
+#talent-hero-root .sh-goo-container {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  filter: url('#sh-gooey');
+  pointer-events: none;
+}
+
+#talent-hero-root .sh-goo-bubble {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  padding-bottom: 100%;
+  border-radius: 50%;
+  background-color: #ffffff;
+  transform: translate(-50%, -50%) scale(0);
+  transition: transform 0.9s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+#talent-hero-root .sh-goo-bubble--b {
+  transition-delay: 0.08s;
+}
+
+#talent-hero-root .sh-lt-btn:hover .sh-goo-bubble {
+  transform: translate(-50%, -50%) scale(1.85);
+}
+
+#talent-hero-root .sh-lt-text {
+  position: relative;
+  z-index: 2;
+  color: #ffffff;
+  transition: color 0.9s ease;
+}
+
+#talent-hero-root .sh-lt-btn:hover .sh-lt-text {
+  color: #0a0a0a;
+}
+
 #talent-hero-root .sh-tag-pill {
   border: 1px solid rgba(0, 0, 0, 0.15) !important;
 }
