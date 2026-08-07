@@ -116,6 +116,41 @@ const HorizontalWhyItWorks = () => {
         // Random vertical order inside each column (reference site behavior)
         columns.forEach((col) => col.sort(() => Math.random() - 0.5));
 
+        // Touch devices: the pixel dissolve is driven straight off the row's
+        // live geometry (scroll-scrubbed), so it advances with the finger no
+        // matter how fast the fling, and it is immune to ScrollTrigger's
+        // cached positions drifting under the sticky hero on small viewports.
+        // Desktop keeps the original GSAP timed play-out untouched.
+        const coarse = window.matchMedia('(pointer: coarse)').matches;
+        if (coarse) {
+          const DUR = PIXEL_COLS * 0.55 / PIXEL_COLS + (PIXEL_ROWS - 1) * 0.015 + 0.05;
+          const beginAt = window.innerHeight * 0.85;
+          const endAt = window.innerHeight * 0.25;
+          let ticking = false;
+          const paint = () => {
+            ticking = false;
+            let p = (beginAt - row.getBoundingClientRect().top) / (beginAt - endAt);
+            if (p < 0) p = 0;
+            else if (p > 1) p = 1;
+            const time = p * DUR;
+            for (let c = 0; c < PIXEL_COLS; c++) {
+              const colDelay = (c / PIXEL_COLS) * 0.55;
+              for (let i = 0; i < PIXEL_ROWS; i++) {
+                let v = (time - (colDelay + i * 0.015)) / 0.05;
+                if (v < 0) v = 0;
+                else if (v > 1) v = 1;
+                columns[c][i].style.opacity = String(1 - v);
+              }
+            }
+            rightContent.style.opacity = String(p);
+            rightContent.style.transform = 'translateX(' + (25 * (1 - p)) + 'px)';
+          };
+          const onScroll = () => { if (!ticking) { ticking = true; requestAnimationFrame(paint); } };
+          window.addEventListener('scroll', onScroll, { passive: true });
+          paint();
+          return; // coarse path handled; skip the GSAP timeline below
+        }
+
         const rowTl = gsap.timeline({
           scrollTrigger: {
             trigger: row,
