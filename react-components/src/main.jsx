@@ -11,6 +11,7 @@ import { initProcessAccordion } from './ProcessAccordion';
 import { initUiverseStartHiringButton } from './UiverseStartHiringButton';
 import { initUiverseLetsTalkButton } from './UiverseLetsTalkButton';
 import { initSocialIcons } from './SocialIcons';
+import { initBackToTop } from './BackToTop';
 
 const rootElement = document.getElementById('react-cursor-root');
 
@@ -52,5 +53,7 @@ if (typeof window !== 'undefined') {
     initUiverseLetsTalkButton();
     // 9. Mount the animated social icon tooltips (footer)
     initSocialIcons();
+    // 10. Mount the floating "Back to Top" button (auto-hide, Lenis smooth)
+    initBackToTop();
   });
 }
