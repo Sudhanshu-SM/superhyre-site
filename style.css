@@ -129,6 +129,9 @@ img{display:block;max-width:100%;}
   text-transform:uppercase;white-space:nowrap;transition:color .3s;
 }
 .brand .accent{color:var(--accent);}
+/* SUPER reads heavier than the 4-letter orange HYRE at equal weight, so the
+   base word sits one step lighter (700 vs 800) for a balanced lock-up. */
+.brand .brand-base{font-weight:700;}
 .brand:hover{color:var(--accent-deep);}
 .menu-toggle{
   justify-self:end;width:48px;height:48px;border-radius:50%;
