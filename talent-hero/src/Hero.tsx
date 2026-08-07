@@ -11,6 +11,18 @@ const HERO_POINTS = [
 const HEADLINE =
   'Glad you stopped in. High-growth technical teams tend to find us. Which engineering roles are we shortlisting for you?';
 
+// Mirrors contact.js open(): reveals #contactModal, locks body scroll and
+// focuses the close button (contact.js only binds static .contact-link nodes,
+// so the React-mounted hero CTA must open the shared modal directly).
+function openContactModal() {
+  const modal = document.getElementById('contactModal') as HTMLElement | null;
+  if (!modal) return;
+  modal.hidden = false;
+  document.body.classList.add('modal-open');
+  const closeBtn = modal.querySelector('.modal-close') as HTMLElement | null;
+  closeBtn?.focus();
+}
+
 export function Hero() {
   const { displayed, done } = useTypewriter(HEADLINE, 38, 600);
   const [visible, setVisible] = useState(false);
@@ -68,6 +80,28 @@ export function Hero() {
               <span className="text-sm font-bold tracking-tight text-black/90 sm:text-base">{point}</span>
             </div>
           ))}
+        </div>
+
+        {/* Relocated Primary CTA — below the bullets, opens contact modal */}
+        <div
+          className={`mt-6 transition-all duration-400 ${
+            visible ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0'
+          }`}
+          style={{ transitionTimingFunction: 'ease', transitionDuration: '0.4s' }}
+        >
+          <button
+            type="button"
+            onClick={openContactModal}
+            className="group inline-flex items-center gap-3 rounded-full bg-[#FF6000] px-8 py-4 text-sm font-extrabold uppercase tracking-widest text-white shadow-lg transition-all duration-300 hover:scale-[1.02] hover:bg-black active:scale-[0.98] sm:text-base"
+          >
+            <span>LET'S TALK</span>
+            <span
+              aria-hidden="true"
+              className="inline-block transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+            >
+              ↗
+            </span>
+          </button>
         </div>
       </div>
     </main>

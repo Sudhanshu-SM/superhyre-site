@@ -1,5 +1,10 @@
-import { useState, type MouseEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
+// The talent.html navbar reuses the EXACT index.html markup + classes
+// (.topbar / .brand / .menu-toggle / .burger / .nav-overlay / .nav-link),
+// which are styled by the shared style.css — same typography, hover colors,
+// burger→X morph and nav-in stagger. The element set stays talent's own
+// (brand + hamburger + 4 overlay links).
 const NAV_LINKS: { label: string; href: string }[] = [
   { label: 'Advantage', href: 'index.html#features' },
   { label: 'Process', href: 'index.html#process' },
@@ -7,133 +12,88 @@ const NAV_LINKS: { label: string; href: string }[] = [
   { label: 'Decision', href: 'index.html#decision' }
 ];
 
-// Mirrors index.html's `cta-talk-btn contact-link`: opens the shared
-// #contactModal (contact.js only binds static .contact-link nodes, so the
-// React-mounted navbar must open it directly).
-function openContactModal(e: MouseEvent<HTMLAnchorElement>) {
-  e.preventDefault();
-  const modal = document.getElementById('contactModal') as HTMLElement | null;
-  if (!modal) return;
-  modal.hidden = false;
-  document.body.classList.add('modal-open');
-  const closeBtn = modal.querySelector('.modal-close') as HTMLElement | null;
-  closeBtn?.focus();
-}
-
+// Mirrors nav.js setState() (index.html): toggles .is-active on the overlay,
+// .is-open on the trigger, locks body scroll, focuses the first nav link.
 export function Navbar() {
   const [open, setOpen] = useState(false);
+  const overlayRef = useRef<HTMLDivElement>(null);
 
   const toggle = () => setOpen((v) => !v);
 
+  useEffect(() => {
+    const overlay = overlayRef.current;
+    document.body.classList.toggle('no-scroll', open);
+    if (open) {
+      const first = overlay?.querySelector('.nav-link') as HTMLElement | null;
+      first?.focus({ preventScroll: true });
+    }
+    return () => document.body.classList.remove('no-scroll');
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open]);
+
   return (
     <>
-      {/* Desktop / Mobile Bar */}
-      <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between border-b border-black/5 bg-white/85 px-5 py-4 backdrop-blur-md sm:px-8">
-        {/* Logo: SUPER (Black) + HYRE (#FF6000), no trailing dot */}
-        <a href="index.html" className="flex items-center">
-          <span
-            className="font-heading text-[21px] font-black tracking-tight text-black sm:text-[26px]"
-            style={{ fontFamily: 'var(--font-heading)' }}
-          >
-            SUPER
-            <span className="text-[#FF6000]">HYRE</span>
-          </span>
-        </a>
-
-        {/* Desktop Nav Links */}
-        <nav className="hidden items-center gap-2 md:flex" aria-label="Main">
-          {NAV_LINKS.map((link, idx) => (
-            <span key={link.label} className="flex items-center gap-2">
-              <a
-                href={link.href}
-                className="font-body text-[21px] text-black transition-colors hover:text-[#FF6000]"
-                style={{ fontFamily: 'var(--font-body)' }}
-              >
-                {link.label}
-              </a>
-              {idx < NAV_LINKS.length - 1 && (
-                <span className="font-body text-[21px] text-black" style={{ fontFamily: 'var(--font-body)' }}>
-                  ,
-                </span>
-              )}
-            </span>
-          ))}
-        </nav>
-
-        {/* Desktop CTA — LET'S TALK ↗ (index signature: tracking-widest caps,
-            black → #FF6000 on hover, inline arrow drifts up-right) */}
+      {/* index.html `.topbar` — grid 1fr auto 1fr keeps the brand centred;
+          fixed on talent so the hero's video canvas scrolls beneath it */}
+      <header
+        className={`topbar${open ? ' is-open' : ''}`}
+        style={{ position: 'fixed', top: 0, left: 0, right: 0, width: '100%' }}
+      >
         <a
-          href="#contact"
-          onClick={openContactModal}
-          className="group hidden items-center gap-1.5 py-1 font-body text-xs font-extrabold uppercase tracking-widest text-black transition-colors hover:text-[#FF6000] sm:text-sm md:inline-flex"
-          style={{ fontFamily: 'var(--font-body)' }}
+          href="index.html"
+          className="brand"
+          aria-label="SuperHyre home"
+          style={{
+            justifySelf: 'start',
+            fontFamily: "'Archivo', 'Helvetica Neue', Helvetica, Arial, sans-serif",
+            fontWeight: 750,
+            fontSize: '16.8px',
+            lineHeight: '24.36px'
+          }}
         >
-          <span>LET'S TALK</span>
-          <span
-            aria-hidden="true"
-            className="inline-block transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
-          >
-            ↗
-          </span>
+          SUPER<span className="accent">HYRE</span>
         </a>
-
-        {/* Mobile Hamburger */}
+        <div aria-hidden="true" />
         <button
           type="button"
-          onClick={toggle}
+          className={`menu-toggle${open ? ' is-open' : ''}`}
           aria-label={open ? 'Close menu' : 'Open menu'}
           aria-expanded={open}
-          className="flex flex-col items-center gap-[5px] md:hidden"
+          aria-controls="nav-overlay"
+          onClick={toggle}
         >
-          <span
-            className="h-[2px] w-6 bg-black transition-transform duration-300"
-            style={{ transform: open ? 'rotate(45deg) translateY(7px)' : 'none' }}
-          />
-          <span
-            className="h-[2px] w-6 bg-black transition-opacity duration-300"
-            style={{ opacity: open ? 0 : 1 }}
-          />
-          <span
-            className="h-[2px] w-6 bg-black transition-transform duration-300"
-            style={{ transform: open ? 'rotate(-45deg) translateY(-7px)' : 'none' }}
-          />
+          <span className="burger" />
         </button>
       </header>
 
-      {/* Mobile Overlay */}
+      {/* index.html `.nav-overlay` — full-screen dark menu, staggered links */}
       <div
-        className={`fixed inset-0 z-[9] flex flex-col items-center justify-center gap-8 bg-white/95 px-8 backdrop-blur-sm transition-opacity duration-300 ${
-          open ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
-        } md:hidden`}
+        ref={overlayRef}
+        id="nav-overlay"
+        className={`nav-overlay dark-section${open ? ' is-active' : ''}`}
+        aria-hidden={!open}
       >
-        {NAV_LINKS.map((link) => (
-          <a
-            key={link.label}
-            href={link.href}
-            onClick={() => setOpen(false)}
-            className="font-body text-[32px] font-medium text-black"
-            style={{ fontFamily: 'var(--font-body)' }}
-          >
-            {link.label}
-          </a>
-        ))}
-        <a
-          href="#contact"
-          onClick={(e) => {
-            setOpen(false);
-            openContactModal(e);
-          }}
-          className="group inline-flex items-center gap-1.5 font-body text-[32px] font-extrabold uppercase tracking-widest text-black"
-          style={{ fontFamily: 'var(--font-body)' }}
-        >
-          <span>LET'S TALK</span>
-          <span
-            aria-hidden="true"
-            className="inline-block transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
-          >
-            ↗
-          </span>
-        </a>
+        <nav className="nav-links" aria-label="Main">
+          {NAV_LINKS.map((link, idx) => (
+            <a
+              key={link.label}
+              href={link.href}
+              className="nav-link"
+              style={{ '--i': idx } as React.CSSProperties}
+              onClick={() => setOpen(false)}
+            >
+              {link.label}
+            </a>
+          ))}
+        </nav>
       </div>
     </>
   );

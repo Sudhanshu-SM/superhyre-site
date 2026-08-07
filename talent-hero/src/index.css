@@ -42,6 +42,19 @@ body {
   border-bottom: 1px solid rgba(0, 0, 0, 0.05) !important;
 }
 
+/* Navbar blends with the grey CRT hero tone (index.html `.topbar` is paper
+   white; the talent bar uses the hero's light-grey). Goes transparent when
+   the overlay opens, matching index.html's .topbar.is-open behavior. */
+#talent-hero-root .topbar {
+  background: rgba(230, 230, 230, 0.8);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+#talent-hero-root .topbar.is-open {
+  background: transparent !important;
+}
+
 #talent-hero-root .sh-tag-pill {
   border: 1px solid rgba(0, 0, 0, 0.15) !important;
 }
