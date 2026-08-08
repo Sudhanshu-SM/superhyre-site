@@ -98,8 +98,19 @@ export function BackgroundVideo() {
           if (!fctx) continue;
           fctx.drawImage(video, 0, 0, FRAME_W, frameH);
           frames.push(frame);
-          // Paint as frames arrive so the background fills progressively.
-          if (active && canvas.width) drawFrame(frames.length - 1);
+          // Paint as frames arrive so the background fills progressively, but
+          // always the frame the scrubber would currently show — never sweep
+          // the filmstrip, or the head plays through its full turn on load.
+          if (active && canvas.width) {
+            const idx = Math.min(
+              frames.length - 1,
+              Math.round(targetProgress * (FRAME_COUNT - 1))
+            );
+            if (idx !== curFrame) {
+              curFrame = idx;
+              drawFrame(idx);
+            }
+          }
         }
       } catch {
         /* decoding failed — canvas stays blank */
