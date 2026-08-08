@@ -1438,3 +1438,16 @@ html, body {
   transition:background-color .3s ease,box-shadow .3s ease;
   will-change:transform;
 }
+
+/* ---------- Custom cursor: touch-device off-switch ---------- */
+/* The follower (react-components MouseFollower) is inline-styled with no
+   class, so the safety net targets its mount root. The component itself
+   also refuses to bind mousemove on coarse pointers / small screens. */
+@media (pointer: coarse), (max-width: 768px) {
+  #react-cursor-root > div {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+}

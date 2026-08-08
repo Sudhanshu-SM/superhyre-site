@@ -5,6 +5,12 @@ export default function MouseFollower() {
   const [isOrangeBg, setIsOrangeBg] = useState(false);
 
   useEffect(() => {
+    // Guard: touch/coarse-pointer devices and small screens never bind the
+    // mouse listener (no render churn, no energy waste). Desktop unchanged.
+    const isTouchDevice =
+      window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 768;
+    if (isTouchDevice) return;
+
     const handleMouseMove = (e) => {
       const { clientX, clientY } = e;
       setPosition({ x: clientX, y: clientY });
