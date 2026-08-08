@@ -161,9 +161,10 @@ img{display:block;max-width:100%;}
 
 /* ---------------- Full-screen nav overlay ---------------- */
 .nav-overlay{
-  position:fixed;inset:0;z-index:999;background:#0A0A0A;
+  position:fixed;inset:0;width:100vw;height:100vh;z-index:999;background:#0A0A0A;
   display:flex;flex-direction:column;justify-content:center;
   padding:0 clamp(24px,6vw,80px);
+  overflow:hidden;overscroll-behavior:none;touch-action:none;
   opacity:0;pointer-events:none;
   transition:opacity .4s cubic-bezier(.16,1,.3,1);
 }
@@ -1016,7 +1017,9 @@ footer{display:flex;flex-direction:column;padding:56px 24px 24px;min-height:660p
 
 /* ---------------- Contact modal ---------------- */
 body.modal-open{overflow:hidden;}
-body.no-scroll{overflow:hidden;}
+body.no-scroll,html.no-scroll{overflow:hidden;}
+html.no-scroll{overscroll-behavior:none;}
+html.no-scroll,html.no-scroll body{-webkit-overflow-scrolling:auto;}
 .modal-overlay{position:fixed;inset:0;background:rgba(10,10,10,.7);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:24px;z-index:100;}
 .modal-overlay[hidden]{display:none;}
 .modal{

@@ -19,6 +19,16 @@ const NAV_LINKS: { label: string; id: string }[] = [
 export function Navbar() {
   const [open, setOpen] = useState(false);
   const overlayRef = useRef<HTMLDivElement>(null);
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const lenisWasRunningRef = useRef(false);
+
+  // Lenis 1.3.x exposes isStopped both as boolean prop and (newer) as fn
+  const lenisStopped = (l: unknown): boolean => {
+    const l2 = l as { isStopped?: boolean | (() => boolean) };
+    if (!l) return true;
+    if (typeof l2.isStopped === 'function') return !!l2.isStopped();
+    return l2.isStopped === true;
+  };
 
   const toggle = () => setOpen((v) => !v);
 
@@ -29,20 +39,41 @@ export function Navbar() {
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       return;
     }
-sessionStorage.setItem('targetSection', id);
+    sessionStorage.setItem('targetSection', id);
     window.location.href = 'index.html';
   };
 
   // Mirrors nav.js setState() (index.html): toggles .is-active on the overlay,
-  // .is-open on the trigger, locks body scroll, focuses the first nav link.
+  // .is-open on the trigger, locks body + root-scroller scroll (scrollbar
+  // vanishes), freezes Lenis while open and revives it on close, focuses the
+  // first nav link on open and releases focus on close (no fix-up yank).
   useEffect(() => {
     const overlay = overlayRef.current;
     document.body.classList.toggle('no-scroll', open);
+    document.documentElement.classList.toggle('no-scroll', open);
     if (open) {
+      const lenis = (window as unknown as { __lenis?: unknown }).__lenis;
+      if (lenis && !lenisStopped(lenis) && typeof (lenis as { stop?: Function }).stop === 'function') {
+        lenisWasRunningRef.current = true;
+        (lenis as { stop: Function }).stop();
+      }
       const first = overlay?.querySelector('.nav-link') as HTMLElement | null;
       first?.focus({ preventScroll: true });
+    } else {
+      if (overlay?.contains(document.activeElement)) {
+        (document.activeElement as HTMLElement | null)?.blur?.();
+      }
+      toggleRef.current?.focus({ preventScroll: true });
+      const lenis = (window as unknown as { __lenis?: unknown }).__lenis;
+      if (lenisWasRunningRef.current && lenis && lenisStopped(lenis) && typeof (lenis as { start?: Function }).start === 'function') {
+        (lenis as { start: Function }).start();
+      }
+      lenisWasRunningRef.current = false;
     }
-    return () => document.body.classList.remove('no-scroll');
+    return () => {
+      document.body.classList.remove('no-scroll');
+      document.documentElement.classList.remove('no-scroll');
+    };
   }, [open]);
 
   useEffect(() => {
@@ -78,6 +109,7 @@ sessionStorage.setItem('targetSection', id);
         </a>
         <div aria-hidden="true" />
         <button
+          ref={toggleRef}
           type="button"
           className={`menu-toggle${open ? ' is-open' : ''}`}
           aria-label={open ? 'Close menu' : 'Open menu'}

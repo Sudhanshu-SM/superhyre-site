@@ -26,16 +26,24 @@
   function setScroll(y) {
     // While the settle-guard is active we stop Lenis, so drift repair is
     // always a plain native write — it cannot fight a Lenis animation.
-    if (!(typeof window.__lenis !== 'undefined' && window.__lenis && typeof window.__lenis.scrollTo === 'function' && !(typeof window.__lenis.isStopped === 'function' && window.__lenis.isStopped()))) {
-      // Lenis absent or stopped → native path below
-    } else {
-      window.__lenis.scrollTo(y, { immediate: true });
+    var l = window.__lenis;
+    var lenisActive = typeof l !== 'undefined' && l && typeof l.scrollTo === 'function' && !lenisStopped(l);
+    if (lenisActive) {
+      l.scrollTo(y, { immediate: true });
       return;
     }
+    // Lenis absent or stopped → native path
     // Bypass html{scroll-behavior:smooth} so the restore is instant
     document.documentElement.style.scrollBehavior = 'auto';
     window.scrollTo(0, y);
     document.documentElement.style.scrollBehavior = '';
+  }
+
+  // Lenis 1.3.x exposes isStopped both as boolean prop and (newer) as fn
+  function lenisStopped(l) {
+    if (!l) return true;
+    if (typeof l.isStopped === 'function') return !!l.isStopped();
+    return l.isStopped === true;
   }
 
   // The close-time yank is Lenis's own rendering loop or something it
@@ -46,15 +54,15 @@
   function stopLenisForSettle() {
     lenisWasRunning = false;
     var l = window.__lenis;
-    if (l && typeof l.isStopped === 'function' && !l.isStopped()) {
+    if (l && typeof l.stop === 'function' && !lenisStopped(l)) {
       lenisWasRunning = true;
-      if (typeof l.stop === 'function') l.stop();
+      l.stop();
     }
   }
   function resumeLenisIfNeeded() {
     if (!lenisWasRunning) return;
     var l = window.__lenis;
-    if (l && typeof l.isStopped === 'function' && l.isStopped() && typeof l.start === 'function') {
+    if (l && lenisStopped(l) && typeof l.start === 'function') {
       l.start();
     }
     lenisWasRunning = false;
