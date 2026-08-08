@@ -11,16 +11,26 @@ const HERO_POINTS = [
 const HEADLINE =
   'Glad you stopped in. High-growth technical teams tend to find us. Which engineering roles are we shortlisting for you?';
 
-// Mirrors contact.js open(): reveals #contactModal, locks body scroll and
-// focuses the close button (contact.js only binds static .contact-link nodes,
-// so the React-mounted hero CTA must open the shared modal directly).
+// contact.js only binds static .contact-link nodes, so the React-mounted hero
+// CTA must open the shared modal through the same canonical entry point:
+// close() leaves visibility/pointer-events hidden, so re-opening REQUIRES the
+// real open() (clears those styles, cancels the settle-pin, re-locks scroll).
 function openContactModal() {
   const modal = document.getElementById('contactModal') as HTMLElement | null;
   if (!modal) return;
+  if (typeof (window as any).openContactModal === 'function') {
+    (window as any).openContactModal();
+    return;
+  }
+  // Fallback (no contact.js yet — theoretically unreachable in load order):
+  // mirror open()'s effect so the button still works.
   modal.hidden = false;
+  if (modal.style) {
+    modal.style.visibility = '';
+    modal.style.pointerEvents = '';
+  }
   document.body.classList.add('modal-open');
-  const closeBtn = modal.querySelector('.modal-close') as HTMLElement | null;
-  closeBtn?.focus();
+  modal.querySelector('.modal-close')?.focus();
 }
 
 export function Hero() {

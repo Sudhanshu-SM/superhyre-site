@@ -70,6 +70,13 @@
 
   function open(e) {
     if (e) e.preventDefault();
+    // A previous close() may have left a settle-guard (pin + anchor lock +
+    // frozen Lenis) alive. It MUST be torn down on re-open, otherwise its
+    // next quiet-expiry hides the freshly reopened modal and its drift-fix
+    // yanks the page to the OLD locked position.
+    cancelPin();
+    restoreAnchorLock();
+    resumeLenisIfNeeded();
     lockedScrollY = scrollY();
     lastFocus = document.activeElement;
     reopenModal();
@@ -195,6 +202,13 @@
     if (pinRaf !== null) { cancelAnimationFrame(pinRaf); pinRaf = null; }
     while (pinTimers.length) { clearTimeout(pinTimers.pop()); }
   }
+
+  // Public API for React-mounted CTAs (talent hero). The full open() path is
+  // needed there (reopen clears the visibility/pointer-events set by close()),
+  // so the hero must NOT re-implement it.
+  window.openContactModal = open;
+  // the same for closing, so any detached UI can sync state too
+  window.closeContactModal = close;
 
   Array.prototype.forEach.call(links, function (el) { el.addEventListener('click', open); });
   closeBtn.addEventListener('click', close);
