@@ -253,6 +253,7 @@ document.addEventListener('DOMContentLoaded', function () {
   })();
 
   /* ---------- hero intro: masked line rise + pinned-hero scale ---------- */
+  /* ---------- hero intro: masked line rise + pinned-hero scale ---------- */
   mm.add('(prefers-reduced-motion: no-preference)', function () {
     var heroEl = document.querySelector('.hero-section');
     var headline = document.querySelector('.hero-headline');
@@ -281,7 +282,6 @@ document.addEventListener('DOMContentLoaded', function () {
       });
     });
   });
-
   /* ---------- scroll-driven motion (all viewports, no reduced motion) ---------- */
   mm.add('(prefers-reduced-motion: no-preference)', function () {
 
