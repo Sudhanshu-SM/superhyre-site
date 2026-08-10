@@ -99,9 +99,9 @@ export function TalentTrustSection() {
           <span className="mb-3 block text-xs font-bold uppercase tracking-widest text-[#FF6000]">
             Why Hiring Managers Choose Us
           </span>
-          <h2 className="mb-4 text-3xl font-black uppercase leading-tight tracking-tight sm:text-5xl">
+          <h1 className="mb-4 text-3xl font-black uppercase leading-tight tracking-tight sm:text-5xl">
             Recruitment Engineered for Results.
-          </h2>
+          </h1>
           <p className="text-base font-medium text-neutral-600 sm:text-lg">
             We removed traditional agency friction. Tap or hover over each pillar to reveal our operational standards.
           </p>

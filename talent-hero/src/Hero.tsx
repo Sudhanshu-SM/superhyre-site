@@ -67,7 +67,7 @@ export function Hero() {
       </svg>
       <div className="relative z-10 flex min-h-[calc(100vh-7rem)] max-w-2xl flex-col justify-center">
         {/* Recruitment Label (no AI-agent references) */}
-        <div className="pointer-events-none mb-6 select-none">
+        <div className="pointer-events-none mb-6 min-h-[44px] select-none">
           <p
             className="font-body text-lg font-extrabold uppercase tracking-widest text-black sm:text-xl"
             style={{ fontFamily: 'var(--font-body)' }}
@@ -84,7 +84,7 @@ export function Hero() {
 
         {/* Typewriter Headline */}
         <p
-          className="font-body mb-8 min-h-[60px] text-xl leading-relaxed text-black sm:text-3xl"
+          className="font-body mb-8 min-h-[96px] text-xl leading-relaxed text-black sm:text-3xl"
           style={{ fontFamily: 'var(--font-body)' }}
         >
           {displayed}
@@ -98,7 +98,7 @@ export function Hero() {
 
         {/* Hero Feature Highlights (unique vs. trust cards) + Reach Us */}
         <div
-          className={`flex flex-wrap items-center gap-x-6 gap-y-3 pt-2 transition-all duration-400 ${
+          className={`flex flex-wrap items-center gap-x-6 gap-y-3 pt-2 transition-[opacity,transform] duration-400 ${
             visible ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0'
           }`}
           style={{ transitionTimingFunction: 'ease', transitionDuration: '0.4s' }}
@@ -115,7 +115,7 @@ export function Hero() {
 
         {/* Relocated Primary CTA — below the bullets, opens contact modal */}
         <div
-          className={`mt-6 transition-all duration-400 ${
+          className={`mt-6 transition-[opacity,transform] duration-400 ${
             visible ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0'
           }`}
           style={{ transitionTimingFunction: 'ease', transitionDuration: '0.4s' }}

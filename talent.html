@@ -7,7 +7,7 @@
 <link rel="icon" type="image/svg+xml" href="assets/logo.svg" />
 <link rel="icon" href="favicon.ico" sizes="any" />
 <link rel="apple-touch-icon" href="assets/logo.svg" />
-<meta name="description" content="Talent engineering, applied: SuperHyre hunts and vets elite engineers with first-principles rigor — fewer bad hires, faster fills. Explore our technical recruitment approach." />
+<meta name="description" content="Talent engineering, applied: SuperHyre hunts and vets elite engineers with first-principles rigor — fewer bad hires, faster fills. Explore our approach." />
 <link rel="canonical" href="https://superhyre.com/talent.html" />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="SuperHyre" />
@@ -28,8 +28,10 @@
 <link rel="preconnect" href="https://db.onlinewebfonts.com" crossorigin />
 <link href="https://db.onlinewebfonts.com/c/5ac3fe7c6abd2f62067f266d89671492?family=HelveticaNowDisplay-Medium" rel="stylesheet" />
 <link href="https://db.onlinewebfonts.com/c/1aa3377e489837a26d019bba501e779d?family=HelveticaNowDisplayW01-Rg" rel="stylesheet" />
-<link rel="stylesheet" href="style.css?v=14" />
-<link rel="stylesheet" href="talent-hero.css?v=7" />
+<link rel="stylesheet" href="style.css?v=16" />
+<link rel="stylesheet" href="talent-hero.css?v=8" />
+<link rel="preload" href="talent-hero-bundle.js?v=14" as="script" />
+<link rel="preload" href="react-components/dist/cursor-bundle.js?v=9" as="script" />
 <style>
   /* Solid black footer isolation: the hero video is a fixed inset-0 z-0
      canvas and paints ABOVE static (non-positioned) content, so the footer
@@ -40,6 +42,13 @@
     position: relative;
     z-index: 20;
     background: #0a0a0a;
+  }
+  /* Reserve hero viewport height pre-mount so React hero mounting
+     (which happens seconds after first paint) does not shove the
+     footer/trust grid down — the #1 CLS contributor on this page. */
+  #talent-hero-root {
+    min-height: 100vh;
+    min-height: 112svh;
   }
 </style>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
@@ -171,9 +180,9 @@
 </div>
 <script src="contact.js?v=14"></script>
 <script src="talent.js?v=7"></script>
-<script src="talent-hero-bundle.js?v=11"></script>
+<script src="talent-hero-bundle.js?v=14"></script>
 <!-- cursor-bundle: mounts ONLY SocialIcons (all other mounts are guarded
      by root-element checks absent from this page) into #social-tooltips-root -->
-<script src="react-components/dist/cursor-bundle.js?v=8"></script>
+<script src="react-components/dist/cursor-bundle.js?v=9"></script>
 </body>
 </html>

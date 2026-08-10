@@ -63,12 +63,11 @@ export function initKineticHeadings() {
     typeof window.gsap === 'undefined' || typeof window.ScrollTrigger === 'undefined';
   document.querySelectorAll('[data-kinetic-heading]').forEach((container) => {
     const words = buildWords(extractChars(container));
-    const level = container.dataset.level || 'h2';
     const root = ReactDOM.createRoot(container);
     root.render(
       <React.StrictMode>
         <KineticText
-          as={level}
+          as="span"
           words={words}
           className="kinetic-root"
           staticRender={noMotion}
