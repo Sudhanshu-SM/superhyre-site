@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Privacy Policy — Superhyre Contact Finder</title>
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg" />
+<link rel="icon" href="/favicon.ico" sizes="any" />
+<link rel="apple-touch-icon" href="/assets/logo.svg" />
+<meta name="description" content="Privacy policy for the Superhyre Contact Finder Chrome extension: what it reads, what it stores, and where data goes." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fanwood+Text:ital@0;1&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/style.css" />
+<style>
+  .legal{max-width:760px;margin:0 auto;padding:56px 24px 72px;font-family:var(--ui);font-size:16px;line-height:1.65;color:#1c1c1c;}
+  .legal h1{font-family:var(--wm);font-weight:500;font-size:36px;line-height:1.2;letter-spacing:-.5px;color:var(--black);}
+  .legal .eff{font-size:14px;color:#666;margin:12px 0 40px;padding-bottom:26px;border-bottom:1px solid var(--rule);}
+  .legal h2{font-family:var(--serif);font-size:26px;font-weight:400;margin:44px 0 14px;color:var(--black);}
+  .legal p{margin:0 0 16px;}
+  .legal ul{margin:0 0 16px;padding-left:22px;}
+  .legal li{margin:0 0 8px;}
+  .legal a{color:var(--accent);}
+  .legal strong{font-weight:600;}
+  .legal code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.88em;background:#f2f2f2;padding:1px 5px;border-radius:3px;word-break:break-word;}
+  .legal .callout{border-left:3px solid var(--accent);padding:2px 0 2px 18px;}
+  @media(max-width:600px){.legal{padding:36px 20px 56px;}.legal h1{font-size:28px;}.legal h2{font-size:22px;}}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="topbar">
+    <a class="logo" href="/" aria-label="SuperHyre home">
+      <img class="logo-img" src="/assets/logo.svg" alt="SuperHyre"
+           onerror="if(this.dataset.tried){this.style.display='none';this.nextElementSibling.style.display='block';}else{this.dataset.tried=1;this.src='/assets/logo.png';}">
+      <svg style="display:none" viewBox="0 0 31 62" xmlns="http://www.w3.org/2000/svg" fill="#EA5A1E">
+        <rect x="15.5" y="0" width="15.5" height="15.5"/><rect x="0" y="15.5" width="15.5" height="15.5"/>
+        <rect x="15.5" y="31" width="15.5" height="15.5"/><rect x="0" y="46.5" width="15.5" height="15.5"/>
+      </svg>
+    </a>
+    <a href="/talent.html" class="get-started">get started</a>
+  </header>
+
+  <main class="legal">
+    <h1>Privacy Policy<br>Superhyre Contact Finder</h1>
+    <p class="eff"><strong>Chrome extension</strong> &middot; Effective date: 4 September 2026</p>
+
+    <p>This policy explains how the <strong>Superhyre Contact Finder</strong> browser extension (&ldquo;the Extension&rdquo;) handles data. It is an internal business tool for authorized users of <strong>superhyre</strong>. It requires signing in with a <strong>work Google account</strong>; personal-email accounts are refused at signup.</p>
+
+    <h2>What the Extension accesses</h2>
+    <p>The Extension runs only on <code>https://www.linkedin.com/*</code>. It reads nothing until you act.</p>
+    <p>When you open the sidebar on a profile page (<code>https://www.linkedin.com/in/…</code>) it reads:</p>
+    <ul>
+      <li>the <strong>canonical profile URL</strong> (the <code>/in/&lt;slug&gt;</code> identifier, with tracking parameters stripped);</li>
+      <li>the <strong>name</strong> in the profile&rsquo;s heading.</li>
+    </ul>
+    <p>If you click <strong>&ldquo;Scrape full profile + phone&rdquo;</strong> it additionally reads, from that page only: the headline, current title and company, location, profile image URL, and up to ten entries from the experience list.</p>
+    <p>On a LinkedIn <strong>people-search results</strong> page it reads the profile URLs of the visible results, in order to mark the people already in your pipeline with a dot.</p>
+    <p>That is the entire read surface. The Extension does <strong>not</strong> read your LinkedIn feed, connections, messages, or any other page or site, and it does not run on any other domain.</p>
+
+    <h2>What the Extension stores on your device</h2>
+    <p>Using Chrome&rsquo;s local storage (<code>chrome.storage.local</code>), the Extension stores only:</p>
+    <ul>
+      <li>your <strong>Supabase session</strong> (access and refresh token) from signing in with Google;</li>
+      <li>your <strong>sidebar preferences</strong> (whether it is open, and how wide).</li>
+    </ul>
+    <p>There are <strong>no API keys on your device</strong> &mdash; see &ldquo;Where the provider keys live&rdquo; below. The Extension contains no analytics, advertising, tracking, or telemetry code, and stores no browsing or lookup history locally.</p>
+
+    <h2>What the Extension transmits, and to whom</h2>
+    <p><strong>1. Google</strong> (<code>accounts.google.com</code>) &mdash; when you sign in. The Extension requests only the <code>openid</code>, <code>email</code> and <code>profile</code> scopes and receives your email address and name. It requests no access to Gmail, Drive, Calendar, Sheets, or any other Google service.</p>
+    <p><strong>2. superhyre&rsquo;s Supabase project</strong> (<code>npqajviolhoufuggfobg.supabase.co</code>) &mdash; the only server the Extension talks to. It receives, as you use it:</p>
+    <ul>
+      <li>the profile URL you are viewing, on every sidebar open (a free cache lookup);</li>
+      <li>the scraped profile fields listed above, when you reveal or save;</li>
+      <li>the candidate&rsquo;s stage and any notes you enter, when you shortlist or queue;</li>
+      <li>a log entry for each phone-reveal attempt: your user id, the profile URL, which provider answered, the outcome, and a timestamp. This log enforces a daily per-user limit and records spend.</li>
+    </ul>
+    <p><strong>3. Contact-data providers &mdash; reached by superhyre&rsquo;s server, never by your browser.</strong> When you click a reveal button, superhyre&rsquo;s server-side function sends the LinkedIn profile URL &mdash; and nothing else &mdash; to <a href="https://prospeo.io/privacy" target="_blank" rel="noopener">Prospeo</a> and, if it has no match, <a href="https://contactout.com/privacy" target="_blank" rel="noopener">ContactOut</a>. These are independent third-party data providers; their handling of that request is governed by their own privacy policies, not this one.</p>
+    <p>The Extension sends data to <strong>no other destination</strong>. Its manifest grants host access to exactly one domain, so it is technically incapable of contacting a provider, an analytics service, or anything else directly.</p>
+
+    <h2>Where the provider keys live</h2>
+    <p>The provider API keys are held as secrets in superhyre&rsquo;s Supabase project and are never present in the Extension. An unpacked extension is readable by anyone who has it, so a key shipped inside it would be a key its users have. The only credential in the Extension bundle is a Supabase <strong>publishable</strong> key, which is public by design and cannot by itself read data or spend a provider credit &mdash; every action requires your signed-in user token, and access is enforced by row-level security.</p>
+
+    <h2>Shared contact data &mdash; please read</h2>
+    <p class="callout">Revealed contact details are written to a <strong>person graph shared across all organizations using the Superhyre platform</strong>, not only your own. This is deliberate: it means a phone number another organization has already paid to reveal is returned to you at no cost, and vice versa.</p>
+    <p>In practice:</p>
+    <ul>
+      <li><strong>Contact details</strong> (name, phone numbers, email addresses, and the scraped profile fields) are visible platform-wide.</li>
+      <li><strong>Your organization&rsquo;s own opinion of a person</strong> &mdash; whether they are shortlisted, their stage, your notes, who owns them, your call queue &mdash; is stored in a schema private to your organization and is <strong>not</strong> visible to any other organization.</li>
+    </ul>
+
+    <h2>Data subjects, controllers, and responsibilities</h2>
+    <p>The profile data and phone numbers processed relate to third-party individuals (&ldquo;data subjects&rdquo;). <strong>superhyre is the data controller</strong> for everything the Extension writes.</p>
+    <p>Depending on your and the data subject&rsquo;s location, applicable law (e.g. GDPR, CCPA/CPRA, India&rsquo;s DPDP Act) may grant data subjects rights to access, correct, or delete this data. Requests can be directed to <a href="mailto:team@superhyre.com">team@superhyre.com</a>; a specific person&rsquo;s record can be deleted on request, including from the shared person graph.</p>
+    <p>You are responsible for using the Extension in compliance with applicable law, LinkedIn&rsquo;s terms, the providers&rsquo; terms, and your organization&rsquo;s policies.</p>
+
+    <h2>Permissions and why they are needed</h2>
+    <ul>
+      <li><strong>storage</strong> &mdash; to keep your session and sidebar preferences on your device.</li>
+      <li><strong>identity</strong> &mdash; to sign you in with Google. This uses Google&rsquo;s own consent window; the Extension never sees your Google password.</li>
+      <li><strong>host access to <code>npqajviolhoufuggfobg.supabase.co</code></strong> &mdash; the single server it talks to.</li>
+      <li><strong>content script on <code>linkedin.com</code></strong> &mdash; to show the sidebar and read the fields described above.</li>
+    </ul>
+    <p>The Extension requests no <code>tabs</code>, <code>history</code>, <code>cookies</code>, <code>webRequest</code>, or all-sites host permission.</p>
+
+    <h2>Data retention</h2>
+    <p>Your session stays on your device until you sign out or uninstall; signing out deletes it. Contact and candidate data is retained in superhyre&rsquo;s systems until deleted on request or as part of its normal data lifecycle. Reveal log entries are retained for billing, abuse-prevention and audit purposes.</p>
+
+    <h2>Children</h2>
+    <p>The Extension is a business tool and is not directed to anyone under 16.</p>
+
+    <h2>Changes</h2>
+    <p>We may update this policy; the &ldquo;Effective date&rdquo; above will change and the updated policy will be posted at this URL.</p>
+
+    <h2>Contact</h2>
+    <p>Questions or data requests: <a href="mailto:team@superhyre.com">team@superhyre.com</a> (superhyre, Bangalore, India).</p>
+  </main>
+
+  <footer>
+    <div class="footer-top">
+      <div class="footer-cols">
+        <div class="socials">
+          <a href="https://www.linkedin.com/company/superhyre01/about/" target="_blank" rel="noopener" aria-label="LinkedIn"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.45 20.45h-3.56v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.34V9h3.42v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 110-4.13 2.06 2.06 0 010 4.13zM7.12 20.45H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.72v20.56C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.72V1.72C24 .77 23.2 0 22.22 0z"/></svg></a>
+          <a href="mailto:team@superhyre.com" aria-label="Email"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="16" rx="1.5"/><path d="M3 6l9 7 9-7"/></svg></a>
+        </div>
+        <div class="col"><h4>Company</h4><ul><li><a href="/talent.html">About</a></li><li><a href="mailto:team@superhyre.com">Contact us</a></li></ul></div>
+        <div class="col"><h4>Legal</h4><ul><li><a href="/extension/privacy/">Extension privacy</a></li></ul></div>
+      </div>
+      <div class="stair">
+        <a href="/talent.html" class="cta cta-top">how we work <span class="arrow">&#8599;</span></a>
+        <span class="sq sq1"></span>
+        <span class="sq sq2"></span>
+        <a href="/talent.html" class="cta cta-bot">start hiring <span class="arrow">&#8599;</span></a>
+      </div>
+    </div>
+    <p class="copyright">© 2026 superhyre. All rights reserved.</p>
+  </footer>
+
+</div>
+</body>
+</html>
