@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sign in — SuperHyre</title>
+
+<!-- Unlinked from the marketing site by design, and told not to index itself.
+     This is the operator entrance, not a page anyone should arrive at from
+     search. -->
+<meta name="robots" content="noindex, nofollow" />
+<meta name="description" content="Sign in to SuperHyre." />
+
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg" />
+<link rel="icon" href="/favicon.ico" sizes="any" />
+<link rel="apple-touch-icon" href="/assets/logo.svg" />
+
+<!-- Fanwood Text and IBM Plex Sans match how index.html / talent.html /
+     extension/privacy load type, so the card renders in the same faces as the
+     rest of the site rather than shipping a second copy of the same fonts.
+
+     Space Grotesk 600 is here for the tagline only.
+
+     Bowlby One was dropped: it existed for the tool strip, that strip is gone,
+     and a font in this link with no renderer is a request on the critical path
+     buying nothing. -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fanwood+Text:ital@0;1&family=IBM+Plex+Sans:wght@300;400;500;600&family=Space+Grotesk:wght@500;600&display=swap" rel="stylesheet" />
+</head>
+<body>
+<div id="root"></div>
+<script type="module" src="/src/main.tsx"></script>
+</body>
+</html>

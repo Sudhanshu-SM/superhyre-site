@@ -1,0 +1,2510 @@
+/* ===========================================================
+   SuperHyre — /access/ sign-in surface
+
+   Standalone on purpose: this does NOT load the site's style.css. That sheet is
+   built around .page / .hero / .features / footer .stair, and pulling 213 rules
+   in for one card would mean inheriting layout it does not use. What it DOES
+   inherit is the token values below, copied verbatim from style.css :root.
+
+   DRIFT NOTE: those tokens are duplicated, not imported. If the brand orange or
+   a font stack changes in style.css, it must change here too. This is the same
+   class of coupling as PRIVACY.md <-> /extension/privacy/. Called out here so
+   the next person finds it before the surfaces diverge.
+   =========================================================== */
+
+/* Same two files the rest of the site serves. Absolute paths because this page
+   is served from /access/, so 'assets/...' would resolve to /access/assets/. */
+@font-face {
+  font-family: "PP Mondwest";
+  src: url("/assets/mondwest-neuebit-font/ppmondwest-regular.otf") format("opentype");
+  font-weight: 400;
+  font-display: swap;
+}
+
+/* PP NeueBit Bold was used for the collage words and has been dropped. It is a
+   bitmap face, and at the size those words are set its stepped edges fought
+   the hard offset shadow — the two together read as low-fidelity rather than
+   deliberate. The @font-face is removed rather than left in place so the
+   .otf is not fetched for a face nothing renders. */
+
+:root {
+  /* ── copied from style.css :root ─────────────────────────────────── */
+  --accent: #ea5a1e;
+  --black: #0a0a0a;
+  --rule: #d8d8d8;
+  --rule-strong: #9a9a9a;
+  --serif: "Fanwood Text", Georgia, serif;
+  --pixel: "PP Mondwest", "Fanwood Text", serif;
+  --ui: "IBM Plex Sans", system-ui, sans-serif;
+  /* The wordmark face. index.html draws "SUPERHYRE" in Helvetica Neue 500, so
+     the lockup here has to match rather than borrow one of the other three. */
+  --wm: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  /* The tagline. Space Grotesk 600 — distinct from the serif body and the
+     pixel display face, so a small uppercase label reads as its own layer.
+     (A --display token for Bowlby One sat here too; it went with the tool
+     strip that was its only user.) */
+  --word: "Space Grotesk", "IBM Plex Sans", system-ui, sans-serif;
+
+  /* ── added here ──────────────────────────────────────────────────── */
+
+  /* CONTRAST BUDGET, measured against the surface each one sits on.
+
+     THE PANEL IS LIGHT. This is the third palette and the reasoning for each
+     is worth keeping, because the arithmetic drives the design:
+
+     1. Orange panel, black type. Both --accent-on-white and white-on-accent are
+        3.51:1, so an orange field can ONLY carry near-black text. Every word
+        was forced black and the whole thing read heavy.
+     2. Espresso panel, white/orange type. The numbers were excellent (17.5:1
+        and 4.97:1) but a 780px slab of near-black reads corporate-serious,
+        which is the wrong mood for a product about hiring people.
+     3. This one. Light peach panel, warm brown type. Optimistic, warm, and
+        still comfortably accessible — but it INVERTS which orange is legal:
+
+          --accent  #ea5a1e on --panel = 2.85:1  -> FILL ONLY, never text
+          --deep    #b8400f on --panel = 4.51:1  -> smallest legal text orange
+          --ink-2   #7a5642 on --panel = 5.31:1
+          --ink     #3a2317 on --panel = 11.9:1
+
+        On the dark panel the bright orange was the only legible orange; here it
+        is the only ILLEGIBLE one. So the type runs a warm brown-to-burnt scale
+        and the bright accent is reserved for shapes, the button and the mark. */
+  --panel: #fce3d1;        /* light peach — the warm half */
+  --panel-2: #ffffff;      /* raised surface inside the panel */
+
+  /* Warm browns, not greys. A neutral grey on peach reads dirty; these are the
+     accent's own hue family taken down in value. */
+  --ink: #3a2317;          /* 11.9:1 on --panel, 14.5:1 on white */
+  --ink-2: #7a5642;        /* 5.3:1 on --panel, 6.4:1 on white */
+
+  --accent-deep: #b8400f;  /* burnt end of the accent */
+
+  /* A four-step word tint scale used to live here, and a --panel-dark for a
+     dark collage block. Both are gone: the collage words are uniformly --ink
+     now, because they overlap the shapes and --ink is the only text colour
+     that clears every surface beneath them. The tokens are deleted rather than
+     left unused, so the palette in this file is the palette on the screen. */
+
+  /* The page behind the card, and the form half inside it. */
+  --page: #f6ece1;         /* warm sand, a shade deeper so the card lifts off it */
+  --card: #ffffff;         /* the form half */
+  --field: #ffffff;
+  --focus: #ea5a1e;
+
+  /* SHAPE SCALE — one documented rule, applied everywhere (three tiers only):
+       pill (100px)  interactive controls, matching .pill / .get-started / .modal-wa
+       card (20px)   containers, matching .modal
+       field (10px)  inputs nested inside a card
+     Mixed radii are only defensible with a rule like this written down; the
+     inputs tier is the one value the site had not needed before. */
+  --r-pill: 100px;
+  --r-card: 20px;
+  --r-field: 10px;
+
+  /* EASING. The built-in CSS curves are too weak to read as intentional, so
+     both of these are the stronger custom variants. `ease-in` appears nowhere
+     on this surface by rule: it delays the first few frames, which is exactly
+     the moment a user is watching, and makes the same duration feel slower.
+     - --ease-out for anything entering, exiting, or acknowledging a press
+     - --ease-in-out only for something moving between two on-screen positions */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+
+  /* Motion is deliberately low on this surface. It is a task, not a showcase:
+     transitions acknowledge input and nothing announces itself. Kept under
+     200ms so feedback never reads as latency. */
+  --t: 150ms var(--ease-out);
+
+  /* FRAME WIDTH — single source of truth.
+     Both the shell's max-width and the left bleed's fill width derive from
+     this. They were two hardcoded 1240s, which meant changing one would leave
+     the orange fill misaligned with the frame by however much they differed.
+     Widened one step on very large screens further down: at 3840px a 1240px
+     frame leaves the whole surface a narrow strip between two enormous
+     margins. */
+  --frame: 1240px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  /* dvh, not vh: iOS Safari's collapsing address bar makes 100vh taller than
+     the visible viewport, which pushes the submit button under the chrome. */
+  min-height: 100dvh;
+  /* Warm sand. The card sits on top of it, so this only has to be different
+     enough from white for the card to read as a separate object. */
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--serif);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─────────────────────────── shell + card ─────────────────────────── */
+
+/* The shell is now just a centring stage for a floating card, and it owns the
+   decorative blocks that sit behind it.
+
+   Four layouts preceded this, and the failure was always mass: the site's
+   1240px framed canvas left dead margin; an inset card had nowhere to put a
+   composition; a 43%-capped column made the right side dominate; a true 50/50
+   split gave the panel 784px of colour it could not fill, which read stretched
+   with a hole in the middle.
+
+   A narrower card fixes the mass problem directly. The panel gets 45% of
+   ~1150px instead of 50% of the viewport, so the collage fills its half
+   instead of floating in it. */
+.shell {
+  position: relative;
+  min-height: 100dvh;
+  display: grid;
+  /* One named cell that BOTH the card and the decoration occupy, so they are
+     centred by the same rule and cannot drift apart. */
+  grid-template-areas: "stage";
+  place-items: center;
+  padding: var(--shell-pad-y) var(--shell-pad-x);
+}
+
+/* The card and the decoration share one box, so the blocks always meet the
+   card's real edges instead of being positioned off the viewport and drifting
+   apart from it at other widths. Both are placed in the same grid cell by
+   .shell, and both read these values. */
+:root {
+  /* Bigger. 1150x760 left the composition cramped for the content it carries,
+     and the form column had more air than it needed. */
+  --card-w: 1290px;
+
+  /* The shell's padding is a token because --card-h has to subtract exactly it.
+     These were two separately-written expressions — padding of
+     `clamp(18px, 3.4vh, 46px)` per side against a subtraction of
+     `clamp(32px, 6vh, 84px)` — which agree at most heights and disagreed by 6px
+     at 720, producing a page that scrolled by exactly that. Deriving one from
+     the other makes the mismatch impossible. */
+  --shell-pad-y: clamp(18px, 3.4vh, 46px);
+  --shell-pad-x: clamp(16px, 3vw, 52px);
+  --card-h: min(830px, calc(100dvh - (2 * var(--shell-pad-y))));
+}
+
+/* The card. Curved, clipped, and lifted off the page with a warm shadow —
+   never a grey one, which on a warm background reads as dirt. */
+.frame {
+  position: relative;
+  z-index: 1;
+  grid-area: stage;
+  justify-self: center;
+  align-self: center;
+  width: 100%;
+  max-width: var(--card-w);
+  /* min AND max, deliberately both.
+
+     `min-height` alone let the card GROW to fit its content, which meant the
+     panel column was never bounded — so `flex: 1 1 auto` on the illustration
+     had no constraint to shrink against and short viewports scrolled no matter
+     how the art's own cap was tuned (measured 28px over at 700px tall, 21 at
+     720, 9 at 768). Bounding the card makes the flex column shrink the art
+     automatically instead of needing a hand-picked vh number per breakpoint. */
+  min-height: var(--card-h);
+  max-height: var(--card-h);
+  display: grid;
+  /* 45/55, not 50/50. The form needs a 428px card and the panel needs room for
+     a composition; giving the panel the smaller share is what stops it reading
+     stretched. */
+  grid-template-columns: 45fr 55fr;
+  background: var(--card);
+  border-radius: 28px;
+  overflow: hidden;
+  box-shadow:
+    0 1px 2px rgba(58, 35, 23, 0.06),
+    0 12px 28px -8px rgba(58, 35, 23, 0.14),
+    0 40px 80px -32px rgba(58, 35, 23, 0.18);
+}
+
+/* ── the blocks around the card ──
+
+   The logo's staircase, rebuilt at the card's edges. The mark is a 2x4 grid of
+   squares alternating between two columns as it steps down, so the blocks here
+   alternate between two x offsets in exactly the same rhythm: one offset clears
+   the card entirely, the next tucks halfway under it. The card is opaque and a
+   layer above, so the tucked ones are genuinely half-hidden.
+
+   That alternation is what makes this read as the mark surfacing from behind
+   the card, rather than the loose scatter of differently-sized squares it was
+   first drawn as — those looked like stray confetti in the margin. */
+.deco {
+  position: absolute;
+  grid-area: stage;
+  justify-self: center;
+  align-self: center;
+  width: 100%;
+  max-width: var(--card-w);
+  height: var(--card-h);
+  z-index: 0;
+  pointer-events: none;
+}
+.deco i {
+  position: absolute;
+  display: block;
+  width: var(--blk);
+  height: var(--blk);
+  border-radius: 5px;
+  --blk: clamp(34px, 3.4vw, 52px);
+}
+
+/* Left staircase: steps DOWN from the card's upper-left, alternating clear and
+   tucked. Offsets are multiples of the block size so the steps touch, the way
+   the squares do in the mark itself. */
+.d1 { left: calc(var(--blk) * -1.05); top: 14%; background: var(--accent); }
+.d2 { left: calc(var(--blk) * -0.42); top: calc(14% + var(--blk)); background: #f9b98e; }
+.d3 { left: calc(var(--blk) * -1.05); top: calc(14% + var(--blk) * 2); background: var(--accent-deep); }
+
+/* Right staircase: mirrored, and started lower so the two clusters sit on a
+   diagonal rather than facing each other symmetrically. */
+.d4 { right: calc(var(--blk) * -1.05); bottom: 16%; background: var(--accent); }
+.d5 { right: calc(var(--blk) * -0.42); bottom: calc(16% + var(--blk)); background: #f9b98e; }
+.d6 { right: calc(var(--blk) * -1.05); bottom: calc(16% + var(--blk) * 2); background: var(--accent-deep); }
+
+/* Once the card is as wide as the window there is no margin for them to sit
+   in, so they would only crowd the edges. */
+@media (max-width: 1300px) {
+  .deco { display: none; }
+}
+
+/* Every multi-column layout declares its own collapse, in the same file as the
+   layout it collapses. */
+@media (max-width: 900px) {
+  .shell { padding: 0; place-items: stretch; }
+  .frame {
+    max-width: none;
+    min-height: 100dvh;
+    /* The desktop cap is released here on purpose: single column means the
+       form itself is the tall element, and a form is allowed to scroll. Keeping
+       a max-height would clip the fields instead. */
+    max-height: none;
+    border-radius: 0;
+    box-shadow: none;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+  }
+  /* No room for blocks outside a full-bleed card. */
+  .deco { display: none; }
+}
+
+/* ─────────────────────────── brand panel ─────────────────────────── */
+
+/* Light peach, with the product illustration as a full-panel background.
+
+   The art was a boxed slot in the middle of the column. That turned a
+   1024x1536 illustration into a ~500x300 letterbox — the tablet came out
+   smaller than the wordmark above it — and the box's own rounded border read
+   as a third card on a panel that already had two.
+
+   THE SCRIM IS NOT DECORATION, IT IS THE REASON THIS WORKS. The illustration
+   contains a near-black tablet, and --ink on that measures about 1.3:1: text
+   laid straight over this image is illegible wherever the device sits. So a
+   peach gradient rides on top, near-opaque through the top 46% where the brand
+   row, headline and tool strip live, then thinning out lower down where the
+   only thing over the art is the quote card — and that card is opaque white,
+   so it carries its own background regardless of what is beneath it.
+
+   Consequence worth stating: the art is *at its most visible in the band that
+   has no text*. That is the whole trick, and it is why the gradient stops are
+   where they are rather than being a uniform wash.
+
+   `background-position: 50% 22%` crops to the floating candidate cards and the
+   top of the device, which is the half of a portrait image that carries the
+   meaning; the wrists and desk fall below the fold of the panel.
+
+   `overflow: hidden` keeps the art inside the card's rounded corner. */
+.rail {
+  position: relative;
+  overflow: hidden;
+  background-image:
+    linear-gradient(
+      to bottom,
+      /* THE TOP OPENS AT 0.50. It began at 0.985 holding 0.97 through 32%,
+         which erased the art in the whole upper third; 0.70 was the first pass
+         at fixing that and still read as haze over the illustration rather
+         than the illustration itself.
+
+         Two things bought this room. The tagline moved off burnt orange to
+         --ink (see .bp-tagline) — at 4.51:1 on solid peach it had no headroom
+         for any darkening and was single-handedly holding the top opaque. And
+         everything up here is now --ink, which is 11.9:1 on bare peach.
+
+         The floor is measured, not guessed. Sampling the real pixels behind
+         this band, the darkest thing the art puts up there is the plant, about
+         rgb(84,81,45). Against that:
+           0.42 alpha -> 4.55:1   the hard floor for a 4.5 element
+           0.50 alpha -> 5.30:1   chosen, with margin to spare
+         Going below 0.42 would fail the wordmark and tagline outright.
+
+         Measured positions: brand row 4-9%, headline 13-21%, covers 26-29%.
+         The one place the scrim still has to climb is the covers line, because
+         that is where the orange tints live and #ad3b0c needs a near-peach
+         surface to hold 4.5:1. Hence the ramp: open where only --ink sits,
+         tighten into the covers line, then release into the window. */
+      rgba(252, 227, 209, 0.5) 0%,
+      rgba(252, 227, 209, 0.56) 11%,
+      rgba(252, 227, 209, 0.9) 22%,
+      /* The covers line's band — the orange tints need this to stay high. */
+      rgba(252, 227, 209, 0.96) 30%,
+      /* Hand-off: no text below here. */
+      rgba(252, 227, 209, 0.78) 42%,
+      /* The window. Thin enough that the tablet and the candidate rows read
+         properly — an earlier 0.42/0.3 pair left them washed out and the whole
+         panel looked like a print bleed rather than a product shot. */
+      rgba(252, 227, 209, 0.22) 58%,
+      rgba(252, 227, 209, 0.14) 80%,
+      /* Lifts again at the very bottom so the quote card has a settled surface
+         to sit against instead of a busy crop of the desk. */
+      rgba(252, 227, 209, 0.46) 100%
+    ),
+    image-set(
+      url("/assets/access-art.webp") type("image/webp"),
+      url("/assets/signup_page.png") type("image/png")
+    );
+  background-color: var(--panel);
+  background-repeat: no-repeat, no-repeat;
+  background-size: auto, cover;
+  background-position: 0 0, 50% 22%;
+  /* Vertical padding scales with height: fixed values left the panel taller
+     than a 720px viewport, and this column is the one that must fit — the form
+     can scroll, a brand panel that forces a scrollbar is just a bug. */
+  padding: clamp(22px, 3.6vh, 36px) clamp(24px, 2.6vw, 40px) clamp(20px, 3.2vh, 32px);
+  display: flex;
+  flex-direction: column;
+}
+
+.bp {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  /* Scales with height. A flat 26px overflowed a 1280x800 laptop once the
+     framed stage was in place, and a vertical scrollbar on a sign-in page is a
+     layout bug, not a feature. */
+  gap: clamp(12px, 2.2vh, 22px);
+}
+
+/* ── brand row ──
+
+   Mark and wordmark left, tagline right, sharing one baseline. The tagline was
+   a stacked uppercase eyebrow above the headline, which spent a whole line of a
+   height-constrained panel on four words. */
+.bp-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.bp-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--ink);
+  transition: opacity 160ms var(--ease-out);
+}
+.bp-logo:hover { opacity: 0.7; }
+/* Emil: pressable things scale, they do not nudge. Subtle, 0.95-0.98. */
+.bp-logo:active { transform: scale(0.97); }
+.bp-logo:focus-visible { outline: 2px solid var(--accent-deep); outline-offset: 4px; border-radius: 4px; }
+
+/* The mark keeps the bright accent. It is a filled shape, not text, so the
+   2.85:1 that disqualifies orange type on this peach does not apply — a
+   non-text element needs 3:1 and this is a solid graphic. */
+.bp-mark { width: 14px; height: 28px; fill: var(--accent); flex: none; }
+
+/* Helvetica Neue 500 is the site's wordmark face (index.html's hero SVG). */
+.bp-word {
+  font-family: var(--wm);
+  font-weight: 500;
+  font-size: clamp(17px, 1.5vw, 20px);
+  letter-spacing: -0.015em;
+}
+
+.bp-tagline {
+  font-family: var(--word);
+  font-weight: 600;
+  font-size: clamp(11px, 1vw, 12.5px);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  /* --ink, not the burnt orange it used to be, and this is the trade that lets
+     the top of the panel show the illustration at all.
+
+     --accent-deep is 4.51:1 on SOLID peach — no headroom whatsoever. With the
+     art behind it, any scrim below ~0.97 drops this label under AA, which is
+     what forced the top band to be almost fully opaque and made the image
+     "disappear" up there. --ink is 11.9:1 on peach and still ~7:1 over the
+     darkest pixel in the art, so the scrim can thin right out and this stays
+     legible. The orange tints stay where they were asked for: the tool strip. */
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+/* ── headline ──
+
+   PP Mondwest is the site's display face and this is exactly what it is for: a
+   short word at poster scale, where its pixel edges read as character rather
+   than noise. It would be illegible at sentence length, which is why the body
+   copy uses the serif and this does not. */
+.bp-huge {
+  font-family: var(--pixel);
+  font-weight: 400;
+  color: var(--ink);              /* 11.9:1 on the peach */
+  font-size: clamp(42px, 4.8vw, 68px);
+  line-height: 0.92;
+  letter-spacing: -0.02em;
+  /* Mondwest's descenders clip at this leading without a little room. */
+  padding-bottom: 4px;
+  margin-top: clamp(6px, 1.4vh, 18px);
+}
+.bp-huge-dot { color: var(--accent); }
+
+/* ── covers line ──
+
+   Same five words that used to be a poster-scale scatter, now a capability
+   line: what one login covers.
+
+   SET IN THE UI FACE, not a display one. Two heavy display faces were tried
+   here and both were wrong for this job — PP NeueBit's bitmap edges went muddy
+   under a shadow, and Bowlby One shouted at a size where it only needed to
+   inform. The words are no longer the panel's main visual (the illustration
+   is), so the type steps back: IBM Plex Sans 500 at 13px with open tracking
+   reads as a spec line rather than a headline, and it is already loaded for
+   the form labels so it costs nothing.
+
+   Bowlby One was dropped from the font link in index.html with the old
+   treatment, rather than left downloading for a face nothing renders. */
+.bp-covers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  margin-top: clamp(8px, 1.6vh, 16px);
+  line-height: 1.6;
+}
+
+.bp-cover {
+  font-family: var(--ui);
+  font-weight: 500;
+  font-size: clamp(12px, 1.05vw, 13.5px);
+  letter-spacing: 0.02em;
+  /* A single hard white offset, no blur and no second step. This is a
+     legibility aid rather than a style: the words sit over the illustration,
+     and one pixel of light behind each glyph separates them from whatever the
+     art puts underneath without reading as a shadow at all. */
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+/* Three steps down the accent. Tone 1 is #ad3b0c rather than #b8400f: the
+   latter is 4.51:1 on SOLID peach, so the moment the art shows through the
+   scrim it drops under AA — sampled against real pixels it measured 4.26:1.
+   These three hold 4.77 / 5.24 / 7.16 against that same worst case. */
+.bp-cover-1 { color: #ad3b0c; }
+.bp-cover-2 { color: #8a4a20; }
+.bp-cover-3 { color: #6b3a1c; }
+
+.bp-cover-sep {
+  color: var(--accent);
+  padding: 0 7px;
+  font-family: var(--ui);
+}
+
+/* ── art spacer ──
+
+   An empty flex child that claims the band the background illustration sits
+   in, so the quote card is pushed to the bottom and the middle of the panel
+   stays open. Without it the quote rides up under the tool strip and covers
+   the art it is supposed to sit beneath.
+
+   `flex: 1 1 auto` with a floor and no ceiling: it takes all remaining height,
+   and because `.frame` is now bounded top and bottom this is what absorbs the
+   difference between a 700px viewport and a 1200px one. The floor stops the
+   band collapsing to nothing on the shortest supported height, which would
+   crop the art to a sliver. */
+.bp-art-space {
+  flex: 1 1 auto;
+  min-height: clamp(120px, 22vh, 260px);
+}
+
+@media (max-width: 900px) {
+  /* Single column: the panel is a short header strip above the form, so there
+     is no band for the art to occupy and no reason to reserve one. The
+     background image is dropped too — at strip height it would show only a
+     meaningless crop, and it is not worth the bytes on a phone. */
+  .bp-art-space { display: none; }
+  .rail { background-image: none; }
+}
+
+/* ── quote card ── */
+
+/* A white card inside the peach panel, so the quote reads as a distinct object.
+   `margin-top: auto` pins it to the bottom and absorbs leftover height, which
+   is what stops the panel developing a hole in the middle on a tall window.
+
+   Third variation, and the rule that emerged is worth stating: LIFT THE
+   SURFACE AWAY FROM ITS TEXT, never toward it. On the orange panel a black
+   overlay dropped contrast 4.82 -> 4.41 (an AA failure) because it moved the
+   card toward the near-black type; on the espresso panel a white overlay was
+   correct because the type was white. Here the type is dark brown again, so the
+   card goes to solid white — the furthest point from it — and every pairing
+   inside gains contrast over sitting on the bare peach. */
+.bp-quote {
+  margin-top: auto;
+  background: var(--panel-2);
+  border: 1px solid rgba(184, 64, 15, 0.14);
+  border-radius: var(--r-card);
+  padding: 16px 18px 14px;
+  position: relative;
+  z-index: 1;
+}
+
+/* The slot the two quotes crossfade inside.
+
+   NO min-height. It was set to fit the LONGER quote so the card could not jump,
+   and that traded a jump for a permanent hole: the short quote is two lines
+   against the long one's four, so a floor sized for four left ~38px of dead
+   space under it whenever the short one was showing.
+
+   The height is animated instead. `mode="popLayout"` takes the outgoing quote
+   out of flow, so the slot immediately reflows to the incoming quote's real
+   height, and Motion's `layout` on the figure eases the card between the two
+   sizes. Nothing is reserved, nothing snaps. */
+.bp-quote-slot {
+  position: relative;
+}
+
+.bp-quote-text {
+  font-family: var(--serif);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--ink);              /* 14.5:1 on white */
+  /* No CSS animation here any more. Enter AND exit are owned by
+     AnimatePresence in BrandPanel.tsx, which is the only way to have the
+     outgoing quote animate out at all — a keyframe cannot run on a node React
+     has already removed. */
+}
+.bp-quote-text::before { content: "\201C"; }
+.bp-quote-text::after { content: "\201D"; }
+
+.bp-quote figcaption {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 10px;
+  font-family: var(--ui);
+  font-size: 12.5px;
+  /* The caption crossfades too, so it needs a stable height of its own or the
+     dots below it would hop on every change. */
+  min-height: 1.4em;
+}
+/* .bp-cap is gone: the caption is no longer its own animated element. It and
+   the quote now share a single keyed wrapper, because two separate presence
+   trees on different modes let the caption lag a beat behind and credit the
+   wrong person. */
+/* The name takes the burnt orange (5.5:1 on white), the org the muted brown
+   (6.4:1). Hierarchy from hue and weight, never from dimming below AA — and
+   not the bright accent, which is 3.51:1 on white and fails. */
+.bp-who { font-weight: 600; color: var(--accent-deep); }
+.bp-org { font-weight: 400; color: var(--ink-2); }
+
+.bp-dots {
+  display: flex;
+  gap: 6px;
+  margin-top: 14px;
+}
+.bp-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  /* Dark on light, the inverse of the espresso version. A white dot on peach
+     would be nearly invisible. */
+  background: rgba(58, 35, 23, 0.22);
+  transition: background 160ms var(--ease-out), transform 160ms var(--ease-out);
+}
+.bp-dot:hover { background: rgba(58, 35, 23, 0.4); }
+.bp-dot:active { transform: scale(0.9); }
+.bp-dot-on { background: var(--accent-deep); }
+.bp-dot:focus-visible { outline: 2px solid var(--accent-deep); outline-offset: 2px; }
+
+@media (max-width: 1080px) {
+  /* The card is narrower than the viewport, so this breakpoint tracks the card
+     rather than the window: the panel is ~45% of 1290px, which starts to
+     squeeze it well before the layout needs to collapse. */
+  .bp { gap: 14px; }
+}
+
+@media (max-width: 900px) {
+  /* Collapsed to a header strip above the form. The illustration and the quote
+     card both go: on a phone the only job of this panel is to say what the
+     product is before the fields start, and neither is worth pushing the
+     sign-in inputs below the fold.
+
+     `env(safe-area-inset-*)` via max() so the strip clears a notch or a
+     status bar in landscape without adding padding on devices that have
+     neither — max() picks the inset only when it exceeds the design value. */
+  .rail {
+    padding:
+      max(24px, env(safe-area-inset-top)) 24px 22px
+      max(24px, env(safe-area-inset-left));
+  }
+  .bp { gap: 12px; }
+  .bp-huge { font-size: clamp(42px, 13vw, 64px); margin-top: 4px; }
+  .bp-quote { display: none; }
+}
+
+/* ── short viewports: landscape phones ──
+
+   Measured at 844x390: the brand strip came out 204px tall — over half the
+   screen for a decorative header — and pushed the submit button below the
+   fold. A sign-in page where you cannot see the sign-in button is broken,
+   however good the branding looks.
+
+   Keyed on height, not width, because that is the actual constraint: a 390px
+   tall viewport has the same problem at any width. The lockup row stays (it is
+   the only part that identifies the product); the headline and the covers line
+   go, because neither is worth the button. */
+@media (max-width: 900px) and (max-height: 560px) {
+  .rail { padding: max(12px, env(safe-area-inset-top)) 20px 12px max(20px, env(safe-area-inset-left)); }
+  .bp { gap: 0; }
+  .bp-huge,
+  .bp-covers { display: none; }
+}
+
+/* ── very narrow screens ──
+
+   Measured at 320x568 (the smallest phone still in use): the covers line
+   wrapped to two lines and the brand strip took 37% of the screen. Tightening
+   the type and the separators pulls it back to one line, which is worth more
+   than the extra 1px of tracking — dropping the line entirely was the other
+   option and it loses real content on the device that can least afford a
+   second screenful of scrolling. */
+@media (max-width: 380px) {
+  .bp-cover { font-size: 11px; letter-spacing: 0; }
+  .bp-cover-sep { padding: 0 4px; }
+}
+
+/* ── tall phones: bring the product shot back ──
+
+   On mobile the illustration is dropped, because at strip height it would show
+   a meaningless crop. That is the right call on a 640px screen and the wrong
+   one on a 900px+ one, where the strip is only ~23% of the view and the rest
+   of the panel is flat peach with nothing in it.
+
+   Above 780px tall the strip gets a fixed height and the art back. The scrim
+   is tuned for THIS band rather than reused from desktop: the text occupies
+   the upper two thirds of a short strip instead of the upper third of a tall
+   panel, so it stays high through 62% and only opens near the bottom edge —
+   which is the sliver of tablet and floating cards that reads at this size.
+
+   `background-attachment: scroll` is implicit but worth knowing: `fixed` would
+   jump on iOS Safari during rubber-band scrolling. */
+@media (max-width: 900px) and (min-height: 780px) {
+  .rail {
+    min-height: 300px;
+    background-image:
+      linear-gradient(
+        to bottom,
+        /* Held high through the whole text band, then dropped hard.
+
+           The first attempt eased from 0.90 down to 0.88 by 62%, which put the
+           covers line on a thinning scrim — sampled against the real pixels it
+           came out 4.07-4.50:1 on four of the five labels, all failing. The
+           tagline and headline were fine at ~9.8 because they are --ink;
+           #ad3b0c is what has no headroom.
+
+           On a 300px strip the text occupies the top ~62%, so the reveal has
+           to live in the bottom third. Narrower than the desktop window, but a
+           legible label beats a slightly larger crop of a tablet. */
+        rgba(252, 227, 209, 0.96) 0%,
+        rgba(252, 227, 209, 0.96) 66%,
+        rgba(252, 227, 209, 0.3) 86%,
+        rgba(252, 227, 209, 0.48) 100%
+      ),
+      image-set(
+        url("/assets/access-art.webp") type("image/webp"),
+        url("/assets/signup_page.png") type("image/png")
+      );
+    background-color: var(--panel);
+    background-repeat: no-repeat, no-repeat;
+    background-size: auto, cover;
+    background-position: 0 0, 50% 16%;
+  }
+}
+
+/* ─────────────────────────── form panel ─────────────────────────── */
+
+.panel {
+  position: relative;
+  background: var(--card);
+  padding: clamp(28px, 4vh, 44px) clamp(28px, 3.6vw, 60px) clamp(28px, 4vh, 44px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* No vertical hairline here.
+
+   One was added when the form sat on a full-bleed half and the right edge felt
+   unresolved. The card solved that on its own: it has a real edge, a radius
+   and a shadow, so a rule inside it was a second, weaker boundary competing
+   with a stronger one a few pixels away. The peach/white seam between the two
+   halves is the only divider this layout needs. */
+
+/* Single column: the form is the whole screen below the strip, so it carries
+   the bottom and side safe-area insets. Without the bottom inset the "Create
+   one" link sits under the iOS home indicator, and side insets matter once a
+   landscape phone puts a notch beside the content. */
+@media (max-width: 900px) {
+  .panel {
+    /* flex-start, with the centring delegated to auto margins on .card below.
+
+       `justify-content: center` cannot be used here: when the form is taller
+       than the space it clips the TOP, and a clipped "Work email" label with
+       no way to scroll up to it is unusable. flex-start alone was the previous
+       fix and it swapped that for the opposite problem — on a tall phone the
+       form sat against the strip and left ~390px of dead white underneath.
+
+       Auto margins on the item solve both: they centre when there is free
+       space and collapse to zero when there is not, so nothing is ever
+       clipped. */
+    justify-content: flex-start;
+    padding:
+      30px
+      max(24px, env(safe-area-inset-right))
+      max(40px, env(safe-area-inset-bottom))
+      max(24px, env(safe-area-inset-left));
+  }
+}
+@media (max-width: 420px) {
+  .panel {
+    padding:
+      26px
+      max(18px, env(safe-area-inset-right))
+      max(34px, env(safe-area-inset-bottom))
+      max(18px, env(safe-area-inset-left));
+  }
+}
+
+.card { width: 100%; max-width: 452px; margin: 0 auto; }
+
+/* Vertical auto margins on mobile, and this MUST come after the base rule
+   above: a media query adds no specificity, so declaring it earlier let
+   `margin: 0 auto` win and the form stayed pinned to the top with 562px of
+   dead white under it. Same source-order trap as the coarse-pointer rule.
+
+   Auto margins rather than `justify-content: center` on the parent, because
+   they centre when there is free space and collapse to zero when there is not
+   — so a form taller than the screen is never clipped at the top. */
+@media (max-width: 900px) {
+  .card { margin: auto; }
+}
+
+.card-title {
+  font-family: var(--pixel);
+  color: var(--accent);         /* large display type, 3.51:1 is in scope */
+  font-size: clamp(32px, 3.6vw, 41px);
+  line-height: 1.05;
+  padding-bottom: 3px;
+  margin-bottom: 10px;
+}
+
+.card-sub {
+  font-family: var(--serif);
+  font-size: 17px;
+  color: var(--ink);
+  margin-bottom: 26px;
+  max-width: 42ch;
+}
+
+/* ─────────────────────────── fields ─────────────────────────── */
+
+.field { display: grid; gap: 7px; margin-bottom: 18px; }
+
+/* Label above the input, always a real <label>. No placeholder-as-label: a
+   placeholder disappears on focus, which strands anyone who tabs into the
+   field and forgets what it wanted. */
+.field label {
+  font-family: var(--ui);
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--ink);
+  letter-spacing: 0.005em;
+}
+
+.field-input-wrap { position: relative; display: flex; }
+
+.field input {
+  width: 100%;
+  font-family: var(--ui);
+  font-weight: 400;
+  /* 16px floor: anything smaller makes iOS Safari zoom the viewport on focus. */
+  font-size: 16px;
+  color: var(--ink);
+  /* White, not the old near-white: the page is a warm tint now, so a field
+     tinted to match would read as disabled rather than editable. */
+  background: #fff;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--r-field);
+  padding: 12px 14px;
+  transition: border-color var(--t), box-shadow var(--t), background var(--t);
+}
+.field input::placeholder { color: var(--ink-2); }  /* 7.0:1 */
+.field input:hover:not(:disabled) { border-color: #6f6f6f; }
+
+.field input:focus-visible {
+  outline: none;
+  border-color: var(--focus);
+  /* Ring, not a glow: 2px of solid accent reads as focus at 3:1 against both
+     the field and the page. */
+  box-shadow: 0 0 0 2px rgba(234, 90, 30, 0.32);
+  background: #fff;
+}
+
+.field input:disabled { background: #f4f4f4; color: var(--ink-2); cursor: not-allowed; }
+
+/* Invalid is announced by aria-invalid + the message below, not by hue alone. */
+.field input[aria-invalid="true"] { border-color: var(--accent); }
+.field input[aria-invalid="true"]:focus-visible { box-shadow: 0 0 0 2px rgba(234, 90, 30, 0.32); }
+
+/* Password reveal sits inside the field, so it needs room reserved for it. */
+.field-has-toggle input { padding-right: 46px; }
+
+.reveal {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: none;
+  border-radius: 8px;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: color var(--t), background var(--t);
+}
+.reveal:hover { color: var(--ink); background: #eee; }
+.reveal:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; color: var(--ink); }
+
+/* ── touch targets ──
+
+   Apple HIG and Material both put the comfortable minimum at 44-48px; WCAG
+   2.5.8 sets the floor at 24px. The reveal button is 34px — above the legal
+   floor, below the usable one, and it sits inside a field where a mis-tap puts
+   the caret in the password instead of toggling it.
+
+   Keyed on `pointer: coarse`, not a width: the input device is what matters, so
+   a touchscreen laptop gets this and a narrow desktop window does not.
+
+   Placed AFTER the base .reveal rule on purpose. It first sat up in the
+   brand-panel section, and because a media query carries no extra specificity
+   the later base rule simply overrode it — the query matched and changed
+   nothing, which measured as a still-34px button under an emulated coarse
+   pointer. Source order is the whole fix. */
+@media (pointer: coarse) {
+  .reveal { width: 44px; height: 44px; right: 3px; }
+  /* The field's right padding has to grow with the button or the value runs
+     underneath it. */
+  .field-has-toggle input { padding-right: 52px; }
+}
+
+/* Helper text is present in markup even when empty, so revealing a message
+   never shifts the layout underneath the cursor. */
+.field-help {
+  font-family: var(--ui);
+  font-weight: 300;
+  font-size: 13px;
+  color: var(--ink-2);          /* 7.0:1 */
+  min-height: 1.35em;
+}
+
+/* Error BELOW the input, and dark rather than orange: at body size the brand
+   orange is 3.51:1 and would fail AA. The orange carries the signal through
+   the icon and the field border instead. */
+.field-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-family: var(--ui);
+  font-weight: 400;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--ink);
+  min-height: 1.35em;
+}
+.field-error svg { flex: none; color: var(--accent); margin-top: 1px; }
+
+/* ─────────────────────────── buttons ─────────────────────────── */
+
+.btn {
+  font-family: var(--pixel);
+  /* >=18px keeps white-on-orange inside AA's large-text threshold (3:1). At
+     body size the same pair would be 3.51:1 against a 4.5:1 requirement. */
+  font-size: 19px;
+  line-height: 1;
+  border-radius: var(--r-pill);
+  padding: 14px 24px;
+  cursor: pointer;
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: filter var(--t), background var(--t), border-color var(--t), transform var(--t);
+  /* One line, always. A wrapped CTA is a broken control, not a long label. */
+  white-space: nowrap;
+}
+/* Emil: a pressable thing scales, it does not nudge down. A 1px translate is
+   ambiguous with a layout shift; a subtle scale reads unmistakably as press. */
+.btn:active:not(:disabled) { transform: scale(0.97); }
+.btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.btn:disabled { cursor: not-allowed; opacity: 0.55; }
+
+.btn-solid {
+  background: var(--accent);
+  color: #fff;
+  border: 1px solid var(--accent);
+  box-shadow: 0 8px 22px rgba(234, 90, 30, 0.3);
+}
+.btn-solid:hover:not(:disabled) { filter: brightness(1.07); }
+
+.btn-outline {
+  background: #fff;
+  color: var(--ink);
+  border: 1px solid var(--rule-strong);
+  box-shadow: none;
+}
+.btn-outline:hover:not(:disabled) { background: #f6f6f6; border-color: var(--ink-2); }
+
+.btn .spin { animation: spin 700ms linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Divider between the two auth paths. */
+.or {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0;
+}
+.or::before, .or::after { content: ""; height: 1px; background: var(--rule); }
+.or span {
+  font-family: var(--ui);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--ink-2);
+  text-transform: lowercase;
+}
+
+/* ─────────────────────────── notices ─────────────────────────── */
+
+/* Form-level result, distinct from a per-field error. Left rule carries the
+   accent; the text stays high-contrast. */
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-family: var(--ui);
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--ink);
+  /* White against the page tint. The old #fbf7f5 was within a percent of the
+     new background, which made the whole notice vanish into the page. */
+  background: #fff;
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--r-card);
+  padding: 13px 16px;
+  margin-bottom: 20px;
+}
+.notice svg { flex: none; color: var(--accent); margin-top: 1px; }
+.notice-quiet { border-left-color: var(--rule-strong); background: #fff; }
+.notice-quiet svg { color: var(--ink-2); }
+
+/* ─────────────────────────── footer switch ─────────────────────────── */
+
+.switch {
+  font-family: var(--ui);
+  font-size: 14px;
+  color: var(--ink);
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px solid var(--rule);
+}
+/* Underlined, not orange: a 14px orange link on white is 3.51:1. Underline
+   carries the affordance, weight carries the emphasis.
+
+   The anchor is styled alongside the button on purpose. Left alone, an <a>
+   inherits the user-agent's #0000EE + blue underline, which is both a contrast
+   liability and the one colour on the page that belongs to no palette. */
+.switch button,
+.switch a {
+  font: inherit;
+  font-weight: 600;
+  color: var(--ink);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+.switch button:hover,
+.switch a:hover { text-decoration-thickness: 3px; }
+.switch button:focus-visible,
+.switch a:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 3px; }
+
+/* The privacy link carries a trailing arrow glyph, so it needs to be a flex
+   line rather than inline text with a floating icon. */
+.switch-link { display: inline-flex; align-items: center; gap: 5px; }
+.switch-link svg { color: var(--accent); }
+
+/* Body copy that sits directly above a button, where the default 26px would
+   read as a gap rather than a pairing. */
+.card-sub-tight { margin-bottom: 18px; }
+
+/* ─────────────────────────── signed-in / status ─────────────────────────── */
+
+.facts {
+  display: grid;
+  gap: 0;
+  background: #fff;
+  border: 1px solid var(--rule);
+  border-radius: var(--r-card);
+  overflow: hidden;
+  margin-bottom: 22px;
+}
+.fact {
+  display: grid;
+  grid-template-columns: 116px 1fr;
+  gap: 14px;
+  padding: 12px 16px;
+  font-family: var(--ui);
+  font-size: 14px;
+  border-top: 1px solid var(--rule);
+}
+.fact:first-child { border-top: none; }
+.fact dt { color: var(--ink-2); }
+.fact dd { color: var(--ink); font-weight: 500; overflow-wrap: anywhere; }
+@media (max-width: 420px) {
+  .fact { grid-template-columns: 1fr; gap: 2px; }
+}
+
+/* Loading: a shaped skeleton of the card that follows, not a spinner on an
+   empty page. The layout does not jump when the real content lands. */
+.skeleton { animation: pulse 1.4s ease-in-out infinite; }
+.sk {
+  background: #ededed;
+  border-radius: 6px;
+  height: 14px;
+  margin-bottom: 12px;
+}
+.sk-title { height: 38px; width: 62%; border-radius: 8px; margin-bottom: 18px; }
+.sk-field { height: 46px; border-radius: var(--r-field); margin-bottom: 18px; }
+.sk-btn { height: 50px; border-radius: var(--r-pill); }
+/* Short second line, so the skeleton reads as a title plus a sentence rather
+   than two identical bars. */
+.sk-line { width: 78%; }
+/* Extra lead-in below the fake sub-copy, matching the real card's 26px gap
+   before the first field. */
+.sk-field-first { margin-top: 26px; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+
+/* ─────────────────────────── viewport edges ─────────────────────────── */
+
+/* Nothing needed here any more, and the history is worth keeping short:
+   this surface went through a thin accent tick in the margin, then a
+   full-bleed orange fill, before landing on the inset card above. Both earlier
+   attempts were treatments for dead margin. The card removes the dead margin
+   instead, so there is nothing left to decorate — the page tint carries the
+   edge on its own.
+
+   The one piece worth keeping is the frame step: on a very wide or zoomed-out
+   viewport a 1240px cap leaves the whole surface a narrow strip. One widening
+   step, not a fluid frame, since the form column already has a comfortable
+   measure and stretching it further buys nothing. */
+@media (min-width: 1800px) {
+  :root { --frame: 1440px; }
+}
+
+/* ─────────────────────────── reduced motion ─────────────────────────── */
+
+/* Reduced motion means FEWER AND GENTLER animations, not none.
+
+   A blanket `transition: 0.01ms` on everything is the reflex version of this
+   media query and it overshoots: it also kills the colour, border and shadow
+   transitions that carry meaning (focus moving, a field turning invalid, a
+   button acknowledging a press). animate.md is explicit that feedback
+   confirming an action must stay legible.
+
+   So: strip spatial movement, keep the rest at a shortened duration.
+   - transition-property is narrowed to the non-spatial set, which drops
+     `transform` transitions without having to name every rule that has one.
+   - the mark's entrance keeps its staggered opacity build and loses the drop,
+     handled in RailMark.tsx via useReducedMotion rather than here, because
+     Motion writes inline styles this sheet cannot override. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-property: color, background-color, border-color, box-shadow,
+                         opacity, filter, text-decoration-thickness !important;
+    transition-duration: 90ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+  /* The one loop that must survive: it is the sole indication that a sign-in
+     is still in flight, so it slows down instead of stopping. */
+  .btn .spin { animation: spin 1.6s linear infinite !important; animation-duration: 1.6s !important; }
+  /* Pulsing a skeleton is pure decoration; the shape alone communicates it. */
+  .skeleton { animation: none !important; }
+  /* Tactile press is spatial by definition. */
+  .btn:active:not(:disabled) { transform: none; }
+}
+
+/* Visually hidden but available to screen readers, for the live region that
+   announces auth results. */
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ═══════════════════════════ console ═══════════════════════════
+
+   The signed-in surface. Full-bleed, not inside the sign-in card: once you are
+   in, the split brand panel has done its job and the viewport belongs to the
+   product. `.shell` and `.frame` are bypassed entirely.
+
+   Layout is a two-column grid — sidebar, then everything else. Grid rather
+   than flex so the sidebar width is one number in one place: the rail toggle
+   animates `--nav-w` and the content reflows off the same track.
+
+   Same tokens as the auth surface, so this reads as one product and not a
+   second app bolted on. The nav borrows the reference design's structure —
+   white surface, hairline section rules, uppercase section label, collapsible
+   group with indented children — and none of its cool grey: on this palette
+   those rows sit on warm white over sand, and "active" is a peach wash rather
+   than the reference's neutral fill. */
+.con {
+  --nav-w: 252px;
+  --nav-w-rail: 68px;
+  /* Keep in step with NAV_BP in Console.tsx — below this the sidebar is a
+     drawer, and the drawer's scroll lock and auto-close live in JS. */
+  --nav-bp: 900px;
+  --nav-row-h: 40px;
+  --nav-surface: #ffffff;
+  --nav-rule: #efe6dd;
+  --nav-active: #fbe7d7;
+  --nav-hover: #f8f2ec;
+  /* Border for a control that must read as pressable. WCAG 1.4.11 wants 3:1
+     for the boundary that identifies a UI component, and the greys already in
+     the file do not reach it on white: --rule is 1.43, --rule-strong 2.81.
+     Measured 3.07 — the lightest warm value that clears the bar, so the edge
+     stays as quiet as it legally can. */
+  --nav-edge: #a58f82;
+
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: var(--nav-w) minmax(0, 1fr);
+  background: var(--page);
+}
+
+.con:has(.nav.is-railed) { --nav-w: var(--nav-w-rail); }
+
+/* Keyboard-only escape hatch past the whole nav. Visually hidden until focused
+   rather than absent, because it has to be the first tab stop. */
+.con-skip {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  z-index: 60;
+  padding: 10px 16px;
+  border-radius: var(--r-field);
+  background: var(--ink);
+  color: #fff;
+  font: 500 14px/1 var(--ui);
+  text-decoration: none;
+  transform: translateY(-200%);
+  transition: transform 120ms var(--ease-out);
+}
+
+.con-skip:focus-visible {
+  transform: translateY(0);
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* ── sidebar ── */
+
+.nav {
+  grid-column: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--nav-surface);
+  border-right: 1px solid var(--nav-rule);
+  /* Sticky rather than scrolling with the page: the nav is a fixed frame and
+     the content is what moves. 100dvh, not vh, so mobile browser chrome
+     collapsing does not leave the bottom rows unreachable. */
+  position: sticky;
+  top: 0;
+  height: 100dvh;
+  overflow: hidden auto;
+  overscroll-behavior: contain;
+}
+
+.nav:focus { outline: none; }
+
+.nav-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 62px;
+  flex: none;
+  padding: 0 14px 0 18px;
+  border-bottom: 1px solid var(--nav-rule);
+}
+
+.nav-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.nav-mark { width: 13px; height: 26px; fill: var(--accent); flex: none; }
+
+.nav-word {
+  font: 600 17px/1 var(--word);
+  letter-spacing: -0.021em;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.nav-rail-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background var(--t), color var(--t);
+}
+
+.nav-rail-btn:hover { background: var(--nav-hover); color: var(--ink); }
+.nav-rail-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.nav-body {
+  flex: 1 1 auto;
+  padding: 6px 0 18px;
+  min-height: 0;
+}
+
+.nav-sec { padding: 8px 10px; }
+.nav-sec + .nav-sec { border-top: 1px solid var(--nav-rule); }
+
+.nav-sec-label {
+  margin: 4px 0 6px;
+  padding: 0 8px;
+  font: 500 10.5px/1 var(--ui);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.nav-list { list-style: none; margin: 0; padding: 0; }
+
+.nav-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  min-height: var(--nav-row-h);
+  padding: 0 9px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--ink);
+  font: 400 14.5px/1.2 var(--ui);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background var(--t), color var(--t);
+}
+
+.nav-row:hover { background: var(--nav-hover); }
+.nav-row:focus-visible { outline: 2px solid var(--focus); outline-offset: -1px; }
+
+/* Active is a peach wash plus weight, never colour alone — the wash is the
+   part that survives greyscale and low vision. */
+.nav-row.is-active {
+  background: var(--nav-active);
+  font-weight: 500;
+}
+
+/* A collapsed group whose child is the current page. Marked, but weaker than
+   `is-active`, because the group is not itself the page you are on. */
+.nav-row-group.is-within { color: var(--ink); font-weight: 500; }
+
+.nav-ico { flex: none; color: var(--ink-2); }
+.nav-row.is-active .nav-ico,
+.nav-row-group.is-within .nav-ico { color: #ad3b0c; }
+
+.nav-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-caret {
+  flex: none;
+  color: var(--ink-2);
+  transition: transform 160ms var(--ease-out);
+}
+
+.nav-caret.is-open { transform: rotate(180deg); }
+
+/* Children hang off a hairline spine, as in the reference. The spine is a
+   border on the list rather than a pseudo-element so it grows with the list
+   without a magic height. */
+.nav-sub {
+  list-style: none;
+  margin: 2px 0 2px 26px;
+  padding: 0 0 0 10px;
+  border-left: 1px solid var(--nav-rule);
+}
+
+.nav-sub-row {
+  display: block;
+  padding: 8px 10px;
+  border-radius: 8px;
+  color: var(--ink-2);
+  font: 400 14px/1.2 var(--ui);
+  text-decoration: none;
+  transition: background var(--t), color var(--t);
+}
+
+.nav-sub-row:hover { background: var(--nav-hover); color: var(--ink); }
+.nav-sub-row:focus-visible { outline: 2px solid var(--focus); outline-offset: -1px; }
+.nav-sub-row.is-active { background: var(--nav-active); color: var(--ink); font-weight: 500; }
+
+/* ── profile (nav foot) ──
+   Sits below the scrolling nav body, so a long nav scrolls under it and the
+   account stays put. `flex: none` plus the body's `flex: 1` is what pins it to
+   the bottom without a magic height or absolute positioning. */
+.nav-foot {
+  display: flex;
+  /* Column, so the sign-out sits under the identity at full width rather than
+     competing with it for the same row. */
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  flex: none;
+  padding: 12px 14px;
+  border-top: 1px solid var(--nav-rule);
+  background: var(--nav-surface);
+}
+
+.nav-me-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.nav-avatar {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border-radius: 50%;
+  background: #fbe3d2;
+  color: #ad3b0c;
+  font: 600 13px/1 var(--ui);
+  /* aria-hidden in the markup: the initial is decoration, the name next to it
+     is the real content. Announcing "D" before "Devansh Sharma" is noise. */
+}
+
+/* min-width: 0 is load-bearing — without it a long email refuses to shrink
+   below its intrinsic width and pushes the sign-out button out of the nav. */
+.nav-me {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.nav-me-name,
+.nav-me-mail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-me-name { font: 500 13px/1.3 var(--ui); color: var(--ink); }
+.nav-me-mail { font: 400 11.5px/1.3 var(--ui); color: var(--ink-2); }
+
+/* Full width of the foot's content box, with the label spelled out. A pill
+   would read as a primary action here; the squarer field radius matches the
+   nav rows it sits under. */
+.nav-out {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 36px;
+  padding: 9px 12px;
+  border: 1px solid var(--nav-edge);
+  border-radius: var(--r-field);
+  background: var(--nav-surface);
+  color: var(--ink);
+  font: 500 13px/1 var(--ui);
+  cursor: pointer;
+  transition: background var(--t), border-color var(--t), transform var(--t);
+}
+
+.nav-out:active:not(:disabled) { transform: scale(0.98); }
+.nav-out-label { white-space: nowrap; }
+
+.nav-out:hover:not(:disabled) {
+  background: var(--nav-hover);
+  color: var(--ink);
+  border-color: var(--ink-2);
+}
+.nav-out:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.nav-out:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── rail (collapsed sidebar) ──
+   Labels keep their box in the accessibility tree and lose only their width, so
+   a screen reader still reads "Candidates" while the eye sees an icon. */
+.nav.is-railed .nav-label,
+.nav.is-railed .nav-word,
+.nav.is-railed .nav-sec-label,
+.nav.is-railed .nav-caret { display: none; }
+
+.nav.is-railed .nav-head { justify-content: center; padding: 0 8px; }
+.nav.is-railed .nav-brand { display: none; }
+.nav.is-railed .nav-sec { padding: 8px 6px; }
+.nav.is-railed .nav-row { justify-content: center; gap: 0; padding: 0; }
+/* Children have nowhere to go in a 68px rail: rendered, they stack under the
+   parent icon as unlabelled 11px text. Hidden here and unreachable by keyboard
+   too, which is why the group's aria-expanded reports false while railed —
+   see Nav.tsx. Clicking the group expands the sidebar instead. */
+.nav.is-railed .nav-sub { display: none; }
+
+/* Rail tooltip — the sighted counterpart to the label that stays in the
+   accessibility tree. Driven by data-label so there is no second copy of the
+   text to fall out of sync, and pointer-events stay off so it can never
+   swallow the click on the row underneath. */
+.nav.is-railed .nav-row { position: relative; }
+
+.nav.is-railed .nav-row::after {
+  content: attr(data-label);
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 40;
+  padding: 6px 10px;
+  border-radius: 7px;
+  background: var(--ink);
+  color: #fff;
+  font: 500 12.5px/1 var(--ui);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 110ms var(--ease-out);
+}
+
+.nav.is-railed .nav-row:hover::after,
+.nav.is-railed .nav-row:focus-visible::after { opacity: 1; }
+
+/* Rail profile: the avatar centres on its own row and the sign-out keeps full
+   width of the narrowed foot, collapsing to its icon. The name and email are
+   hidden rather than removed, so the account is still announced. Sign-out stays
+   reachable — collapsing the sidebar must not strip the only way out of the
+   session. */
+.nav.is-railed .nav-foot { padding: 12px 8px; }
+.nav.is-railed .nav-me-row { justify-content: center; }
+.nav.is-railed .nav-out { padding: 9px 0; }
+.nav.is-railed .nav-out-label { display: none; }
+
+.nav.is-railed .nav-me {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The tooltip machinery is defined on .nav-row; the sign-out button is not one,
+   so it needs its own. Same data-label source. */
+.nav.is-railed .nav-out { position: relative; }
+
+.nav.is-railed .nav-out::after {
+  content: attr(data-label);
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 40;
+  padding: 6px 10px;
+  border-radius: 7px;
+  background: var(--ink);
+  color: #fff;
+  font: 500 12.5px/1 var(--ui);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 110ms var(--ease-out);
+}
+
+.nav.is-railed .nav-out:hover::after,
+.nav.is-railed .nav-out:focus-visible::after { opacity: 1; }
+
+/* ── drawer (below --nav-bp) ──
+   Placed after the base and rail rules on purpose: a media query adds no
+   specificity, so these would silently lose if they came first. That exact
+   trap has already cost this file three bugs. */
+.nav-scrim { display: none; }
+
+@media (max-width: 899px) {
+  .con { grid-template-columns: minmax(0, 1fr); }
+
+  .nav {
+    position: fixed;
+    z-index: 50;
+    top: 0;
+    left: 0;
+    width: min(292px, 84vw);
+    height: 100dvh;
+    border-right: 1px solid var(--nav-rule);
+    box-shadow: 0 18px 50px rgba(58, 35, 23, 0.16);
+    transform: translateX(-100%);
+    transition: transform 220ms var(--ease-out);
+    /* The drawer is off-screen, not display:none, so it can animate — but it
+       must not be a tab stop while shut. */
+    visibility: hidden;
+  }
+
+  .nav.is-open { transform: translateX(0); visibility: visible; }
+
+  /* The rail is meaningless as an overlay: a 68px strip over the content is
+     neither the nav nor the page. So below the breakpoint `is-railed` is
+     neutralised entirely — every rail rule above gets undone here, because the
+     class stays on the element (it is remembered in localStorage) and only its
+     effects are suppressed. Miss one and the drawer opens full-width with,
+     say, a one-letter workspace chip. */
+  .nav.is-railed { width: min(292px, 84vw); }
+  .nav.is-railed .nav-label,
+  .nav.is-railed .nav-word,
+  .nav.is-railed .nav-sec-label,
+  .nav.is-railed .nav-caret { display: revert; }
+  .nav.is-railed .nav-brand { display: inline-flex; }
+  .nav.is-railed .nav-head { justify-content: space-between; padding: 0 14px 0 18px; }
+  .nav.is-railed .nav-row { justify-content: flex-start; gap: 11px; padding: 0 9px; }
+  .nav.is-railed .nav-sec { padding: 8px 10px; }
+  .nav.is-railed .nav-sub {
+    display: block;
+    margin: 2px 0 2px 26px;
+    padding: 0 0 0 10px;
+    border-left: 1px solid var(--nav-rule);
+  }
+  .nav.is-railed .nav-sub-row { text-align: left; padding: 8px 10px; font-size: 14px; }
+  /* No tooltip when the label is right there. */
+  .nav.is-railed .nav-row::after { content: none; }
+  .nav.is-railed .nav-out::after { content: none; }
+  .nav.is-railed .nav-foot { padding: 12px 14px; }
+  .nav.is-railed .nav-me-row { justify-content: flex-start; }
+  .nav.is-railed .nav-out { padding: 9px 12px; }
+  .nav.is-railed .nav-out-label { display: inline; }
+  .nav.is-railed .nav-me {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: hidden;
+    clip-path: none;
+  }
+  .nav-rail-btn { display: none; }
+
+  .nav-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 49;
+    background: rgba(40, 24, 16, 0.34);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 220ms var(--ease-out);
+  }
+
+  .nav-scrim.is-open { opacity: 1; pointer-events: auto; }
+}
+
+/* ── bar ── */
+
+.con-body {
+  grid-column: 2;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+@media (max-width: 899px) {
+  .con-body { grid-column: 1; }
+}
+
+.con-bar {
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 2vw, 20px);
+  height: 62px;
+  flex: none;
+  padding: 0 clamp(14px, 2.4vw, 30px);
+  background: var(--nav-surface);
+  border-bottom: 1px solid var(--nav-rule);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.con-menu {
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  margin-left: -6px;
+  flex: none;
+  border: 1px solid var(--nav-rule);
+  border-radius: 9px;
+  background: var(--nav-surface);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background var(--t);
+}
+
+.con-menu:hover { background: var(--nav-hover); }
+.con-menu:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* MUST stay after the .con-bar and .con-menu rules above. A media query
+   carries no extra specificity, so this exact rule sitting earlier in the file
+   (where the drawer block would naturally want it) loses to the base
+   `display` and the bar stays visible on desktop. That is not hypothetical —
+   it happened, and it is the fourth time this file has taught the lesson.
+
+   The bar exists only to hold the hamburger, and the hamburger only opens the
+   drawer, so above the breakpoint both have no job: the account lives in the
+   nav's profile block and the content area carries no chrome of its own. */
+@media (min-width: 900px) {
+  .con-bar { display: none; }
+  .con-menu { display: none; }
+}
+
+
+/* ── page ── */
+
+.con-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: clamp(26px, 5vh, 58px) clamp(16px, 3vw, 40px) 64px;
+}
+
+.con-main:focus { outline: none; }
+
+.con-page {
+  width: 100%;
+  max-width: 620px;
+  /* Left-aligned to the content column, as in the reference — a centred page
+     drifts away from the sidebar it belongs to as the viewport grows. */
+  margin: 0;
+}
+
+/* ── console headings ──
+   IBM Plex Sans, not the serif, and not the pixel face either.
+
+   The console is a task surface, and the reference rules are unambiguous about
+   what belongs on one: "One family is often right. Product UIs don't need
+   display/body pairing. A well-tuned sans carries headings, buttons, labels,
+   body, data" (impeccable, operate.md), with display faces in product UI
+   listed outright as an anti-pattern. taste-skill is blunter: "Serif for
+   editorial / luxury / publication. Not for dashboards."
+
+   The sign-in surface keeps Fanwood and Mondwest, because that IS an
+   expressive surface and both faces still load for it. This is a mode split,
+   not a rebrand, and it costs no extra font request.
+
+   Fixed size rather than clamp, for the same reason: "Fixed rem scale, not
+   fluid. Clamp-sized headings don't serve product UI." A page title that
+   resizes with the viewport is a landing-page behaviour. Hierarchy comes from
+   weight and tracking instead of raw scale, which is also what stops an H1
+   from just shouting. */
+.con-h1 {
+  margin: 0 0 9px;
+  font: 600 27px/1.18 var(--ui);
+  letter-spacing: -0.021em;
+  color: var(--ink);
+}
+
+/* The greeting is still warmer than a page title, but it earns that from the
+   wording and one size step, not from a second typeface. */
+.con-h1-hi {
+  font-size: 31px;
+  letter-spacing: -0.024em;
+}
+
+.con-lede {
+  margin: 0 0 26px;
+  max-width: 52ch;
+  font: 400 16.5px/1.5 var(--ui);
+  color: var(--ink);
+}
+
+.con-facts {
+  margin: 0 0 22px;
+  padding: 0;
+  border: 1px solid var(--nav-rule);
+  border-radius: 14px;
+  background: var(--nav-surface);
+  overflow: hidden;
+}
+
+.con-facts > div {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr);
+  gap: 14px;
+  align-items: baseline;
+  padding: 13px 16px;
+  border-top: 1px solid var(--nav-rule);
+  font: 400 14px/1.45 var(--ui);
+}
+
+.con-facts > div:first-child { border-top: none; }
+.con-facts dt { color: var(--ink-2); }
+.con-facts dd { margin: 0; color: var(--ink); font-weight: 500; overflow-wrap: anywhere; }
+
+@media (max-width: 440px) {
+  .con-facts > div { grid-template-columns: 1fr; gap: 2px; }
+}
+
+.con-note {
+  margin: 0;
+  max-width: 60ch;
+  padding: 14px 16px;
+  border-left: 2px solid var(--accent);
+  border-radius: 0 12px 12px 0;
+  background: var(--nav-surface);
+  font: 400 13.5px/1.6 var(--ui);
+  color: var(--ink-2);
+}
+
+/* Unbuilt page. Reads as a note, not as a broken feature. */
+.con-soon {
+  padding: 18px 20px;
+  border: 1px dashed #e2d3c4;
+  border-radius: 14px;
+  background: #fffaf5;
+  max-width: 60ch;
+}
+
+.con-soon-head {
+  margin: 0 0 6px;
+  font: 500 14.5px/1.3 var(--ui);
+  color: var(--ink);
+}
+
+.con-soon-body {
+  margin: 0;
+  font: 400 13.5px/1.6 var(--ui);
+  color: var(--ink-2);
+}
+
+.con-soon-body code {
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: #f4eae0;
+  font: 500 12.5px/1 ui-monospace, "SF Mono", Menlo, monospace;
+  color: #ad3b0c;
+  white-space: nowrap;
+}
+
+
+/* ═══════════════════════════ extension page ═══════════════════════════
+
+   Held to the reference repos' Operate rules. The ones with teeth here:
+
+   - Two surfaces, no third. Sand is the page, white is the panel. Nothing
+     inside a panel gets its own border or shadow, so the tiles are separated
+     by rules and space rather than by four nested boxes.
+   - Peach on sand measures 1.06:1, so a panel that does not draw its own edge
+     has no edge at all. Every panel below carries a 1px border.
+   - accent #ea5a1e is 2.85:1 on peach and 3.01:1 on sand, so it is never a
+     surface tint and never a bar fill. It appears once, as the install CTA,
+     which is the only moment installing is the task.
+   - Bars are ink tints for the same reason: rarity is what gives the accent
+     force, and a chart full of accent spends it on decoration.
+   - Tabular numerals on every figure that changes, so a column does not
+     shuffle when 9 becomes 10.
+   - No mount animation. This is a page a recruiter opens daily. */
+
+.con-page-wide {
+  /* The prose above stays at a reading measure; the table is allowed to run
+     wide, which is the one place 65-75ch does not apply. */
+  max-width: min(1180px, 100%);
+}
+
+.con-page-wide .con-lede { max-width: 68ch; }
+
+/* ── tiles ── */
+
+/* Four columns by default; `data-n` lets a page that genuinely has fewer
+   numbers use fewer columns rather than padding the row with dead tiles. */
+.ex-tiles {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 26px 0 0;
+  border: 1px solid var(--nav-rule);
+  border-radius: 14px;
+  background: var(--nav-surface);
+  overflow: hidden;
+}
+
+/* One hairline per boundary: a left border on every tile but the first, never
+   left and right on the same tile. */
+.ex-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  padding: 15px 18px 16px;
+}
+
+.ex-tile + .ex-tile { border-left: 1px solid var(--nav-rule); }
+
+.ex-tile-label {
+  font: 500 11.5px/1.35 var(--ui);
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  /* The label names the window, so it must survive a narrow column rather
+     than truncate into a different meaning. */
+  text-wrap: balance;
+}
+
+.ex-tile-value {
+  font: 400 29px/1.05 var(--ui);
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.ex-tile-note {
+  font: 400 12px/1.35 var(--ui);
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.ex-tiles[data-n="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.ex-tiles[data-n="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+@media (max-width: 900px) {
+  .ex-tiles,
+  .ex-tiles[data-n="3"],
+  .ex-tiles[data-n="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* Reset the desktop rule first, then redraw for a 2x2: otherwise tile 3
+     keeps a left border it should not have at the start of its row. */
+  .ex-tile + .ex-tile { border-left: none; }
+  .ex-tile:nth-child(even) { border-left: 1px solid var(--nav-rule); }
+  .ex-tile:nth-child(n + 3) { border-top: 1px solid var(--nav-rule); }
+}
+
+@media (max-width: 460px) {
+  .ex-tiles,
+  .ex-tiles[data-n="3"],
+  .ex-tiles[data-n="2"] { grid-template-columns: minmax(0, 1fr); }
+  .ex-tile:nth-child(even) { border-left: none; }
+  .ex-tile + .ex-tile { border-top: 1px solid var(--nav-rule); }
+}
+
+/* ── sections ── */
+
+.ex-sec {
+  margin: 22px 0 0;
+  padding: 16px 18px 18px;
+  border: 1px solid var(--nav-rule);
+  border-radius: 14px;
+  background: var(--nav-surface);
+}
+
+.ex-sec-head { margin-bottom: 14px; }
+
+.ex-sec-title {
+  /* Sans, not the serif: display faces belong in the page title, never in a
+     panel heading sitting on top of data. */
+  margin: 0;
+  font: 500 15px/1.3 var(--ui);
+  letter-spacing: -0.004em;
+  color: var(--ink);
+}
+
+/* The total lives with the panel title, which leaves the footer free to say
+   where you are in it rather than restating how much there is. */
+.ex-sec-count {
+  margin-left: 8px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: #f4ece4;
+  font: 500 11.5px/1.4 var(--ui);
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+  vertical-align: 1px;
+}
+
+.ex-sec-sub {
+  margin: 3px 0 0;
+  font: 400 12.5px/1.4 var(--ui);
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── trend bars ── */
+
+.ex-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 92px;
+  padding-bottom: 1px;
+  border-bottom: 1px solid var(--nav-rule);
+}
+
+.ex-bar {
+  flex: 1 1 0;
+  min-width: 0;
+  height: var(--h, 0%);
+  border-radius: 2px 2px 0 0;
+  /* Ink at low alpha, not accent: spending the accent on 30 bars would strip
+     it of the rarity that makes the one CTA findable.
+
+     0.50 is not a taste value. These bars carry information, so WCAG 1.4.11
+     wants 3:1 against the panel behind them; 0.42 measured 2.47 and failed.
+     0.50 composites to rgb(156,145,139) and measures 3.07. */
+  background: rgba(58, 35, 23, 0.5);
+}
+
+/* A day with nothing keeps a visible floor, because a gap the eye reads as
+   "no bar drawn" is indistinguishable from a rendering bug. */
+/* Not information-bearing on its own (its meaning is "no bar"), so it is not
+   held to 3:1 — but at 0.13 it measured 1.29 and read as a rendering gap
+   rather than a zero. 0.22 measures 1.54, which is visible without competing
+   with the real bars. */
+.ex-bar.is-zero {
+  height: 2px;
+  background: rgba(58, 35, 23, 0.22);
+}
+
+/* ── pipeline ── */
+
+.ex-stages { margin: 0; display: grid; gap: 7px; }
+
+.ex-stage {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) 44px;
+  gap: 12px;
+  align-items: center;
+}
+
+.ex-stage-name {
+  font: 400 13px/1.3 var(--ui);
+  color: var(--ink-2);
+  text-transform: capitalize;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ex-stage-bar {
+  margin: 0;
+  height: 9px;
+  border-radius: 5px;
+  background: #f1e8df;
+  overflow: hidden;
+}
+
+/* Measured against the TRACK it sits on (#f1e8df), not the panel, because that
+   is the boundary the eye has to resolve. 0.42 was 2.39 and failed 1.4.11;
+   0.52 measures 3.05. */
+.ex-stage-fill {
+  display: block;
+  height: 100%;
+  border-radius: 5px;
+  background: rgba(58, 35, 23, 0.52);
+}
+
+.ex-stage-n {
+  margin: 0;
+  text-align: right;
+  font: 500 13px/1.3 var(--ui);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── table ── */
+
+.ex-table-wrap {
+  /* The table scrolls rather than the page when it exceeds the panel. No
+     overlay lives inside it, so nothing can be clipped by this. */
+  overflow-x: auto;
+  margin: 0 -18px -18px;
+  padding: 0 18px 18px;
+}
+
+.ex-table {
+  width: 100%;
+  border-collapse: collapse;
+  font: 400 13.5px/1.4 var(--ui);
+  /* fixed, so a long name is forced to honour its column's ellipsis instead of
+     widening the whole table past the panel. */
+  table-layout: fixed;
+  min-width: 720px;
+}
+
+.ex-table th {
+  text-align: left;
+  padding: 0 10px 8px;
+  font: 500 11px/1.3 var(--ui);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  border-bottom: 1px solid var(--nav-rule);
+  white-space: nowrap;
+}
+
+/* Bottom rule only. Never top and bottom on the same row. */
+.ex-table td {
+  padding: 10px;
+  border-bottom: 1px solid #f4ece4;
+  color: var(--ink);
+  vertical-align: middle;
+}
+
+.ex-table tbody tr:last-child td { border-bottom: none; }
+
+/* Every text cell truncates rather than wrapping the row to two lines: the
+   full value is on the cell's title attribute. */
+.ex-cell-name, .ex-cell-role, .ex-cell-place, .ex-cell-owner {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ex-table th:nth-child(1), .ex-cell-name  { width: 22%; }
+.ex-table th:nth-child(2), .ex-cell-role  { width: 27%; }
+.ex-table th:nth-child(3), .ex-cell-place { width: 15%; }
+.ex-cell-contact { width: 78px; }
+.ex-cell-stage   { width: 106px; }
+.ex-cell-when    { width: 84px; white-space: nowrap; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+.ex-name-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ink);
+  font-weight: 500;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.ex-name-link:hover { border-bottom-color: var(--ink-2); }
+.ex-name-link:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 3px; }
+.ex-name-link svg { flex: none; color: var(--ink-2); }
+
+.ex-cell-contact { display: table-cell; }
+.ex-cell-contact svg { color: var(--ink-2); margin-right: 5px; vertical-align: -2px; }
+
+.ex-stage-tag {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: #f4ece4;
+  color: var(--ink);
+  font: 500 11.5px/1.3 var(--ui);
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.ex-dim { color: var(--ink-2); opacity: 0.75; }
+
+/* ── controls ── */
+
+.ex-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 22px 0 0;
+}
+
+.ex-seg {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--nav-rule);
+  border-radius: 9px;
+  background: var(--nav-surface);
+}
+
+.ex-seg-btn {
+  min-height: 30px;
+  padding: 0 11px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink-2);
+  font: 500 12.5px/1 var(--ui);
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+  transition: background var(--t), color var(--t);
+}
+
+.ex-seg-btn:hover { color: var(--ink); }
+.ex-seg-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+/* Selection is a tint plus weight, never colour alone. */
+.ex-seg-btn.is-on {
+  background: #f4ece4;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* ── install ── */
+
+.ex-install {
+  margin: 26px 0 0;
+  padding: 22px;
+  border: 1px solid var(--nav-rule);
+  border-radius: 14px;
+  background: var(--nav-surface);
+}
+
+.ex-install-title {
+  margin: 0 0 7px;
+  font: 500 17px/1.3 var(--ui);
+  letter-spacing: -0.008em;
+  color: var(--ink);
+}
+
+.ex-install-body {
+  margin: 0 0 16px;
+  max-width: 56ch;
+  font: 400 14.5px/1.55 var(--ui);
+  color: var(--ink-2);
+}
+
+/* The one accent fill on the page. Ink on accent is 4.17:1, which passes
+   large-text and non-text but NOT the 4.5:1 body-text bar, so the label is
+   set at 15px/600 to sit in the large-text band where it is legal. */
+.ex-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 42px;
+  padding: 0 18px;
+  border-radius: var(--r-field);
+  background: var(--accent);
+  color: var(--ink);
+  font: 600 15px/1 var(--ui);
+  text-decoration: none;
+  transition: transform 160ms var(--ease-out), background var(--t);
+}
+
+.ex-cta:hover { background: #e04f13; }
+.ex-cta:active { transform: scale(0.97); }
+.ex-cta:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+.ex-install-foot {
+  margin: 14px 0 0;
+  font: 400 12.5px/1.5 var(--ui);
+  color: var(--ink-2);
+}
+
+.ex-install-foot code {
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: #f4ece4;
+  font: 500 11.5px/1 ui-monospace, "SF Mono", Menlo, monospace;
+  color: #ad3b0c;
+  overflow-wrap: anywhere;
+}
+
+.ex-hint {
+  margin: 16px 0 0;
+  max-width: 64ch;
+  font: 400 13px/1.55 var(--ui);
+  color: var(--ink-2);
+}
+
+.ex-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #ad3b0c;
+  font-weight: 500;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(173, 59, 12, 0.4);
+}
+
+.ex-link:hover { border-bottom-color: #ad3b0c; }
+.ex-link:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 3px; }
+
+/* ── notes ── */
+
+.ex-note {
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--nav-rule);
+  border-radius: 12px;
+  background: #fffaf5;
+}
+
+.ex-note-bad { border-color: #e8c9b4; background: #fff6ef; }
+
+.ex-note-head {
+  margin: 0 0 5px;
+  font: 500 14px/1.35 var(--ui);
+  color: var(--ink);
+}
+
+.ex-note-body {
+  margin: 0;
+  max-width: 68ch;
+  font: 400 13.5px/1.6 var(--ui);
+  color: var(--ink-2);
+}
+
+/* ── skeletons ──
+   Geometry matches the loaded page rather than a spinner in the middle of the
+   content region. Pulse is opacity only, and it is the one animation here. */
+.ex-sk {
+  display: block;
+  border-radius: 6px;
+  background: #f2e9e0;
+}
+
+.ex-sk-label { width: 68%; height: 11px; }
+.ex-sk-value { width: 46%; height: 29px; border-radius: 7px; }
+.ex-sk-note  { width: 58%; height: 12px; }
+.ex-sk-title { width: 160px; height: 15px; margin-bottom: 14px; }
+.ex-sk-chart { height: 92px; border-radius: 8px; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .ex-sk { animation: ex-pulse 1400ms var(--ease-in-out) infinite; }
+  @keyframes ex-pulse {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.55; }
+  }
+}
+
+/* ═══════════════════════════ dialer + pager ═══════════════════════════
+
+   Reuses the extension page's tiles, sections, bars and table wholesale;
+   only what the call log genuinely adds lives here. A second table style
+   beside an existing one is how two conventions start. */
+
+/* ── outcome, as a word plus a shape ──
+   Never colour alone: these read in greyscale and to anyone who cannot
+   separate the hues. The tint is a background wash, and the icon carries the
+   same information independently. */
+.dl-out {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px 3px 7px;
+  border-radius: 6px;
+  font: 500 11.5px/1.35 var(--ui);
+  white-space: nowrap;
+}
+
+.dl-out svg { flex: none; }
+.dl-out-label { letter-spacing: 0.002em; }
+
+/* Talk time rides inside the label, lighter, in parentheses. It qualifies the
+   outcome rather than standing alone, and as its own column it would be empty
+   on every missed and every failed call. */
+.dl-out-talk {
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+
+/* Connected is the good case and the most common, so it is the quietest:
+   a wash loud enough to notice on every row becomes noise. */
+.dl-out-connected { background: #eaf0e6; color: #3c5230; }
+.dl-out-missed    { background: #f3ece3; color: #6b573f; }
+/* Failed is ours, not the candidate's, so it is the one that stands out. */
+.dl-out-errored   { background: #fadfd2; color: #96330a; }
+.dl-out-in_flight { background: #eceaf4; color: #453f66; }
+
+/* ── identity cell ──
+   Two lines in one cell rather than two columns: the role is context for the
+   name, not a field anyone sorts by, and a separate column would double the
+   truncation problem. */
+.dl-who {
+  display: block;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dl-role {
+  display: block;
+  margin-top: 1px;
+  font-size: 12px;
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dl-phone-sub { font-variant-numeric: tabular-nums; }
+
+/* When no candidate is attached the number IS the identity, so it takes the
+   primary line's weight rather than sitting in grey underneath nothing. */
+.dl-phone-lead { font-variant-numeric: tabular-nums; }
+
+/* Numeric columns align right so magnitude is readable down the column: `7`
+   and `4,182` must not share a left edge. The `.ex-table th` qualifier is
+   load-bearing -- that rule sets text-align:left and a bare `.dl-num` loses to
+   it, so the header would stay left while its cells moved right. */
+.dl-num,
+.ex-table th.dl-num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.dl-table th:nth-child(1), .dl-table .ex-cell-name { width: 27%; }
+.dl-table th:nth-child(2), .dl-table .ex-cell-role { width: 24%; }
+
+/* An overdue queue row is marked by a left edge AND the word in the Due cell.
+   1px, because a thicker coloured border on a list row is exactly the
+   decoration the reference rules refuse. */
+.ex-table tbody tr.is-overdue td:first-child {
+  box-shadow: inset 1px 0 0 0 #c2410c;
+}
+
+.dl-due-late {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #96330a;
+  font-weight: 500;
+}
+
+.dl-due-late svg { flex: none; }
+
+/* ── pager ──
+   Sits inside the panel under the table, on the same hairline as the last row
+   rather than in a box of its own. */
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+  padding-top: 13px;
+  border-top: 1px solid var(--nav-rule);
+}
+
+.pager-range {
+  margin: 0;
+  font: 400 12.5px/1.4 var(--ui);
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.pager-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pager-count {
+  min-width: 8.5ch;
+  text-align: center;
+  font: 500 12.5px/1 var(--ui);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.pager-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--nav-edge);
+  border-radius: 8px;
+  background: var(--nav-surface);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background var(--t), border-color var(--t);
+}
+
+.pager-btn:hover:not(:disabled) { background: var(--nav-hover); }
+.pager-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* Disabled at the boundaries rather than hidden: a control that vanishes
+   moves the one next to it under the cursor mid-click. */
+.pager-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  border-color: var(--nav-rule);
+}
+
+@media (max-width: 460px) {
+  .pager { justify-content: center; }
+}
+/* Touch targets. Kept at the very end of the file on purpose: every selector
+   below is declared above, and a media query adds no specificity, so an
+   earlier coarse-pointer block would match and lose to the base rule — the
+   exact trap that left the reveal button at 34px and the form card
+   top-aligned. 44px is the Apple HIG and Material minimum. */
+@media (pointer: coarse) {
+  /* Height only: the button is full-width now, so setting `width` here would
+     shrink it back to a 44px square. */
+  .nav-out { min-height: 44px; }
+  .con-menu { width: 44px; height: 44px; }
+  .nav-row { min-height: 44px; }
+  .nav-sub-row { padding-block: 12px; }
+  .nav-rail-btn { width: 40px; height: 40px; }
+  /* Extension page. The segmented controls are the only small hit areas the
+     dashboard adds; the CTA is already 42px and only needs the last 2px. */
+  .ex-seg-btn { min-height: 44px; padding-inline: 14px; }
+  .ex-cta { min-height: 44px; }
+  .ex-name-link { padding-block: 4px; }
+  .pager-btn { width: 44px; height: 44px; }
+}

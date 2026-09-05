@@ -1,1 +1,8 @@
 .DS_Store
+
+# Auth app build inputs. The OUTPUT (`/access/`) is committed on purpose — see
+# auth-app/README.md: Pages serves this repo from the branch root with no CI
+# step, so the built files have to be in the tree to be served.
+auth-app/node_modules/
+auth-app/.vite/
+auth-app/node_modules/.vite/

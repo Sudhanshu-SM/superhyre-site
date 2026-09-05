@@ -1,0 +1,31 @@
+{
+  "name": "superhyre-access",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Sign-in surface for superhyre.com/access/. Source lives here; `npm run build` emits the served files into ../access/.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@phosphor-icons/react": "^2.1.7",
+    "@supabase/supabase-js": "^2.45.4",
+    "motion": "^13.2.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.2",
+    "typescript": "^5.6.2",
+    "vite": "^5.4.8",
+    "vitest": "^2.1.2"
+  }
+}
