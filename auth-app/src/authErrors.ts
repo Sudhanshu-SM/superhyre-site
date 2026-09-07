@@ -36,10 +36,23 @@ function statusOf(error: unknown): number | null {
   return null;
 }
 
+/* supabase-js puts the stable machine token on `code`, NOT in the sentence:
+   a 429 arrives as { code: "over_email_send_rate_limit", msg: "email rate
+   limit exceeded" }. Matching the token against the message therefore never
+   fired, and every email 429 fell through to the generic branch. Read both. */
+function codeOf(error: unknown): string {
+  if (error && typeof error === "object" && "code" in error) {
+    const candidate = error.code;
+    if (typeof candidate === "string") return candidate;
+  }
+  return "";
+}
+
 export function describeAuthError(error: unknown): string {
   const raw = messageOf(error);
   const text = raw.toLowerCase();
   const status = statusOf(error);
+  const code = codeOf(error);
 
   // A failed fetch has no status and no useful message. Distinguish it, because
   // "check your connection" and "check your password" send someone in opposite
@@ -77,16 +90,35 @@ export function describeAuthError(error: unknown): string {
     return "This address cannot sign in yet. Contact SuperHyre.";
   }
 
-  /* The per-address cooldown, which is separate from the hourly cap below and
-     names the wait because the server tells us how long it is. */
-  if (text.includes("over_email_send_rate_limit") || text.includes("only request this after")) {
+  /* Two different failures answer with the SAME code, and they need opposite
+     advice, so the presence of a named wait is what tells them apart:
+
+       per-address cooldown (smtp_max_frequency, 60s)
+         "For security purposes, you can only request this after 42 seconds."
+       project hourly quota (rate_limit_email_sent)
+         "email rate limit exceeded"
+
+     Only the first names seconds. Falling back to "wait a moment" for the
+     second was actively misleading: the quota window is an hour, so a reader
+     who waited the moment we suggested just failed again. */
+  if (
+    code === "over_email_send_rate_limit" ||
+    text.includes("over_email_send_rate_limit") ||
+    text.includes("email rate limit") ||
+    text.includes("only request this after")
+  ) {
     const secs = /after (\d+) second/.exec(text)?.[1];
-    return secs
-      ? `A code was just sent. You can ask for another in ${secs} seconds.`
-      : "A code was just sent. Wait a moment before asking for another.";
+    if (secs) return `A code was just sent. You can ask for another in ${secs} seconds.`;
+    /* No seconds named, so this is the shared project quota, not this reader's
+       doing: anyone else signing in can exhaust it. Saying "too many attempts"
+       blamed them for someone else's sign-in. Google is the honest way out,
+       because it sends no email and so cannot be rate limited by this quota. */
+    return "Email codes are unavailable right now. Use Continue with Google, or try again in an hour.";
   }
 
-  if (status === 429 || text.includes("rate limit") || text.includes("too many requests")) {
+  /* Any other 429: token refresh, verify, anonymous sign-in. These are
+     per-minute buckets, unlike the hourly email quota above. */
+  if (status === 429 || text.includes("too many requests")) {
     return "Too many attempts. Wait a minute, then try again.";
   }
 

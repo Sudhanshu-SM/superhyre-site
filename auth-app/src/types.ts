@@ -48,10 +48,11 @@ export type AllowedBootstrap = z.infer<typeof allowedSchema>;
 /**
  * Which card is on screen.
  *
- * `checkInbox` exists because a Supabase project with "Confirm email" enabled
- * returns a user with NO session from signUp — the account is real but unusable
- * until the link is clicked. Collapsing that into `signedIn` would show someone
- * a success state for a session they do not have.
+ * `code` replaced a `checkInbox` view that existed for the password era, when
+ * signUp under "Confirm email" returned a real user with no session and the
+ * only next step was a link in an inbox. There is no signUp any more: the code
+ * IS the sign-in, it is typed here rather than clicked in an email, so the
+ * view carries the address instead of telling someone to go and look.
  *
  * `blocked` is its own view rather than an error banner: a personal-email
  * account is not a mistake the user can fix by retyping, so it gets an

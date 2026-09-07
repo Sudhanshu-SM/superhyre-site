@@ -87,9 +87,13 @@ describe("describeAuthError", () => {
     expect(copy).toContain("42 seconds");
   });
 
-  it("falls back to a vague wait when the server does not give a number", () => {
+  it("sends people to Google when the server names no wait", () => {
+    // No number means the project's hourly email quota, not the 60s
+    // per-address cooldown. It used to say "wait a moment", which sent the
+    // reader back to fail again against an hour-long window.
     const copy = describeAuthError(authError("over_email_send_rate_limit", 429));
-    expect(copy).toMatch(/wait a moment/i);
+    expect(copy).toMatch(/continue with google/i);
+    expect(copy).toMatch(/hour/i);
     expect(copy).not.toMatch(/undefined|NaN/);
   });
 
@@ -118,5 +122,65 @@ describe("describeAuthError", () => {
     ]) {
       expect(describeAuthError(authError(message, 400))).not.toContain("\u2014");
     }
+  });
+
+  /* The two conditions that share over_email_send_rate_limit. Captured from
+     production: the cooldown names seconds, the project quota does not. */
+  it("names the wait for the per-address cooldown", () => {
+    const out = describeAuthError({
+      code: "over_email_send_rate_limit",
+      message: "For security purposes, you can only request this after 42 seconds.",
+      status: 429,
+    });
+    expect(out).toContain("42 seconds");
+  });
+
+  it("does not tell someone to wait a minute when the window is an hour", () => {
+    // Verbatim production payload for the exhausted project quota.
+    const out = describeAuthError({
+      code: "over_email_send_rate_limit",
+      message: "email rate limit exceeded",
+      status: 429,
+    });
+    expect(out).not.toContain("a minute");
+    expect(out).toContain("hour");
+  });
+
+  it("routes the exhausted quota to Google, which sends no email", () => {
+    const out = describeAuthError({
+      code: "over_email_send_rate_limit",
+      message: "email rate limit exceeded",
+      status: 429,
+    });
+    expect(out).toContain("Continue with Google");
+  });
+
+  it("does not blame the reader for a project-wide quota", () => {
+    const out = describeAuthError({
+      code: "over_email_send_rate_limit",
+      message: "email rate limit exceeded",
+      status: 429,
+    });
+    // "Too many attempts" reads as the reader's fault; any other user's
+    // sign-in can exhaust this quota.
+    expect(out).not.toContain("Too many attempts");
+  });
+
+  it("still recognises the quota with no code field, message only", () => {
+    // A gateway or a plain fetch body can arrive without `code`.
+    const out = describeAuthError({ message: "email rate limit exceeded" });
+    expect(out).toContain("Continue with Google");
+  });
+
+  it("keeps the generic per-minute wording for non-email 429s", () => {
+    const out = describeAuthError({ message: "too many requests", status: 429 });
+    expect(out).toBe("Too many attempts. Wait a minute, then try again.");
+  });
+
+  it("reads the machine token off code, not out of the sentence", () => {
+    // The token never appears in the message, so matching the sentence alone
+    // let every email 429 fall through to the generic branch.
+    const out = describeAuthError({ code: "over_email_send_rate_limit", message: "" });
+    expect(out).toContain("Continue with Google");
   });
 });
