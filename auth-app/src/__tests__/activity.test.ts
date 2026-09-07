@@ -8,7 +8,7 @@ import type { Activity } from "../activity";
    gets "simplified" back into a bug six months later. */
 
 const reveals = (o: Partial<Activity["reveals"]>): Activity["reveals"] => ({
-  total: 0, found: 0, cached: 0, not_found: 0, failed: 0, unique_profiles: 0, ...o,
+  total: 0, found: 0, cached: 0, not_found: 0, errored: 0, unique_profiles: 0, ...o,
 });
 
 describe("contactFound", () => {
@@ -26,14 +26,14 @@ describe("contactFound", () => {
     // failed / needs_setup / rate_limited are the provider chain breaking. If
     // they counted as attempts, an outage would look like candidates having no
     // phone number, and the rate would drop for a reason nobody can act on.
-    const r = contactFound(reveals({ total: 100, found: 30, cached: 0, not_found: 10, failed: 60 }));
+    const r = contactFound(reveals({ total: 100, found: 30, cached: 0, not_found: 10, errored: 60 }));
     expect(r.attempts).toBe(40);
     expect(r.pct).toBe(75);
   });
 
   it("does not let an outage change the rate at all", () => {
     const clean = contactFound(reveals({ total: 40, found: 30, not_found: 10 }));
-    const withOutage = contactFound(reveals({ total: 90, found: 30, not_found: 10, failed: 50 }));
+    const withOutage = contactFound(reveals({ total: 90, found: 30, not_found: 10, errored: 50 }));
     expect(withOutage.pct).toBe(clean.pct);
   });
 
@@ -50,7 +50,7 @@ describe("contactFound", () => {
   });
 
   it("returns null rather than NaN when there were no attempts", () => {
-    const r = contactFound(reveals({ total: 5, failed: 5 }));
+    const r = contactFound(reveals({ total: 5, errored: 5 }));
     expect(r.attempts).toBe(0);
     expect(r.pct).toBeNull();
   });
@@ -102,8 +102,7 @@ describe("activitySchema", () => {
     days: 30, since: "2026-08-07T00:00:00+00:00",
     quota: { used: 1, cap: 100, remaining: 99 },
     reveals: { total: 1, found: 1, cached: 0, not_found: 0, failed: 0, unique_profiles: 1 },
-    saved: { total: 1, in_window: 1, with_phone: 1, with_email: 0 },
-    captures: { tracked: true, total: 1, in_window: 1, paid: 1, scraped: 0, last_at: null },
+    saved: { total: 1, in_window: 1, with_phone: 1, with_email: 0, source_filtered: true },
     uncontacted: { tracked: true, total: 0, d0_2: 0, d3_7: 0, d8_30: 0, d30p: 0, oldest_days: 0 },
   };
 
@@ -113,15 +112,17 @@ describe("activitySchema", () => {
     expect(out.daily).toEqual([]);
     expect(out.funnel).toEqual([]);
     expect(out.recent).toEqual([]);
-    expect(out.providers).toEqual([]);
+    expect(out.finds_by_provider).toEqual([]);
   });
 
   it("keeps the solo untracked branch distinguishable from zero", () => {
     const out = activitySchema.parse({
       ...base, scope: "solo", role: null,
-      captures: { tracked: false }, uncontacted: { tracked: false },
+      saved: { ...base.saved, source_filtered: false },
+      uncontacted: { tracked: false },
     });
-    expect(out.captures.tracked).toBe(false);
+    // A personal workspace cannot narrow to extension-created rows, and says so.
+    expect(out.saved.source_filtered).toBe(false);
     expect(out.uncontacted.tracked).toBe(false);
     // The point of the discriminator: `total` is not readable, so no code path
     // can render a 0 that actually means "no such table".

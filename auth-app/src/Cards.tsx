@@ -1,205 +1,153 @@
-import { EnvelopeSimple, Prohibit } from "@phosphor-icons/react";
+import { ArrowLeft, Prohibit } from "@phosphor-icons/react";
 import { Button } from "./components/Button";
 import { Field, ICON_WEIGHT } from "./components/Field";
 import { GoogleButton } from "./components/GoogleButton";
 import { Notice } from "./components/Notice";
-import { PasswordField } from "./components/PasswordField";
-import { MIN_PASSWORD } from "./validate";
 import type { Op } from "./types";
 
 /* Presentational only. Every card takes what it renders and returns what the
    user did; none of them talk to Supabase. That is what makes the flows in
-   App.tsx the single place auth behaviour lives. */
+   App.tsx the single place auth behaviour lives.
 
-type FormProps = {
+   ── TWO WAYS IN, NO PASSWORD ────────────────────────────────────────────────
+   A one-time code to a work address, or Google. Password sign-in and the whole
+   sign-up card are gone: there is no password stored, so there is nothing to
+   leak, reset, or rate-limit, and no "create an account" step at all -- the
+   first code sent to a work domain IS the account. `core.reject_free_email`
+   still enforces the work-domain rule server-side either way.
+*/
+
+type EmailStepProps = {
   email: string;
-  password: string;
   onEmail: (v: string) => void;
-  onPassword: (v: string) => void;
   emailError: string | null;
-  passwordError: string | null;
   formOp: Op;
   googleOp: Op;
   onSubmit: () => void;
   onGoogle: () => void;
-  onSwitch: () => void;
 };
 
-export function SignInCard(p: FormProps) {
+export function SignInCard(p: EmailStepProps) {
   // Whichever path is busy locks the other: a Google redirect fired mid
-  // password-submit would abandon a request the user cannot see.
+  // request would abandon a code the user cannot see was sent.
   const busy = p.formOp.s === "busy" || p.googleOp.s === "busy";
+
   return (
-    <div className="card">
+    <form
+      className="card"
+      onSubmit={(e) => { e.preventDefault(); p.onSubmit(); }}
+      noValidate
+    >
       <h1 className="card-title">sign in</h1>
-      <p className="card-sub">Use the work account your team was set up with.</p>
-
-      {p.formOp.s === "error" && <Notice tone="problem">{p.formOp.message}</Notice>}
-      {p.googleOp.s === "error" && <Notice tone="problem">{p.googleOp.message}</Notice>}
-
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          p.onSubmit();
-        }}
-        noValidate
-      >
-        <Field
-          id="email"
-          label="Work email"
-          type="email"
-          inputMode="email"
-          autoComplete="username"
-          placeholder="you@company.com"
-          value={p.email}
-          onChange={(e) => p.onEmail(e.target.value)}
-          error={p.emailError}
-          disabled={busy}
-          spellCheck={false}
-          autoFocus
-        />
-
-        <PasswordField
-          id="password"
-          label="Password"
-          autoComplete="current-password"
-          value={p.password}
-          onChange={p.onPassword}
-          error={p.passwordError}
-          disabled={busy}
-        />
-
-        <Button
-          type="submit"
-          variant="solid"
-          busy={p.formOp.s === "busy"}
-          busyLabel="Signing in"
-          disabled={p.googleOp.s === "busy"}
-        >
-          Sign in
-        </Button>
-      </form>
-
-      <div className="or"><span>or</span></div>
-
-      <GoogleButton
-        label="Continue with Google"
-        busy={p.googleOp.s === "busy"}
-        disabled={p.formOp.s === "busy"}
-        onClick={p.onGoogle}
-      />
-
-      <p className="switch">
-        No account yet? <button type="button" onClick={p.onSwitch} disabled={busy}>Create one</button>
-      </p>
-    </div>
-  );
-}
-
-export function SignUpCard(p: FormProps) {
-  const busy = p.formOp.s === "busy" || p.googleOp.s === "busy";
-  return (
-    <div className="card">
-      <h1 className="card-title">create account</h1>
       <p className="card-sub">
-        SuperHyre groups people by email domain, so use the address you work from.
+        Use your work email. We send a code, so there is no password to
+        remember.
       </p>
 
       {p.formOp.s === "error" && <Notice tone="problem">{p.formOp.message}</Notice>}
       {p.googleOp.s === "error" && <Notice tone="problem">{p.googleOp.message}</Notice>}
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          p.onSubmit();
-        }}
-        noValidate
-      >
-        <Field
-          id="email"
-          label="Work email"
-          type="email"
-          inputMode="email"
-          autoComplete="username"
-          placeholder="you@company.com"
-          help="Personal addresses cannot be used."
-          value={p.email}
-          onChange={(e) => p.onEmail(e.target.value)}
-          error={p.emailError}
-          disabled={busy}
-          spellCheck={false}
-          autoFocus
-        />
-
-        <PasswordField
-          id="password"
-          label="Password"
-          autoComplete="new-password"
-          // Stated before submit rather than sprung as an error after it.
-          help={`At least ${MIN_PASSWORD} characters.`}
-          value={p.password}
-          onChange={p.onPassword}
-          error={p.passwordError}
-          disabled={busy}
-        />
-
-        <Button
-          type="submit"
-          variant="solid"
-          busy={p.formOp.s === "busy"}
-          busyLabel="Creating account"
-          disabled={p.googleOp.s === "busy"}
-        >
-          Create account
-        </Button>
-      </form>
-
-      <div className="or"><span>or</span></div>
-
-      <GoogleButton
-        label="Continue with Google"
-        busy={p.googleOp.s === "busy"}
-        disabled={p.formOp.s === "busy"}
-        onClick={p.onGoogle}
+      <Field
+        id="email"
+        label="Work email"
+        type="email"
+        value={p.email}
+        onChange={(e) => p.onEmail(e.target.value)}
+        error={p.emailError}
+        autoComplete="email"
+        autoFocus
+        placeholder="you@company.com"
+        disabled={busy}
       />
 
-      <p className="switch">
-        Already have an account?{" "}
-        <button type="button" onClick={p.onSwitch} disabled={busy}>Sign in</button>
-      </p>
-    </div>
-  );
-}
-
-/** Supabase returned a user but no session, which means the project has email
- *  confirmation on. The account exists and cannot be used yet, so this says
- *  exactly that instead of showing a success state for a session we lack. */
-export function CheckInboxCard({ email, onBack }: { email: string; onBack: () => void }) {
-  return (
-    <div className="card">
-      <h1 className="card-title">check your inbox</h1>
-      <p className="card-sub">
-        We sent a confirmation link to <strong>{email}</strong>. Open it to finish
-        setting up your account, then come back here to sign in.
-      </p>
-      <Notice tone="quiet">
-        Nothing arrived? Check spam, and confirm the address above is spelled correctly.
-      </Notice>
-      <Button variant="outline" onClick={onBack}>
-        <EnvelopeSimple size={17} weight={ICON_WEIGHT} aria-hidden="true" />
-        Back to sign in
+      <Button variant="solid" type="submit" busy={p.formOp.s === "busy"}
+              busyLabel="Sending" disabled={busy}>
+        Send me a code
       </Button>
-    </div>
+
+      <div className="or"><span>or</span></div>
+
+      <GoogleButton onClick={p.onGoogle} busy={p.googleOp.s === "busy"} disabled={busy}
+                    label="Continue with Google" />
+    </form>
   );
 }
+
+type CodeStepProps = {
+  email: string;
+  code: string;
+  onCode: (v: string) => void;
+  codeError: string | null;
+  formOp: Op;
+  resendOp: Op;
+  onSubmit: () => void;
+  onResend: () => void;
+  onBack: () => void;
+};
 
 /**
- * `extension_bootstrap()` said `allowed: false, reason: 'personal_email'`.
+ * The code step.
  *
- * Its own view rather than a red line under the email field, because retyping
- * cannot fix it: the domain itself is the problem, and the session has already
- * been discarded by the time this renders.
+ * The field is `inputMode="numeric"` with `autoComplete="one-time-code"`, which
+ * is what lets iOS and Android offer the code from the notification instead of
+ * making someone switch apps and memorise eight digits. It is NOT `type=number`
+ * -- that strips leading zeros and shows a spinner on a value that is not a
+ * quantity.
  */
+export function CodeCard(p: CodeStepProps) {
+  const busy = p.formOp.s === "busy" || p.resendOp.s === "busy";
+
+  return (
+    <form
+      className="card"
+      onSubmit={(e) => { e.preventDefault(); p.onSubmit(); }}
+      noValidate
+    >
+      <h1 className="card-title">check your email</h1>
+      <p className="card-sub">
+        We sent a code to <strong>{p.email}</strong>. It is good for an hour.
+      </p>
+
+      {p.formOp.s === "error" && <Notice tone="problem">{p.formOp.message}</Notice>}
+      {p.resendOp.s === "error" && <Notice tone="problem">{p.resendOp.message}</Notice>}
+      {p.resendOp.s === "done" && <Notice tone="quiet">{p.resendOp.message}</Notice>}
+
+      <Field
+        id="code"
+        label="Sign-in code"
+        type="text"
+        value={p.code}
+        onChange={(e) => p.onCode(e.target.value)}
+        error={p.codeError}
+        autoComplete="one-time-code"
+        inputMode="numeric"
+        autoFocus
+        placeholder="12345678"
+        disabled={busy}
+      />
+
+      <Button variant="solid" type="submit" busy={p.formOp.s === "busy"}
+              busyLabel="Checking" disabled={busy}>
+        Sign in
+      </Button>
+
+      {/* Reuses .switch rather than a new class: it already carries the
+          considered treatment for a secondary action in a card -- underlined
+          in ink rather than coloured, because a 14px orange link on white is
+          3.51:1 and fails AA. Two actions, so the row splits them. */}
+      <p className="switch switch-split">
+        <button type="button" onClick={p.onResend} disabled={busy}>
+          Send another code
+        </button>
+        <button type="button" className="switch-link" onClick={p.onBack} disabled={busy}>
+          <ArrowLeft size={13} weight={ICON_WEIGHT} aria-hidden="true" />
+          Use a different address
+        </button>
+      </p>
+    </form>
+  );
+}
+
 export function BlockedCard({ email, onBack }: { email: string; onBack: () => void }) {
   return (
     <div className="card">
@@ -226,17 +174,9 @@ export function BlockedCard({ email, onBack }: { email: string; onBack: () => vo
    unused export does not trip noUnusedLocals — it would have sat here
    compiling into the bundle with nothing rendering it. */
 
-/** Shaped like the sign-in card that usually follows, so the panel does not
- *  jump when the session check resolves. A centred spinner on an empty page
- *  would move everything the moment it finished. */
-export function LoadingCard() {
-  return (
-    <div className="card skeleton" aria-hidden="true">
-      <div className="sk sk-title" />
-      <div className="sk sk-line" />
-      <div className="sk sk-field sk-field-first" />
-      <div className="sk sk-field" />
-      <div className="sk sk-btn" />
-    </div>
-  );
-}
+/* CheckInboxCard and LoadingCard lived here and are gone.
+   CheckInbox was the confirm-your-address step that password sign-up needed;
+   CodeCard is the whole flow now. LoadingCard became unreachable when the boot
+   loader started returning before the sign-in shell, and an unused export does
+   not trip noUnusedLocals -- it would have sat here compiling into the bundle
+   with nothing rendering it. */

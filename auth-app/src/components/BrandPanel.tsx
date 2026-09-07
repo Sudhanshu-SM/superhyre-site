@@ -23,15 +23,16 @@ import type { Transition, Variants } from "motion/react";
  * ────────────────────────────────────────────────────────────────────────────
  */
 
-/** The official mark, geometry from the inline fallback SVG in talent.html:
- *  a 2-column, 4-row staircase on a 31x62 grid. */
-function Mark({ className }: { className?: string }) {
+/** The brand mark, from SuperHyre/superhyre_logo.svg. currentColor rather than
+ *  the file's baked #F97316, so the single .bp-mark rule owns the hue; the
+ *  stroke is the source's own, which the glyph needs for weight at this size.
+ *
+ *  No className prop: it took one and then ignored it, so a caller could pass
+ *  a class and watch it vanish. There is one call site and it wants .bp-mark. */
+function Mark() {
   return (
-    <svg className={className} viewBox="0 0 31 62" aria-hidden="true" focusable="false">
-      <rect x="15.5" y="0" width="15.5" height="15.5" />
-      <rect x="0" y="15.5" width="15.5" height="15.5" />
-      <rect x="15.5" y="31" width="15.5" height="15.5" />
-      <rect x="0" y="46.5" width="15.5" height="15.5" />
+    <svg className="bp-mark" viewBox="0 0 34 35" fill="none" aria-hidden="true" focusable="false">
+      <path d="M16.047 0.496124C16.0223 2.74925 16.6685 4.85749 17.9504 6.64333C19.9314 9.36012 22.9612 10.9359 26.1146 11.8233C28.2333 12.4029 30.3556 12.6674 32.605 12.6855V15.9384C30.3697 15.942 28.2969 16.4962 26.3159 17.4562C20.4611 20.3831 15.9694 26.7367 15.9129 33.4961L12.989 33.0868L12.0426 28.5008C11.3117 25.9579 10.3653 23.9656 7.78397 23.1252C6.90469 22.8427 6.03954 22.7014 5.11789 22.5963L1.34654 22.4551L0.60498 19.0464C2.40944 18.8218 4.13268 18.4378 5.79942 17.7315C12.8336 14.714 13.2221 7.87494 13.2362 0.829384L15.9023 0.496124" fill="currentColor" stroke="currentColor" stroke-miterlimit="10" />
     </svg>
   );
 }
@@ -130,7 +131,7 @@ export function BrandPanel() {
           before, which spent a line of vertical space on four words. */}
       <motion.div className="bp-top" variants={step}>
         <a className="bp-logo" href="/">
-          <Mark className="bp-mark" />
+          <Mark />
           <span className="bp-word">superhyre</span>
         </a>
         <span className="bp-tagline">Recruitment, Rebuilt.</span>

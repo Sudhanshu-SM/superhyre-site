@@ -74,8 +74,18 @@
 
   /* Warm browns, not greys. A neutral grey on peach reads dirty; these are the
      accent's own hue family taken down in value. */
-  --ink: #3a2317;          /* 11.9:1 on --panel, 14.5:1 on white */
-  --ink-2: #7a5642;        /* 5.3:1 on --panel, 6.4:1 on white */
+  /* Warm-neutral, not warm-brown. Measured OKLCh chroma 0.0178 against the
+     old #3a2317's 0.0410, and contrast IMPROVES everywhere it is used:
+     14.89:1 on the console page, 16.21 on a white panel, 13.16 on the peach
+     sign-in panel. Every professional system read for this puts its warmth in
+     the mid and dark steps, never in the page -- and the page here was already
+     neutral, so the residual beige was coming from the text. */
+  --ink: #271f18;          /* 13.2:1 on --panel, 16.2:1 on white */
+  /* The loudest value in the console before this change: chroma 0.0570, seven
+     times Notion's muted text and 1.8x Stripe's. Now 0.0199, which is
+     Primer's own tint level, so it still reads warm rather than grey.
+     4.89:1 on peach is the tightest surface and still clears AA. */
+  --ink-2: #6c6158;        /* 5.3:1 on --panel, 6.4:1 on white */
 
   --accent-deep: #b8400f;  /* burnt end of the accent */
 
@@ -418,7 +428,12 @@ body {
 /* The mark keeps the bright accent. It is a filled shape, not text, so the
    2.85:1 that disqualifies orange type on this peach does not apply — a
    non-text element needs 3:1 and this is a solid graphic. */
-.bp-mark { width: 14px; height: 28px; fill: var(--accent); flex: none; }
+/* The brand mark from superhyre_logo.svg. Near-square (34x35), unlike the
+   1:2 placeholder it replaced, so the height matches the width. `color`
+   rather than `fill`: the path is drawn with currentColor so one rule sets
+   both its fill and its stroke. #F97316 is the logo's own orange, kept as
+   supplied rather than remapped onto --accent. */
+.bp-mark { width: 26px; height: 27px; color: #f97316; flex: none; }
 
 /* Helvetica Neue 500 is the site's wordmark face (index.html's hero SVG). */
 .bp-word {
@@ -1067,6 +1082,24 @@ body {
 .switch button:focus-visible,
 .switch a:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 3px; }
 
+/* Two secondary actions on one line. `.switch` is a <p> so it needs to become
+   a flex row to hold a pair; wrapping matters because "Use a different
+   address" plus "Send another code" does not fit a narrow card side by side. */
+.switch-split {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 18px;
+}
+
+.switch button:disabled,
+.switch a:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  text-decoration-color: var(--rule);
+}
+
 /* The privacy link carries a trailing arrow glyph, so it needs to be a flex
    line rather than inline text with a floating icon. */
 .switch-link { display: inline-flex; align-items: center; gap: 5px; }
@@ -1185,6 +1218,80 @@ body {
   border: 0;
 }
 
+/* ═══════════════════════════ boot ═══════════════════════════
+
+   The first paint, before the session check resolves.
+
+   Full-bleed and returned ahead of the sign-in shell on purpose: a skeleton
+   card inside the shell still painted the brand panel, the quote and the deco
+   blocks, so a reload flashed the whole marketing surface at someone who was
+   already signed in.
+
+   Sand rather than the console's neutral, because at this instant we do not
+   yet know which surface the user is headed for, and sand is the one they see
+   first on a cold visit. */
+.boot {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--page);
+}
+
+/* The ring is a conic gradient masked to an annulus, not a border with one
+   coloured side. A one-sided border spins a visible seam; the mask sweeps
+   opacity smoothly all the way round, so there is no hard edge chasing the
+   logo. */
+.boot-mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  color: var(--logo, #f97316);
+}
+
+.boot-mark svg {
+  width: 30px;
+  height: 30px;
+  display: block;
+}
+
+.boot-mark::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0deg, currentColor 300deg, transparent 360deg);
+  /* Annulus: paint everything, then punch the middle out. Two masks composited
+     rather than a 3px border, so the stroke stays even at every angle. */
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
+  opacity: 0.5;
+  animation: boot-spin 900ms linear infinite;
+}
+
+@keyframes boot-spin {
+  to { transform: rotate(1turn); }
+}
+
+/* The mark itself breathes rather than spinning: a rotating logo at this size
+   turns the glyph into a smear, and the four points are the whole
+   recognisability of it. */
+@media (prefers-reduced-motion: no-preference) {
+  .boot-mark svg { animation: boot-pulse 1400ms var(--ease-in-out) infinite; }
+  @keyframes boot-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: 0.72; transform: scale(0.94); }
+  }
+}
+
+/* Reduced motion keeps the ring but stops it moving: a static annulus still
+   reads as "waiting" without animating anything. */
+@media (prefers-reduced-motion: reduce) {
+  .boot-mark::before { animation: none; opacity: 0.35; }
+}
+
 /* ═══════════════════════════ console ═══════════════════════════
 
    The signed-in surface. Full-bleed, not inside the sign-in card: once you are
@@ -1202,22 +1309,52 @@ body {
    those rows sit on warm white over sand, and "active" is a peach wash rather
    than the reference's neutral fill. */
 .con {
+  /* Overrides the marketing --page for the console only. The sign-in surface
+     keeps its warm sand and peach panel; that is an expressive surface and it
+     should stay expressive. This is the task surface. */
+  --page: #f6f5f4;
   --nav-w: 252px;
   --nav-w-rail: 68px;
   /* Keep in step with NAV_BP in Console.tsx — below this the sidebar is a
      drawer, and the drawer's scroll lock and auto-close live in JS. */
   --nav-bp: 900px;
   --nav-row-h: 40px;
+  /* ── console surfaces ──
+     The console used the marketing page's warm sand (#f6ece1) behind white
+     panels. Measured, that sand is 54% HLS saturation; every professional
+     neutral published by Radix, Tailwind stone and Geist sits at 5-9%. A
+     6-10x chroma gap is precisely what read as "beige" rather than as a
+     product surface, and prior Dribbble research found ZERO warm-palette
+     dashboards across nine read shots and five tag indexes -- warm is
+     packaging and branding territory, not console territory.
+
+     So the hue stays at 30deg, keeping kinship with the brand, and the
+     saturation collapses to 10%. Same family, none of the cast.
+
+     Measured, all against composited pixels:
+       page    #f6f5f4  ink 13.46:1   muted 5.96:1
+       panel   #ffffff  ink 14.66:1   muted 6.49:1
+       edge    #e2ded9  1.34 on white -- between Radix sand-6 (1.41) and
+                        Tailwind stone-200 (1.26)
+       hairline #ece9e7 1.21 on white, deliberately quieter than the edge so a
+                        row separator never competes with a panel boundary
+     The warmth now lives in the accent and the active nav state only, which
+     is what keeps it scarce enough to still mean something. */
   --nav-surface: #ffffff;
-  --nav-rule: #efe6dd;
+  --nav-rule: #ece9e7;
+  --nav-edge-panel: #e2ded9;
   --nav-active: #fbe7d7;
-  --nav-hover: #f8f2ec;
+  --nav-hover: #f9f9f8;
   /* Border for a control that must read as pressable. WCAG 1.4.11 wants 3:1
      for the boundary that identifies a UI component, and the greys already in
      the file do not reach it on white: --rule is 1.43, --rule-strong 2.81.
-     Measured 3.07 — the lightest warm value that clears the bar, so the edge
-     stays as quiet as it legally can. */
-  --nav-edge: #a58f82;
+     Measured 3.07 on the CONSOLE PAGE, which is the surface that matters and
+     the one this originally got wrong: the first value here was solved against
+     white, hit 3.07 there, and then the page moved to #f6f5f4 underneath it
+     and quietly fell to 2.81 -- a real 1.4.11 failure hiding behind a comment
+     claiming the opposite. Re-solved against both: 3.34 on white, 3.07 on the
+     page. */
+  --nav-edge: #9d8979;
 
   min-height: 100dvh;
   display: grid;
@@ -1258,7 +1395,7 @@ body {
   flex-direction: column;
   min-width: 0;
   background: var(--nav-surface);
-  border-right: 1px solid var(--nav-rule);
+  border-right: 1px solid var(--nav-edge-panel);
   /* Sticky rather than scrolling with the page: the nav is a fixed frame and
      the content is what moves. 100dvh, not vh, so mobile browser chrome
      collapsing does not leave the bottom rows unreachable. */
@@ -1290,7 +1427,7 @@ body {
   overflow: hidden;
 }
 
-.nav-mark { width: 13px; height: 26px; fill: var(--accent); flex: none; }
+.nav-mark { width: 21px; height: 22px; color: #f97316; flex: none; }
 
 .nav-word {
   font: 600 17px/1 var(--word);
@@ -1791,7 +1928,7 @@ body {
 .con-facts {
   margin: 0 0 22px;
   padding: 0;
-  border: 1px solid var(--nav-rule);
+  border: 1px solid var(--nav-edge-panel);
   border-radius: 14px;
   background: var(--nav-surface);
   overflow: hidden;
@@ -1891,7 +2028,7 @@ body {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   margin: 26px 0 0;
-  border: 1px solid var(--nav-rule);
+  border: 1px solid var(--nav-edge-panel);
   border-radius: 14px;
   background: var(--nav-surface);
   overflow: hidden;
@@ -1959,7 +2096,7 @@ body {
 .ex-sec {
   margin: 22px 0 0;
   padding: 16px 18px 18px;
-  border: 1px solid var(--nav-rule);
+  border: 1px solid var(--nav-edge-panel);
   border-radius: 14px;
   background: var(--nav-surface);
 }
@@ -2208,7 +2345,7 @@ body {
 .ex-install {
   margin: 26px 0 0;
   padding: 22px;
-  border: 1px solid var(--nav-rule);
+  border: 1px solid var(--nav-edge-panel);
   border-radius: 14px;
   background: var(--nav-surface);
 }
@@ -2288,7 +2425,7 @@ body {
 .ex-note {
   margin: 0;
   padding: 14px 16px;
-  border: 1px solid var(--nav-rule);
+  border: 1px solid var(--nav-edge-panel);
   border-radius: 12px;
   background: #fffaf5;
 }
@@ -2406,8 +2543,85 @@ body {
 .dl-num,
 .ex-table th.dl-num { text-align: right; font-variant-numeric: tabular-nums; }
 
-.dl-table th:nth-child(1), .dl-table .ex-cell-name { width: 27%; }
-.dl-table th:nth-child(2), .dl-table .ex-cell-role { width: 24%; }
+/* ── column widths ──
+   Scoped per table, because the two share `.dl-table` but not their columns.
+   The call log's second column is Company (long free text); the queue's is
+   Number (a fixed ~15ch). One shared `24%` for both meant the queue's Number
+   column was given 280px of a 1150px table for content that needs 130 -- and
+   because Priority beside it is right-aligned, its header sat at the far edge
+   of an over-wide cell, which is what read as a huge unexplained gap.
+
+   Identity gets the slack in both, since it is the only column whose content
+   is genuinely open-ended. Enum and date columns are shrink-to-fit. */
+/* Percentages that SUM TO 100, not `auto` and not ch. Under
+   `table-layout: fixed` an `auto` column absorbs every remaining pixel -- Who
+   took 825 of 1142 while the phone column collapsed to 99 and
+   `+919481828319` overflowed straight into the cell beside it. And `ch` is
+   sized on the `0` glyph of the inherited font, which under-measures a column
+   of tabular digits plus a `+` and reads as a too-tight guess.
+
+   Identity still gets the most, because it is the only genuinely
+   variable-length column, but it is now capped rather than greedy. */
+.dl-calls th:nth-child(1), .dl-calls .ex-cell-name { width: 30%; }
+.dl-calls th:nth-child(2), .dl-calls .ex-cell-role { width: 26%; }
+
+.dl-queue th:nth-child(1) { width: 34%; }
+.dl-queue th:nth-child(2) { width: 19%; }
+.dl-queue th:nth-child(3) { width: 13%; }
+.dl-queue th:nth-child(4) { width: 15%; }
+.dl-queue th:nth-child(5) { width: 19%; }
+
+/* Priority is a word now, so it aligns with the text columns. Right-aligning
+   it was correct while it printed an integer and is wrong for a label -- it
+   left the header floating at the far edge of its cell with a gap in front. */
+.dl-queue th:nth-child(3),
+.dl-queue td:nth-child(3) { text-align: left; }
+
+/* ── column rules ──
+   Full-height 1px verticals between every column, header through last row.
+   They do not change a single width; they change whether the widths look
+   chosen. A narrow column bounded on both sides reads as a field, whereas the
+   same column floating beside a much wider neighbour reads as crammed -- which
+   is exactly how the queue table looked when Number sat next to a 600px gap.
+
+   Cheaper and more honest than re-tuning percentages forever: the eye stops
+   asking why the space is there once the space is bounded. */
+.dl-table th + th,
+.dl-table td + td {
+  border-left: 1px solid var(--nav-rule);
+}
+
+/* The header rule is the one boundary that should read slightly stronger,
+   since it carries the column labels above the data. */
+.dl-table thead th + th {
+  border-left-color: var(--nav-edge-panel);
+}
+
+/* ── priority ──
+   A word, not the integer. Right-aligned with the column, and the band is
+   carried by weight and colour together so it is not hue-only. `Normal` is
+   deliberately the quietest thing in the row: it is the default and the
+   overwhelming majority, so it must not compete with the name beside it. */
+.dl-pri {
+  display: inline-block;
+  font: 500 12.5px/1.4 var(--ui);
+  letter-spacing: 0.002em;
+}
+
+.dl-pri-normal { color: var(--ink-2); font-weight: 400; }
+.dl-pri-raised { color: var(--ink); }
+.dl-pri-high   { color: #96330a; font-weight: 600; }
+
+/* A known absence, stated as a state. Muted but NOT faded: the measured
+   reference for this pattern renders its own muted grey at 1.79:1 against
+   white, which is precisely why grey filler reads as a row that failed to
+   load rather than as a fact. --ink-2 is 5.53:1 on the page, so this stays
+   legible while still receding behind real values. No opacity, for the same
+   reason. */
+.dl-unset {
+  color: var(--ink-2);
+  font-style: normal;
+}
 
 /* An overdue queue row is marked by a left edge AND the word in the Due cell.
    1px, because a thicker coloured border on a list row is exactly the
@@ -2488,6 +2702,131 @@ body {
 @media (max-width: 460px) {
   .pager { justify-content: center; }
 }
+
+/* ── call detail: recording and transcript ──
+   Opens in place, as a row under the call it belongs to. Not a modal: reading a
+   transcript needs no protected focus, and a modal here would be the laziness
+   the reference rules name. */
+.dl-media {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  padding: 3px 6px;
+  border: 1px solid var(--nav-rule);
+  border-radius: 6px;
+  background: var(--nav-surface);
+  color: var(--ink-2);
+  cursor: pointer;
+  vertical-align: 1px;
+  transition: background var(--t), border-color var(--t), color var(--t);
+}
+
+.dl-media:hover { background: var(--nav-hover); border-color: var(--nav-edge); color: var(--ink); }
+.dl-media:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.dl-media svg { flex: none; }
+.dl-media svg.is-open { transform: rotate(180deg); }
+
+/* The open row and its detail read as one block: the row loses its bottom rule
+   so the pair is not cut in half by a hairline. */
+.ex-table tbody tr.is-open > td { border-bottom-color: transparent; background: #fdf9f5; }
+.dl-detail-row > td { padding: 0 10px 14px; background: #fdf9f5; }
+
+.dl-detail {
+  display: grid;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--nav-edge-panel);
+  border-radius: 12px;
+  background: var(--nav-surface);
+}
+
+.dl-detail-block { display: grid; gap: 6px; }
+.dl-detail-label { color: var(--ink-2); }
+
+.dl-detail-note {
+  margin: 0;
+  max-width: 76ch;
+  font: 400 13px/1.6 var(--ui);
+  color: var(--ink);
+}
+
+.dl-detail-note.dim { color: var(--ink-2); }
+
+.dl-detail-note code {
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: #f4eae0;
+  font: 500 11.5px/1 ui-monospace, "SF Mono", Menlo, monospace;
+  color: #ad3b0c;
+  overflow-wrap: anywhere;
+}
+
+/* A whole call as one string, when the dialer's segments column is absent.
+   Capped and scrollable so one long call cannot push the rest of the table
+   off the screen. */
+.dl-flat {
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #faf5f0;
+}
+
+.dl-play { width: fit-content; gap: 6px; }
+
+.dl-audio {
+  width: 100%;
+  max-width: 420px;
+  height: 36px;
+}
+
+/* ── diarised transcript ──
+   Speaker over the line rather than beside it: an inline label column would be
+   as wide as the longest speaker name and squeeze the words that matter. */
+.dl-turns {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.dl-turn {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.dl-turn-who {
+  font: 600 11px/1.4 var(--ui);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #ad3b0c;
+  white-space: nowrap;
+}
+
+.dl-turn-at {
+  font: 400 11px/1.4 var(--ui);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.dl-turn-text {
+  font: 400 13px/1.55 var(--ui);
+  color: var(--ink);
+  min-width: 0;
+}
+
+@media (max-width: 560px) {
+  /* Three columns will not fit; the speaker and timestamp move above the line. */
+  .dl-turn { grid-template-columns: auto 1fr; }
+  .dl-turn-text { grid-column: 1 / -1; }
+}
 /* Touch targets. Kept at the very end of the file on purpose: every selector
    below is declared above, and a media query adds no specificity, so an
    earlier coarse-pointer block would match and lose to the base rule — the
@@ -2507,4 +2846,5 @@ body {
   .ex-cta { min-height: 44px; }
   .ex-name-link { padding-block: 4px; }
   .pager-btn { width: 44px; height: 44px; }
+  .dl-media { min-height: 44px; padding-inline: 10px; }
 }

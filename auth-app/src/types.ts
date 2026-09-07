@@ -59,9 +59,12 @@ export type AllowedBootstrap = z.infer<typeof allowedSchema>;
  */
 export type View =
   | { v: "loading" }
+  /** Ask for the work email. The only entry point. */
   | { v: "signIn" }
-  | { v: "signUp" }
-  | { v: "checkInbox"; email: string }
+  /** A code has been sent and is being entered. `email` is carried so the
+   *  verify call and the resend both know the address without re-reading a
+   *  form the user has already moved past. */
+  | { v: "code"; email: string }
   | { v: "signedIn"; bootstrap: AllowedBootstrap }
   | { v: "blocked"; email: string };
 
@@ -70,6 +73,10 @@ export type View =
 export type Op =
   | { s: "idle" }
   | { s: "busy" }
+  /** A succeeded action that has something to say. Resending a sign-in code is
+   *  the case: "sent" is the whole outcome, and without this the only way to
+   *  confirm it would be an error-shaped notice or no feedback at all. */
+  | { s: "done"; message: string }
   | { s: "error"; message: string };
 
 export const IDLE: Op = { s: "idle" };

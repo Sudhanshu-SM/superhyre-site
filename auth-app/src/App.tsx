@@ -1,14 +1,13 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
-import {
-  BlockedCard, CheckInboxCard, LoadingCard, SignInCard, SignUpCard,
-} from "./Cards";
+import { BlockedCard, CodeCard, SignInCard } from "./Cards";
 import { Console } from "./Console";
 import { describeAuthError } from "./authErrors";
 import { redirectTarget } from "./config";
+import { LOGO_PATH } from "./logo";
 import { supabase } from "./supabase";
 import { bootstrapSchema, BUSY, IDLE } from "./types";
 import type { Op, View } from "./types";
-import { emailProblem, passwordProblem } from "./validate";
+import { emailProblem } from "./validate";
 
 /** Deferred so Motion is not in the sign-in form's critical path. Named
  *  export, so unwrap it for React.lazy's default-export contract. */
@@ -28,14 +27,15 @@ const BrandPanel = lazy(() =>
 export function App() {
   const [view, setView] = useState<View>({ v: "loading" });
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
   const [emailError, setEmailError] = useState<string | null>(null);
-  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [codeError, setCodeError] = useState<string | null>(null);
 
-  // Independent per action: a Google failure must not clear a password error
-  // the user is still reading, and vice versa.
+  // Independent per action: a Google failure must not clear a code error the
+  // user is still reading, and a resend must not overwrite either.
   const [formOp, setFormOp] = useState<Op>(IDLE);
   const [googleOp, setGoogleOp] = useState<Op>(IDLE);
+  const [resendOp, setResendOp] = useState<Op>(IDLE);
   const [signingOut, setSigningOut] = useState(false);
 
   // Announced politely for screen readers, because switching card is a visual
@@ -85,7 +85,7 @@ export function App() {
 
       setFormOp(IDLE);
       setGoogleOp(IDLE);
-      setPassword("");
+      setCode("");
       setView({ v: "signedIn", bootstrap: parsed.data });
       setAnnounce(`Signed in as ${parsed.data.email}.`);
     } catch (error) {
@@ -127,45 +127,35 @@ export function App() {
 
   function clearErrors() {
     setEmailError(null);
-    setPasswordError(null);
+    setCodeError(null);
     setFormOp(IDLE);
     setGoogleOp(IDLE);
+    setResendOp(IDLE);
   }
 
-  async function submitSignIn() {
-    // Presence only. Length rules belong to sign-up: telling someone their
-    // existing password is too short is useless and leaks what is stored.
-    const eProblem = email.trim() === "" ? "Enter your work email address." : null;
-    const pProblem = password === "" ? "Enter your password." : null;
-    setEmailError(eProblem);
-    setPasswordError(pProblem);
-    if (eProblem || pProblem) return;
-
-    setFormOp(BUSY);
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
-    if (error) {
-      setFormOp({ s: "error", message: describeAuthError(error) });
-      return;
-    }
-    await resolveSession();
-  }
-
-  async function submitSignUp() {
-    const eProblem = emailProblem(email);
-    const pProblem = passwordProblem(password);
-    setEmailError(eProblem);
-    setPasswordError(pProblem);
-    if (eProblem || pProblem) return;
+  /**
+   * Step one: ask for a code.
+   *
+   * `shouldCreateUser` is left at its default of true on purpose. There is no
+   * separate sign-up step any more, so the first code sent to a work address
+   * IS the account, and `core.reject_free_email` is what decides whether that
+   * address is allowed. That hook runs Before-User-Created, so a consumer
+   * domain is refused before any row exists and never receives a code.
+   *
+   * emailRedirectTo still matters even though the user is going to type the
+   * code: Supabase puts BOTH a magic link and a code in the same mail, and a
+   * link pointing at the wrong origin is a dead end for anyone who clicks it
+   * out of habit.
+   */
+  async function requestCode() {
+    const problem = emailProblem(email);
+    setEmailError(problem);
+    if (problem) return;
 
     setFormOp(BUSY);
     const address = email.trim();
-    const { data, error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signInWithOtp({
       email: address,
-      password,
-      // Where the confirmation link returns to, when confirmations are on.
       options: { emailRedirectTo: redirectTarget() },
     });
 
@@ -173,18 +163,48 @@ export function App() {
       setFormOp({ s: "error", message: describeAuthError(error) });
       return;
     }
+    setFormOp(IDLE);
+    setCode("");
+    setCodeError(null);
+    setView({ v: "code", email: address });
+    setAnnounce(`A sign-in code was sent to ${address}.`);
+  }
 
-    // A user with no session means the project requires email confirmation.
-    // The account is real and unusable until the link is opened, so this is a
-    // distinct outcome, not a success.
-    if (!data.session) {
-      setFormOp(IDLE);
-      setPassword("");
-      setView({ v: "checkInbox", email: address });
-      setAnnounce(`Confirmation email sent to ${address}.`);
+  /** Step two: exchange the typed code for a session. */
+  async function submitCode(address: string) {
+    const entered = code.replace(/\s+/g, "");
+    if (entered === "") {
+      setCodeError("Enter the code from your email.");
       return;
     }
+    setCodeError(null);
+    setFormOp(BUSY);
+
+    // `type: "email"` is the typed-code variant. "magiclink" verifies the
+    // token out of a clicked link instead and rejects a code entered by hand.
+    const { error } = await supabase.auth.verifyOtp({
+      email: address,
+      token: entered,
+      type: "email",
+    });
+
+    if (error) {
+      setFormOp({ s: "error", message: describeAuthError(error) });
+      return;
+    }
+    setFormOp(IDLE);
     await resolveSession();
+  }
+
+  async function resendCode(address: string) {
+    setResendOp(BUSY);
+    const { error } = await supabase.auth.signInWithOtp({
+      email: address,
+      options: { emailRedirectTo: redirectTarget() },
+    });
+    setResendOp(error
+      ? { s: "error", message: describeAuthError(error) }
+      : { s: "done", message: `A new code is on its way to ${address}.` });
   }
 
   async function startGoogle() {
@@ -208,23 +228,37 @@ export function App() {
     await supabase.auth.signOut();
     setSigningOut(false);
     setEmail("");
-    setPassword("");
+    setCode("");
     clearErrors();
     setView({ v: "signIn" });
     setAnnounce("Signed out.");
   }
 
-  const formProps = {
-    email,
-    password,
-    onEmail: (v: string) => { setEmail(v); setEmailError(null); },
-    onPassword: (v: string) => { setPassword(v); setPasswordError(null); },
-    emailError,
-    passwordError,
-    formOp,
-    googleOp,
-    onGoogle: startGoogle,
-  };
+  /* Booting: the session check is async, so the very first paint happens
+     before we know whether anyone is signed in. Rendering the sign-in shell
+     during that window meant a reload flashed the entire marketing split
+     panel at an already-authenticated user, then replaced it with the console,
+     which reads as being logged out and bounced back in.
+
+     A skeleton card did not fix it, because the card was inside the shell: the
+     brand panel, the quote and the deco blocks all still painted. The fix is
+     returning before the shell exists at all.
+
+     formProps lived here and is gone with the password fields it carried: the
+     two remaining cards take different props, so a shared bag would have to be
+     widened to the union of both and then destructured back apart. */
+  if (view.v === "loading") {
+    return (
+      <div className="boot">
+        <span className="boot-mark" role="img" aria-label="Loading SuperHyre">
+          <svg viewBox="0 0 34 35" fill="none" aria-hidden="true" focusable="false">
+            <path d={LOGO_PATH} fill="currentColor" stroke="currentColor" strokeMiterlimit="10" />
+          </svg>
+        </span>
+        <p className="sr-only" role="status" aria-live="polite">Checking your session</p>
+      </div>
+    );
+  }
 
   /* Signed in: the console replaces the whole surface rather than rendering as
      another card inside it. Returning early is the point — once you are in,
@@ -269,28 +303,29 @@ export function App() {
       <main className="panel">
         <p className="sr-only" role="status" aria-live="polite">{announce}</p>
 
-        {view.v === "loading" && <LoadingCard />}
-
         {view.v === "signIn" && (
           <SignInCard
-            {...formProps}
-            onSubmit={submitSignIn}
-            onSwitch={() => { clearErrors(); setView({ v: "signUp" }); }}
+            email={email}
+            onEmail={(v) => { setEmail(v); setEmailError(null); }}
+            emailError={emailError}
+            formOp={formOp}
+            googleOp={googleOp}
+            onSubmit={requestCode}
+            onGoogle={startGoogle}
           />
         )}
 
-        {view.v === "signUp" && (
-          <SignUpCard
-            {...formProps}
-            onSubmit={submitSignUp}
-            onSwitch={() => { clearErrors(); setView({ v: "signIn" }); }}
-          />
-        )}
-
-        {view.v === "checkInbox" && (
-          <CheckInboxCard
+        {view.v === "code" && (
+          <CodeCard
             email={view.email}
-            onBack={() => { clearErrors(); setView({ v: "signIn" }); }}
+            code={code}
+            onCode={(v) => { setCode(v); setCodeError(null); }}
+            codeError={codeError}
+            formOp={formOp}
+            resendOp={resendOp}
+            onSubmit={() => void submitCode(view.email)}
+            onResend={() => void resendCode(view.email)}
+            onBack={() => { clearErrors(); setCode(""); setView({ v: "signIn" }); }}
           />
         )}
 

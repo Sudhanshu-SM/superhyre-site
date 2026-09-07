@@ -59,22 +59,31 @@ export function describeAuthError(error: unknown): string {
     return WORK_EMAIL_COPY;
   }
 
-  if (text.includes("invalid login credentials") || text.includes("invalid_credentials")) {
-    // Deliberately does not distinguish "no such account" from "wrong
-    // password": that difference is an account-enumeration oracle.
-    return "That email and password do not match an account.";
+  /* ── the one-time code paths ──────────────────────────────────────────
+     These are now the primary failure modes, since a code is the only way in
+     besides Google. Supabase answers a wrong OR stale code with the SAME
+     `otp_expired` / "Token has expired or is invalid" -- deliberately, because
+     telling them apart would say whether a given code was ever real. So the
+     copy has to cover both without guessing which happened. */
+  if (
+     text.includes("otp_expired") ||
+     text.includes("token has expired") ||
+     (text.includes("token") && text.includes("invalid"))
+  ) {
+    return "That code is wrong or has expired. Request a new one.";
   }
 
-  if (text.includes("email not confirmed") || text.includes("not_confirmed")) {
-    return "This account still needs confirming. Open the link in the email we sent.";
+  if (text.includes("otp_disabled") || text.includes("signups not allowed")) {
+    return "This address cannot sign in yet. Contact SuperHyre.";
   }
 
-  if (text.includes("already registered") || text.includes("already been registered") || text.includes("user_already_exists")) {
-    return "An account already exists for this address. Sign in instead.";
-  }
-
-  if (text.includes("password") && (text.includes("short") || text.includes("weak") || text.includes("least"))) {
-    return "That password is too short. Use at least 10 characters.";
+  /* The per-address cooldown, which is separate from the hourly cap below and
+     names the wait because the server tells us how long it is. */
+  if (text.includes("over_email_send_rate_limit") || text.includes("only request this after")) {
+    const secs = /after (\d+) second/.exec(text)?.[1];
+    return secs
+      ? `A code was just sent. You can ask for another in ${secs} seconds.`
+      : "A code was just sent. Wait a moment before asking for another.";
   }
 
   if (status === 429 || text.includes("rate limit") || text.includes("too many requests")) {

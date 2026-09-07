@@ -2,7 +2,7 @@ import { z } from "zod";
 import { supabase } from "./supabase";
 
 /**
- * `public.console_extension_activity()` — parsed, not cast.
+ * `public.extension_activity()` — parsed, not cast.
  *
  * Same reasoning as types.ts: this is a `returns jsonb` function whose shape
  * lives in another repo's SQL (`Superhyre-Extension/supabase/05_console.sql`).
@@ -21,7 +21,10 @@ const revealsSchema = z.object({
   found: z.number().default(0),
   cached: z.number().default(0),
   not_found: z.number().default(0),
-  failed: z.number().default(0),
+  /** `failed` + `needs_setup`. NOT rate_limited: the Edge Function returns that
+   *  before it logs anything (reveal-phone/index.ts:99-101), so no such row
+   *  ever exists. */
+  errored: z.number().default(0),
   unique_profiles: z.number().default(0),
 });
 
@@ -36,25 +39,21 @@ const savedSchema = z.object({
   in_window: z.number().default(0),
   with_phone: z.number().default(0),
   with_email: z.number().default(0),
+  /** False in a personal workspace: public.individual_candidates has no
+   *  `source` column, so these cannot be narrowed to extension-created rows
+   *  and the UI must not imply that they were. */
+  source_filtered: z.boolean().default(true),
 });
 
-/* `tracked: false` is the solo case: a personal workspace has no
-   <schema>.extension_captures table at all, which is different from having one
-   that is empty. Discriminated so the UI cannot read 0 off a missing table. */
-const capturesSchema = z.union([
-  z.object({ tracked: z.literal(false) }),
-  z.object({
-    tracked: z.literal(true),
-    total: z.number().default(0),
-    in_window: z.number().default(0),
-    paid: z.number().default(0),
-    scraped: z.number().default(0),
-    last_at: z.string().nullable().default(null),
-  }),
-]);
-
-/* Saved, still at 'sourced', never called. Tenant-only: there is no
-   <schema>.calls table in a personal workspace, hence the discriminator. */
+/**
+ * The follow-up worklist: saved by the extension, still at 'sourced', never
+ * called.
+ *
+ * Tenant-only, and `tracked` is a discriminator rather than a flag because a
+ * personal workspace has no <schema>.calls table at all. "No telephony here"
+ * and "nothing is waiting" are different facts, and a shared shape would let
+ * the UI render a 0 that actually means the former.
+ */
 const uncontactedSchema = z.union([
   z.object({ tracked: z.literal(false) }),
   z.object({
@@ -73,11 +72,12 @@ const daySchema = z.object({
   reveals: z.number().default(0),
 });
 
-const providerRowSchema = z.object({
+/** Which provider produced the finds. Finds ONLY: reveal-phone attaches
+ *  provider_slug on 'found' and on nothing else, so a per-provider success
+ *  rate is not computable from this data and is not offered. */
+const providerFindsSchema = z.object({
   slug: z.string(),
-  total: z.number().default(0),
   found: z.number().default(0),
-  cached: z.number().default(0),
 });
 
 const stageRowSchema = z.object({
@@ -111,11 +111,10 @@ export const activitySchema = z.object({
   since: z.string(),
   quota: quotaSchema,
   reveals: revealsSchema,
-  providers: z.array(providerRowSchema).default([]),
+  finds_by_provider: z.array(providerFindsSchema).default([]),
   daily: z.array(daySchema).default([]),
   saved: savedSchema,
   funnel: z.array(stageRowSchema).default([]),
-  captures: capturesSchema,
   uncontacted: uncontactedSchema,
   recent: z.array(recentSchema).default([]),
 });
@@ -193,7 +192,7 @@ export function orderStages(rows: StageRow[]): StageRow[] {
 export async function fetchActivity(
   opts: { days: number; view: ActivityView; limit?: number },
 ): Promise<Activity> {
-  const { data, error } = await supabase.rpc("console_extension_activity", {
+  const { data, error } = await supabase.rpc("extension_activity", {
     p: { days: opts.days, view: opts.view, limit: opts.limit ?? 25 },
   });
   if (error) throw error;
@@ -225,6 +224,16 @@ export type ActivityFailure = {
 };
 
 export function describeActivityError(err: unknown): ActivityFailure {
+  // A ZodError means the function ran and returned a shape this build does not
+  // expect, which is a version skew between the SQL and the bundle. Dumping the
+  // raw issue list into the panel is unreadable and hides that.
+  if (err instanceof z.ZodError) {
+    const where = err.issues[0]?.path.join(".") || "the payload";
+    return {
+      kind: "not-deployed",
+      message: `The database returned a shape this build does not expect (${where}). Re-apply Superhyre-Extension/supabase/05_console.sql, then reload.`,
+    };
+  }
   const parsed = rpcErrorSchema.safeParse(err);
   const code = parsed.success ? parsed.data.code : undefined;
   const message = parsed.success ? parsed.data.message : undefined;
@@ -233,7 +242,7 @@ export function describeActivityError(err: unknown): ActivityFailure {
     return {
       kind: "not-deployed",
       message:
-        "This page reads console_extension_activity(), which is not in the database yet. Apply Superhyre-Extension/supabase/05_console.sql to the project, then reload.",
+        "This page reads extension_activity(), which is not in the database yet. Apply Superhyre-Extension/supabase/05_console.sql to the project, then reload.",
     };
   }
   // 42501 is the team-view gate in 05_console.sql refusing a recruiter.

@@ -29,12 +29,6 @@ describe("describeAuthError", () => {
     expect(describeAuthError(authError(message, 400))).not.toContain("—");
   });
 
-  it("does not distinguish a wrong password from a missing account", () => {
-    // That difference is an account-enumeration oracle.
-    const copy = describeAuthError(authError("Invalid login credentials", 400));
-    expect(copy).toMatch(/do not match an account/i);
-    expect(copy).not.toMatch(/no account|not found|does not exist/i);
-  });
 
   it("separates a network failure from a credential failure", () => {
     // A TypeError is what fetch throws when the request never lands. Sending
@@ -42,13 +36,7 @@ describe("describeAuthError", () => {
     expect(describeAuthError(new TypeError("Failed to fetch"))).toMatch(/connection/i);
   });
 
-  it("points an unconfirmed account at its inbox", () => {
-    expect(describeAuthError(authError("Email not confirmed", 400))).toMatch(/link/i);
-  });
 
-  it("sends an existing account to sign in", () => {
-    expect(describeAuthError(authError("User already registered", 422))).toMatch(/sign in/i);
-  });
 
   it("reports rate limiting from the status alone", () => {
     expect(describeAuthError(authError("Request failed", 429))).toMatch(/too many/i);
@@ -62,8 +50,8 @@ describe("describeAuthError", () => {
   it("keeps an unmapped server sentence rather than flattening it", () => {
     // Replacing an unknown error with "Something went wrong" destroys the only
     // diagnostic the user could quote to support.
-    expect(describeAuthError(authError("Signups not allowed for this instance"))).toBe(
-      "Signups not allowed for this instance",
+    expect(describeAuthError(authError("Database connection pool exhausted"))).toBe(
+      "Database connection pool exhausted",
     );
   });
 
@@ -72,9 +60,63 @@ describe("describeAuthError", () => {
     expect(describeAuthError(authError("   "))).toMatch(/something went wrong/i);
   });
 
-  it("reads a message from a plain object, not just an Error", () => {
-    expect(describeAuthError({ message: "Invalid login credentials" })).toMatch(
-      /do not match an account/i,
+
+  /* ── the one-time code paths ──
+     These replace the password-era cases above. Supabase answers a WRONG code
+     and a STALE code identically, so the copy has to cover both without
+     implying which -- distinguishing them would reveal whether a given code
+     was ever real. */
+  it("covers a wrong and an expired code with one sentence", () => {
+    for (const message of [
+      "Token has expired or is invalid",
+      "otp_expired",
+      "Invalid token",
+    ]) {
+      const copy = describeAuthError(authError(message, 403));
+      expect(copy).toMatch(/wrong or has expired/i);
+      expect(copy).toMatch(/new one/i);
+      // Must not name which of the two it was.
+      expect(copy).not.toMatch(/never sent|does not exist|no such code/i);
+    }
+  });
+
+  it("names the wait when the server gives one", () => {
+    const copy = describeAuthError(
+      authError("For security purposes, you can only request this after 42 seconds.", 429),
     );
+    expect(copy).toContain("42 seconds");
+  });
+
+  it("falls back to a vague wait when the server does not give a number", () => {
+    const copy = describeAuthError(authError("over_email_send_rate_limit", 429));
+    expect(copy).toMatch(/wait a moment/i);
+    expect(copy).not.toMatch(/undefined|NaN/);
+  });
+
+  it("keeps the per-address cooldown distinct from the hourly cap", () => {
+    // Both are 429. The cooldown can say how long; the cap cannot, so they
+    // must not collapse into one message.
+    const cooldown = describeAuthError(authError("you can only request this after 9 seconds.", 429));
+    const cap = describeAuthError(authError("Request failed", 429));
+    expect(cooldown).not.toBe(cap);
+    expect(cap).toMatch(/too many/i);
+  });
+
+  it("says an address cannot sign in when signups are closed", () => {
+    expect(describeAuthError(authError("Signups not allowed for this instance"))).toMatch(
+      /cannot sign in yet/i,
+    );
+  });
+
+  it("never leaks an em dash into any mapped sentence", () => {
+    // Our own copy rule, and the DB hook message used to violate it.
+    for (const message of [
+      "Superhyre needs a work email address. Personal accounts cannot be used.",
+      "Token has expired or is invalid",
+      "over_email_send_rate_limit",
+      "provider is not enabled",
+    ]) {
+      expect(describeAuthError(authError(message, 400))).not.toContain("\u2014");
+    }
   });
 });

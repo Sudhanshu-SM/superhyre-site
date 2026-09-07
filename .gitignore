@@ -7,3 +7,11 @@ node_modules/
 auth-app/node_modules/
 auth-app/.vite/
 auth-app/node_modules/.vite/
+
+# Throwaway verification harness. It mounts the real pages against a local
+# PostgREST-shaped shim so the console can be driven without a live session;
+# it is not part of the app and Vite only bundles index.html anyway. Kept out
+# of the tree because a committed harness invites someone to treat it as a
+# supported entry point.
+auth-app/harness.html
+auth-app/src/__harness__/

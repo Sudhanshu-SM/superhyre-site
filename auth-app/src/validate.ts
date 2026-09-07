@@ -60,21 +60,7 @@ export function emailProblem(email: string): string | null {
   return null;
 }
 
-/**
- * Supabase's own floor is 6 characters. Asking for 10 here is a deliberate
- * choice for a tool that holds candidate contact data, and it is stated up
- * front as helper text rather than sprung as an error after submit.
- *
- * Sign-in does not reuse this: telling someone their existing password is "too
- * short" at the sign-in gate is useless, and it leaks a fact about what is
- * stored. Sign-in checks presence only, inline at the call site.
- */
-export const MIN_PASSWORD = 10;
-
-export function passwordProblem(password: string): string | null {
-  if (password === "") return "Choose a password.";
-  if (password.length < MIN_PASSWORD) {
-    return `Use at least ${MIN_PASSWORD} characters.`;
-  }
-  return null;
-}
+/* MIN_PASSWORD and passwordProblem lived here and are gone. Sign-in is a
+   one-time code to a work address plus Google, so there is no password to
+   validate anywhere in the product -- and a rule with no caller is worse than
+   no rule, because the next reader assumes something enforces it. */

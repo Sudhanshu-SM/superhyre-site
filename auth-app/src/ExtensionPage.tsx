@@ -10,7 +10,7 @@ import type { Activity, ActivityFailure, ActivityView, RecentCandidate } from ".
  * The Extension page: install the extension, then see what it captured.
  *
  * ── WHERE THE NUMBERS COME FROM ─────────────────────────────────────────────
- * One RPC, `public.console_extension_activity()` (05_console.sql). Eight
+ * One RPC, `public.extension_activity()` (05_console.sql). Eight
  * figures off one snapshot, so the tiles cannot disagree with the table. Only
  * `public` is exposed to PostgREST, so there is no alternative to an RPC here:
  * the browser's publishable key cannot see `core`, `mother_data` or any tenant
@@ -79,9 +79,10 @@ export function ExtensionPage() {
   }
 
   const a = load.data;
-  const captures = a.captures;
-  const everUsed =
-    a.reveals.total > 0 || a.saved.total > 0 || (captures.tracked && captures.total > 0);
+  /* extension_captures is no longer read: only a successful paid reveal writes
+     it, so reveals.found already covers that event with more detail. "Ever
+     used" is therefore reveals OR saves. */
+  const everUsed = a.reveals.total > 0 || a.saved.total > 0;
 
   return (
     <Frame>
@@ -155,7 +156,7 @@ function Frame({ children }: { children: React.ReactNode }) {
    creates work. Cumulative saves still appear, as the table's "of N". */
 function Tiles({ a }: { a: Activity }) {
   const found = contactFound(a.reveals);
-  const broken = a.reveals.failed;
+  const broken = a.reveals.errored;
   const un = a.uncontacted;
 
   return (

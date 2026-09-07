@@ -1,12 +1,17 @@
-import { ArrowDownLeft, ArrowUpRight, WarningCircle } from "@phosphor-icons/react";
-import { useEffect, useState } from "react";
+import {
+  ArrowDownLeft, ArrowUpRight, CaretDown, FileText, SpeakerHigh, WarningCircle,
+} from "@phosphor-icons/react";
+import { useEffect, useRef, useState } from "react";
 import { Pager } from "./components/Pager";
 import { describeActivityError } from "./activity";
 import type { ActivityFailure } from "./activity";
 import {
-  CALL_GROUPS, connectRate, fetchDialer, outcomeLabel, talk, talkTime,
+  CALL_GROUPS, connectRate, fetchCallDetail, fetchDialer, outcomeLabel,
+  signRecording, talk, talkTime,
 } from "./dialer";
-import type { CallGroup, CallRow, Dialer, QueueRow } from "./dialer";
+import type {
+  CallDetail, CallGroup, CallRow, Dialer, QueueRow, RecordingLink, Segment,
+} from "./dialer";
 
 /**
  * The Dialer, as two pages off one RPC: a call log and a queue worklist.
@@ -228,7 +233,7 @@ function CallsSection({ d, onPage, group }: {
         ) : (
           <>
             <div className="ex-table-wrap">
-              <table className="ex-table dl-table">
+              <table className="ex-table dl-table dl-calls">
                 <thead>
                   <tr>
                     <th scope="col">Candidate</th>
@@ -239,7 +244,10 @@ function CallsSection({ d, onPage, group }: {
                   </tr>
                 </thead>
                 <tbody>
-                  {d.calls.rows.map((c) => <CallRowView key={c.call_id} c={c} team={d.view === "team"} />)}
+                  {d.calls.rows.map((c) => (
+                    <CallRowView key={c.call_id} c={c} team={d.view === "team"}
+                                 cols={d.view === "team" ? 5 : 4} />
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -262,39 +270,224 @@ function CallsSection({ d, onPage, group }: {
  * fields, which is how the table stays inside the panel instead of becoming a
  * horizontal scroll. An absent value is an explicit "not recorded", never a
  * blank cell, because a blank reads as a loading bug.
+ *
+ * A row with a recording or a transcript expands in place. Inline rather than a
+ * modal: reading a transcript is not a task that needs protected focus, and the
+ * reference rules are blunt that a modal is usually laziness. The detail is
+ * fetched on open, never with the list.
  */
-function CallRowView({ c, team }: { c: CallRow; team: boolean }) {
+function CallRowView({ c, team, cols }: { c: CallRow; team: boolean; cols: number }) {
+  const [open, setOpen] = useState(false);
+  const hasDetail = c.has_recording || c.has_transcript;
+
   return (
-    <tr>
-      <td className="ex-cell-name">
-        {c.full_name ? (
-          <>
-            <span className="dl-who" title={c.full_name}>{c.full_name}</span>
-            <span className="dl-role dl-phone-sub">{c.phone}</span>
-          </>
-        ) : (
-          /* calls.candidate_id is nullable: a recruiter can dial a number that
-             was never saved. The number IS the identity, so it takes the
-             primary line and the absence is stated on the second. */
-          <>
-            <span className="dl-who dl-phone-lead">{c.phone}</span>
-            <span className="dl-role">Not a saved candidate</span>
-          </>
-        )}
-      </td>
-      <td className="ex-cell-role">
-        {c.current_company_name ? (
-          <>
-            <span className="dl-who" title={c.current_company_name}>{c.current_company_name}</span>
-            {c.current_title && <span className="dl-role" title={c.current_title}>{c.current_title}</span>}
-          </>
-        ) : <span className="ex-dim">Not recorded</span>}
-      </td>
-      <td><Outcome c={c} /></td>
-      {team && <td className="ex-cell-owner" title={c.caller ?? ""}>{c.mine ? "You" : c.caller ?? <span className="ex-dim">Unknown</span>}</td>}
-      <td className="ex-cell-when">{relative(c.started_at)}</td>
-    </tr>
+    <>
+      <tr className={open ? "is-open" : undefined}>
+        <td className="ex-cell-name">
+          {c.full_name ? (
+            <>
+              <span className="dl-who" title={c.full_name}>{c.full_name}</span>
+              <span className="dl-role dl-phone-sub">{c.phone}</span>
+            </>
+          ) : (
+            /* calls.candidate_id is nullable: a recruiter can dial a number that
+               was never saved. The number IS the identity, so it takes the
+               primary line and the absence is stated on the second. */
+            <>
+              <span className="dl-who dl-phone-lead">{c.phone}</span>
+              <span className="dl-role">Not a saved candidate</span>
+            </>
+          )}
+        </td>
+        <td className="ex-cell-role">
+          {c.current_company_name ? (
+            <>
+              <span className="dl-who" title={c.current_company_name}>{c.current_company_name}</span>
+              {c.current_title && <span className="dl-role" title={c.current_title}>{c.current_title}</span>}
+            </>
+          ) : <span className="ex-dim">Not recorded</span>}
+        </td>
+        <td>
+          <Outcome c={c} />
+          {/* Presence indicators, not per-row action buttons. Aircall shipped a
+              play button on every row and then deleted it in favour of exactly
+              this: show whether a call HAS media, and open it on demand. */}
+          {hasDetail && (
+            <button className="dl-media" onClick={() => setOpen((v) => !v)}
+                    aria-expanded={open}
+                    aria-label={open ? "Hide call detail" : "Show call detail"}>
+              {c.has_recording && <SpeakerHigh size={13} weight="bold" aria-label="Recording" />}
+              {c.has_transcript && <FileText size={13} weight="bold" aria-label="Transcript" />}
+              <CaretDown size={11} weight="bold" className={open ? "is-open" : undefined} aria-hidden="true" />
+            </button>
+          )}
+        </td>
+        {team && <td className="ex-cell-owner" title={c.caller ?? ""}>{c.mine ? "You" : c.caller ?? <span className="ex-dim">Unknown</span>}</td>}
+        <td className="ex-cell-when">{relative(c.started_at)}</td>
+      </tr>
+      {open && (
+        <tr className="dl-detail-row">
+          {/* `cols` already counts the team column, so it IS the span. */}
+          <td colSpan={cols}>
+            <CallDetailPanel callId={c.call_id} />
+          </td>
+        </tr>
+      )}
+    </>
   );
+}
+
+/** Fetched when the row opens, never with the list. */
+function CallDetailPanel({ callId }: { callId: string }) {
+  const [state, setState] = useState<
+    { s: "loading" } | { s: "ready"; d: CallDetail } | { s: "error"; msg: string }
+  >({ s: "loading" });
+  // The player is owned here rather than inside Recording, because the
+  // transcript needs to seek it.
+  const audio = useRef<HTMLAudioElement | null>(null);
+  const [playable, setPlayable] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    fetchCallDetail(callId)
+      .then((d) => { if (live) setState({ s: "ready", d }); })
+      .catch((e: unknown) => {
+        if (live) setState({ s: "error", msg: describeActivityError(e).message });
+      });
+    return () => { live = false; };
+  }, [callId]);
+
+  if (state.s === "loading") {
+    return <div className="dl-detail"><span className="ex-sk ex-sk-note" /></div>;
+  }
+  if (state.s === "error") {
+    return <div className="dl-detail"><p className="ex-note-body">{state.msg}</p></div>;
+  }
+
+  const d = state.d;
+  return (
+    <div className="dl-detail">
+      <Recording bucket={d.recording_bucket} objectKey={d.recording_object_key}
+                 audioRef={audio} onLoaded={() => setPlayable(true)} />
+      {/* Seek is offered only once a player exists. Segment `start` is seconds
+          as a float, which is exactly what audio.currentTime takes. */}
+      <Transcript
+        segments={d.transcript_segments}
+        text={d.transcript}
+        onSeek={playable
+          ? (secs) => {
+              const el = audio.current;
+              if (!el) return;
+              el.currentTime = secs;
+              void el.play();
+            }
+          : null}
+      />
+      {(d.outcome || d.notes) && (
+        <div className="dl-detail-block">
+          <span className="sh-label dl-detail-label">Outcome</span>
+          <p className="dl-detail-note">{d.outcome ?? d.notes}</p>
+          {d.outcome && d.notes && <p className="dl-detail-note dim">{d.notes}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The recording, if Storage will give us one.
+ *
+ * The pointer comes from the database; the playable URL has to come from
+ * Storage and is minted on click, not on render, so opening a row does not fire
+ * a signing request for audio nobody asked to hear.
+ */
+function Recording({ bucket, objectKey, audioRef, onLoaded }: {
+  bucket: string | null;
+  objectKey: string | null;
+  audioRef: React.MutableRefObject<HTMLAudioElement | null>;
+  onLoaded: () => void;
+}) {
+  const [link, setLink] = useState<RecordingLink | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  if (!bucket || !objectKey) return null;
+
+  return (
+    <div className="dl-detail-block">
+      <span className="sh-label dl-detail-label">Recording</span>
+      {link === null ? (
+        <>
+          <button className="ex-seg-btn dl-play" disabled={busy}
+                  onClick={() => {
+                    setBusy(true);
+                    void signRecording(bucket, objectKey)
+                      .then((r) => { setLink(r); if (r.ok) onLoaded(); })
+                      .finally(() => setBusy(false));
+                  }}>
+            <SpeakerHigh size={14} weight="bold" aria-hidden="true" />
+            {busy ? "Getting link" : "Load recording"}
+          </button>
+          {/* The key is the only handle anyone has on the file while the
+              bucket is not reachable, so it is shown rather than hidden. */}
+          <p className="dl-detail-note dim"><code>{bucket}/{objectKey}</code></p>
+        </>
+      ) : link.ok ? (
+        <audio ref={audioRef} className="dl-audio" controls src={link.url} preload="none" />
+      ) : (
+        <p className="dl-detail-note">{link.reason}</p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Timestamped utterances where the dialer supplied them, flat text otherwise.
+ *
+ * NO speaker labels. The dialer's parse.ts keeps only {start, end, text} out of
+ * Deepgram's response, so who was talking is not in this data; printing
+ * "Recruiter" beside a line would be a guess dressed as a fact.
+ *
+ * `onSeek` is wired only when a player is actually loaded, so a timestamp is a
+ * button when it can do something and plain text when it cannot.
+ */
+function Transcript({ segments, text, onSeek }: {
+  segments: Segment[] | null;
+  text: string | null;
+  onSeek: ((seconds: number) => void) | null;
+}) {
+  if (!segments?.length && !text) return null;
+  return (
+    <div className="dl-detail-block">
+      <span className="sh-label dl-detail-label">Transcript</span>
+      {segments?.length ? (
+        <ol className="dl-turns">
+          {segments.map((seg, i) => (
+            <li key={i} className="dl-turn">
+              {typeof seg.start === "number"
+                ? (onSeek
+                    ? <button className="dl-turn-at is-seek" onClick={() => onSeek(seg.start as number)}
+                              title="Play from here">{clock(seg.start)}</button>
+                    : <span className="dl-turn-at">{clock(seg.start)}</span>)
+                : <span className="dl-turn-at" />}
+              <span className="dl-turn-text">{seg.text ?? ""}</span>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        /* Transcribed but no utterances came back, or the tenant has no
+           segments column. `transcript` is not derived from the segments, so it
+           can be present when they are empty. */
+        <p className="dl-detail-note dl-flat">{text}</p>
+      )}
+    </div>
+  );
+}
+
+/** Seconds into m:ss, for a transcript timestamp. */
+function clock(secs: number): string {
+  const m = Math.floor(secs / 60);
+  const s = Math.floor(secs % 60);
+  return `${m}:${String(s).padStart(2, "0")}`;
 }
 
 /**
@@ -368,12 +561,12 @@ function QueueSection({ d, offset, onPage }: {
         </div>
 
         <div className="ex-table-wrap">
-          <table className="ex-table dl-table">
+          <table className="ex-table dl-table dl-queue">
             <thead>
               <tr>
                 <th scope="col">Who</th>
                 <th scope="col">Number</th>
-                <th scope="col" className="dl-num">Priority</th>
+                <th scope="col">Priority</th>
                 <th scope="col">Due</th>
                 <th scope="col">State</th>
                 {d.view === "team" && <th scope="col">Assigned</th>}
@@ -396,15 +589,22 @@ function QueueRowView({ r, team }: { r: QueueRow; team: boolean }) {
   const role = [r.current_title, r.current_company_name].filter(Boolean).join(" at ");
   return (
     <tr className={r.overdue ? "is-overdue" : undefined}>
-      <td className="ex-cell-name" title={role ? `${r.full_name} — ${role}` : r.full_name}>
+      <td className="ex-cell-name" title={role ? `${r.full_name}, ${role}` : r.full_name}>
         <span className="dl-who">{r.full_name}</span>
         {role && <span className="dl-role">{role}</span>}
       </td>
       <td className="dl-phone">{r.phone ?? <span className="ex-dim">no number</span>}</td>
-      <td className="dl-num">{r.priority}</td>
+      <td><Priority n={r.priority} /></td>
       <td className="ex-cell-when">
         {r.due_at === null
-          ? <span className="ex-dim">no date</span>
+          ? (
+              /* States a state, not an absence. "Not scheduled" is a fact
+                 about the queue entry; a dash is a fact about a missing
+                 column, and grey filler of that kind reads as a row that
+                 failed to load. Also sidesteps the em dash our copy rules ban
+                 outright. */
+              <span className="dl-unset">Not scheduled</span>
+            )
           : <span className={r.overdue ? "dl-due-late" : undefined}>
               {r.overdue && <WarningCircle size={12} weight="bold" aria-hidden="true" />}
               {relative(r.due_at)}
@@ -415,6 +615,26 @@ function QueueRowView({ r, team }: { r: QueueRow; team: boolean }) {
       </td>
       {team && <td className="ex-cell-owner" title={r.assignee ?? ""}>{r.mine ? "You" : r.assignee ?? <span className="ex-dim">unassigned</span>}</td>}
     </tr>
+  );
+}
+
+/**
+ * Priority, as a word rather than the raw integer.
+ *
+ * `call_queue.priority` is an int with no CHECK, and the extension writes 0 by
+ * default, so the column was rendering a bare "0" -- which reads as "no
+ * priority recorded" when it actually means normal. Queue and issue trackers
+ * all label the ordinal instead of printing it; the number stays in the title
+ * attribute for anyone who needs the exact value.
+ *
+ * Deliberately three bands, not six: the writer only ever produces 0 today, so
+ * a six-step ramp would be inventing granularity the data does not have.
+ */
+function Priority({ n }: { n: number }) {
+  const band = n >= 4 ? "high" : n >= 1 ? "raised" : "normal";
+  const label = band === "high" ? "High" : band === "raised" ? "Raised" : "Normal";
+  return (
+    <span className={`dl-pri dl-pri-${band}`} title={`priority ${n}`}>{label}</span>
   );
 }
 
@@ -510,9 +730,9 @@ function fmt(n: number): string {
 }
 
 function relative(iso: string | null): string {
-  if (iso === null) return "—";
+  if (iso === null) return "\u2013";
   const then = new Date(iso).getTime();
-  if (Number.isNaN(then)) return "—";
+  if (Number.isNaN(then)) return "\u2013";
   const diff = Date.now() - then;
   const future = diff < 0;
   const mins = Math.floor(Math.abs(diff) / 60000);

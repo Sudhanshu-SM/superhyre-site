@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CONSUMER_DOMAINS, emailDomain, emailProblem, MIN_PASSWORD, passwordProblem } from "../validate";
+import {CONSUMER_DOMAINS, emailDomain, emailProblem } from "../validate";
 
 describe("emailDomain", () => {
   it("lowercases and trims, matching core.email_domain()", () => {
@@ -60,22 +60,6 @@ describe("emailProblem", () => {
   });
 });
 
-describe("passwordProblem", () => {
-  it("accepts a password at exactly the minimum", () => {
-    expect(passwordProblem("a".repeat(MIN_PASSWORD))).toBeNull();
-  });
-
-  it("rejects one character below the minimum", () => {
-    expect(passwordProblem("a".repeat(MIN_PASSWORD - 1))).toMatch(
-      new RegExp(`${MIN_PASSWORD} characters`),
-    );
-  });
-
-  it("asks for input when empty rather than reporting a length", () => {
-    expect(passwordProblem("")).toMatch(/choose a password/i);
-  });
-
-  it("states our floor, not Supabase's 6", () => {
-    expect(MIN_PASSWORD).toBeGreaterThan(6);
-  });
-});
+/* The passwordProblem and MIN_PASSWORD suites lived here and are gone with the
+   rules they covered. Sign-in is a one-time code plus Google, so there is no
+   password anywhere in the product to validate. */
