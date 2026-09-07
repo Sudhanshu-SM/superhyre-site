@@ -1,6 +1,6 @@
 import { ArrowSquareOut, EnvelopeSimple, Phone } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
-import { CHROME_STORE_URL, EXTENSION_ID } from "./config";
+import { EXTENSION_ID } from "./config";
 import {
   contactFound, describeActivityError, fetchActivity, orderStages, TERMINAL_STAGES,
 } from "./activity";
@@ -404,18 +404,29 @@ function Row({ c, team }: { c: RecentCandidate; team: boolean }) {
 }
 
 /* ── install ────────────────────────────────────────────────────────────
-   `tone` is the whole difference between empty state (a) and the standing
-   footer link. The accent fill exists once on the page, and only in the
+   There is no Chrome Web Store listing. This used to link to one, at a store
+   ID that is not ours: the item is branded "Reklis - Rekzon LinkedIn
+   Sourcing", it currently reports as unavailable, and its extension ID is not
+   the ID the manifest pins. That last part is the real damage. The OAuth
+   redirect is https://<id>.chromiumapp.org/ and the reveal function's
+   ALLOWED_ORIGIN is chrome-extension://<id>, both hardcoded to the pinned ID,
+   so a build installed under any other ID can neither sign in nor reveal a
+   number. An install button that hands someone a dead end is worse than no
+   button, because they conclude the product is broken rather than unreleased.
+
+   So this states the distribution that actually exists today: a build loaded
+   unpacked. When a listing is published, both tones collapse back to one link
+   and CHROME_STORE_URL comes back with it.
+
+   `tone` is the whole difference between the empty state and the standing
+   footer note. The accent fill exists once on the page, and only in the
    primary tone, which is the state where installing IS the task. */
 function InstallPanel({ tone }: { tone: "primary" | "quiet" }) {
   if (tone === "quiet") {
     return (
       <p className="ex-hint">
-        <a className="ex-link" href={CHROME_STORE_URL} target="_blank" rel="noreferrer noopener">
-          Get the Chrome extension
-          <ArrowSquareOut size={12} weight="bold" aria-hidden="true" />
-        </a>
-        {" "}if you use another browser profile or machine.
+        On another browser profile or machine, load the extension there too:
+        it captures profiles per browser, not per account.
       </p>
     );
   }
@@ -427,13 +438,23 @@ function InstallPanel({ tone }: { tone: "primary" | "quiet" }) {
         Nothing has come through yet. The sidebar is what captures profiles, so
         it needs to be installed in the browser you source in.
       </p>
-      <a className="ex-cta" href={CHROME_STORE_URL} target="_blank" rel="noreferrer noopener">
-        Install extension
-        <ArrowSquareOut size={14} weight="bold" aria-hidden="true" />
-      </a>
+      <ol className="ex-steps">
+        <li>
+          Open <code>chrome://extensions</code> and turn on{" "}
+          <strong>Developer mode</strong>.
+        </li>
+        <li>
+          Choose <strong>Load unpacked</strong> and pick the{" "}
+          <code>dist</code> folder from the build.
+        </li>
+        <li>
+          Confirm the ID reads <code>{EXTENSION_ID}</code>, then open a
+          LinkedIn profile and sign in with this same account.
+        </li>
+      </ol>
       <p className="ex-install-foot">
-        Signed in with this same account. In <code>chrome://extensions</code> the
-        ID reads <code>{EXTENSION_ID}</code>.
+        That ID is pinned by the build. Sign-in and phone reveals are both tied
+        to it, so a copy loaded under a different ID will not work.
       </p>
     </section>
   );

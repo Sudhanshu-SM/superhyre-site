@@ -2364,26 +2364,32 @@ body {
   color: var(--ink-2);
 }
 
-/* The one accent fill on the page. Ink on accent is 4.17:1, which passes
-   large-text and non-text but NOT the 4.5:1 body-text bar, so the label is
-   set at 15px/600 to sit in the large-text band where it is legal. */
-.ex-cta {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  min-height: 42px;
-  padding: 0 18px;
-  border-radius: var(--r-field);
-  background: var(--accent);
-  color: var(--ink);
-  font: 600 15px/1 var(--ui);
-  text-decoration: none;
-  transition: transform 160ms var(--ease-out), background var(--t);
+/* Replaces .ex-cta, which went with the store link. There is no accent fill
+   on this page any more: installing is now three manual steps, and an accent
+   button implies one click does it. Numbers are drawn in the marker rather
+   than an accent chip because the sequence is the information here. */
+.ex-steps {
+  margin: 0;
+  padding: 0 0 0 20px;
+  max-width: 60ch;
+  font: 400 14px/1.6 var(--ui);
+  color: var(--ink-2);
 }
 
-.ex-cta:hover { background: #e04f13; }
-.ex-cta:active { transform: scale(0.97); }
-.ex-cta:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.ex-steps li { margin: 0 0 7px; }
+.ex-steps li:last-child { margin-bottom: 0; }
+.ex-steps li::marker { color: var(--ink); font-weight: 600; }
+.ex-steps strong { color: var(--ink); font-weight: 600; }
+
+/* Same treatment as .ex-install-foot code, which this list now sits above. */
+.ex-steps code {
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: #f4ece4;
+  font: 500 11.5px/1 ui-monospace, "SF Mono", Menlo, monospace;
+  color: #ad3b0c;
+  overflow-wrap: anywhere;
+}
 
 .ex-install-foot {
   margin: 14px 0 0;
@@ -2841,9 +2847,9 @@ body {
   .nav-sub-row { padding-block: 12px; }
   .nav-rail-btn { width: 40px; height: 40px; }
   /* Extension page. The segmented controls are the only small hit areas the
-     dashboard adds; the CTA is already 42px and only needs the last 2px. */
+     dashboard adds. The install CTA that also sat here is gone with the store
+     link; the step list it became has no hit area to enlarge. */
   .ex-seg-btn { min-height: 44px; padding-inline: 14px; }
-  .ex-cta { min-height: 44px; }
   .ex-name-link { padding-block: 4px; }
   .pager-btn { width: 44px; height: 44px; }
   .dl-media { min-height: 44px; padding-inline: 10px; }

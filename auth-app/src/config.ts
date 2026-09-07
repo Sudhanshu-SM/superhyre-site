@@ -42,16 +42,16 @@ export function redirectTarget(): string {
 
 // Where "Install extension" points.
 //
-// This is an INTERIM listing. The repo pins the extension ID to
-// `pgeckagnkclnkjaekbeadgjhgikioapp` (see Superhyre-Extension/src/manifest.ts),
-// and the store item below is a different ID — so the OAuth redirect URI
-// https://pgeckagnkclnkjaekbeadgjhgikioapp.chromiumapp.org/ does NOT match
-// what this listing ships. Sign-in inside that build will fail until either
-// the pinned key is published under this item or this constant is repointed.
-//
-// Kept as one exported constant precisely so that is a one-line change.
-export const CHROME_STORE_URL =
-  "https://chromewebstore.google.com/detail/reklis-%E2%80%94-rekzon-linkedin/nfalnofcehfocfgncjpjgpcablgfipdf";
+/* No CHROME_STORE_URL. There is no published Chrome Web Store listing for
+   this extension. The constant used to point at store item
+   nfalnofcehfocfgncjpjgpcablgfipdf, which is a different product ("Reklis -
+   Rekzon LinkedIn Sourcing"), currently reports as unavailable, and ships
+   under an extension ID that is not the one the manifest pins. Since the
+   OAuth redirect URI and the reveal function's ALLOWED_ORIGIN are both
+   hardcoded to the pinned ID, a build under any other ID cannot sign in or
+   reveal a number, so the link was worse than no link. ExtensionPage now
+   documents the load-unpacked path instead. Restore a single constant here
+   when a real listing exists. */
 
 // The ID the extension's own manifest pins itself to. Shown on the install
 // panel so someone can confirm in chrome://extensions that the thing they
