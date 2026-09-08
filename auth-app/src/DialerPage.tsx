@@ -224,11 +224,7 @@ function CallsSection({ d, onPage, group }: {
 
         {d.calls.rows.length === 0 ? (
           <div className="ex-note">
-            <p className="ex-note-body">
-              {group === ""
-                ? `No calls in the last ${d.days} days. Try a wider window.`
-                : `No ${label(group).toLowerCase()} calls in the last ${d.days} days.`}
-            </p>
+            <p className="ex-note-body">{emptyCalls(d, group)}</p>
           </div>
         ) : (
           <>
@@ -305,7 +301,14 @@ function CallRowView({ c, team, cols }: { c: CallRow; team: boolean; cols: numbe
               <span className="dl-who" title={c.current_company_name}>{c.current_company_name}</span>
               {c.current_title && <span className="dl-role" title={c.current_title}>{c.current_title}</span>}
             </>
-          ) : <span className="ex-dim">Not recorded</span>}
+          ) : (
+            /* NOT "Not recorded". This is the Company column, but on a page
+               whose subject IS call recordings, and in a row that can carry a
+               recording icon two cells to the right, "Not recorded" reads as
+               "this call was not recorded". Verified against a real call that
+               played 111s of audio while its Company cell said Not recorded. */
+            <span className="ex-dim">No company</span>
+          )}
         </td>
         <td>
           <Outcome c={c} />
@@ -427,14 +430,21 @@ function Recording({ bucket, objectKey, audioRef, onLoaded }: {
             <SpeakerHigh size={14} weight="bold" aria-hidden="true" />
             {busy ? "Getting link" : "Load recording"}
           </button>
-          {/* The key is the only handle anyone has on the file while the
-              bucket is not reachable, so it is shown rather than hidden. */}
-          <p className="dl-detail-note dim"><code>{bucket}/{objectKey}</code></p>
         </>
       ) : link.ok ? (
         <audio ref={audioRef} className="dl-audio" controls src={link.url} preload="none" />
       ) : (
-        <p className="dl-detail-note">{link.reason}</p>
+        <>
+          <p className="dl-detail-note">{link.reason}</p>
+          {/* The object key moved here, from beside the Load button, once
+              playback started working. It was put on the idle state when the
+              bucket was unreachable and the key was the only handle anyone
+              had on the file. That premise is gone: the bucket exists, signing
+              succeeds and audio plays, so on the happy path this was a storage
+              path shown to a recruiter for no reason. It stays on the failure
+              branch, where it is the one thing that makes the error reportable. */}
+          <p className="dl-detail-note dim"><code>{bucket}/{objectKey}</code></p>
+        </>
       )}
     </div>
   );
@@ -723,6 +733,28 @@ function label(g: CallGroup): string {
        : g === "missed" ? "No answer"
        : g === "errored" ? "Failed"
        : "In progress";
+}
+
+/**
+ * Why the calls table is empty, which is not always the time window.
+ *
+ * "No calls in the last 30 days. Try a wider window." was shown to every
+ * empty result, including a recruiter who has never made a call while their
+ * colleagues have made plenty. Widening the window cannot help them: the
+ * reason is SCOPE, not time. `dialer_activity` gates a recruiter to their own
+ * calls and reports that as can_view_team: false, so say so instead of
+ * offering a control that will return the same empty table however far back
+ * it reaches.
+ *
+ * A filtered group keeps its own wording: there the filter is the obvious
+ * suspect and the reader picked it themselves.
+ */
+export function emptyCalls(d: Dialer, group: CallGroup | ""): string {
+  if (group !== "") return `No ${label(group).toLowerCase()} calls in the last ${d.days} days.`;
+  if (d.view === "mine" && !d.can_view_team) {
+    return `No calls of your own in the last ${d.days} days. This page shows only calls you made, so a colleague's calls and their recordings will not appear here.`;
+  }
+  return `No calls in the last ${d.days} days. Try a wider window.`;
 }
 
 function fmt(n: number): string {
