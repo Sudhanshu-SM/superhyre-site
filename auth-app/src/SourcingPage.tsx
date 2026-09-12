@@ -151,11 +151,6 @@ export function SourcingPage() {
   return (
     <div className="con-page con-page-wide">
       <h1 className="con-h1">Sourcing</h1>
-      <p className="con-lede">
-        Paste a JD, get candidates. Claude turns it into ContactOut search
-        filters; anything already delivered for that JD — by anyone on the
-        team — is never shown again.
-      </p>
 
       <form className="src-form" onSubmit={(e) => void submit(e)}>
         <div className="field">
@@ -423,7 +418,7 @@ function handleEvent(event: SearchEvent, requested: number, h: EventHandlers) {
         roleSummary: event.roleSummary, mustHaves: event.mustHaves, unmapped: event.unmapped,
         filters: event.filters, locked: event.locked, dropped: event.dropped,
       });
-      h.appendLog("filters built · searching ContactOut");
+      h.appendLog("filters built · searching for candidates");
       h.setProgress(0.2);
       break;
     case "page":

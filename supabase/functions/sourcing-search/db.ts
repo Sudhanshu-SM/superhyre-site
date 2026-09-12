@@ -24,7 +24,13 @@ async function rpc<T>(fn: string, args: Record<string, unknown>, jwt: string): P
     const detail = await res.text().catch(() => "");
     throw new Error(`${fn} returned ${res.status} ${detail}`.trim().slice(0, 500));
   }
-  return (await res.json()) as T;
+  // The void-returning RPCs (attachPlan, saveCandidates, finish) come back as
+  // 204 No Content with an empty body — correct PostgREST behaviour for a SQL
+  // function that `returns void`, not an error. res.json() on an empty body
+  // throws a bare "Unexpected end of JSON input" with nothing to say which
+  // call it was, which is exactly the failure this sidesteps.
+  const text = await res.text();
+  return (text ? JSON.parse(text) : undefined) as T;
 }
 
 export type StartResult = { runId: string; jdHash: string; previousRuns: number; seenUrls: string[] };
