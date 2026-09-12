@@ -162,23 +162,28 @@ export async function extractFilters({ jd, comments, model }: {
     throw new Error("Model produced no usable filters — check the JD text.");
   }
 
-  // Location and company are locked unless the caller says otherwise. Location:
-  // "must be in X" is the most common hard constraint in sourcing. Company: once
-  // the model has done the work of naming the 10-15 firms that actually define
-  // this search, relaxations() must never be the thing that quietly throws that
-  // list away to hit a count — that is exactly how a wealth-management search
-  // ends up recommending an insurance product manager.
+  // Location, company and years_of_experience are locked unless the caller
+  // says otherwise. Location: "must be in X" is the most common hard
+  // constraint in sourcing. Company: once the model has done the work of
+  // naming the 10-15 firms that actually define this search, relaxations()
+  // must never be the thing that quietly throws that list away to hit a
+  // count — that is exactly how a wealth-management search ends up
+  // recommending an insurance product manager. Experience: verified live —
+  // dropping it to fill a count let through people with 1-2 years total
+  // experience against an explicit 8-12 year requirement, which is a worse
+  // failure than returning fewer people.
   //
   // education is deliberately NEVER allowed into this list, even if the model
   // or the recruiter's own notes phrase it as non-negotiable ("premium
-  // colleges"). Verified live: locking company (14 real firms) and education
-  // (four named institutes) at the same time returned zero candidates on the
-  // first attempt AND after dropping skills — two strong filters compounding
-  // is worse than either alone. education is real signal for the score, and
-  // still tried on attempt 1, but it must stay droppable so a company-first
-  // search can never be zeroed out by the one filter this codebase's own
-  // scoring prompt already documents as the most false-positive-prone.
-  const locked = [...new Set([...cleanArray(parsed.locked, 12), "location", "company"])]
+  // colleges"). Also verified live: locking company (14 real firms) and
+  // education (four named institutes) at the same time returned zero
+  // candidates on the first attempt AND after dropping skills — two strong
+  // filters compounding is worse than either alone. education is real signal
+  // for the score, and still tried on attempt 1, but it must stay droppable
+  // so a company-first search can never be zeroed out by the one filter this
+  // codebase's own scoring prompt already documents as the most
+  // false-positive-prone.
+  const locked = [...new Set([...cleanArray(parsed.locked, 12), "location", "company", "years_of_experience"])]
     .filter((field) => field in filters && field !== "education");
 
   return {
@@ -205,22 +210,23 @@ export function relaxations(filters: Filters, locked: string[] = []): Relaxation
     return removed.length ? { filters: next, removed } : null;
   };
 
-  // industry is deliberately never on this ladder: a run of real candidates
+  // years_of_experience and industry are deliberately never on this ladder.
+  // years_of_experience: extractFilters() force-locks it, so a step here
+  // would only ever no-op — an under-experienced candidate padding the count
+  // is worse than returning fewer people. industry: a run of real candidates
   // showed it being the one dropped most often to hit a requested count, and
   // every one of those "matched after dropping industry" people was the
   // padding a recruiter didn't want (an insurance PM, a consumer-app PM,
-  // sold as wealth-management leads). Better to return fewer people than
-  // trade away the one filter that actually separates the domain.
+  // sold as wealth-management leads).
   //
-  // education, conversely, IS on this ladder, second, right after the
-  // experience band. It is the most substring-prone filter here (a coaching
-  // centre with "IIT" in its name, a one-year exec-ed certificate mistaken
-  // for a degree), so when a company-first search comes up short, dropping
-  // it recovers real people faster than dropping company_size or skills
-  // would, and extractFilters() never lets it into `locked` for this exact
-  // reason.
+  // education, conversely, IS on this ladder, first. It is the most
+  // substring-prone filter here (a coaching centre with "IIT" in its name, a
+  // one-year exec-ed certificate mistaken for a degree), so when a
+  // company-first search comes up short, dropping it recovers real people
+  // faster than company_size or skills would, and extractFilters() never
+  // lets it into `locked` for this exact reason.
   let current = filters;
-  for (const fields of [["years_of_experience"], ["education"], ["company_size"], ["skills"]]) {
+  for (const fields of [["education"], ["company_size"], ["skills"]]) {
     const step = drop(current, ...fields);
     if (!step) continue;
     steps.push(step);
