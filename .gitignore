@@ -15,3 +15,10 @@ auth-app/node_modules/.vite/
 # supported entry point.
 auth-app/harness.html
 auth-app/src/__harness__/
+
+# Live credentials — the file says it is git-ignored, so make that true.
+API_Gateway.md
+
+# Sourcing tool: secrets and local candidate database
+sourcing/.env
+sourcing/data/

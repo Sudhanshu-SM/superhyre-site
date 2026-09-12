@@ -3,8 +3,9 @@ import { useCallback, useEffect, useState } from "react";
 import { DialerPage } from "./DialerPage";
 import { ExtensionPage } from "./ExtensionPage";
 import { Nav } from "./Nav";
-import { GROUP_OF, ROUTES, routeFromHash } from "./nav";
-import type { Route, RouteId } from "./nav";
+import { SourcingPage } from "./SourcingPage";
+import { GROUP_OF, ROUTES, routeFromHash } from "./routes";
+import type { Route, RouteId } from "./routes";
 import type { AllowedBootstrap } from "./types";
 
 /**
@@ -177,6 +178,8 @@ export function Console({ bootstrap, onSignOut, signingOut }: Props) {
               Placeholder says so and names the table it will read. */}
           {route === "home" ? (
             <Home bootstrap={bootstrap} workspace={workspace} />
+          ) : route === "sourcing" ? (
+            <SourcingPage />
           ) : route === "extension" ? (
             <ExtensionPage />
           ) : route === "dialer-calls" ? (

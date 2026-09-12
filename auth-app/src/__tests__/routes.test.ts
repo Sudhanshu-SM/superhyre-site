@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { GROUP_OF, NAV, ROUTES, routeFromHash } from "../nav";
-import type { RouteId } from "../nav";
+import { GROUP_OF, NAV, ROUTES, routeFromHash } from "../routes";
+import type { RouteId } from "../routes";
 
 /* The nav model is the one place a link and a page can disagree, so these
    tests are about that agreement rather than about rendering. */

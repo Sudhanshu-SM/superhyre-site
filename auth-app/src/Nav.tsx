@@ -1,7 +1,7 @@
 import { CaretDown, SidebarSimple, SignOut } from "@phosphor-icons/react";
 import { useEffect, useRef } from "react";
-import { GROUP_OF, NAV, ROUTES } from "./nav";
-import type { NavItem, RouteId } from "./nav";
+import { GROUP_OF, NAV, ROUTES } from "./routes";
+import type { NavItem, RouteId } from "./routes";
 
 /**
  * The sidebar.
