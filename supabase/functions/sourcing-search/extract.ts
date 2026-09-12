@@ -177,8 +177,14 @@ export function relaxations(filters: Filters, locked: string[] = []): Relaxation
     return removed.length ? { filters: next, removed } : null;
   };
 
+  // industry is deliberately never on this ladder: a run of real candidates
+  // showed it being the one dropped most often to hit a requested count, and
+  // every one of those "matched after dropping industry" people was the
+  // padding a recruiter didn't want (an insurance PM, a consumer-app PM,
+  // sold as wealth-management leads). Better to return fewer people than
+  // trade away the one filter that actually separates the domain.
   let current = filters;
-  for (const fields of [["years_of_experience"], ["industry", "company_size"], ["skills"]]) {
+  for (const fields of [["years_of_experience"], ["company_size"], ["skills"]]) {
     const step = drop(current, ...fields);
     if (!step) continue;
     steps.push(step);
