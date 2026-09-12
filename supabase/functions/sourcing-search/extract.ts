@@ -25,10 +25,25 @@ Rules:
   to widen, not to narrow.
 - location: how LinkedIn writes it — "San Francisco Bay Area", "Bengaluru", "India",
   "Remote" is NOT a location, leave it out and note it in unmapped.
+- company: name 10-15 REAL, SPECIFIC companies where someone already doing this
+  job well would work today — direct competitors and closely adjacent firms in
+  the exact same niche, never a vague label like "fintech companies" or "wealth
+  management firms" (that belongs in industry, not here). This is the strongest
+  quality signal available: a real person at the right company beats a
+  substring match on industry or education every time. Populate it whenever the
+  role implies a specific competitive set — most professional roles do; leave
+  it empty only for genuinely generic roles with no identifiable peer set.
+  When you do populate it, do not also stack industry and education as hard
+  requirements: someone who already works at the right company has already
+  proven the domain fit, and an extra pedigree filter on top only shrinks a
+  pool you already narrowed correctly. Reach for industry/education instead of
+  company only when the JD's constraint is genuinely broader than any list of
+  named companies could capture.
 - education: filters match as SUBSTRINGS, so always give both the acronym and the
   full name — "(IIT OR \\"Indian Institute of Technology\\" OR NIT OR \\"National
   Institute of Technology\\")". Bare acronyms alone drag in coaching centres.
-- industry: only when the JD genuinely requires domain experience.
+- industry: only when the JD genuinely requires domain experience and no company
+  list (above) can express it.
 - Leave a field out entirely rather than guessing. An empty filter beats a wrong one.
 - Constraints you cannot express as a filter (visa status, salary band, remote-only,
   culture fit, portfolio requirements) go in "unmapped" as short strings.
@@ -147,11 +162,24 @@ export async function extractFilters({ jd, comments, model }: {
     throw new Error("Model produced no usable filters — check the JD text.");
   }
 
-  // Location is locked unless the caller says otherwise: "must be in X" is the
-  // most common hard constraint in sourcing, and quietly dropping it to hit a
-  // result count produces a list that looks full and is wrong.
-  const locked = [...new Set([...cleanArray(parsed.locked, 12), "location"])]
-    .filter((field) => field in filters);
+  // Location and company are locked unless the caller says otherwise. Location:
+  // "must be in X" is the most common hard constraint in sourcing. Company: once
+  // the model has done the work of naming the 10-15 firms that actually define
+  // this search, relaxations() must never be the thing that quietly throws that
+  // list away to hit a count — that is exactly how a wealth-management search
+  // ends up recommending an insurance product manager.
+  //
+  // education is deliberately NEVER allowed into this list, even if the model
+  // or the recruiter's own notes phrase it as non-negotiable ("premium
+  // colleges"). Verified live: locking company (14 real firms) and education
+  // (four named institutes) at the same time returned zero candidates on the
+  // first attempt AND after dropping skills — two strong filters compounding
+  // is worse than either alone. education is real signal for the score, and
+  // still tried on attempt 1, but it must stay droppable so a company-first
+  // search can never be zeroed out by the one filter this codebase's own
+  // scoring prompt already documents as the most false-positive-prone.
+  const locked = [...new Set([...cleanArray(parsed.locked, 12), "location", "company"])]
+    .filter((field) => field in filters && field !== "education");
 
   return {
     roleSummary: typeof parsed.role_summary === "string" ? parsed.role_summary : "",
@@ -183,8 +211,16 @@ export function relaxations(filters: Filters, locked: string[] = []): Relaxation
   // padding a recruiter didn't want (an insurance PM, a consumer-app PM,
   // sold as wealth-management leads). Better to return fewer people than
   // trade away the one filter that actually separates the domain.
+  //
+  // education, conversely, IS on this ladder, second, right after the
+  // experience band. It is the most substring-prone filter here (a coaching
+  // centre with "IIT" in its name, a one-year exec-ed certificate mistaken
+  // for a degree), so when a company-first search comes up short, dropping
+  // it recovers real people faster than dropping company_size or skills
+  // would, and extractFilters() never lets it into `locked` for this exact
+  // reason.
   let current = filters;
-  for (const fields of [["years_of_experience"], ["company_size"], ["skills"]]) {
+  for (const fields of [["years_of_experience"], ["education"], ["company_size"], ["skills"]]) {
     const step = drop(current, ...fields);
     if (!step) continue;
     steps.push(step);
