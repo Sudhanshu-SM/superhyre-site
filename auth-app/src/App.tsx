@@ -3,6 +3,7 @@ import { BlockedCard, CodeCard, SignInCard } from "./Cards";
 import { Console } from "./Console";
 import { describeAuthError } from "./authErrors";
 import { redirectTarget } from "./config";
+import { DEV_BOOTSTRAP, DEV_SKIP_AUTH } from "./devSession";
 import { LOGO_PATH } from "./logo";
 import { supabase } from "./supabase";
 import { bootstrapSchema, BUSY, IDLE } from "./types";
@@ -53,6 +54,18 @@ export function App() {
     if (resolving.current) return;
     resolving.current = true;
     try {
+      /* Development: straight to the signed-in surface, no session and no RPC.
+
+         Deliberately the FIRST thing in here, ahead of getSession(), so the
+         dev server needs no Supabase reachability at all — the console renders
+         offline, on a dead network, or against a project whose keys have
+         rotated. See devSession.ts for why this cannot reach production. */
+      if (DEV_SKIP_AUTH) {
+        setView({ v: "signedIn", bootstrap: DEV_BOOTSTRAP });
+        setAnnounce("Development mode: authentication skipped.");
+        return;
+      }
+
       const { data: sessionData } = await supabase.auth.getSession();
       if (!sessionData.session) {
         setView({ v: "signIn" });
@@ -97,6 +110,25 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    /* Development: resolve once and subscribe to nothing.
+
+       Skipping the subscription is not an optimisation, it is the fix for a
+       bug this bypass introduced and which cost a confusing round of "why is
+       the sign-in card still up". A session left in localStorage by earlier
+       real testing keeps living here: supabase-js tries to refresh it on
+       mount, the refresh fails once it has expired, and the resulting
+       SIGNED_OUT event set the view back to signIn — overriding the bypass
+       that had already put the console on screen. Whoever had signed in for
+       real most recently therefore got a different dev experience from
+       everyone else, an hour later.
+
+       Nothing below is wanted in dev anyway: there is no OAuth return to
+       parse when no OAuth happens. */
+    if (DEV_SKIP_AUTH) {
+      void resolveSession();
+      return;
+    }
+
     // An OAuth failure comes back in the URL, not as a thrown error. PKCE puts
     // it in the query string, the implicit flow in the hash, so check both
     // before supabase-js strips them.

@@ -1,8 +1,11 @@
 import { List } from "@phosphor-icons/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { DialerPage } from "./DialerPage";
 import { ExtensionPage } from "./ExtensionPage";
 import { Nav } from "./Nav";
+import { Palette } from "./Palette";
+import { CURRENT_CAMPAIGN } from "./workspaces";
+import type { Campaign } from "./workspaces";
 import { GROUP_OF, ROUTES, routeFromHash } from "./nav";
 import type { Route, RouteId } from "./nav";
 import type { AllowedBootstrap } from "./types";
@@ -95,14 +98,77 @@ export function Console({ bootstrap, onSignOut, signingOut }: Props) {
     try { window.localStorage.setItem(RAIL_KEY, railed ? "1" : "0"); } catch { /* not worth failing over */ }
   }, [railed]);
 
-  /* Growing past the breakpoint must close the drawer: it becomes the static
-     sidebar at that width, and the scrim would otherwise stay over the page
-     with no visible way to dismiss it. */
+  /* Is the sidebar a drawer right now? Tracked in state, not just in CSS,
+     because the rail is a JS concept too and the two were disagreeing.
+
+     The bug: `railed` is remembered in localStorage, so a user who collapsed
+     the sidebar on a desktop and then narrowed the window still had
+     `is-railed` on the element. CSS neutralised its *appearance* below the
+     breakpoint, but Nav's own logic kept reading `railed === true` and forcing
+     every group shut — so Analytics rendered an open caret above a collapsed
+     list. Measured on a 390px viewport before this existed.
+
+     One source of truth instead: below the breakpoint the rail does not exist,
+     and `effectiveRailed` is what anyone downstream asks. The remembered
+     preference is untouched and comes back when the window grows. */
+  const [isNarrow, setIsNarrow] = useState(
+    () => !window.matchMedia(`(min-width: ${NAV_BP}px)`).matches,
+  );
+
   useEffect(() => {
     const mq = window.matchMedia(`(min-width: ${NAV_BP}px)`);
-    const onChange = (e: MediaQueryListEvent) => { if (e.matches) setDrawerOpen(false); };
+    const onChange = (e: MediaQueryListEvent) => {
+      setIsNarrow(!e.matches);
+      /* Growing past the breakpoint must close the drawer: it becomes the
+         static sidebar at that width, and the scrim would otherwise stay over
+         the page with no visible way to dismiss it. */
+      if (e.matches) setDrawerOpen(false);
+    };
     mq.addEventListener("change", onChange);
     return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  const effectiveRailed = railed && !isNarrow;
+
+  /* The palette's open state lives here, not in Nav, so ⌘K works wherever
+     focus is — including inside the content area, which is where it will be
+     most of the time. A binding that only fires while the sidebar has focus is
+     a shortcut nobody can reach. */
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  /* The scoped campaign lives here, not in Nav: the drawer unmounts Nav on
+     every navigation below the breakpoint, and the scope has to survive that.
+     Selecting one really re-scopes the sidebar — see workspaces.ts for why that
+     is honest while there is no campaigns table. */
+  const [campaign, setCampaign] = useState<Campaign>(CURRENT_CAMPAIGN);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      /* metaKey for macOS, ctrlKey elsewhere. Checking both rather than
+         sniffing the platform: a Mac with an external PC keyboard sends ctrl,
+         and the cost of accepting both is nil. */
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  /* Focus returns to whatever opened the palette. Skipping this is the classic
+     palette bug: focus lands on <body> and the next Tab restarts at the top of
+     the page, which for a keyboard user means losing their place entirely. */
+  const paletteOpener = useRef<HTMLElement | null>(null);
+
+  const openPalette = useCallback(() => {
+    paletteOpener.current = document.activeElement as HTMLElement | null;
+    setPaletteOpen(true);
+  }, []);
+
+  const closePalette = useCallback(() => {
+    setPaletteOpen(false);
+    paletteOpener.current?.focus();
   }, []);
 
   /* Scroll lock while the drawer is over the content, or the page scrolls
@@ -145,15 +211,25 @@ export function Console({ bootstrap, onSignOut, signingOut }: Props) {
         onNavigate={navigate}
         openGroups={openGroups}
         onToggleGroup={toggleGroup}
-        railed={railed}
+        railed={effectiveRailed}
         onToggleRail={() => setRailed((r) => !r)}
         drawerOpen={drawerOpen}
         onCloseDrawer={closeDrawer}
         name={displayName(bootstrap)}
         email={bootstrap.email}
+        organizationName={bootstrap.organization_name}
+        /* Hardcoded until there is a notifications table to count. Kept as a
+           prop rather than a constant inside Nav so the wiring is a one-line
+           change and the badge's zero case stays reachable in the harness. */
+        notifications={3}
+        campaign={campaign}
+        onSelectCampaign={setCampaign}
+        onOpenPalette={openPalette}
         onSignOut={onSignOut}
         signingOut={signingOut}
       />
+
+      <Palette open={paletteOpen} onClose={closePalette} onNavigate={navigate} campaignName={campaign.name} />
 
       <div className="con-body">
         {/* Mobile-only, and hidden above the breakpoint by CSS: with the account
@@ -177,12 +253,10 @@ export function Console({ bootstrap, onSignOut, signingOut }: Props) {
               Placeholder says so and names the table it will read. */}
           {route === "home" ? (
             <Home bootstrap={bootstrap} workspace={workspace} />
-          ) : route === "extension" ? (
+          ) : route === "integrations" ? (
             <ExtensionPage />
-          ) : route === "dialer-calls" ? (
+          ) : route === "campaign-calls" ? (
             <DialerPage section="calls" />
-          ) : route === "dialer-queue" ? (
-            <DialerPage section="queue" />
           ) : (
             <Placeholder route={current} />
           )}
@@ -253,6 +327,10 @@ function Home({ bootstrap, workspace }: { bootstrap: AllowedBootstrap; workspace
  * than showing a fake chart or an empty table with invented columns — when the
  * feature lands, this component is what gets replaced, and until then it is
  * honest about the edge of the product.
+ *
+ * `backing` is optional because not every page is a view of a table: Support
+ * is a contact route, and rendering "this page reads ." for it was the exact
+ * dishonesty this component exists to avoid.
  */
 function Placeholder({ route }: { route: Route }) {
   return (
@@ -262,16 +340,18 @@ function Placeholder({ route }: { route: Route }) {
 
       <div className="con-soon">
         <p className="con-soon-head">Not built yet.</p>
-        <p className="con-soon-body">
-          When it is, this page reads{" "}
-          {route.backing.split(", ").map((table, i, all) => (
-            <span key={table}>
-              <code>{table}</code>
-              {i < all.length - 2 ? ", " : i === all.length - 2 ? " and " : ""}
-            </span>
-          ))}
-          .
-        </p>
+        {route.backing.length > 0 && (
+          <p className="con-soon-body">
+            When it is, this page reads{" "}
+            {route.backing.split(", ").map((table, i, all) => (
+              <span key={table}>
+                <code>{table}</code>
+                {i < all.length - 2 ? ", " : i === all.length - 2 ? " and " : ""}
+              </span>
+            ))}
+            .
+          </p>
+        )}
       </div>
     </div>
   );

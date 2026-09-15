@@ -43,17 +43,24 @@ export function redirectTarget(): string {
 // Where "Install extension" points.
 //
 /* No CHROME_STORE_URL. There is no published Chrome Web Store listing for
-   this extension. The constant used to point at store item
+   this extension yet. The constant used to point at store item
    nfalnofcehfocfgncjpjgpcablgfipdf, which is a different product ("Reklis -
    Rekzon LinkedIn Sourcing"), currently reports as unavailable, and ships
-   under an extension ID that is not the one the manifest pins. Since the
-   OAuth redirect URI and the reveal function's ALLOWED_ORIGIN are both
-   hardcoded to the pinned ID, a build under any other ID cannot sign in or
-   reveal a number, so the link was worse than no link. ExtensionPage now
-   documents the load-unpacked path instead. Restore a single constant here
-   when a real listing exists. */
+   under an extension ID that is not the one the manifest pins — so the link
+   was worse than no link. ExtensionPage documents the load-unpacked path
+   instead.
 
-// The ID the extension's own manifest pins itself to. Shown on the install
-// panel so someone can confirm in chrome://extensions that the thing they
-// installed is the thing this console is talking about.
+   When the listing goes live, three things change together:
+     1. restore a single CHROME_STORE_URL constant here,
+     2. set EXTENSION_ID below to the ID the store assigned (it is NOT the
+        pinned one — the store strips `key` and owns the keypair), and
+     3. add chrome-extension://<store-id> to the reveal-phone function's
+        EXTENSION_ORIGINS and https://<store-id>.chromiumapp.org/ to the
+        Google OAuth client's authorized redirect URIs.
+   Miss (3) and the published extension installs fine but cannot sign in. */
+
+// The ID the extension identifies itself by. Shown on the install panel so
+// someone can confirm in chrome://extensions that the thing they installed is
+// the thing this console is talking about. Currently the ID pinned by the
+// `key` in the extension's manifest, which is what an unpacked build gets.
 export const EXTENSION_ID = "pgeckagnkclnkjaekbeadgjhgikioapp";

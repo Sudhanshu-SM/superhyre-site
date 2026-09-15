@@ -35,7 +35,14 @@
   --rule-strong: #9a9a9a;
   --serif: "Fanwood Text", Georgia, serif;
   --pixel: "PP Mondwest", "Fanwood Text", serif;
-  --ui: "IBM Plex Sans", system-ui, sans-serif;
+  /* Inter. Requested directly, and it is the right call for this surface —
+     a console is read at 12-13px all day and Inter was cut for exactly that.
+     Worth noting it appears on Impeccable's "overused font" list, which is a
+     statement about landing pages reaching for character they did not earn;
+     Operate-mode UI is where its neutrality is the feature, not the tell.
+     Loaded as a variable face (300..700) so the 400/500/600 steps the
+     hierarchy leans on are real instances, not synthesised. */
+  --ui: "Inter", system-ui, sans-serif;
   /* The wordmark face. index.html draws "SUPERHYRE" in Helvetica Neue 500, so
      the lockup here has to match rather than borrow one of the other three. */
   --wm: "Helvetica Neue", Helvetica, Arial, sans-serif;
@@ -43,7 +50,7 @@
      pixel display face, so a small uppercase label reads as its own layer.
      (A --display token for Bowlby One sat here too; it went with the tool
      strip that was its only user.) */
-  --word: "Space Grotesk", "IBM Plex Sans", system-ui, sans-serif;
+  --word: "Space Grotesk", "Inter", system-ui, sans-serif;
 
   /* ── added here ──────────────────────────────────────────────────── */
 
@@ -80,14 +87,112 @@
      sign-in panel. Every professional system read for this puts its warmth in
      the mid and dark steps, never in the page -- and the page here was already
      neutral, so the residual beige was coming from the text. */
-  --ink: #271f18;          /* 13.2:1 on --panel, 16.2:1 on white */
-  /* The loudest value in the console before this change: chroma 0.0570, seven
-     times Notion's muted text and 1.8x Stripe's. Now 0.0199, which is
-     Primer's own tint level, so it still reads warm rather than grey.
-     4.89:1 on peach is the tightest surface and still clears AA. */
-  --ink-2: #6c6158;        /* 5.3:1 on --panel, 6.4:1 on white */
+  /* Two moves, both deliberate. #271f18 originally: 16.21:1 on white, and
+     pure black is 21 — at 16 the eye reads it as black, which made it the
+     loudest thing on every surface and flattened the weight hierarchy, since
+     600 and 400 look equally heavy when both are that dark. Revision 4 took it
+     to #38312a at 12.80, which lost more than it needed to.
+
+     #312a23 is 40% of the way back: 14.13:1 on white, and the tightest
+     surface in the product is the peach active row at 11.79. Reads as
+     confident ink rather than either glare or grey, and the 400/500/600 steps
+     stay distinguishable. DESIGN.md §3.3 holds — there is no third ink; reach
+     for weight or --ink-2 before inventing another grey. */
+  --ink: #312a23;          /* 14.13:1 white, 12.98 console, 12.12 sand, 11.79 peach */
+  /* Darkened with it, so the gap between primary and secondary text stays a
+     step rather than a chasm. Was #6c6158 at 6.02 on white; 7.60 now, and
+     6.34 on the peach, which is the tightest surface it lands on. Chroma
+     stays in Primer's tint range, so it still reads warm rather than grey. */
+  --ink-2: #5c524b;        /* 7.60:1 white, 6.98 console, 6.34 peach */
 
   --accent-deep: #b8400f;  /* burnt end of the accent */
+
+  /* ── nav surfaces ──
+     At :root, not on `.con`, because the campaign switcher renders through a
+     portal into <body> to escape the panel's `overflow: hidden`. A portal
+     leaves the DOM subtree and therefore leaves the custom-property scope: the
+     popover came out with no background at all, sidebar rows showing straight
+     through it, because `var(--nav-surface)` resolved to nothing out there.
+
+     Design tokens belong at the root anyway. What stays on `.con` is the
+     geometry, since --nav-w is animated per console and is genuinely local.
+
+     Measured, all against composited pixels:
+       page     #f6f5f4  ink 13.46:1   muted 5.96:1
+       panel    #ffffff  ink 14.66:1   muted 6.49:1
+       edge     #e2ded9  1.34 on white -- between Radix sand-6 and stone-200
+       hairline #ece9e7  1.21 on white, quieter than the edge so a row
+                         separator never competes with a panel boundary */
+  /* ── the panel is a GROUND, and rows are tiles on it ──
+     The panel was #ffffff, which made it the same plane as everything drawn on
+     it: a hovered row had nowhere to go, so hover had to be a slightly darker
+     grey, and "raised" was not expressible at all. Inverting that is the whole
+     change. #faf8f5 is not a new colour — it is the --bg already documented in
+     DESIGN.md §2.3, so the ground comes from the palette rather than from feel.
+
+     The layering now reads: page #f6f5f4 (deepest) -> panel #faf8f5 -> tile
+     #ffffff (top). Tone alone separates a white tile from this ground by only
+     1.06:1, which is the point: a raised object is read from its SHADOW, not
+     from its fill. Tint says which plane, shadow says how high.
+
+     Re-measured against the new ground, not the old white:
+       --ink     13.33:1   --ink-2  7.17:1
+       tone1      5.81:1   accent-deep 5.24:1  */
+  --nav-panel: #faf8f5;
+  /* A tile lifted off the ground: hover and the raised popovers. */
+  --nav-surface: #ffffff;
+  /* ── hover is a whisper of shade, and it is TRANSLUCENT ──
+     It was briefly opaque white plus a full --e1 shadow, which on the warm
+     ground read as a hard card punched out of the panel — far too loud for a
+     pointer merely passing over a row.
+
+     A 3% neutral overlay instead. Composited on the ground that is #f4f2ef,
+     separating by 1.054:1 — which is almost exactly the 1.053 the original
+     #f9f9f8 gave against the old white panel. So this restores the same faint
+     silver step the sidebar used to have, now expressed as a tint that works
+     on ANY surface underneath: the warm ground, a white popover, a peach row.
+     One token, no per-surface variants.
+
+     Neutral rather than warm on purpose: shade is an absence of light, and
+     tinting the shadow warm makes it read as a colour wash instead. */
+  --nav-hover: rgba(64, 62, 60, 0.03);
+  /* The keyboard cursor in the campaign switcher. Stronger than hover because
+     it has a different job: hover follows the pointer, which the user is
+     already looking at, while this has to be FINDABLE as it steps down a list
+     under the arrow keys. 1.127:1 against white. */
+  --nav-cursor: rgba(64, 62, 60, 0.07);
+  /* Darkened 3% from #D08152. That measured 3.02:1 on white and 2.85:1 on the
+     new ground, which fails the 3:1 WCAG 1.4.11 floor for a control boundary —
+     the panel changing moved the surface every border is measured against. */
+  --nav-notch: #ca7d50;
+  --nav-rule: #ece9e7;
+  --nav-edge-panel: #e2ded9;
+  --nav-active: #fbe7d7;
+  --nav-edge: #9d8979;
+
+  /* ── elevation ──
+     DESIGN.md §4.1 has specified this scale for several revisions and it was
+     never implemented: --e1/--e2/--e3 appeared only inside comments while every
+     shadow in the file was hardcoded. Tokens now, so the scale is enforceable
+     rather than aspirational.
+
+     --e1 and --e2 are TWO layers, not the single one the doc first described.
+     That is what makes a control read as raised: a tight contact shadow says
+     the object touches the surface, a wider ambient one says it sits above it.
+     One alone reads as either a hairline or a float, never as a raised thing —
+     which is exactly why the quick-find trigger looked flat at
+     `0 1px 2px / 0.05`.
+
+     Colour is rgba(58,35,23,…), never black: neutral shadow on a warm surface
+     is half of what made the old console read grey. Opacity ceiling is 0.14 and
+     only --e3 reaches it. */
+  --e1:
+    0 1px 1px rgba(58, 35, 23, 0.05),
+    0 2px 6px rgba(58, 35, 23, 0.07);
+  --e2:
+    0 1px 1px rgba(58, 35, 23, 0.05),
+    0 5px 14px rgba(58, 35, 23, 0.09);
+  --e3: 0 16px 40px rgba(58, 35, 23, 0.14);
 
   /* A four-step word tint scale used to live here, and a --panel-dark for a
      dark collage block. Both are gone: the collage words are uniformly --ink
@@ -125,6 +230,22 @@
      200ms so feedback never reads as latency. */
   --t: 150ms var(--ease-out);
 
+  /* The exception to "under 200ms". A hover tint at 3% opacity is so faint
+     that snapping it in reads as a flicker as the pointer crosses rows —
+     there is not enough contrast for the eye to register a step, only a
+     twitch. Dimming it in and out over 240ms turns that into a gradual
+     shading, which is the whole reason the tint can be this quiet. Only
+     for hover washes; anything acknowledging a click stays on --t. */
+  --t-dim: 240ms var(--ease-out);
+
+  /* The border-glow sweep's period, read by both the animation and the
+     per-layer phase offset that centres the layers on each other. At :root
+     because the glow now has two hosts and one of them is portaled out of the
+     console: declared on `.nav-find`, the switcher's copy resolved the duration
+     to nothing, which invalidates the whole `animation` shorthand and silently
+     produced `animation: none`. */
+  --nav-sweep-dur: 2.6s;
+
   /* FRAME WIDTH — single source of truth.
      Both the shell's max-width and the left bleed's fill width derive from
      this. They were two hardcoded 1240s, which meant changing one would leave
@@ -138,6 +259,54 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html { -webkit-text-size-adjust: 100%; }
+
+/* ── browser surfaces ──
+
+   The parts nobody draws still carry the design, and they ship with defaults
+   belonging to no design system: the selection highlight is the OS blue, the
+   caret is black, the scrollbar is grey, checkbox and range accents are blue.
+   On a warm palette every one of those reads as a foreign object, and they are
+   the details that separate a page that was built from one that was assembled.
+   None of this was themed before.
+
+   Tinted from the palette, not picked: the selection wash is the same peach as
+   an active nav row, and the caret is the accent. */
+::selection {
+  background: var(--nav-active);
+  /* --ink on the peach measures 10.67:1. Never a grey on a tinted surface. */
+  color: var(--ink);
+}
+
+html {
+  /* Form controls the browser paints itself — checkbox ticks, radio dots,
+     range tracks, progress fills. One declaration retints the lot. */
+  accent-color: var(--accent);
+  /* Firefox and Chromium both honour this; thin because a full-width scrollbar
+     in a 268px sidebar is a sixth of the column. */
+  scrollbar-color: var(--rule-strong) transparent;
+  scrollbar-width: thin;
+}
+
+input,
+textarea {
+  caret-color: var(--accent);
+}
+
+/* WebKit needs the pseudo-elements; the shorthand above does nothing there. */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: var(--rule-strong);
+  /* Inset via a transparent border so the thumb reads as floating in the
+     track rather than filling it. */
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--ink-2); background-clip: content-box; }
+
+/* Underlines sit off the baseline rather than through the descenders. */
+a { text-underline-offset: 0.18em; }
 
 body {
   /* dvh, not vh: iOS Safari's collapsing address bar makes 100vh taller than
@@ -490,7 +659,7 @@ body {
    here and both were wrong for this job — PP NeueBit's bitmap edges went muddy
    under a shadow, and Bowlby One shouted at a size where it only needed to
    inform. The words are no longer the panel's main visual (the illustration
-   is), so the type steps back: IBM Plex Sans 500 at 13px with open tracking
+   is), so the type steps back: the UI face at 500/13px with open tracking
    reads as a spec line rather than a headline, and it is already loaded for
    the form labels so it costs nothing.
 
@@ -1038,13 +1207,16 @@ body {
      new background, which made the whole notice vanish into the page. */
   background: #fff;
   border: 1px solid var(--rule);
-  border-left: 3px solid var(--accent);
+  /* No accent border-left. A colored left edge thicker than a hairline on a
+     callout is a listed anti-pattern, and it was doing nothing the icon beside
+     the text does not already do — the glyph is already --accent. One signal,
+     not two. */
   border-radius: var(--r-card);
   padding: 13px 16px;
   margin-bottom: 20px;
 }
 .notice svg { flex: none; color: var(--accent); margin-top: 1px; }
-.notice-quiet { border-left-color: var(--rule-strong); background: #fff; }
+.notice-quiet { background: #fff; }
 .notice-quiet svg { color: var(--ink-2); }
 
 /* ─────────────────────────── footer switch ─────────────────────────── */
@@ -1308,17 +1480,58 @@ body {
    group with indented children — and none of its cool grey: on this palette
    those rows sit on warm white over sand, and "active" is a peach wash rather
    than the reference's neutral fill. */
+/* Registered so it can be ANIMATED. A plain custom property is a token as far
+   as the cascade is concerned: `transition: --nav-w` on an unregistered
+   property does nothing at all, because the browser has no type for it and so
+   no way to compute a value halfway between 268px and 72px. Declaring the
+   syntax as <length> is what buys interpolation.
+
+   inherits: true because the panel is a descendant of .con and reads the same
+   value; the animation happens once, on the parent, and the child follows. */
+@property --nav-w {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 256px;
+}
+
 .con {
   /* Overrides the marketing --page for the console only. The sign-in surface
      keeps its warm sand and peach panel; that is an expressive surface and it
      should stay expressive. This is the task surface. */
   --page: #f6f5f4;
-  --nav-w: 252px;
-  --nav-w-rail: 68px;
+  /* ── SIDEBAR GEOMETRY, and the one number that makes the transition work ──
+
+     The icon must not move between states. If it does, the collapse animates
+     two things at once (panel width and icon position) at different rates, and
+     no easing curve hides that — it reads as the contents sliding around
+     inside a shrinking box.
+
+     So the rail width is DERIVED, not chosen:
+
+       --nav-pad (18) + --nav-icon-box (36) + --nav-pad (18) = 72px
+
+     which centres the icon box in the rail at exactly the offset it already
+     occupies when expanded. Nothing translates. The label fades, the panel
+     narrows, and the icons sit still throughout. Change --nav-pad or
+     --nav-icon-box and the rail width follows; do not hardcode 72. */
+  /* 256, down from 268. The binding constraint is the campaign name, not the
+     rows: measured intrinsically it needs 162px, and everything else in the
+     panel has 40px+ of headroom (the workspace name wants 121, the longest
+     child label 111). So the 12px came out of the panel and another 8 out of
+     the overhead around that one label — see --nav-pad below and the
+     scope row's menu button — rather than out of the name itself. */
+  --nav-w: 256px;
+  /* 16, down from 18. Two pixels a side, and it also pulls the rail in to
+     16*2 + 36 = 68px, which is derived and follows automatically. */
+  --nav-pad: 16px;
+  --nav-icon-box: 36px;
+  --nav-w-rail: calc(var(--nav-pad) * 2 + var(--nav-icon-box));
   /* Keep in step with NAV_BP in Console.tsx — below this the sidebar is a
      drawer, and the drawer's scroll lock and auto-close live in JS. */
   --nav-bp: 900px;
-  --nav-row-h: 40px;
+  /* 34, down from 40: slim is mostly row height. */
+  --nav-row-h: 34px;
+  --nav-t: 260ms;
   /* ── console surfaces ──
      The console used the marketing page's warm sand (#f6ece1) behind white
      panels. Measured, that sand is 54% HLS saturation; every professional
@@ -1340,11 +1553,8 @@ body {
                         row separator never competes with a panel boundary
      The warmth now lives in the accent and the active nav state only, which
      is what keeps it scarce enough to still mean something. */
-  --nav-surface: #ffffff;
-  --nav-rule: #ece9e7;
-  --nav-edge-panel: #e2ded9;
-  --nav-active: #fbe7d7;
-  --nav-hover: #f9f9f8;
+  /* The colour tokens moved to :root — see the note there. Only the geometry
+     stays console-scoped, because --nav-w is animated per console. */
   /* Border for a control that must read as pressable. WCAG 1.4.11 wants 3:1
      for the boundary that identifies a UI component, and the greys already in
      the file do not reach it on white: --rule is 1.43, --rule-strong 2.81.
@@ -1354,7 +1564,6 @@ body {
      and quietly fell to 2.81 -- a real 1.4.11 failure hiding behind a comment
      claiming the opposite. Re-solved against both: 3.34 on white, 3.07 on the
      page. */
-  --nav-edge: #9d8979;
 
   min-height: 100dvh;
   display: grid;
@@ -1362,7 +1571,27 @@ body {
   background: var(--page);
 }
 
+/* The collapse, driven by ONE animated value.
+
+   --nav-w is registered with @property above, which is what makes it
+   interpolable: an unregistered custom property flips between old and new at
+   50% with no intermediate values, so this transition would be a jump.
+
+   Animating the variable rather than `grid-template-columns` AND `width`
+   separately is the whole trick. Both the grid column here and the panel's own
+   width read the same variable, so they cannot drift apart or run at different
+   rates — there is only one number moving, and everything derives from it.
+   Two transitions on two properties is how you get a one-frame gap between the
+   panel edge and the content edge, which reads as a tear.
+
+   Browsers without @property (pre-Safari 16.4) get an instant snap rather
+   than a broken animation, which is the right way to lose. */
+.con { transition: --nav-w var(--nav-t) var(--ease-in-out); }
 .con:has(.nav.is-railed) { --nav-w: var(--nav-w-rail); }
+
+@media (prefers-reduced-motion: reduce) {
+  .con { transition: none; }
+}
 
 /* Keyboard-only escape hatch past the whole nav. Visually hidden until focused
    rather than absent, because it has to be the first tab stop. */
@@ -1393,30 +1622,79 @@ body {
   grid-column: 1;
   display: flex;
   flex-direction: column;
+  /* Width from the SAME animated variable the grid column uses, so the panel
+     and its column are one number and can never disagree mid-transition. */
+  width: var(--nav-w);
   min-width: 0;
-  background: var(--nav-surface);
+  background: var(--nav-panel);
   border-right: 1px solid var(--nav-edge-panel);
+  /* The panel is the middle plane, so it casts onto the page behind it. Offset
+     only to the right, no vertical spread: light from above means a vertical
+     edge throws sideways, and a shadow all round would read as a floating
+     sheet rather than fixed chrome. Its own `overflow: hidden` does not clip
+     this — overflow clips children, never the element's own shadow. */
+  box-shadow: 1px 0 3px rgba(58, 35, 23, 0.04);
+  /* Every label, the bell, the campaign name and the workspace caret overflow
+     this box while it narrows. Clipping them here is what lets the collapse be
+     a pure width change: nothing needs to reflow, wrap or re-centre, so there
+     is no layout thrash to see. */
+  overflow: hidden;
   /* Sticky rather than scrolling with the page: the nav is a fixed frame and
      the content is what moves. 100dvh, not vh, so mobile browser chrome
      collapsing does not leave the bottom rows unreachable. */
   position: sticky;
   top: 0;
   height: 100dvh;
-  overflow: hidden auto;
-  overscroll-behavior: contain;
 }
 
 .nav:focus { outline: none; }
 
+/* THE FADE, and why it is delayed in one direction only.
+
+   Text cannot simply be clipped by the narrowing panel: for ~200ms the labels
+   would be sliced mid-glyph, which is the single ugliest thing a collapsing
+   sidebar does. So everything that only exists at full width fades, and the
+   fade is SEQUENCED against the width:
+
+     collapsing  fade out first (no delay, quick), then the width closes on
+                 already-empty space
+     expanding   width opens first, then the text arrives (delayed) into a box
+                 that is already wide enough to hold it
+
+   Same two rules, opposite delays. Reversing them is what produces the
+   "contents squeezing" look; this ordering is why it reads as one movement. */
+.nav-fade {
+  opacity: 1;
+  transition: opacity 140ms var(--ease-out) 120ms;
+}
+
+/* Zero opacity keeps the accessible name, unlike `display: none` /
+   `visibility: hidden` — which is what the previous version of this file got
+   wrong while claiming otherwise. Pointer events go so an invisible label
+   cannot eat a click meant for the row under it. */
+.nav.is-railed .nav-fade {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 90ms var(--ease-out) 0ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-fade,
+  .nav.is-railed .nav-fade { transition: none; }
+}
+
+/* ── brand + nudge ── */
+
 .nav-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
-  height: 62px;
+  height: 54px;
   flex: none;
-  padding: 0 14px 0 18px;
-  border-bottom: 1px solid var(--nav-rule);
+  /* Left pad is --nav-pad so the mark sits on the same axis as every icon
+     below it. The row is not centred in the rail: centring would move the mark
+     during the collapse, and nothing is allowed to move. */
+  padding: 0 var(--nav-pad);
 }
 
 .nav-brand {
@@ -1424,91 +1702,562 @@ body {
   align-items: center;
   gap: 9px;
   min-width: 0;
-  overflow: hidden;
+  flex: 1 1 auto;
 }
 
-.nav-mark { width: 21px; height: 22px; color: #f97316; flex: none; }
+/* Centred in the same 36px box the row icons use, so mark and icons share one
+   left edge in both states. */
+.nav-mark {
+  width: 20px;
+  height: 21px;
+  color: #f97316;
+  flex: none;
+  margin-left: calc((var(--nav-icon-box) - 20px) / 2);
+}
 
 .nav-word {
-  font: 600 17px/1 var(--word);
+  font: 600 16px/1 var(--word);
   letter-spacing: -0.021em;
   color: var(--ink);
   white-space: nowrap;
 }
 
-.nav-rail-btn {
+/* The nudge. A notch at the far edge: bordered, 22x26, so it reads as part of
+   the panel edge rather than a floating button. The caret inside points where
+   the panel will GO, not where it is — a control is read as a verb. */
+.nav-nudge {
   display: inline-grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: 22px;
+  height: 26px;
   flex: none;
-  border: none;
-  border-radius: 8px;
+  padding: 0;
+  border: 1px solid var(--nav-edge-panel);
+  border-radius: 6px;
+  background: var(--nav-surface);
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background var(--t), color var(--t), border-color var(--t);
+}
+
+.nav-nudge:hover {
+  background: var(--nav-hover);
+  color: var(--ink);
+  border-color: var(--nav-edge);
+}
+
+.nav-nudge:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* The brand comes out of FLOW in the rail, not just out of sight.
+
+   Measured: with it left in, the nudge centred at x=44 while every other icon
+   sat at 36 — an 8px break in the only alignment this sidebar guarantees. The
+   cause is that `.nav-fade` hides the wordmark with opacity, which keeps its
+   width, so `.nav-brand` (flex: 1 1 auto) still claimed ~6px and shoved the
+   nudge right by exactly that plus the 8px gap.
+
+   Absolutely positioned and clipped rather than `display: none`, so the word
+   "superhyre" stays in the accessibility tree — same reasoning as the labels.
+   position: absolute is what takes it out of the flex line; the clip is what
+   stops a 1px artefact showing. */
+.nav.is-railed .nav-mark { display: none; }
+
+.nav.is-railed .nav-brand {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.nav.is-railed .nav-nudge { margin-left: calc((var(--nav-icon-box) - 22px) / 2); }
+
+/* ── quick find + notifications ── */
+
+.nav-tools {
+  display: flex;
+  align-items: center;
+  /* 10, and the bell losing its outline is what makes the extra 2px read as
+     space rather than as a gap between two boxes. */
+  gap: 10px;
+  flex: none;
+  /* 16 below, up from 12: this is the boundary between the panel's head and
+     its nav, and it is carried by space alone. */
+  padding: 0 var(--nav-pad) 16px;
+}
+
+/* The quick-find trigger.
+
+   Border in the secondary orange: #F59861 itself is 2.20:1 on white and a
+   control's boundary is a UI component boundary, which WCAG 1.4.11 puts at
+   3:1 — so this is the same hue taken down 15% to #D08152, measured 3.02:1.
+   Reads as the secondary colour, passes as a border.
+
+   --r-pill rather than a new radius token: DESIGN.md §4 allows three tiers and
+   "rounder" here means the existing pill, not a fourth value.
+
+   ── WHY IT LOOKED FLAT ──
+   It was #ffffff sitting on a #ffffff panel. A surface with zero contrast
+   against its surround cannot be made to pop by any amount of shadow — only
+   the border separated them, and a 1px hairline is a boundary, not a height.
+   So two things changed together:
+
+   1. A surface of its own. The gradient is near-imperceptible by design —
+      white at the top edge falling to a warm off-white at the bottom — but
+      enough to read as a lit, slightly curved face rather than a hole cut in
+      the panel. Light from above is the only lighting model this file uses,
+      and every shadow in it assumes the same.
+   2. Real elevation. --e1 is two layers now (contact + ambient) rather than
+      the single `0 1px 2px / 0.05` that rendered as a smudge.
+
+   Hover adds one step to --e2, which is the whole vocabulary per §4.1 — the
+   travelling glow is the colour half of the feedback, this is the physical
+   half. An earlier version dropped the hover lift, but it shipped alongside a
+   full-perimeter halo that read as an error state; the lift was never the
+   problem and the halo is long gone.
+
+   The border stays underneath at every state: a shadow does not measure
+   against 1.4.11, so it can add to a boundary but never be one. */
+.nav-find {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--nav-notch);
+  border-radius: var(--r-pill);
+  background: linear-gradient(180deg, #ffffff 0%, #fdf9f6 100%);
+  box-shadow: var(--e1);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color var(--t), box-shadow var(--t), background var(--t);
+}
+
+.nav-find:hover { box-shadow: var(--e2); }
+
+/* ── the travelling glow ──
+
+   A short streak of light that runs around the border once per lap at a
+   constant speed, with no change to elevation. Four versions; each failed for
+   a reason worth not rediscovering.
+
+   1. A 3px halo on the WHOLE perimeter. Lighting the entire boundary at once
+      reads as an error state, and the --e2 lift that came with it made a
+      resting field look pressed.
+
+   2. A conic-gradient arc, rotated by animating a registered angle and masked
+      to the border with `mask-composite: exclude`. It worked and it lurched: a
+      conic sweep is constant in DEGREES, and on this 191x34 stadium each
+      157px straight run subtends 155.6deg (1.01 px/deg) while each 17px cap
+      subtends 24.4deg (2.19 px/deg) — 2.17x speed variation, four times a lap.
+
+   3. A bar on a CSS motion path. Constant speed at last, but a rectangle on a
+      path is tangent at its MIDPOINT, so its ends leave the curve: at the 17px
+      cap radius the 44px core overshot the outline by 10.8px and the 64px
+      bloom by 19.2px, both longer than the cap is wide. That was the hard
+      diagonal spike at the corners.
+
+   4. A circle on the motion path. Geometrically correct at every curvature —
+      and it reads as a dot, not a streak. Rejected on looks.
+
+   ── WHAT SHIPS ──
+   Stop moving an object ALONG the outline and let the light BE part of it: an
+   SVG stroke on the same rounded rect, with a dash gap swept by
+   stroke-dashoffset. A dash is a length of the path, so it curves with the
+   path. Corner behaviour is not something this version gets right; it is
+   something it cannot get wrong.
+
+   `pathLength="100"` renormalises the rect's geometry to 100 units, so
+   dasharray and dashoffset are percentages of the perimeter. The sweep is
+   therefore constant-speed and loops seamlessly at whatever width flex gives
+   this button, with no perimeter to measure in JS and nothing to recompute
+   when the sidebar resizes.
+
+   Two rects, for the reason version 2 established: the resting border is
+   already orange (--nav-notch #D08152), so one translucent orange stroke over
+   it recolours nothing — which is how that version managed to run perfectly
+   and be invisible. One stroke cannot be crisp and soft at once. */
+
+.glow-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* The bloom's blur must spill past the box; without this it is clipped to a
+     hard rectangle at the element edge. */
+  overflow: visible;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 180ms var(--ease-out);
+}
+
+/* Each host decides when its own ring shows. The trigger lights on hover; the
+   switcher's field lights on hover AND focus, because it is auto-focused when
+   the popover opens and the light is what draws the eye to it. */
+.nav-find:hover .glow-ring,
+.nav-switch-field:hover .glow-ring,
+.nav-switch-field:focus-within .glow-ring { opacity: 1; }
+
+/* Geometry in CSS rather than attributes so calc can inset the stroke by half
+   its width — an SVG stroke straddles its path, so without the inset its outer
+   half lands outside the box.
+
+   ── THE CORNER, WHICH TOOK TWO TRIES ──
+   `rx: var(--r-pill)` (100px) looked right and rendered a stretched ellipse.
+   SVG clamps the two radii INDEPENDENTLY — rx to width/2, ry to height/2 — so
+   a single oversized value became a 94x15 elliptical corner, and the streak
+   swept a long shallow arc across the interior instead of hugging the cap.
+   Visible immediately at 4x zoom; invisible at 1x, which is why it shipped.
+
+   Setting ONLY ry fixes it. Per SVG2 geometry, `rx: auto` takes ry's used
+   value, so ry clamps to half the rect's height and rx follows — a circular
+   cap, derived from the height, correct at 34px and at the 40px this control
+   takes on a coarse pointer. Do not "simplify" this to `rx: 50%; ry: 50%`:
+   percentages resolve per-axis against the viewport, which reintroduces the
+   ellipse exactly. */
+.glow-ring rect {
+  /* ON the border's centreline, not inside it.
+
+     The SVG viewport is the padding box, which is already 1px in from the
+     border box; the 1px border's own centreline therefore sits 0.5px OUTSIDE
+     the viewport. The previous 0.8px inset put the stroke ~1.3px inside the
+     visible border, which is why the glow looked like a separate smudge
+     floating beside the line rather than the line itself glowing.
+
+     Negative x/y and an oversized width/height put it back on the line. `ry:
+     50%` then clamps to half of (height + 1px) = 16.5px, which is exactly the
+     border centreline's radius: --r-pill clamps to 17 on a 34px box, less half
+     the border. The radius stays correct for free. */
+  x: -0.5px;
+  y: -0.5px;
+  width: calc(100% + 1px);
+  height: calc(100% + 1px);
+  rx: auto;
+  /* 50% clamps to half the height, which is the cap radius of a pill host. A
+     host with a smaller radius overrides it — less half the border width,
+     since the stroke rides the border's centreline rather than its outer
+     edge. */
+  ry: var(--glow-ry, 50%);
+  fill: none;
+  stroke: var(--accent);
+  stroke-linecap: round;
+
+  /* Each layer's dash length.
+
+     The `* 1px` on every calc is load-bearing, not decoration: these
+     properties take a <length>, and a calc that resolves to a bare NUMBER is
+     invalid CSS and silently falls back to the initial value. Measured that
+     directly — the sweep was animating and every dashoffset computed to
+     nothing. Plain literals like `14` are accepted (SVG presentation-attribute
+     semantics) which is why the single-dash version worked without it, but a
+     calc is not. There is no viewBox on this SVG, so one user unit is one
+     pixel and px maps exactly onto the pathLength=100 scale. */
+  stroke-dasharray: calc(var(--len) * 1px) calc((100 - var(--len)) * 1px);
+
+  /* ── CENTRED BY PHASE, NOT BY OFFSET ──
+
+     Every layer animates stroke-dashoffset over exactly one dash period, so
+     each lap ends where the next begins and the loop has no seam. Centring
+     then comes from starting the shorter layers slightly AHEAD, with a
+     negative animation-delay, rather than from arithmetic inside the offset.
+
+     This replaced an inherited `--nav-sweep` number that each layer fed
+     through a calc() every frame. That version froze correctly at any given
+     value but was wrong in motion: sixteen calc()s re-resolving per frame from
+     one inherited variable are not guaranteed to stay in phase, and the
+     variable's own 100 -> 0 wrap is a discontinuity in the middle of a loop
+     that should have none. Hence the jump, and the layers separating into
+     visibly distinct lines as they drifted.
+
+     Animating the property directly also costs less: a length interpolation
+     per layer instead of a variable substitution plus a calc per layer. */
+  animation: nav-glow-sweep var(--nav-sweep-dur) linear infinite;
+  animation-delay: calc((var(--len) / 2 - 13) / 100 * var(--nav-sweep-dur));
+}
+
+/* One dash period. 26 is the longest layer, so it is the reference the phase
+   offsets above are measured against. */
+@keyframes nav-glow-sweep {
+  from { stroke-dashoffset: -13px; }
+  to   { stroke-dashoffset: -113px; }
+}
+
+/* ── the layers ──
+   Sixteen of them, generated from one falloff curve in Nav.tsx (GLOW_LAYERS),
+   which also carries the note on why sampling a ramp beats three hand-tuned
+   steps: a dash cannot fade towards its own ends, so the falloff has to be
+   built out of many ends close together. Only per-layer values live there —
+   length, width, opacity, blur. Everything shared is above. */
+
+/* A looping travelling highlight is precisely what this setting is for. The
+   sweep stops and the border warms instead, so hover still answers. */
+@media (prefers-reduced-motion: reduce) {
+  .nav-find:hover .glow-ring,
+  .nav-switch-field:hover .glow-ring,
+  .nav-switch-field:focus-within .glow-ring { opacity: 0; }
+  .glow-ring rect { animation: none; }
+  .nav-find:hover { border-color: var(--accent); }
+  .nav-switch-field:focus-within { box-shadow: inset 0 0 0 1px var(--accent); }
+}
+
+.nav-find:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-color: var(--accent-deep);
+}
+
+/* On the shared axis, which for a 1px-bordered box means one pixel less than
+   --nav-pad. Without that the search glyph sits a pixel off every icon beneath
+   it — invisible until you collapse and watch it twitch. */
+.nav-find-ico {
+  flex: none;
+  color: var(--ink-2);
+  margin: 0 calc(((var(--nav-icon-box) - 15px) / 2) - 1px);
+}
+
+.nav-find-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink-2);
+  font: 400 13px/1 var(--ui);
+}
+
+/* The shortcut, stated rather than hidden: a palette nobody knows the key for
+   is a palette nobody uses. */
+.nav-find-kbd {
+  flex: none;
+  margin-right: 10px;
+  padding: 2px 5px;
+  border-radius: 5px;
+  /* A recess inside a white tile, so it takes the GROUND, not --nav-hover.
+     That token means "lifted" now and would paint white on white. */
+  background: var(--nav-panel);
+  color: var(--ink-2);
+  font: 500 10px/1.3 var(--ui);
+  letter-spacing: 0.02em;
+}
+
+.nav-bell {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  padding: 0;
+  /* No resting border. It had one, and two outlined shapes sitting side by
+     side in a 224px row was most of why the head read cluttered — the eye has
+     to rank them and there is no ranking to find. The quick-find trigger keeps
+     its outline because it is the row's subject; the bell is an adjunct, and
+     it is already unmistakable from its glyph and its badge.
+
+     Still a circle, and still the only round control here, which is what lets
+     a count sit on its edge and read as a badge. */
+  border: 1px solid transparent;
+  border-radius: 50%;
   background: transparent;
   color: var(--ink-2);
   cursor: pointer;
-  transition: background var(--t), color var(--t);
+  transition: background var(--t-dim), color var(--t), border-color var(--t), opacity 90ms var(--ease-out);
 }
 
-.nav-rail-btn:hover { background: var(--nav-hover); color: var(--ink); }
-.nav-rail-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+/* The outline arrives on approach, which is when a boundary is useful. */
+.nav-bell:hover {
+  background: var(--nav-hover);
+  border-color: var(--nav-edge-panel);
+  color: var(--ink);
+}
+
+.nav-bell:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* #DC2626, not the palette's #E57373: white on that is 2.99:1 and this is
+   9.5px text, the smallest type on the surface. White on #DC2626 is 4.83:1.
+   A count nobody can read is a dot with extra steps. */
+.nav-bell-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  padding: 0 4px;
+  border-radius: 999px;
+  /* A real knockout ring, not `box-shadow: 0 0 0 2px`. Structurally this is a
+     separation between two adjacent objects, so it is a border; a zero-offset
+     shadow imitating one is decoration wearing a depth property, and depth in
+     this system means an offset plus a soft blur (DESIGN.md §4.1). Same pixels
+     on screen, honest about what they are — and it survives a shadow audit.
+     18px with a 2px border leaves a 14px field, still comfortable for 9.5px
+     tabular digits.
+
+     The ring takes the GROUND, not --nav-surface. A knockout has to match what
+     it knocks out of, and what sits behind this badge is the panel — it was
+     white because the panel used to be, and a white ring on the off-white
+     ground is a visible outline rather than a gap. */
+  border: 2px solid var(--nav-panel);
+  background: #DC2626;
+  color: #fff;
+  font: 600 9.5px/1 var(--ui);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The bell has nowhere to go in a 72px rail. The search keeps its own icon,
+   which is already on the axis and needs no repositioning — but it drops its
+   border, shadow and hover band: a 34px pill in a 72px column reads as a
+   stray lozenge, while a bare icon reads as the row it has become. */
+.nav.is-railed .nav-bell { opacity: 0; pointer-events: none; }
+.nav.is-railed .nav-find {
+  border-color: transparent;
+  box-shadow: none;
+  background: transparent;
+}
+.nav.is-railed .nav-find:hover {
+  border-color: transparent;
+  box-shadow: none;
+  background: var(--nav-hover);
+}
+
+/* And the sweep goes with the border it rides on. A streak tracing the outline
+   of a control that is currently showing no outline is a light around nothing. */
+.nav.is-railed .nav-find:hover .glow-ring { opacity: 0; }
+
+/* ── rows ── */
 
 .nav-body {
   flex: 1 1 auto;
-  padding: 6px 0 18px;
+  padding: 0 0 14px;
   min-height: 0;
+  overflow: hidden auto;
+  overscroll-behavior: contain;
 }
 
-.nav-sec { padding: 8px 10px; }
-.nav-sec + .nav-sec { border-top: 1px solid var(--nav-rule); }
+.nav-sec { padding: 4px var(--nav-pad); }
 
 .nav-sec-label {
-  margin: 4px 0 6px;
-  padding: 0 8px;
-  font: 500 10.5px/1 var(--ui);
+  margin: 6px 0 4px;
+  font: 500 10px/1 var(--ui);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--ink-2);
   white-space: nowrap;
 }
 
-.nav-list { list-style: none; margin: 0; padding: 0; }
+/* ── the gap exists because the fills touch ──
+
+   Rows were flush. Invisible while only one row at a time carried a fill, and
+   wrong the moment two adjacent ones did: a selected row beside a hovered one
+   merged into a single tinted block with a colour change through the middle,
+   reading as one object rather than two states.
+
+   3px. Enough to part the fills, not enough to loosen the list — the rows are
+   34px, so this is under a tenth of a row and does not register as spacing
+   when nothing is highlighted.
+
+   On the list rather than the rows so it cannot collapse: adjacent margins on
+   the anchors would collapse through their `li` parents and silently halve. */
+.nav-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
 
 .nav-row {
   display: flex;
   align-items: center;
-  gap: 11px;
   width: 100%;
   min-height: var(--nav-row-h);
-  padding: 0 9px;
+  /* No horizontal padding: the icon box provides the left inset, and padding
+     here would offset the icon from the axis the rail depends on. */
+  padding: 0;
   border: none;
-  border-radius: 9px;
+  border-radius: 8px;
   background: transparent;
   color: var(--ink);
-  font: 400 14.5px/1.2 var(--ui);
+  font: 400 13px/1.2 var(--ui);
+  /* Inter is cut with generous default tracking so it holds up at body sizes;
+     at 13px in a 232px column that reads loose and cost real width — the
+     campaign name started truncating the moment the face changed. -0.011em is
+     the standard UI correction for Inter and is nowhere near the -0.04em
+     tracking floor. Set here rather than globally: it is right for dense rows,
+     not for the serif body copy elsewhere. */
+  letter-spacing: -0.011em;
   text-align: left;
   text-decoration: none;
   cursor: pointer;
-  transition: background var(--t), color var(--t);
+  transition: background var(--t-dim), color var(--t), box-shadow var(--t);
 }
 
+/* ── hover shades, select lifts ──
+
+   Two different jobs, and only one of them should raise anything.
+
+   Hover is a pointer passing over a row. It gets a 3% neutral wash and NOTHING
+   else — no shadow, no white fill. Briefly it had both, and an opaque tile
+   under a full --e1 read as a hard card punched out of the panel: far too much
+   event for a cursor merely crossing a list. The wash dims in over --t-dim
+   rather than --t, because at this opacity a snap reads as a flicker instead
+   of a shade.
+
+   Select is a destination. It keeps the peach and takes the lift, so the
+   current page is the one thing in the panel standing off the ground. That
+   contrast only works while hover stays flat — give both a shadow and neither
+   means anything. */
 .nav-row:hover { background: var(--nav-hover); }
+
 .nav-row:focus-visible { outline: 2px solid var(--focus); outline-offset: -1px; }
 
-/* Active is a peach wash plus weight, never colour alone — the wash is the
-   part that survives greyscale and low vision. */
+/* Active keeps the peach wash and the weight — never colour alone, since the
+   wash is the part that survives greyscale — and now also sits proud of the
+   ground. */
 .nav-row.is-active {
   background: var(--nav-active);
+  box-shadow: var(--e1);
   font-weight: 500;
 }
 
-/* A collapsed group whose child is the current page. Marked, but weaker than
-   `is-active`, because the group is not itself the page you are on. */
-.nav-row-group.is-within { color: var(--ink); font-weight: 500; }
+/* A group holding the current page, marked ONLY while collapsed.
 
-.nav-ico { flex: none; color: var(--ink-2); }
+   The comment here used to say "a collapsed group" while the selector applied
+   at all times, and that gap was the bug: expanding Analytics onto Outreach
+   accented the Analytics row too, which is the same accent-glyph-plus-heavier
+   -label treatment the current campaign row wears. Two unrelated meanings —
+   "contains the page you are on" and "this is the campaign you are in" —
+   arriving at one look.
+
+   Scoping it to `aria-expanded="false"` fixes the collision at its cause
+   rather than by picking a third colour. When the group is open its active
+   child is visible and carries the peach wash itself, so marking the parent
+   says nothing the eye cannot already see; when it is closed the parent is
+   the only place that signal can live. Driven off the ARIA state the button
+   already sets, so there is no second source of truth to drift. */
+.nav-row-group.is-within[aria-expanded="false"] {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+/* The fixed box that holds the axis. Every icon in the sidebar — row, search,
+   brand, avatar, sign-out — centres inside one of these, at the same offset,
+   in both states. This single rule is why nothing moves when the panel
+   collapses, and the rail width is derived from it. */
+.nav-ico {
+  flex: none;
+  width: var(--nav-icon-box);
+  color: var(--ink-2);
+  transition: color var(--t);
+}
+
 .nav-row.is-active .nav-ico,
-.nav-row-group.is-within .nav-ico { color: #ad3b0c; }
+.nav-row-group.is-within[aria-expanded="false"] .nav-ico { color: #ad3b0c; }
 
 .nav-label {
   flex: 1 1 auto;
@@ -1520,76 +2269,676 @@ body {
 
 .nav-caret {
   flex: none;
+  margin-right: 8px;
   color: var(--ink-2);
-  transition: transform 160ms var(--ease-out);
+  transition: transform 180ms var(--ease-out), opacity 140ms var(--ease-out) 120ms;
 }
 
 .nav-caret.is-open { transform: rotate(180deg); }
 
-/* Children hang off a hairline spine, as in the reference. The spine is a
-   border on the list rather than a pseudo-element so it grows with the list
-   without a magic height. */
+/* Analytics opens by animating grid-template-rows 0fr -> 1fr, which is the
+   only way to transition to a content-derived height without measuring it in
+   JS and writing a pixel value nobody can maintain. max-height would need a
+   guess big enough for four children and would ease wrong. */
+.nav-sub-wrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  /* The WRAPPER clips, and it has to be the wrapper.
+
+     At `0fr` the track is zero but the list inside still has its own height —
+     4px of vertical padding — and it simply overflows the track. `overflow:
+     hidden` on the list does not help: that clips the list's CHILDREN, not the
+     list overflowing its parent. `min-height: 0` on it does not help either,
+     since an item with non-visible overflow already has an automatic minimum
+     of zero; both were tried and the computed track stayed 4px.
+
+     Those 4px showed the active child's peach wash under a collapsed Analytics
+     as a thin orange line. Caught from a screenshot, then confirmed by reading
+     grid-template-rows, which said "4px" where it should say "0px". */
+  overflow: hidden;
+  transition: grid-template-rows 220ms var(--ease-in-out);
+}
+
+.nav-sub-wrap.is-open { grid-template-rows: 1fr; }
+
+/* THE LINE THAT MAKES 0fr REACH ZERO. Deleting it is what broke the dropdown.
+
+   `grid-template-rows: 0fr` resolves to `minmax(auto, 0fr)`, and that `auto`
+   floor is the item's minimum contribution. For a list with `overflow:
+   visible` that contribution is its full content height, so the track measured
+   112px in BOTH states — React toggled `aria-expanded` and `is-open`
+   correctly and nothing moved.
+
+   `overflow: hidden` drops the minimum contribution to zero, and `min-height:
+   0` says so explicitly rather than relying on that inference. It also clips
+   the list's own children, which the wrapper's `overflow: hidden` does not do
+   for content overflowing a zero-height track. Both rules are needed; this one
+   got removed as a duplicate of the wrapper's when it is not one. */
+.nav-sub-wrap > .nav-sub {
+  min-height: 0;
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-sub-wrap { transition: none; }
+}
+
+/* Children hang off a hairline spine.
+
+   The spine is a border on the LIST, which is where the campaign block already
+   draws its identical one. It used to be a border on each `li` — two
+   implementations of one line, a drift waiting to diverge, and the per-item
+   version also blocks a gap: parting the items turns a border-per-item into a
+   dashed spine.
+
+   Indent is margin, not padding, for the collapse: `min-height: 0` lets the
+   content box reach zero but padding is not content, and vertical padding here
+   was what floored the closed track at 4px. The 2px of breathing room is
+   applied in the open state only, where it is the only state that can see it. */
 .nav-sub {
   list-style: none;
-  margin: 2px 0 2px 26px;
-  padding: 0 0 0 10px;
+  margin: 0 0 0 calc(var(--nav-icon-box) / 2);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   border-left: 1px solid var(--nav-rule);
 }
 
+.nav-sub-wrap.is-open > .nav-sub { padding-block: 2px; }
+
+.nav-sub li { padding-left: 11px; }
+
 .nav-sub-row {
   display: block;
-  padding: 8px 10px;
-  border-radius: 8px;
+  padding: 6px 9px;
+  border-radius: 7px;
   color: var(--ink-2);
-  font: 400 14px/1.2 var(--ui);
+  font: 400 12.5px/1.2 var(--ui);
+  letter-spacing: -0.011em;
   text-decoration: none;
-  transition: background var(--t), color var(--t);
+  white-space: nowrap;
+  transition: background var(--t-dim), color var(--t);
 }
 
+/* Children follow the same split: shade on hover, lift only when current. */
 .nav-sub-row:hover { background: var(--nav-hover); color: var(--ink); }
-.nav-sub-row:focus-visible { outline: 2px solid var(--focus); outline-offset: -1px; }
-.nav-sub-row.is-active { background: var(--nav-active); color: var(--ink); font-weight: 500; }
 
-/* ── profile (nav foot) ──
-   Sits below the scrolling nav body, so a long nav scrolls under it and the
-   account stays put. `flex: none` plus the body's `flex: 1` is what pins it to
-   the bottom without a magic height or absolute positioning. */
+.nav-sub-row:focus-visible { outline: 2px solid var(--focus); outline-offset: -1px; }
+
+.nav-sub-row.is-active {
+  background: var(--nav-active);
+  box-shadow: var(--e1);
+  color: var(--ink);
+  font-weight: 500;
+}
+
+/* ── current campaign ── */
+
+/* No border-top. The gap does the separating — DESIGN.md §0 Minimalism:
+   remove a rule before adding one, and a divider doing a job 18px of space
+   already does is the example given. */
+.nav-campaign {
+  /* 22, up from 18. This is the only boundary in the sidebar carried by space
+     alone — there is no rule above it — so the gap has to be unambiguous or
+     the campaign block reads as a continuation of the main nav. */
+  margin-top: 22px;
+  padding-top: 0;
+  /* And air underneath, so the last child is not touching the foot divider. */
+  padding-bottom: 6px;
+}
+
+/* ── the section label ──
+
+   An affordance, not an eyebrow. Removed for one revision on the strength of
+   Impeccable's ban on a kicker above a heading — a misread, because that rule
+   sits with the Persuade and Experience modes. The same reference on Operate
+   mode, which is what a console sidebar is: "predictable structure, stable
+   density, and navigable linearity are affordances." Every console with a
+   scoped section carries one of these.
+
+   Typography is the standard for the job and deliberately unambitious: small,
+   uppercase, tracked open, quiet colour. The tracking is what keeps 10px
+   uppercase legible — set solid it reads as a smudge. --ink-2 at 6.02:1, not
+   the lighter #7e746c tried earlier, because a label nobody can read is not
+   orientation. */
+.nav-campaign-label {
+  /* More space above than below — the craft-floor rule for a heading, and
+     here it is also the whole separator, since there is no divider. */
+  margin: 0 0 6px;
+  /* Sentence case, not uppercase-with-tracking. The all-caps version read as
+     institutional against a block that is meant to feel live, and the
+     reference this block was measured against uses sentence case for exactly
+     the same label. Size and colour carry the demotion instead. */
+  font: 500 11px/1 var(--ui);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+/* ── the scope row ──
+
+   Six versions. What ended the fifth: it read as static — six identical
+   destinations under a bold label, nothing to DO.
+
+   1. The peach wash active rows use: the parent read as a peer of its own
+      children, three highlights competing at once.
+   2. A tinted rounded-square icon tile — a canonical machine-design tell.
+   3. 14px/600 plus an accented glyph, label deleted: weight compensating for
+      the missing label.
+   4. One weight step, label restored. Correct, and inert.
+   5. A filled scope row with an overflow menu, over a list starting with an
+      action. The affordances were the fix; the fill was not.
+   6. This: same affordances, no fill.
+
+   ── ONE WASH PER BLOCK ──
+
+   The fill briefly sat here, on the scope row, copying the reference this
+   block was measured against. In that reference the project row IS the current
+   page, so its single fill answers both questions at once. Here the current
+   page is usually a CHILD, so the same move produced two peach blocks two rows
+   apart, and the eye cannot rank them.
+
+   Priority settles it: "where am I" beats "what scope am I in". So the wash —
+   the loudest device available — goes to the current page, and the scope row
+   is marked by things no other row has: 600 weight, an accented glyph, and the
+   only overflow menu in the panel. Sidebar research says an active state must
+   not rest on colour alone; three signals now stack on it (wash, weight, and a
+   filled glyph) while the scope row carries none of them. */
+.nav-scope {
+  position: relative;
+  display: flex;
+  align-items: center;
+  border-radius: 8px;
+}
+
+.nav-scope-link {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 36px;
+}
+
+/* 600 is the whole marker, and nothing else in the sidebar is 600. */
+.nav-scope-link .nav-label { font-weight: 600; color: var(--ink); }
+.nav-scope-link .nav-ico { color: var(--accent-deep); }
+
+/* Hover belongs to the link, not the wrapper: the wrapper also holds the menu
+   trigger, and lighting the whole row when the pointer is on the button reads
+   as though the button were the row. */
+.nav-scope-link:hover { background: var(--nav-hover); }
+
+/* On the campaign's own page it is both scope and current page, so it takes
+   the wash like any other row and keeps its weight. */
+.nav-scope-link.is-active { background: var(--nav-active); }
+
+/* The overflow trigger. Always rendered rather than hover-only: a control that
+   appears on hover is unreachable by touch and invisible to anyone who does
+   not already know it is there. Quiet until approached instead. */
+.nav-scope-more {
+  display: inline-grid;
+  place-items: center;
+  /* 22 and a 3px gutter, down from 26 and 5. This button sits on the one row
+     whose label is at its width limit, so eight pixels here are eight pixels
+     the campaign name gets to keep. On a coarse pointer the HIT AREA is grown
+     back to 44x44 with a pseudo-element (see the touch block at the end of
+     this file) rather than the box, which would push the name straight back
+     out. */
+  width: 22px;
+  height: 22px;
+  flex: none;
+  margin-right: 3px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #ad3b0c;
+  opacity: 0.6;
+  cursor: pointer;
+  transition: opacity var(--t), background var(--t);
+}
+
+.nav-scope:hover .nav-scope-more,
+.nav-scope-more:focus-visible,
+.nav-scope-more[aria-expanded="true"] { opacity: 1; }
+
+.nav-scope-more:hover { background: rgba(173, 59, 12, 0.11); }
+.nav-scope-more:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+/* ── the campaign switcher ──
+
+   A search field over the full project list, hanging from the scope row. It
+   replaced a two-item menu: the campaign is the core object of this product,
+   so the row naming the current one should reach any of them, and past a
+   screenful the field stops being a flourish and becomes the only thing
+   keeping the control usable.
+
+   ── IT LEAVES THE SIDEBAR ──
+   Positioned `fixed` and rendered through a portal into <body> (see Nav.tsx),
+   which is what lets it be 304px against a 268px panel. It was briefly sized
+   to the panel's 232px content column instead, and that is what made it look
+   boxed: a name plus a role line squeezed into a measure that cannot hold
+   them. A popover is not logically part of the panel and should not inherit
+   the panel's clip.
+
+   ── AND IT STOPPED BEING A BOX ──
+   Three rules came out: the divider under the search, the divider above the
+   footer, and the footer's tinted band. DESIGN.md §0 — remove a rule before
+   adding one, and each was doing a job that spacing already did. What is left
+   is one surface, one hairline round the edge, and air. Radius is --r-card,
+   the container tier, rather than the 12px this and the two other nav
+   popovers had been using off-scale. */
+.nav-switch {
+  position: fixed;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  max-height: min(448px, 70vh);
+  /* 11px, up from 7. The popover holds two-line rows and a field; at 7 the
+     content ran to the edges and the whole thing read as a dense list rather
+     than a considered surface. */
+  padding: 11px;
+  border: 1px solid var(--nav-edge-panel);
+  border-radius: var(--r-card);
+  background: var(--nav-surface);
+  /* --e3, the only step that floats. Opacity stays at the 0.14 ceiling; the
+     blur carries the softness instead. */
+  box-shadow: var(--e3);
+  animation: pop-down 150ms var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-switch { animation: none; }
+}
+
+/* The search reads as a field, not as a header with a rule under it. Its own
+   soft container at the field tier, which is what --r-field is for. */
+.nav-switch-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  /* 42px, up from 34 — the field is the thing you land in when this opens, so
+     it gets the most room of anything here. Also the host of a border glow,
+     which needs height to read as light on an edge rather than a line through
+     the middle of a thin box. */
+  height: 42px;
+  /* Pill, so the pad grows with the radius — 12px inside a 21px cap would put
+     the glyph inside the curve. */
+  padding: 0 16px;
+  margin-bottom: 8px;
+  border-radius: var(--r-pill);
+  /* Recessed inside the white popover — the ground, not the lift token. */
+  background: var(--nav-panel);
+  /* Positions the glow ring, which is absolutely placed against it. */
+  position: relative;
+  /* No --glow-ry override: the default 50% clamps to half the height, which is
+     exactly a pill's cap radius. Setting it to --r-field here, as this host did
+     while it was a rounded rect, would trace a 10px corner around a 21px one
+     and the light would leave the edge at all four caps. */
+  cursor: text;
+  transition: background var(--t), box-shadow var(--t);
+}
+
+.nav-switch-field:focus-within {
+  background: var(--nav-surface);
+  box-shadow: inset 0 0 0 1px var(--nav-notch);
+}
+
+.nav-switch-ico { flex: none; color: var(--ink-2); }
+
+.nav-switch-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  font: 400 13px/1 var(--ui);
+  letter-spacing: -0.011em;
+}
+
+.nav-switch-input::placeholder { color: var(--ink-2); }
+/* No ring: the field is the only focusable thing when this opens, so a ring
+   would mark what is already obvious. */
+.nav-switch-input:focus { outline: none; }
+
+.nav-switch-list {
+  margin: 0;
+  padding: 0;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden auto;
+  overscroll-behavior: contain;
+  /* Parted, for the same reason the nav rows are: two adjacent fills — the
+     current row and whatever the cursor is on — would otherwise merge. */
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nav-switch-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* ── divisions ──
+   The workspace switcher has two and they are the point: the scope that is
+   yours alone, and the scopes shared across the tenant. The campaign switcher
+   passes one group with an empty label and renders no heading at all, so the
+   same shell serves a flat list without a stray label over it.
+
+   Space above, not a rule. A divider between two groups inside a popover that
+   already has a border is the third boundary in 300px — proximity does this
+   (DESIGN.md §0). */
+.nav-switch-group + .nav-switch-group { margin-top: 10px; }
+
+.nav-switch-group-label {
+  margin: 0 0 5px 10px;
+  font: 600 10px/1 var(--ui);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+/* Rows that name a capability which is not wired yet. Dimmed, cursor-blocked,
+   and `aria-disabled` in the markup — a row that merely looks inert still gets
+   clicked. */
+.nav-switch-opt.is-off {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.nav-switch-opt.is-off:hover { background: transparent; }
+
+/* Names the tenant these shared scopes belong to. Deliberately not a group
+   label: the organisation is the boundary, not a heading of peers — see
+   DESIGN.md §5.3.0. */
+.nav-switch-note {
+  flex: none;
+  margin: 8px 10px 2px;
+  font: 400 10.5px/1.45 var(--ui);
+  color: var(--ink-2);
+}
+
+.nav-switch-opt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  /* 48px for a two-line row: a name over a role needs the leading to breathe
+     or the pair reads as one cramped block. Seven of these stacked was the
+     "cluttered" complaint, and it was density, not content. */
+  min-height: 48px;
+  padding: 0 12px;
+  border-radius: var(--r-field);
+  cursor: pointer;
+}
+
+/* One highlight, driven by state. A CSS :hover as well and the pointer and the
+   arrow keys would light different rows, making Enter a guess. */
+.nav-switch-opt.is-on { background: var(--nav-cursor); }
+.nav-switch-opt.is-current .nav-switch-opt-ico { color: var(--accent-deep); }
+.nav-switch-opt.is-current svg:last-child { color: var(--accent-deep); flex: none; }
+
+.nav-switch-opt-ico { flex: none; color: var(--ink-2); }
+
+.nav-switch-opt-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.nav-switch-opt-name {
+  font: 500 13px/1.25 var(--ui);
+  letter-spacing: -0.011em;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-switch-opt.is-current .nav-switch-opt-name { font-weight: 600; }
+
+.nav-switch-opt-role {
+  font: 400 11px/1.25 var(--ui);
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-switch-empty {
+  margin: 0;
+  padding: 20px 14px 22px;
+  font: 400 12.5px/1.5 var(--ui);
+  color: var(--ink-2);
+  text-align: center;
+}
+
+.nav-switch-empty strong { color: var(--ink); font-weight: 600; }
+
+/* Pinned rather than the last list row — it is a different kind of thing from
+   a campaign, and scrolling the escape hatch away with them would hide it.
+   Marked by a margin and the accent, not by a rule and a tinted band. */
+.nav-switch-all {
+  flex: none;
+  width: 100%;
+  min-height: 38px;
+  margin-top: 6px;
+  padding: 0 12px;
+  border: none;
+  border-radius: var(--r-field);
+  background: transparent;
+  color: var(--accent-deep);
+  font: 500 12px/1 var(--ui);
+  letter-spacing: -0.006em;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--t);
+}
+
+.nav-switch-all:hover { background: var(--nav-hover); }
+.nav-switch-all:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+
+/* ── the children ──
+   Indented onto a hairline spine, the same shape the Analytics group uses —
+   repeating it is the point, since the sidebar should say "these belong to the
+   thing above" in one visual language rather than two.
+
+   The spine sits at x=36, directly under the centre of the chip above it, so
+   it reads as descending from the campaign rather than floating beside it.
+   Indent is half the icon box; the spine is a border on the list so it grows
+   with the list and needs no magic height. */
+.nav-campaign-list {
+  margin-left: calc(var(--nav-icon-box) / 2);
+  padding-left: 11px;
+  border-left: 1px solid var(--nav-rule);
+  /* Breathing room top and bottom. The block was cramped against both the
+     campaign row and Settings below it, which is most of why it felt wrong. */
+  padding-top: 4px;
+  padding-bottom: 2px;
+}
+
+/* ── subordinate, on purpose ──
+
+   Sidebar research is specific about sub-items: "slightly smaller at 13-14px,
+   lighter, indented 16-24px". These were 13px at --ink, identical to the
+   top-level nav, which is why the block read flat — nine rows all claiming the
+   same rank with only an indent between them.
+
+   12.5px at --ink-2 puts them a step below. The ramp now reads scope (600,
+   --ink) > top-level (400, --ink) > scoped children (400, --ink-2), and the
+   current page climbs back to --ink so it still wins wherever it sits. */
+.nav-campaign-list .nav-row { min-height: 34px; }
+
+.nav-campaign-list .nav-label {
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+
+.nav-campaign-list .nav-row.is-active .nav-label { color: var(--ink); }
+
+/* Railed, the label and title are invisible, so their vertical space would be
+   a mysterious gap above six icons — and the spine would be a stray vertical
+   line beside a column of centred icons. Both go; the margin is the only
+   separator left, so it stays, slightly tightened.
+
+   Zeroing the indent here is also what keeps the collapsed state ALIGNED: with
+   the margin left in, these six icons would sit 18px right of every other icon
+   in the rail. */
+.nav.is-railed .nav-campaign-list {
+  margin-left: 0;
+  padding-left: 0;
+  border-left: none;
+  padding-top: 2px;
+  padding-bottom: 0;
+}
+
+/* Railed, the scope row keeps its fill — it is the only thing marking which of
+   these icons is the campaign once the name is a tooltip — but the overflow
+   trigger goes: a 26px button beside a 36px icon box does not fit in 72px, and
+   its menu is anchored to a row that is about to be a strip. Reachable again
+   the moment the panel opens. */
+.nav.is-railed .nav-scope-more { display: none; }
+
+/* The label collapses in the rail: 10px tracked-open uppercase has nowhere to
+   go in 72px, and its height would leave a gap above six centred icons. The
+   row itself never collapses — it is a real row, so it keeps its icon on the
+   axis and its tooltip, and stays the way to reach the campaign's page from a
+   collapsed sidebar. */
+.nav.is-railed .nav-campaign-label {
+  height: 0;
+  margin: 0;
+  overflow: hidden;
+}
+
+/* The accented glyph survives the collapse — with the name reduced to a
+   tooltip it is the only thing left saying which of these icons is the
+   campaign. It needs no special geometry: it is an ordinary row icon in the
+   same 36px box, so the rail audit still reads a single centre. */
+.nav.is-railed .nav-campaign { margin-top: 14px; padding-bottom: 2px; }
+
+/* ── workspace trigger (top) ──
+   Above the search, because scope is the first question: which account is
+   this. The two identity controls now sit at opposite ends of the panel —
+   workspace here, account in the foot — rather than stacking in the foot and
+   competing for the same glance. */
+
+/* 12 below, up from 10. The trigger is one line now, so the block is shorter;
+   giving a couple of pixels back keeps the head from closing up. */
+.nav-ws-block { position: relative; flex: none; padding: 0 var(--nav-pad) 12px; }
+
+.nav-ws-trigger {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  padding: 5px 0;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--t);
+}
+
+.nav-ws-trigger:hover,
+.nav-ws-trigger.is-open { background: var(--nav-hover); }
+.nav-ws-trigger:focus-visible { outline: 2px solid var(--focus); outline-offset: -1px; }
+
+/* Squared, not a circle: it is an organisation, and the round avatar is the
+   person in the foot. Two identity chips in one panel need to be told apart at
+   a glance, and shape does that faster than position. */
+.nav-ws-chip {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  margin: 0 calc((var(--nav-icon-box) - 26px) / 2);
+  border-radius: 7px;
+  background: var(--nav-active);
+  color: #ad3b0c;
+  font: 600 12px/1 var(--ui);
+}
+
+/* Single line. .nav-ws-text and .nav-ws-hint are gone with the second line —
+   the switcher popover is where the hint now lives. */
+.nav-ws-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 500 12.5px/1.3 var(--ui);
+  letter-spacing: -0.011em;
+  color: var(--ink);
+}
+
+.nav-ws-caret { flex: none; margin-right: 8px; color: var(--ink-2); }
+
+/* ── foot: support, account, sign out ── */
+
 .nav-foot {
   display: flex;
-  /* Column, so the sign-out sits under the identity at full width rather than
-     competing with it for the same row. */
   flex-direction: column;
   align-items: stretch;
-  gap: 10px;
+  gap: 8px;
   flex: none;
-  padding: 12px 14px;
+  padding: 8px var(--nav-pad) 12px;
   border-top: 1px solid var(--nav-rule);
-  background: var(--nav-surface);
+  /* Part of the ground. As --nav-surface it was a white band laid across the
+     panel, which put a plane boundary where there is no boundary. */
+  background: var(--nav-panel);
 }
+
+.nav-support { margin-bottom: 2px; }
+
+/* Anchor for the workspace popup. */
+.nav-me-block { position: relative; }
 
 .nav-me-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  width: 100%;
   min-width: 0;
+  padding: 5px 0;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--t);
 }
 
+.nav-me-row:hover,
+.nav-me-row.is-open { background: var(--nav-hover); }
+.nav-me-row:focus-visible { outline: 2px solid var(--focus); outline-offset: -1px; }
+
+/* 26px inside the 36px box, so the avatar centres on the same axis as every
+   row icon above it. */
 .nav-avatar {
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: 26px;
+  height: 26px;
   flex: none;
+  margin: 0 calc((var(--nav-icon-box) - 26px) / 2);
   border-radius: 50%;
   background: #fbe3d2;
   color: #ad3b0c;
-  font: 600 13px/1 var(--ui);
+  font: 600 12px/1 var(--ui);
   /* aria-hidden in the markup: the initial is decoration, the name next to it
      is the real content. Announcing "D" before "Devansh Sharma" is noise. */
 }
 
-/* min-width: 0 is load-bearing — without it a long email refuses to shrink
-   below its intrinsic width and pushes the sign-out button out of the nav. */
+/* min-width: 0 is load-bearing — without it a long workspace name refuses to
+   shrink below its intrinsic width and pushes the caret out of the nav. */
 .nav-me {
   display: flex;
   flex-direction: column;
@@ -1599,82 +2948,163 @@ body {
 }
 
 .nav-me-name,
+.nav-me-org,
 .nav-me-mail {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  letter-spacing: -0.011em;
 }
 
-.nav-me-name { font: 500 13px/1.3 var(--ui); color: var(--ink); }
-.nav-me-mail { font: 400 11.5px/1.3 var(--ui); color: var(--ink-2); }
+.nav-me-name { font: 500 12.5px/1.3 var(--ui); color: var(--ink); }
 
-/* Full width of the foot's content box, with the label spelled out. A pill
-   would read as a primary action here; the squarer field radius matches the
-   nav rows it sits under. */
-.nav-out {
+/* The organisation, on the account row. This is the tenant — the boundary the
+   account belongs to — and the account row is where it belongs: the workspace
+   switcher above used to display it, which was a category error (see
+   workspaces.ts). Quieter than the name because it answers "which account",
+   not "who". */
+.nav-me-org { font: 400 11px/1.3 var(--ui); color: var(--ink-2); }
+
+/* Still used inside the account menu, where the email is the detail. */
+.nav-me-mail { font: 400 11px/1.3 var(--ui); color: var(--ink-2); }
+
+/* No caret on the account row. Removed by request, and it was the weaker of
+   the two anyway: the workspace trigger keeps its CaretUpDown because
+   switching is its whole purpose, while this row opens a short menu that the
+   hover state already advertises. */
+
+/* ── popovers ──
+   Two of them, at opposite ends of the panel, so they open in opposite
+   directions: the workspace menu hangs DOWN from the top trigger, the account
+   menu rises UP from the foot. Each is anchored to its own block, which is why
+   both are `position: absolute` against a `position: relative` parent rather
+   than fixed — they travel with the panel when the nav scrolls.
+
+   --e3 from DESIGN.md §4.1: genuinely floating and dismissable. The 1px border
+   stays underneath, because a shadow does not measure against 1.4.11. */
+
+.nav-me-pop {
+  position: absolute;
+  z-index: 45;
+  /* Wider than the rail would allow, but both popups only exist in the
+     expanded state — collapsing closes them, in Nav.tsx. */
+  min-width: 212px;
+  padding: 6px;
+  border: 1px solid var(--nav-edge-panel);
+  /* --r-card, the container tier. These were 12px, which is not one of the
+     three radii DESIGN.md §4 allows — a fourth value that arrived by feel.
+     The switcher standardised on the tier and these follow it, so "popover"
+     means one shape across the panel. */
+  border-radius: var(--r-card);
+  background: var(--nav-surface);
+  box-shadow: var(--e3);
+}
+
+/* Up from the account row. */
+.nav-me-pop {
+  bottom: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  animation: pop-up 140ms var(--ease-out);
+}
+
+/* Each slides from the edge it is anchored to, so the motion points back at
+   the control that opened it. */
+@keyframes pop-down {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pop-up {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-me-pop { animation: none; }
+}
+
+/* ── account menu ── */
+
+.nav-me-pop-id {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0;
+  padding: 7px 8px 6px;
+  min-width: 0;
+}
+
+.nav-me-pop-name { font: 600 12.5px/1.3 var(--ui); color: var(--ink); overflow-wrap: anywhere; }
+.nav-me-pop-mail { font: 400 11px/1.35 var(--ui); color: var(--ink-2); overflow-wrap: anywhere; }
+
+/* Where the organisation gets named. */
+.nav-me-pop-org {
+  margin: 0 8px 6px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--nav-rule);
+  font: 400 10.5px/1.45 var(--ui);
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+
+.nav-me-pop-org strong { color: var(--ink); font-weight: 600; }
+
+.nav-me-pop-out {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
+  gap: 9px;
   width: 100%;
-  min-height: 36px;
-  padding: 9px 12px;
-  border: 1px solid var(--nav-edge);
-  border-radius: var(--r-field);
-  background: var(--nav-surface);
+  min-height: 34px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
   color: var(--ink);
-  font: 500 13px/1 var(--ui);
+  font: 500 12.5px/1 var(--ui);
+  text-align: left;
   cursor: pointer;
-  transition: background var(--t), border-color var(--t), transform var(--t);
+  transition: background var(--t), color var(--t);
 }
 
-.nav-out:active:not(:disabled) { transform: scale(0.98); }
-.nav-out-label { white-space: nowrap; }
+.nav-me-pop-out > svg { flex: none; color: var(--ink-2); transition: color var(--t); }
 
-.nav-out:hover:not(:disabled) {
-  background: var(--nav-hover);
-  color: var(--ink);
-  border-color: var(--ink-2);
-}
-.nav-out:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-.nav-out:disabled { opacity: 0.5; cursor: not-allowed; }
+/* Sign-out reads as destructive-adjacent on hover, using the measured error
+   text value from DESIGN.md §2.4 (#AE5757, 4.88:1 on white) rather than the
+   fill value, which fails as text at 2.99:1. */
+.nav-me-pop-out:hover:not(:disabled) { background: #fdf0ef; color: #AE5757; }
+.nav-me-pop-out:hover:not(:disabled) > svg { color: #AE5757; }
+.nav-me-pop-out:focus-visible { outline: 2px solid var(--focus); outline-offset: -1px; }
+.nav-me-pop-out:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* ── rail (collapsed sidebar) ──
-   Labels keep their box in the accessibility tree and lose only their width, so
-   a screen reader still reads "Candidates" while the eye sees an icon. */
-.nav.is-railed .nav-label,
-.nav.is-railed .nav-word,
-.nav.is-railed .nav-sec-label,
-.nav.is-railed .nav-caret { display: none; }
 
-.nav.is-railed .nav-head { justify-content: center; padding: 0 8px; }
-.nav.is-railed .nav-brand { display: none; }
-.nav.is-railed .nav-sec { padding: 8px 6px; }
-.nav.is-railed .nav-row { justify-content: center; gap: 0; padding: 0; }
-/* Children have nowhere to go in a 68px rail: rendered, they stack under the
-   parent icon as unlabelled 11px text. Hidden here and unreachable by keyboard
-   too, which is why the group's aria-expanded reports false while railed —
-   see Nav.tsx. Clicking the group expands the sidebar instead. */
-.nav.is-railed .nav-sub { display: none; }
 
-/* Rail tooltip — the sighted counterpart to the label that stays in the
-   accessibility tree. Driven by data-label so there is no second copy of the
-   text to fall out of sync, and pointer-events stay off so it can never
-   swallow the click on the row underneath. */
-.nav.is-railed .nav-row { position: relative; }
 
-.nav.is-railed .nav-row::after {
+/* ── rail tooltips ──
+   The sighted counterpart to the label that stays in the accessibility tree.
+   Driven by data-label so there is no second copy of the text to fall out of
+   sync, and pointer-events stay off so it can never swallow the click on the
+   row underneath. */
+.nav.is-railed .nav-row,
+.nav.is-railed .nav-find,
+.nav.is-railed .nav-ws-trigger,
+.nav.is-railed .nav-me-row { position: relative; }
+
+.nav.is-railed .nav-row::after,
+.nav.is-railed .nav-find::after,
+.nav.is-railed .nav-ws-trigger::after,
+.nav.is-railed .nav-me-row::after {
   content: attr(data-label);
   position: absolute;
-  left: calc(100% + 8px);
+  left: calc(100% + 10px);
   top: 50%;
   transform: translateY(-50%);
   z-index: 40;
-  padding: 6px 10px;
+  padding: 5px 9px;
   border-radius: 7px;
   background: var(--ink);
   color: #fff;
-  font: 500 12.5px/1 var(--ui);
+  font: 500 12px/1 var(--ui);
   white-space: nowrap;
   opacity: 0;
   pointer-events: none;
@@ -1682,51 +3112,24 @@ body {
 }
 
 .nav.is-railed .nav-row:hover::after,
-.nav.is-railed .nav-row:focus-visible::after { opacity: 1; }
+.nav.is-railed .nav-row:focus-visible::after,
+.nav.is-railed .nav-find:hover::after,
+.nav.is-railed .nav-find:focus-visible::after,
+.nav.is-railed .nav-ws-trigger:hover::after,
+.nav.is-railed .nav-ws-trigger:focus-visible::after,
+.nav.is-railed .nav-me-row:hover::after,
+.nav.is-railed .nav-me-row:focus-visible::after { opacity: 1; }
 
-/* Rail profile: the avatar centres on its own row and the sign-out keeps full
-   width of the narrowed foot, collapsing to its icon. The name and email are
-   hidden rather than removed, so the account is still announced. Sign-out stays
-   reachable — collapsing the sidebar must not strip the only way out of the
-   session. */
-.nav.is-railed .nav-foot { padding: 12px 8px; }
-.nav.is-railed .nav-me-row { justify-content: center; }
-.nav.is-railed .nav-out { padding: 9px 0; }
-.nav.is-railed .nav-out-label { display: none; }
+/* A tooltip cannot escape the panel's own clip, so the panel stops clipping
+   once collapsed — by which point nothing is overflowing to hide, since every
+   label has already faded to zero. */
+.nav.is-railed { overflow: visible; }
+.nav.is-railed .nav-body { overflow: visible; }
 
-.nav.is-railed .nav-me {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
-/* The tooltip machinery is defined on .nav-row; the sign-out button is not one,
-   so it needs its own. Same data-label source. */
-.nav.is-railed .nav-out { position: relative; }
-
-.nav.is-railed .nav-out::after {
-  content: attr(data-label);
-  position: absolute;
-  left: calc(100% + 8px);
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 40;
-  padding: 6px 10px;
-  border-radius: 7px;
-  background: var(--ink);
-  color: #fff;
-  font: 500 12.5px/1 var(--ui);
-  white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 110ms var(--ease-out);
-}
-
-.nav.is-railed .nav-out:hover::after,
-.nav.is-railed .nav-out:focus-visible::after { opacity: 1; }
+/* Railed, the sub-lists are closed and unreachable (aria-hidden + tabIndex in
+   Nav.tsx). Collapsing the grid row rather than `display: none` keeps the
+   transition intact for when the panel reopens. */
+.nav.is-railed .nav-sub-wrap { grid-template-rows: 0fr; }
 
 /* ── drawer (below --nav-bp) ──
    Placed after the base and rail rules on purpose: a media query adds no
@@ -1745,7 +3148,10 @@ body {
     width: min(292px, 84vw);
     height: 100dvh;
     border-right: 1px solid var(--nav-rule);
-    box-shadow: 0 18px 50px rgba(58, 35, 23, 0.16);
+    /* --e3, not a bespoke 0.16. The ceiling in §4.1 exists so a warm shadow
+       never reads as grey smear, and a drawer sitting over its own scrim is
+       the one place the extra opacity bought nothing visible anyway. */
+    box-shadow: var(--e3);
     transform: translateX(-100%);
     transition: transform 220ms var(--ease-out);
     /* The drawer is off-screen, not display:none, so it can animate — but it
@@ -1755,43 +3161,71 @@ body {
 
   .nav.is-open { transform: translateX(0); visibility: visible; }
 
-  /* The rail is meaningless as an overlay: a 68px strip over the content is
-     neither the nav nor the page. So below the breakpoint `is-railed` is
-     neutralised entirely — every rail rule above gets undone here, because the
-     class stays on the element (it is remembered in localStorage) and only its
-     effects are suppressed. Miss one and the drawer opens full-width with,
-     say, a one-letter workspace chip. */
-  .nav.is-railed { width: min(292px, 84vw); }
-  .nav.is-railed .nav-label,
-  .nav.is-railed .nav-word,
-  .nav.is-railed .nav-sec-label,
-  .nav.is-railed .nav-caret { display: revert; }
-  .nav.is-railed .nav-brand { display: inline-flex; }
-  .nav.is-railed .nav-head { justify-content: space-between; padding: 0 14px 0 18px; }
-  .nav.is-railed .nav-row { justify-content: flex-start; gap: 11px; padding: 0 9px; }
-  .nav.is-railed .nav-sec { padding: 8px 10px; }
-  .nav.is-railed .nav-sub {
-    display: block;
-    margin: 2px 0 2px 26px;
-    padding: 0 0 0 10px;
-    border-left: 1px solid var(--nav-rule);
-  }
-  .nav.is-railed .nav-sub-row { text-align: left; padding: 8px 10px; font-size: 14px; }
-  /* No tooltip when the label is right there. */
-  .nav.is-railed .nav-row::after { content: none; }
-  .nav.is-railed .nav-out::after { content: none; }
-  .nav.is-railed .nav-foot { padding: 12px 14px; }
-  .nav.is-railed .nav-me-row { justify-content: flex-start; }
-  .nav.is-railed .nav-out { padding: 9px 12px; }
-  .nav.is-railed .nav-out-label { display: inline; }
-  .nav.is-railed .nav-me {
+  /* The rail is meaningless as an overlay: a 72px strip over the content is
+     neither the nav nor the page.
+
+     Console now owns this — it passes `railed && !isNarrow`, so below the
+     breakpoint the class is not applied at all and none of the rules below
+     match. They stay for one reason: `is-railed` is remembered in
+     localStorage, and on a desktop-to-mobile resize the media query flips on
+     the frame the browser reflows while React is still a tick behind. Without
+     these the drawer renders as a 72px sliver for that frame.
+
+     So: a resize guard, not the mechanism. If Console's calculation is ever
+     removed these become load-bearing again, which is why they are exhaustive
+     rather than trimmed to what today needs. */
+  .nav.is-railed { width: min(292px, 84vw); overflow: hidden; }
+
+  /* The single rule that brings every label, the bell, the campaign heading
+     and the workspace caret back. */
+  .nav.is-railed .nav-fade { opacity: 1; pointer-events: auto; }
+
+  .nav.is-railed .nav-mark { display: block; }
+  .nav.is-railed .nav-nudge { margin-left: 0; }
+  /* Back into the flex line, undoing the rail's out-of-flow clip. */
+  .nav.is-railed .nav-brand {
     position: static;
     width: auto;
     height: auto;
-    overflow: hidden;
+    overflow: visible;
     clip-path: none;
   }
-  .nav-rail-btn { display: none; }
+  .nav.is-railed .nav-bell { opacity: 1; pointer-events: auto; }
+  .nav.is-railed .nav-find {
+    border-color: var(--nav-notch);
+    background: var(--nav-surface);
+    box-shadow: var(--e1);
+  }
+
+  .nav.is-railed .nav-campaign-label { height: auto; margin: 0 0 7px; }
+  .nav.is-railed .nav-campaign { margin-top: 22px; padding-bottom: 6px; }
+  /* The spine, indent and breathing room all come back with the labels — the
+     rail zeroes them so six icons stay on the shared axis, and the drawer is
+     not the rail. Values duplicated from the base rule rather than factored
+     out: `.nav.is-railed` needs beating on specificity, and a shared custom
+     property for four numbers used in two places is the more confusing half of
+     that trade. */
+  .nav.is-railed .nav-campaign-list {
+    margin-left: calc(var(--nav-icon-box) / 2);
+    padding-left: 11px;
+    border-left: 1px solid var(--nav-rule);
+    padding-top: 4px;
+    padding-bottom: 2px;
+  }
+
+  /* Groups obey their own open state again rather than being forced shut. */
+  .nav.is-railed .nav-sub-wrap.is-open { grid-template-rows: 1fr; }
+
+  /* No tooltip when the label is right there. */
+  .nav.is-railed .nav-row::after,
+  .nav.is-railed .nav-find::after,
+  .nav.is-railed .nav-ws-trigger::after,
+  .nav.is-railed .nav-me-row::after { content: none; }
+
+  /* The nudge is desktop-only: on mobile the drawer is opened by the header
+     button and dismissed by the scrim, and a collapse control inside an
+     overlay collapses to nothing useful. */
+  .nav-nudge { display: none; }
 
   .nav-scrim {
     display: block;
@@ -1886,7 +3320,7 @@ body {
 }
 
 /* ── console headings ──
-   IBM Plex Sans, not the serif, and not the pixel face either.
+   the UI face, not the serif, and not the pixel face either.
 
    The console is a task surface, and the reference rules are unambiguous about
    what belongs on one: "One family is often right. Product UIs don't need
@@ -1956,8 +3390,12 @@ body {
   margin: 0;
   max-width: 60ch;
   padding: 14px 16px;
-  border-left: 2px solid var(--accent);
-  border-radius: 0 12px 12px 0;
+  /* A hairline all round instead of a 2px accent stripe down one side —
+     colored left edges above 1px on a callout are a listed anti-pattern, and
+     the asymmetric radius they force ("0 12px 12px 0") is the tell that the
+     stripe was driving the shape rather than the content. */
+  border: 1px solid var(--rule);
+  border-radius: 12px;
   background: var(--nav-surface);
   font: 400 13.5px/1.6 var(--ui);
   color: var(--ink-2);
@@ -2839,13 +4277,29 @@ body {
    exact trap that left the reveal button at 34px and the form card
    top-aligned. 44px is the Apple HIG and Material minimum. */
 @media (pointer: coarse) {
-  /* Height only: the button is full-width now, so setting `width` here would
-     shrink it back to a 44px square. */
-  .nav-out { min-height: 44px; }
+  /* Height only on the full-width controls: setting `width` would shrink them
+     back to a 44px square. */
+  .nav-ws-trigger { min-height: 44px; }
+  .nav-me-pop-out { min-height: 44px; }
+  /* The scope row's menu button is 22px so the campaign name beside it keeps
+     its width. Growing the box on touch would push that name back out, so the
+     HIT AREA grows instead: inset -11px on a 22px box is 44x44, and an
+     absolutely positioned pseudo-element costs no layout. The visual stays
+     small, the target does not. */
+  .nav-scope-more { position: relative; }
+  .nav-scope-more::after {
+    content: "";
+    position: absolute;
+    inset: -11px;
+  }
   .con-menu { width: 44px; height: 44px; }
   .nav-row { min-height: 44px; }
   .nav-sub-row { padding-block: 12px; }
-  .nav-rail-btn { width: 40px; height: 40px; }
+  /* The nudge is hidden on mobile (drawer block), so it needs no touch size.
+     These four are new and all start below 44px. */
+  .nav-bell { width: 40px; height: 40px; }
+  .nav-find { height: 40px; }
+  .nav-me-row { min-height: 44px; }
   /* Extension page. The segmented controls are the only small hit areas the
      dashboard adds. The install CTA that also sat here is gone with the store
      link; the step list it became has no hit area to enlarge. */
@@ -2853,4 +4307,172 @@ body {
   .ex-name-link { padding-block: 4px; }
   .pager-btn { width: 44px; height: 44px; }
   .dl-media { min-height: 44px; padding-inline: 10px; }
+}
+
+/* ═══════════════════════════ command palette ═══════════════════════════
+
+   Appended after the coarse-pointer block deliberately. That block is a media
+   query with no extra specificity, so anything declared BELOW it wins on
+   source order — which is what we want for the palette, whose rows are already
+   44px and must not be re-sized by a rule aimed at the sidebar. The comment
+   above that block explains the trap; this is the one case that wants to sit
+   on the far side of it. */
+
+.pal-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  /* Same scrim as the mobile drawer: one dismissal vocabulary for everything
+     that floats over the app. */
+  background: rgba(40, 24, 16, 0.34);
+  animation: pal-scrim-in 120ms var(--ease-out);
+}
+
+@keyframes pal-scrim-in { from { opacity: 0; } to { opacity: 1; } }
+
+.pal {
+  position: fixed;
+  z-index: 71;
+  /* Anchored a little above centre. A dialog pinned to the exact middle sits
+     lower than it looks, because the eye reads the gap under it as larger. */
+  top: 14vh;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(560px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  max-height: min(66vh, 520px);
+  border: 1px solid var(--nav-edge-panel);
+  border-radius: 16px;
+  background: var(--nav-surface);
+  /* --e3, the only step that floats. */
+  box-shadow: var(--e3);
+  overflow: hidden;
+  animation: pal-in 150ms var(--ease-out);
+}
+
+@keyframes pal-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(-6px) scale(0.99); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pal-scrim, .pal { animation: none; }
+}
+
+.pal-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  padding: 0 14px;
+  height: 52px;
+  border-bottom: 1px solid var(--nav-rule);
+}
+
+.pal-head-ico { flex: none; color: var(--ink-2); }
+
+.pal-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  font: 400 15px/1 var(--ui);
+}
+
+.pal-input::placeholder { color: var(--ink-2); }
+/* No focus ring: the palette IS the focus, and a ring inside a modal that
+   contains exactly one input is noise. */
+.pal-input:focus { outline: none; }
+
+.pal-kbd {
+  flex: none;
+  padding: 3px 6px;
+  border: 1px solid var(--nav-rule);
+  border-radius: 5px;
+  /* Recess inside the white palette surface. */
+  background: var(--nav-panel);
+  color: var(--ink-2);
+  font: 500 10.5px/1.3 var(--ui);
+}
+
+.pal-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden auto;
+  overscroll-behavior: contain;
+}
+
+.pal-opt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  padding: 0 10px;
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+/* One highlight, driven by state rather than :hover. With a CSS hover as well,
+   the pointer and the arrow keys would each light a different row and Enter
+   would be a coin toss about which one it takes. */
+.pal-opt.is-on { background: var(--nav-active); }
+
+.pal-opt-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
+  font: 400 13.5px/1.3 var(--ui);
+}
+
+.pal-opt.is-on .pal-opt-label { font-weight: 500; }
+
+/* The group travels with the row rather than sitting above it as a heading:
+   "Agent" is two destinations in this product, and a heading scrolls away
+   while the disambiguation still needs to be there. */
+.pal-opt-group {
+  flex: none;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink-2);
+  font: 400 11px/1.3 var(--ui);
+}
+
+.pal-empty {
+  margin: 0;
+  padding: 22px 16px 24px;
+  color: var(--ink-2);
+  font: 400 13px/1.55 var(--ui);
+  text-align: center;
+}
+
+.pal-empty strong { color: var(--ink); font-weight: 600; }
+
+.pal-foot {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: none;
+  padding: 8px 14px;
+  border-top: 1px solid var(--nav-rule);
+  background: #fdfcfb;
+  color: var(--ink-2);
+  font: 400 11px/1.4 var(--ui);
+}
+
+.pal-foot span { display: inline-flex; align-items: center; gap: 5px; }
+
+@media (max-width: 560px) {
+  /* Nearer the top on a phone: 14vh of a short viewport with a keyboard open
+     leaves the list with nowhere to be. */
+  .pal { top: 8vh; max-height: min(74vh, 520px); }
 }

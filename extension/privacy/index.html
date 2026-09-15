@@ -44,19 +44,19 @@
 
   <main class="legal">
     <h1>Privacy Policy<br>Superhyre Contact Finder</h1>
-    <p class="eff"><strong>Chrome extension</strong> &middot; Effective date: 4 September 2026</p>
+    <p class="eff"><strong>Chrome extension</strong> &middot; Effective date: 14 September 2026</p>
 
     <p>This policy explains how the <strong>Superhyre Contact Finder</strong> browser extension (&ldquo;the Extension&rdquo;) handles data. It is an internal business tool for authorized users of <strong>superhyre</strong>. It requires signing in with a <strong>work Google account</strong>; personal-email accounts are refused at signup.</p>
 
     <h2>What the Extension accesses</h2>
-    <p>The Extension runs only on <code>https://www.linkedin.com/*</code>. It reads nothing until you act.</p>
+    <p>The Extension runs only on <code>https://www.linkedin.com/*</code>. With the sidebar closed it reads nothing on a profile page and sends nothing anywhere.</p>
     <p>When you open the sidebar on a profile page (<code>https://www.linkedin.com/in/…</code>) it reads:</p>
     <ul>
       <li>the <strong>canonical profile URL</strong> (the <code>/in/&lt;slug&gt;</code> identifier, with tracking parameters stripped);</li>
       <li>the <strong>name</strong> in the profile&rsquo;s heading.</li>
     </ul>
-    <p>If you click <strong>&ldquo;Scrape full profile + phone&rdquo;</strong> it additionally reads, from that page only: the headline, current title and company, location, profile image URL, and up to ten entries from the experience list.</p>
-    <p>On a LinkedIn <strong>people-search results</strong> page it reads the profile URLs of the visible results, in order to mark the people already in your pipeline with a dot.</p>
+    <p>When you press <strong>Reveal</strong>, <strong>Save</strong>, <strong>Call queue</strong> or <strong>&ldquo;Scrape profile and reveal&rdquo;</strong> it additionally reads, from that page only: the headline, current title and company, location, profile image URL, and up to ten entries from the experience list. All four actions read the same fields &mdash; a reveal is followed by an automatic save, and the save carries the profile.</p>
+    <p>On a LinkedIn <strong>people-search results</strong> page it reads the canonical profile URLs of the visible results &mdash; up to fifty per page &mdash; in order to mark the people already in your pipeline with a dot. This one is automatic while you are signed in: it does not wait for the sidebar to be open, because the dots are drawn on the results list itself.</p>
     <p>That is the entire read surface. The Extension does <strong>not</strong> read your LinkedIn feed, connections, messages, or any other page or site, and it does not run on any other domain.</p>
 
     <h2>What the Extension stores on your device</h2>
@@ -71,10 +71,11 @@
     <p><strong>1. Google</strong> (<code>accounts.google.com</code>) &mdash; when you sign in. The Extension requests only the <code>openid</code>, <code>email</code> and <code>profile</code> scopes and receives your email address and name. It requests no access to Gmail, Drive, Calendar, Sheets, or any other Google service.</p>
     <p><strong>2. superhyre&rsquo;s Supabase project</strong> (<code>npqajviolhoufuggfobg.supabase.co</code>) &mdash; the only server the Extension talks to. It receives, as you use it:</p>
     <ul>
-      <li>the profile URL you are viewing, on every sidebar open (a free cache lookup);</li>
-      <li>the scraped profile fields listed above, when you reveal or save;</li>
-      <li>the candidate&rsquo;s stage and any notes you enter, when you shortlist or queue;</li>
-      <li>a log entry for each phone-reveal attempt: your user id, the profile URL, which provider answered, the outcome, and a timestamp. This log enforces a daily per-user limit and records spend.</li>
+      <li>the profile URL you are viewing, each time the sidebar shows a profile &mdash; including every further profile you open while it stays open (a free cache lookup, which spends nothing);</li>
+      <li>up to fifty result profile URLs per people-search page, to find out which of them are already in your pipeline;</li>
+      <li>the scraped profile fields listed above, whenever you reveal, save, or add to the call queue;</li>
+      <li>a <strong>candidate record in your organization&rsquo;s pipeline</strong>, stamped as sourced from the Extension. This is created by <strong>Save</strong> and by <strong>Call queue</strong>, and also automatically after a successful reveal &mdash; looking someone up is treated as the intent to work them, so the row is not withheld until you press Save a second time;</li>
+      <li>a log entry for each phone-reveal attempt: your user id, your organization, the profile URL, which provider answered, the outcome, and a timestamp. Cached hits are logged too. This log enforces a daily per-user limit and records spend. It does not store the phone number itself.</li>
     </ul>
     <p><strong>3. Contact-data providers &mdash; reached by superhyre&rsquo;s server, never by your browser.</strong> When you click a reveal button, superhyre&rsquo;s server-side function sends the LinkedIn profile URL &mdash; and nothing else &mdash; to <a href="https://prospeo.io/privacy" target="_blank" rel="noopener">Prospeo</a> and, if it has no match, <a href="https://contactout.com/privacy" target="_blank" rel="noopener">ContactOut</a>. These are independent third-party data providers; their handling of that request is governed by their own privacy policies, not this one.</p>
     <p>The Extension sends data to <strong>no other destination</strong>. Its manifest grants host access to exactly one domain, so it is technically incapable of contacting a provider, an analytics service, or anything else directly.</p>
@@ -95,6 +96,16 @@
     <p>Depending on your and the data subject&rsquo;s location, applicable law (e.g. GDPR, CCPA/CPRA, India&rsquo;s DPDP Act) may grant data subjects rights to access, correct, or delete this data. Requests can be directed to <a href="mailto:team@superhyre.com">team@superhyre.com</a>; a specific person&rsquo;s record can be deleted on request, including from the shared person graph.</p>
     <p>You are responsible for using the Extension in compliance with applicable law, LinkedIn&rsquo;s terms, the providers&rsquo; terms, and your organization&rsquo;s policies.</p>
 
+    <h2>Limited use</h2>
+    <p>We use the data described above only to provide the Extension&rsquo;s single function &mdash; finding and saving recruiting contacts from LinkedIn into your Superhyre pipeline &mdash; and to operate, secure and bill for it.</p>
+    <ul>
+      <li>We do <strong>not</strong> sell or transfer this data to third parties, other than to the contact-data providers named above, which are used solely to answer the lookup you asked for.</li>
+      <li>We do <strong>not</strong> use or transfer it for any purpose unrelated to that function &mdash; no advertising, no profiling, no resale of browsing behaviour.</li>
+      <li>We do <strong>not</strong> use or transfer it to determine creditworthiness or for lending purposes.</li>
+      <li>The Extension contains no analytics, advertising or tracking code of any kind.</li>
+    </ul>
+    <p>These are the three disclosures the Chrome Web Store requires an item to certify, stated here so the certification is backed by a published commitment.</p>
+
     <h2>Permissions and why they are needed</h2>
     <ul>
       <li><strong>storage</strong> &mdash; to keep your session and sidebar preferences on your device.</li>
@@ -102,10 +113,10 @@
       <li><strong>host access to <code>npqajviolhoufuggfobg.supabase.co</code></strong> &mdash; the single server it talks to.</li>
       <li><strong>content script on <code>linkedin.com</code></strong> &mdash; to show the sidebar and read the fields described above.</li>
     </ul>
-    <p>The Extension requests no <code>tabs</code>, <code>history</code>, <code>cookies</code>, <code>webRequest</code>, or all-sites host permission.</p>
+    <p>The Extension requests no <code>tabs</code>, <code>history</code>, <code>cookies</code>, <code>webRequest</code>, or all-sites host permission, and executes no remotely hosted code: every line it runs ships inside the package.</p>
 
     <h2>Data retention</h2>
-    <p>Your session stays on your device until you sign out or uninstall; signing out deletes it. Contact and candidate data is retained in superhyre&rsquo;s systems until deleted on request or as part of its normal data lifecycle. Reveal log entries are retained for billing, abuse-prevention and audit purposes.</p>
+    <p>Your session stays on your device until you sign out or uninstall; signing out deletes it. Contact and candidate data is retained in superhyre&rsquo;s systems until deleted on request or as part of its normal data lifecycle. Reveal log entries are retained for billing, abuse-prevention and audit purposes, and are deleted with the user account they belong to.</p>
 
     <h2>Children</h2>
     <p>The Extension is a business tool and is not directed to anyone under 16.</p>
