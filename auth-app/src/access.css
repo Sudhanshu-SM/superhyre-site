@@ -4909,18 +4909,95 @@ body {
   box-shadow: var(--e2), 0 0 0 3px rgba(234, 90, 30, 0.08);
 }
 
-.orc-input {
+/* ── THE MIRROR AND THE FIELD SHARE ONE TYPE BLOCK ──
+   Every metric that affects where a glyph lands has to be identical in both,
+   or the underlines sit next to the words instead of under them. They are
+   declared together for exactly that reason: a change to one that misses the
+   other is the whole failure mode of this technique.
+
+   `white-space: pre-wrap` and `overflow-wrap: break-word` matter as much as
+   the font — a textarea wraps on its own rules, and a div only matches them
+   with these two. */
+.orc-input,
+.orc-mirror {
   display: block;
   width: 100%;
   border: none;
-  background: transparent;
-  resize: none;
-  color: var(--ink);
+  padding: 0;
+  margin: 0;
   font: 400 14.5px/1.5 var(--ui);
   letter-spacing: -0.008em;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: normal;
+  tab-size: 4;
 }
 
-.orc-input::placeholder { color: var(--ink-2); }
+.orc-input {
+  /* Above the mirror, and transparent so the mirror is what you read. The
+     CARET keeps its colour, which is the only part of the real field that
+     still has to be visible. */
+  position: relative;
+  z-index: 1;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--ink);
+  resize: none;
+  /* -webkit-text-fill-color wins over `color` in WebKit for form controls, so
+     transparency needs both or Safari paints the text twice. */
+  -webkit-text-fill-color: transparent;
+}
+
+/* ── THE MIRROR ──
+   Absolutely positioned under the field, same box, not interactive. It holds
+   the text the user typed with the recognised spans marked; the field above
+   holds the same text invisibly and owns editing, selection and the caret. */
+/* The wrapper is the positioning context and its box is the text's box, so
+   the mirror's `inset: 0` is exact. `display: grid` rather than block so the
+   textarea cannot pick up a baseline offset the mirror does not have. */
+.orc-field-text {
+  position: relative;
+  display: grid;
+}
+
+.orc-mirror {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  color: var(--ink);
+}
+
+/* A recognised span. Underline rather than a wash: a wash behind live text
+   makes it harder to read and cannot sit under two adjacent facets without
+   the boundary becoming ambiguous, whereas two underlines simply abut.
+
+   `--f` is the facet's mark colour, set inline from FACET_HUE. 2px so it
+   reads as deliberate at 14.5px, and `text-underline-offset` keeps it clear
+   of the descenders it would otherwise cut through. */
+.orc-mark-span {
+  text-decoration: underline;
+  text-decoration-color: var(--f);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+  text-decoration-skip-ink: none;
+}
+
+@media (prefers-contrast: more) {
+  /* The underline is the only carrier in the field itself, so thicken it
+     rather than relying on hue when the user has asked for more contrast. */
+  .orc-mark-span { text-decoration-thickness: 3px; }
+}
+
+/* The fill colour has to be restated here. `-webkit-text-fill-color:
+   transparent` on the field — which is what hides the real text behind the
+   mirror — is INHERITED by ::placeholder, so the placeholder disappeared
+   entirely and the field rendered blank. Caught by measuring the pseudo
+   element's computed style; the screenshot just looked like an empty box. */
+.orc-input::placeholder {
+  color: var(--ink-2);
+  -webkit-text-fill-color: var(--ink-2);
+}
 .orc-input:focus { outline: none; }
 
 .orc-composer-row {
@@ -5027,6 +5104,38 @@ body {
   color: var(--ink-2);
   cursor: not-allowed;
 }
+
+/* ── THE FACET SUMMARY ──
+   The same reading as the underlines, in words. Chips rather than prose
+   because each one is a distinct claim the user may want to correct, and a
+   sentence would bury the boundaries between them. */
+.orc-facets {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 0;
+}
+
+.orc-facets-k {
+  font: 500 10px/1 var(--ui);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.orc-facet {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 2.5px 8px;
+  border: 1px solid;
+  border-radius: var(--r-pill);
+  font: 400 11px/1.4 var(--ui);
+  letter-spacing: -0.006em;
+}
+
+.orc-facet b { font-weight: 600; }
 
 .orc-composer-note {
   max-width: var(--orc-measure);

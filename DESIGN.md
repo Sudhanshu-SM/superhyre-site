@@ -1,6 +1,6 @@
 # SuperHyre — design system
 
-**Status:** working draft · **Revision:** 33 · **Last changed:** 2026-09-16
+**Status:** working draft · **Revision:** 34 · **Last changed:** 2026-09-16
 
 > **This file is a proposal layer, not the implementation.** The CSS custom
 > properties in `auth-app/src/access.css` and `style.css` are what actually
@@ -1456,6 +1456,89 @@ gap invalidates the whole declaration rather than inheriting it.
 Reduced motion holds a static incomplete arc — still visibly working, with
 nothing in motion.
 
+### 5.12 The composer reads the brief — *Adopted at revision 34*
+
+The creative centre of this surface, and it comes out of one research finding:
+
+> *"Conversational AI is a very slow way of helping users express their intent.
+> Usability tests show 30–60s per input, with users lost in editing, reviewing,
+> typing and re-typing."*
+> — Smart Interface Design Patterns
+
+The cost is not typing speed. It is that **you cannot tell what was
+understood**, so you re-read your own sentence and rewrite it defensively.
+
+Every product answers this one of two ways: prose (fast to write, impossible
+to verify) or a form (verifiable, miserable to write). Neither is necessary,
+because **a sourcing brief is a structured query wearing prose clothing** —
+*"Staff engineers who have scaled Postgres past 10TB, remote Bangalore"*
+carries a seniority, a skill, a threshold and a location.
+
+So: you type prose, and the spans the product **recognises** are underlined
+beneath the words in their facet's colour. Six facets, each mapped to one of
+the measured seven hues:
+
+| Facet | Hue | Example |
+|---|---|---|
+| Seniority | violet | Staff engineers |
+| Skill | blue | Postgres, Go |
+| Scale | amber | 10TB, 40 engineers |
+| Location | teal | remote Bangalore |
+| Company | brand | Series B |
+| Tenure | sage | 8 years |
+
+Below the field the same reading appears as chips — because the underlines are
+for a pointer and an eye, and the reading has to reach a screen reader and
+anyone who cannot rely on colour. Hue is never the only carrier.
+
+#### Why this is honest where the deleted highlight was not
+
+Revision 32 deleted a wash over the prompt's "leading clause", taken by a
+string split. It dressed a `split` up as comprehension and, on a short prompt,
+washed the entire message.
+
+This is the inverse. It matches against a **fixed, auditable vocabulary** of
+real recruiting terms and highlights *nothing else*. The claim it makes —
+"these words are in my vocabulary" — is exactly the claim it can support. No
+model is consulted and nothing is inferred. **Unrecognised text staying plain
+is the useful half of the signal**, because it is the half that tells a
+recruiter to be more specific.
+
+When a real parser exists it replaces `read()` and the UI does not change, because the UI already only trusts the spans it is handed.
+
+#### The mirror technique, and its four traps
+
+The underlines live on a `div` mirroring the text, positioned behind a
+textarea whose own text is transparent. Every metric that affects where a
+glyph lands must be identical in both, so they share one declaration block —
+a change to one that misses the other is the entire failure mode.
+
+1. **`white-space: pre-wrap` + `overflow-wrap: break-word`** matter as much as
+   the font. A textarea wraps on its own rules and a div only matches them
+   with both.
+2. **`inset: 0` resolves against the PADDING box**, so anchoring the mirror to
+   the card put it 16px up and left — visible as text clipped by the border.
+   A wrapper whose box *is* the content box fixes it without repeating the
+   padding value anywhere.
+3. **`-webkit-text-fill-color` beats `color`** on form controls in WebKit, so
+   hiding the real text needs both — and it is **inherited by
+   `::placeholder`**, which made the placeholder vanish and the field render
+   blank. Found by reading the pseudo-element's computed style; the screenshot
+   just looked like an empty box.
+4. **The mirror does not scroll itself.** It sits behind a field that does, so
+   its `scrollTop` is synced or the underlines drift off the words.
+
+#### Two bugs the tests found, not the eye
+
+- `"Staff engineers"` matched only `"staff"`, because the vocabulary is stored
+  singular for a human to read. One optional trailing `s`, boundary-checked,
+  so it extends a term rather than guessing at morphology — `"engineering"` is
+  still not `"engineer"`.
+- `"5 years"` highlighted as `"years"` and dropped the number: the bare word
+  claimed the ground before the richer pattern could. **Patterns now run
+  first**, because ground is claimed once and the more specific reader has to
+  go first.
+
 ## 6. Verifying a colour change
 
 Every ratio in this file was computed, not estimated. To re-check after an edit:
@@ -1550,3 +1633,4 @@ which is the wrong home for a system-wide constant. Move it to a shared module
 | 31 | 2026-09-16 | Composition and spacing pass, on the note "don't fill spaces by increasing the size — we need subtle and just the right amount of spaces" and "components feel too big". §4.5: measured the reference's proportions (content 53.6%, gutter 9.6%, rail 26.4%, right margin 4.8%) and found the rail at 312px with NO right margin and the content stretching to 1108px. The composition is now capped at 1290px and centred, so a wider window buys page margin rather than bigger components — content is a stable 830px with the sidebar expanded or railed, the composer went 1108 → 830, tiles 453 → 409, the rail 312 → 340, and the page gained a 34px right margin plus a 56px gutter. §4.6: vertical rhythm reduced to ONE owner (`.orc-stream` gap 22px, no per-block margins) after measuring 20/30/10/0/10; now 22 across every boundary. Padding unified to 16px on wide cards and 14px in the rail, from four different values. Two process bugs recorded: a `.tk { margin-top: 10px }` whose comment justified duplicating a gap, and a string substitution that silently matched nothing so the source read as fixed while the page measured broken — every stylesheet edit is asserted to match exactly once now. Tile content is being trimmed to a measured 108px content box rather than the rows being grown, because the components were the thing judged too big. |
 | 32 | 2026-09-16 | Reply kinds, the working indicator, and the bento default. §5.10: added prose, question and a reasoning trace beside the artefact, behind one `Reply({ reply, onAnswer })` dispatching on `kind` — prose deliberately looks like nothing, because if it looks designed the artefact's card stops meaning "special". The trace is collapsed and absent from the DOM when closed, shows each step's `found` items (the half a recruiter could not guess), and puts its honesty line FIRST — a documented departure from honesty-last, since trace steps assert about the past and a correction after four believed assertions is too late. Question options seed the composer and never act; verified the turn count stays unchanged. §5.11: the mark stopped spinning. A tumbling logo reads as a throbber rather than a presence, so `@keyframes orc-turn` was deleted and the motion moved to an orbiting arc whose dash length breathes (10%→42% of the circumference) on two different periods. DELETED the prompt's intent wash: it took a "leading clause" by string split, and on "Find me good candidates" — four words, no comma — both bounds missed and it washed the ENTIRE message as one orange serif pill. That was the common case, not an edge case, and the comment defending it was wrong. DELETED the WORST DROP panel: it reported the largest ADJACENT funnel loss, which is always Sourced → Shortlisted by construction, so it could only ever print the same finding while framing intended behaviour as a failure; not replaced, because an honest version needs a baseline no fixture carries. Bento default cut to FOUR tiles, two wide and two narrow alternating over a THREE-column grid (only 3 tracks let `m`+`s` fill a row exactly). `pipeline` left the default on a measurement — it needs 222px and overflowed a 140px row by 51px when I ignored that; it stays in the gallery at `l`. Greeting bar moved to the top of the page where it survives into the conversation state, the campaign gained a name-derived mark beside its title, and the page-level fixtures line was removed — the load-bearing honesty marker stays at the point of action. |
 | 33 | 2026-09-16 | Bumped the tile-layout storage key v1 → v2, which should have shipped with revision 32. The bento went from a four-column grid to three and the default from five tiles to four, so a saved layout was structurally VALID (`kind`, `size` and `hue` all still validate) and semantically stale: a `size: "l"` that meant half the width now means two-thirds, and a five-tile arrangement that tiled cleanly at four columns leaves a hole at three. The result was people looking at a layout the current grid could not produce — tiles stacked in one column with one floating outside the content measure. This is precisely the case the versioned key exists for, and the lesson is that versioning only helps if the bump actually happens when the shape changes. The arrangement is now verified off real geometry rather than from the spec: row 1 long+short, row 2 short+long, four tiles on a 3 × 312px grid, bento 294px tall. |
+| 34 | 2026-09-16 | The composer reads the brief. §5.12. Research finding: conversational input measures 30-60s per message and the cost is not typing but that you cannot tell what was understood, so people re-read and rewrite defensively. A sourcing brief is a structured query wearing prose clothing, so the composer now underlines the spans it RECOGNISES beneath the words in their facet's colour — seniority, skill, scale, location, company, tenure — with the same reading repeated as chips below the field for anyone who cannot rely on colour. Matching is a fixed auditable vocabulary, never a model, so the only claim made is "these words are in my vocabulary"; unrecognised text staying plain is the useful half of the signal. This is the honest version of the intent wash deleted at revision 32, which highlighted a string split. Implemented as a mirror div behind a transparent-texted textarea, with four traps documented at the rules: pre-wrap plus overflow-wrap are as load-bearing as the font, `inset: 0` resolves against the padding box (16px misalignment, fixed with a content-box wrapper rather than a duplicated padding value), `-webkit-text-fill-color` is inherited by ::placeholder and made it invisible, and the mirror's scrollTop must track the field's. Two bugs caught by tests rather than by looking: "Staff engineers" under-claimed as "staff" until plurals were tolerated, and "5 years" collapsed to "years" until patterns were ordered before the word list. 12 new tests; 83 total. |

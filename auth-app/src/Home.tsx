@@ -7,6 +7,7 @@ import {
   BRIEFS, MODES, SOURCING_CONTEXT, STAGES, SUGGESTIONS,
 } from "./orchestrator";
 import type { ModeId } from "./orchestrator";
+import { FACET_HUE, FACET_LABEL, read, segment } from "./brief";
 import { REPLIES } from "./replies";
 import { Prompt, Reply } from "./Reply";
 import { Rail } from "./Rail";
@@ -465,6 +466,21 @@ function Composer({
      as a handoff rather than as a copy. */
   sending: boolean;
 }) {
+  const mirrorRef = useRef<HTMLDivElement>(null);
+
+  /* The mirror does not scroll itself — it sits behind a textarea that does,
+     so it has to be moved by the same amount or the underlines drift off the
+     words as soon as the field scrolls. */
+  useEffect(() => {
+    const area = areaRef.current;
+    const mirror = mirrorRef.current;
+    if (!area || !mirror) return;
+    const sync = () => { mirror.scrollTop = area.scrollTop; };
+    area.addEventListener("scroll", sync);
+    sync();
+    return () => area.removeEventListener("scroll", sync);
+  }, [areaRef]);
+
   /* Grows upward with its content, capped so a long brief scrolls instead of
      pushing the transcript off screen. Height is set from scrollHeight rather
      than animated — animating a layout-driving property is what animate.md
@@ -478,6 +494,19 @@ function Composer({
 
   const ready = draft.trim().length > 0;
 
+  /* Grouped by facet, so one chip reads "Skill Postgres, Go" rather than two
+     chips both saying Skill. A Map preserves insertion order, which keeps the
+     chips in the order the facets appear in the sentence. */
+  const facets = (() => {
+    const by = new Map<ReturnType<typeof read>[number]["facet"], string[]>();
+    for (const m of read(draft)) {
+      const list = by.get(m.facet);
+      if (list) list.push(m.text);
+      else by.set(m.facet, [m.text]);
+    }
+    return [...by.entries()];
+  })();
+
   return (
     <div className="orc-composer">
       <div className="orc-composer-field">
@@ -487,6 +516,55 @@ function Composer({
             before this line did, which is a reminder that a selector matching
             nothing fails silently. */}
         <BorderGlow />
+        {/* ── THE BRIEF SHOWS ITS OWN STRUCTURE ──
+            A mirror of the textarea's text, sitting directly behind it, with
+            the spans `brief.read` RECOGNISED underlined in their facet's
+            colour. The textarea above is transparent-texted, so what you read
+            is this layer and what you edit is the real field.
+
+            Why: the research on conversational input measures 30-60s per
+            message, most of it spent re-reading and re-typing because you
+            cannot tell what was understood. Underlining only the recognised
+            spans answers that without a form — you write prose, and the parts
+            that landed light up beneath the words.
+
+            Why it is honest where the deleted "intent wash" was not: that one
+            highlighted a string split and, on a short prompt, washed the whole
+            message. This highlights only what matches a fixed, auditable
+            vocabulary, and highlights nothing else. Unrecognised text staying
+            plain is the useful half of the signal.
+
+            `aria-hidden` because the textarea already carries the text to
+            assistive tech; announcing it twice would be worse than not
+            decorating it at all. The facet summary below the field is the
+            non-visual route to the same information. */}
+        {/* A wrapper whose box IS the text's content box, so the mirror can
+            use `inset: 0` and land exactly on the field. Absolute positioning
+            resolves against the containing block's PADDING box, so anchoring
+            the mirror to the card directly put it 16px up and left of the
+            textarea — measured, and visible as text clipped by the border.
+            Repeating the card's padding here instead would be a second place
+            to keep that number correct. */}
+        <div className="orc-field-text">
+        <div className="orc-mirror" aria-hidden="true" ref={mirrorRef}>
+          {segment(draft).map((run, i) =>
+            run.match ? (
+              <span
+                key={i}
+                className="orc-mark-span"
+                style={{ ["--f" as string]: `var(--c-${FACET_HUE[run.match.facet]})` }}
+              >
+                {run.text}
+              </span>
+            ) : (
+              <span key={i}>{run.text}</span>
+            ),
+          )}
+          {/* A trailing newline keeps the mirror's height in step with the
+              textarea's when the text ends in a line break, which a browser
+              otherwise collapses in a div but not in a textarea. */}
+          {"\n"}
+        </div>
         <textarea
           ref={areaRef}
           className="orc-input"
@@ -505,6 +583,7 @@ function Composer({
             }
           }}
         />
+        </div>
 
         <div className="orc-composer-row">
           <div className="orc-modes" role="radiogroup" aria-label="Mode">
@@ -567,6 +646,33 @@ function Composer({
           bottom of every screen once the composer became sticky — and the
           stages already announce themselves inside a running turn, where they
           are actually information rather than a caption. */}
+      {/* ── WHAT WAS RECOGNISED, IN WORDS ──
+          The underlines are for a pointer and an eye; this is the same reading
+          as text, so it reaches a screen reader, someone who cannot rely on
+          colour, and anyone who wants to check the parse without hunting for
+          coloured words inside their own sentence.
+
+          Only when something matched. A permanent "nothing recognised" strip
+          would be a fixture reporting the absence of input. */}
+      {facets.length > 0 && (
+        <p className="orc-facets">
+          <span className="orc-facets-k">Reading</span>
+          {facets.map(([facet, texts]) => (
+            <span
+              key={facet}
+              className="orc-facet"
+              style={{
+                background: `var(--c-${FACET_HUE[facet]}-tint)`,
+                borderColor: `var(--c-${FACET_HUE[facet]}-line)`,
+                color: `var(--c-${FACET_HUE[facet]}-text)`,
+              }}
+            >
+              <b>{FACET_LABEL[facet]}</b> {texts.join(", ")}
+            </span>
+          ))}
+        </p>
+      )}
+
       <p className="orc-composer-note">{MODES.find((m) => m.id === mode)?.blurb}</p>
     </div>
   );
