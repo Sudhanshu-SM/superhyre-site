@@ -61,6 +61,34 @@ export const FACET_HUE: Record<Facet, Hue> = {
   tenure: "sage",
 };
 
+/**
+ * The order a brief is read in, and the order the gauge shows.
+ *
+ * Not alphabetical and not the order they appear in a sentence: this is the
+ * order a recruiter actually specifies a role — who, doing what, at what
+ * scale, where, from what kind of company, for how long. The gauge is a
+ * checklist of a brief's parts, so it has to read like one.
+ */
+export const FACET_ORDER: readonly Facet[] = [
+  "seniority", "skill", "scale", "location", "company", "tenure",
+];
+
+/**
+ * What to ask for when a facet is empty.
+ *
+ * Phrased as the thing missing, not as an instruction — "Seniority" over
+ * "Add a seniority". The gauge is a reading of the brief, and a reading does
+ * not give orders.
+ */
+export const FACET_PROMPT: Record<Facet, string> = {
+  seniority: "Level",
+  skill: "Skills",
+  scale: "Scale",
+  location: "Location",
+  company: "Background",
+  tenure: "Experience",
+};
+
 export const FACET_LABEL: Record<Facet, string> = {
   seniority: "Seniority",
   skill: "Skill",

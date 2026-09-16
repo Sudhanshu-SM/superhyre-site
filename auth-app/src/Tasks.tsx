@@ -200,7 +200,23 @@ const lead = (t: TaskItem): TaskChip | undefined =>
     return CHIP_RANK[c.hue] < CHIP_RANK[best.hue] ? c : best;
   }, undefined);
 
-export function Tasks({ onOpen }: { onOpen: (prompt: string) => void }) {
+export function Tasks({
+  onOpen, hero = false,
+}: {
+  onOpen: (prompt: string) => void;
+  /**
+   * Takes the page's Tier 0 treatment — its one resting shadow, a larger
+   * heading, and more rows before the list starts scrolling.
+   *
+   * A flag rather than two components because nothing about the list's
+   * behaviour changes: the same filters, the same comparator, the same rows.
+   * What changes is how loud it is, and that is a property of where it has
+   * been placed rather than of what it is. Home passes it because with the
+   * composer gone the hero slot there is unoccupied; anywhere else the list is
+   * a Tier 2 card like its neighbours.
+   */
+  hero?: boolean;
+}) {
   const [filter, setFilter] = useState<FilterId>("all");
   const [query, setQuery] = useState("");
   /* Named so the section becomes a landmark a screen reader can jump to. Via
@@ -228,7 +244,7 @@ export function Tasks({ onOpen }: { onOpen: (prompt: string) => void }) {
   }, [active, query]);
 
   return (
-    <section className="tk" aria-labelledby={headingId}>
+    <section className={`tk${hero ? " is-hero" : ""}`} aria-labelledby={headingId}>
       {/* THE HEADER IS THE 0.0% BAND. No glyph, no accent, no hue, no
           gradient — a tinted 26px Note square used to sit here badging the
           card as a card, which is a coloured spot spent on the fact that a

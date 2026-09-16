@@ -1,6 +1,6 @@
 import {
   AddressBook, ChartLineUp, ChatCircleDots, ClipboardText, Gear, House,
-  Folders, Lifebuoy, Phone, PuzzlePiece, Robot, Star, Users,
+  Folders, Lifebuoy, MagnifyingGlass, Phone, PuzzlePiece, Robot, Star, Users,
 } from "@phosphor-icons/react";
 import type { Icon } from "@phosphor-icons/react";
 
@@ -23,6 +23,7 @@ import type { Icon } from "@phosphor-icons/react";
 
 export type RouteId =
   | "home"
+  | "agent"
   | "campaigns"
   | "contacts"
   | "analytics-outreach"
@@ -31,7 +32,7 @@ export type RouteId =
   | "analytics-agent"
   | "integrations"
   | "campaign-overview"
-  | "campaign-agent"
+  | "campaign-sourcing"
   | "campaign-searches"
   | "campaign-candidates"
   | "campaign-forms"
@@ -60,6 +61,17 @@ export const ROUTES: Record<RouteId, Route> = {
     id: "home", path: "/", title: "Home",
     backing: "",
     blurb: "",
+  },
+  /* ── THE AGENT IS PRODUCT-LEVEL, NOT CAMPAIGN-LEVEL ──
+     It used to live under the current campaign, which framed it as one of that
+     campaign's tabs. But the agent is the thing you brief about ANY campaign —
+     it holds the conversation, the briefs you have run and the channels it can
+     speak on, none of which are properties of one req. Nesting it made the
+     product's primary working surface a detail of a sub-page. */
+  agent: {
+    id: "agent", path: "/agent", title: "Agent",
+    backing: "agent_conversations, agent_runs",
+    blurb: "Brief the agent, and everything it has run for you.",
   },
   campaigns: {
     id: "campaigns", path: "/campaigns", title: "Campaigns",
@@ -106,10 +118,10 @@ export const ROUTES: Record<RouteId, Route> = {
     backing: "campaigns, org_candidates",
     blurb: "This campaign at a glance: the roles it is filling, who is in the pipeline and what the agent is working on.",
   },
-  "campaign-agent": {
-    id: "campaign-agent", path: "/campaign/agent", title: "Agent",
-    backing: "agent_runs",
-    blurb: "The agent working this campaign: what it is doing now and what it has queued.",
+  "campaign-sourcing": {
+    id: "campaign-sourcing", path: "/campaign/sourcing", title: "Sourcing",
+    backing: "org_candidates, people",
+    blurb: "Where this campaign's candidates came from: the searches that found them and the sources each one was matched against.",
   },
   "campaign-searches": {
     id: "campaign-searches", path: "/campaign/searches", title: "Searches",
@@ -168,6 +180,10 @@ export const NAV: NavSection[] = [
     id: "main",
     items: [
       { kind: "leaf", id: "home", label: "Home", Icon: House },
+      /* Second, directly under Home. The agent is where the work is done, so
+         it sits at the top of the list rather than among the places you go to
+         look something up. */
+      { kind: "leaf", id: "agent", label: "Agent", Icon: Robot },
       { kind: "leaf", id: "campaigns", label: "Campaigns", Icon: Folders },
       { kind: "leaf", id: "contacts", label: "Contacts", Icon: AddressBook },
       {
@@ -176,7 +192,11 @@ export const NAV: NavSection[] = [
           { id: "analytics-outreach", label: "Outreach" },
           { id: "analytics-usage", label: "Usage" },
           { id: "analytics-projects", label: "Projects" },
-          { id: "analytics-agent", label: "Agent" },
+          /* "Agent activity", not "Agent": with the agent now a top-level
+             destination, two rows labelled Agent in one sidebar is a genuine
+             ambiguity — one is the place you work, the other is a report
+             about it. */
+          { id: "analytics-agent", label: "Agent activity" },
         ],
       },
       { kind: "leaf", id: "integrations", label: "Integrations", Icon: PuzzlePiece },
@@ -188,7 +208,10 @@ export const NAV: NavSection[] = [
  *  Flat by design: these are six peers, and nesting inside an already-nested
  *  block is where a sidebar starts to feel like a filesystem. */
 export const CAMPAIGN_NAV: NavLeaf[] = [
-  { kind: "leaf", id: "campaign-agent", label: "Agent", Icon: Robot },
+  /* Sourcing replaces Agent here. Agent moved to the product level (see its
+     route); sourcing genuinely IS campaign-scoped — where THIS req's
+     candidates came from — so it takes the slot. */
+  { kind: "leaf", id: "campaign-sourcing", label: "Sourcing", Icon: MagnifyingGlass },
   { kind: "leaf", id: "campaign-searches", label: "Searches", Icon: ChatCircleDots },
   { kind: "leaf", id: "campaign-candidates", label: "Candidates", Icon: Users },
   { kind: "leaf", id: "campaign-forms", label: "Forms & responses", Icon: ClipboardText },

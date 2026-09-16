@@ -56,8 +56,15 @@ export function CampaignHead({
   campaign, onCustomise,
 }: {
   campaign: Campaign;
-  /** Opens the tile gallery, anchored to the button that was clicked. */
-  onCustomise: (anchor: HTMLElement) => void;
+  /**
+   * Opens the tile gallery, anchored to the button clicked.
+   *
+   * Optional because only Home has tiles to customise. The Agent page shows
+   * the same header for scope — you should always know which campaign you are
+   * briefing about — but offering "Customise home" there would be a control
+   * for a different page.
+   */
+  onCustomise?: (anchor: HTMLElement) => void;
 }): JSX.Element {
   return (
     <header className="orc-head">
@@ -93,15 +100,17 @@ export function CampaignHead({
 
       {/* Moved here from the greeting bar, which no longer exists. It is a
           page-level control and this is now the page's only header row. */}
-      <button
-        type="button"
-        className="orc-add"
-        onClick={(e) => onCustomise(e.currentTarget)}
-        aria-haspopup="dialog"
-      >
-        <GridFour size={14} weight="bold" aria-hidden="true" />
-        Customise home
-      </button>
+      {onCustomise && (
+        <button
+          type="button"
+          className="orc-add"
+          onClick={(e) => onCustomise(e.currentTarget)}
+          aria-haspopup="dialog"
+        >
+          <GridFour size={14} weight="bold" aria-hidden="true" />
+          Customise home
+        </button>
+      )}
 
       {/* A link, not a button with a popover. The overflow items a campaign
           header would actually offer — rename, archive, duplicate — have no

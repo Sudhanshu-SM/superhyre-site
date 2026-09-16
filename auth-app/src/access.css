@@ -4642,6 +4642,15 @@ body {
   background: var(--orc-ground);
 }
 
+/* A page with no rail. Home lost its rail when the conversation moved to the
+   Agent page, and the two-track grid then reserved 340px of empty space
+   against the right edge while the content stopped short of it. The gutter
+   goes with it — it was the space between two columns and there is one. */
+.orc.is-solo {
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: 0;
+}
+
 .orc-main {
   /* ── ONE MEASURE ──
      Blocks in this column used to cap at three different widths: the composer
@@ -5068,7 +5077,7 @@ body {
    something is attached, so the state does not depend on reading the glyph. */
 .orc-slot:hover { color: var(--ink); border-color: var(--nav-edge); }
 
-.orc-slot.is-on {
+.orc-gslot.is-on {
   border-style: solid;
   border-color: var(--nav-notch);
   background: var(--nav-active);
@@ -5105,37 +5114,121 @@ body {
   cursor: not-allowed;
 }
 
-/* ── THE FACET SUMMARY ──
-   The same reading as the underlines, in words. Chips rather than prose
-   because each one is a distinct claim the user may want to correct, and a
-   sentence would bury the boundaries between them. */
-.orc-facets {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 8px 0 0;
+/* ══════════════════════════ tasks as the hero ═══════════════════════════════
+
+   The Tier 0 treatment, applied to the task list on Home. The hierarchy allows
+   exactly one hero per screen and Home's is unoccupied — the composer that held
+   it moved to the Agent page — so the list that answers the page's question
+   takes it.
+
+   Three changes, and no more: the page's one resting shadow, a heading at the
+   size a page-level heading takes, and more rows before the list scrolls.
+   Everything else about the list is identical, because what changed is how
+   loud it is, not what it does.                                             */
+
+.tk.is-hero {
+  /* The page's ONE resting shadow. This is only legitimate because nothing
+     else on Home has one; the moment something else does, both stop meaning
+     anything. */
+  box-shadow: var(--e2);
+  border-color: var(--nav-edge-panel);
+  padding: 20px;
 }
 
-.orc-facets-k {
-  font: 500 10px/1 var(--ui);
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
+.tk.is-hero .tk-h {
+  font-size: 19px;
+  letter-spacing: -0.019em;
+}
+
+/* Five rows before it scrolls rather than three. The hero can afford the
+   height, and on a page whose job is "what should I do now" the answer being
+   mostly visible matters more than the context below it being fully visible. */
+.tk.is-hero .tk-list { height: 268px; }
+
+/* ── the context section ──
+   The bento, under the hero, labelled so it reads as support rather than as
+   more of the thing above it. */
+.orc-context { display: grid; gap: 12px; }
+
+.orc-context-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.orc-context-h {
+  margin: 0;
+  font: 600 13px/1.2 var(--ui);
+  letter-spacing: -0.011em;
   color: var(--ink-2);
 }
 
-.orc-facet {
+/* ══════════════════════════ the brief gauge ═════════════════════════════════
+
+   Six slots naming the parts of a brief, present whether or not anything has
+   matched. This is the surface's signature component: at rest it is what makes
+   the composer recognisably THIS product rather than a rounded box with a
+   placeholder, and it teaches what to say without a form.
+
+   Empty and filled are the same shape and the same size, so a slot filling in
+   does not move its neighbours. Only the border style, the fill and the text
+   change — which is also why the label is present in both states and the
+   colour is never the only thing that changed.                              */
+
+.orc-gauge {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* `orc-gslot`, not `orc-slot`. The composer's context chips ("Job
+   description", "Set filters") already own `.orc-slot`, and reusing it gave
+   the gauge their styling and them the gauge's — two different controls that
+   happened to look alike, which is how a collision hides. */
+.orc-gslot {
   display: inline-flex;
   align-items: baseline;
   gap: 5px;
-  padding: 2.5px 8px;
-  border: 1px solid;
+  padding: 2.5px 9px;
+  /* Dashed while empty: the established convention on this surface for a slot
+     that is waiting for something, already used by the composer's context
+     chips. Solid once filled, so the transition reads as "this is settled". */
+  border: 1px dashed var(--rule);
   border-radius: var(--r-pill);
-  font: 400 11px/1.4 var(--ui);
+  font: 400 11px/1.45 var(--ui);
   letter-spacing: -0.006em;
+  color: var(--ink-2);
+  /* Only properties that cannot move a neighbour. A width or padding
+     transition here would make the whole row shuffle as you type, which is the
+     one thing a gauge must never do while you are looking at it. */
+  transition: background var(--t-dim), border-color var(--t-dim), color var(--t-dim);
 }
 
-.orc-facet b { font-weight: 600; }
+.orc-gslot.is-on {
+  border-style: solid;
+  font-weight: 400;
+}
+
+.orc-gslot b {
+  font-weight: 600;
+  /* Inherits the slot's colour in both states — ink-2 when empty, the facet's
+     text token when filled. */
+}
+
+/* The matched words. One step down from the label, because the label is what
+   the slot IS and this is what happened to land in it. */
+.orc-gslot-v {
+  color: var(--ink);
+  font-size: 10.5px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orc-gslot { transition: none; }
+}
 
 .orc-composer-note {
   max-width: var(--orc-measure);
@@ -5603,10 +5696,17 @@ body {
 
 .orc-open {
   display: grid;
-  /* Same 32px as the stream's gap: the bento and the task list are two
+  /* Same 32px as the stream's gap: the task list and the context grid are two
      SECTIONS that happen to share a wrapper, so the space between them has to
-     match the space between the wrapper and the composer below it. */
+     match the rhythm everything else on the page sits on.
+
+     The top padding is the exception, and it lives here rather than on the
+     stream because only Home uses this wrapper: Agent has a header supplying
+     its own top spacing, so padding the shared stream would double it there.
+     Without it Home's first card sat flush against the top of the viewport
+     once the campaign header came off — measured at 0px. */
   gap: 32px;
+  padding-top: 26px;
   /* Wider than the old 760px: the bento is four columns now and a large tile
      spans two of them, so a narrow measure squeezed every tile into a column
      too thin for a funnel label plus its bar plus its count. */

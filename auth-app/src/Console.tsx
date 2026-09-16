@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { DialerPage } from "./DialerPage";
 import { ExtensionPage } from "./ExtensionPage";
 import { Nav } from "./Nav";
+import { Agent } from "./Agent";
 import { Home } from "./Home";
 import { Palette } from "./Palette";
 import { CURRENT_CAMPAIGN } from "./workspaces";
@@ -83,6 +84,25 @@ export function Console({ bootstrap, onSignOut, signingOut }: Props) {
   }, []);
 
   const current: Route = ROUTES[route];
+
+  /* ── HANDING A BRIEF BETWEEN PAGES ──
+     A bento tile or a task on Home produces a concrete brief, and the composer
+     it belongs in now lives on Agent. The console holds the text for the one
+     navigation it takes to get there.
+
+     Console state rather than sessionStorage or a query parameter: this is
+     in-flight UI state for a single navigation, not something that should
+     survive a reload or be shareable as a URL. A link carrying someone else's
+     half-written brief would be a strange thing to be able to send. */
+  const [handoff, setHandoff] = useState<string | null>(null);
+  const clearHandoff = useCallback(() => setHandoff(null), []);
+  const brief = useCallback((prompt: string) => {
+    setHandoff(prompt);
+    /* Hash assignment rather than a router call: routeFromHash reads the hash
+       and the hashchange listener already drives `route`, so this is the one
+       navigation mechanism the console has. */
+    window.location.hash = ROUTES.agent.path;
+  }, []);
 
   /* Per-page title, so browser history and a tab-heavy window show where you
      were rather than ten identical "SuperHyre" entries. Restored on unmount so
@@ -248,7 +268,13 @@ export function Console({ bootstrap, onSignOut, signingOut }: Props) {
           {/* Routes gain a real page here one at a time; everything still on
               Placeholder says so and names the table it will read. */}
           {route === "home" ? (
-            <Home campaign={campaign} />
+            <Home campaign={campaign} onBrief={brief} />
+          ) : route === "agent" ? (
+            <Agent
+              campaign={campaign}
+              handoff={handoff}
+              onHandoffTaken={clearHandoff}
+            />
           ) : route === "integrations" ? (
             <ExtensionPage />
           ) : route === "campaign-calls" ? (
