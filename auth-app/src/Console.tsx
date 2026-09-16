@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { DialerPage } from "./DialerPage";
 import { ExtensionPage } from "./ExtensionPage";
 import { Nav } from "./Nav";
+import { Home } from "./Home";
 import { Palette } from "./Palette";
 import { CURRENT_CAMPAIGN } from "./workspaces";
 import type { Campaign } from "./workspaces";
@@ -195,11 +196,6 @@ export function Console({ bootstrap, onSignOut, signingOut }: Props) {
 
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 
-  const workspace =
-    bootstrap.scope === "tenant"
-      ? bootstrap.organization_name ?? "Your organization"
-      : "Personal workspace";
-
   return (
     <div className="con">
       {/* First tab stop on the page. With a nav this long, a keyboard user
@@ -252,7 +248,7 @@ export function Console({ bootstrap, onSignOut, signingOut }: Props) {
           {/* Routes gain a real page here one at a time; everything still on
               Placeholder says so and names the table it will read. */}
           {route === "home" ? (
-            <Home bootstrap={bootstrap} workspace={workspace} />
+            <Home campaign={campaign} />
           ) : route === "integrations" ? (
             <ExtensionPage />
           ) : route === "campaign-calls" ? (
@@ -277,61 +273,6 @@ function displayName(b: AllowedBootstrap): string {
   return b.full_name.trim() || b.email.split("@")[0] || "Signed in";
 }
 
-function firstName(b: AllowedBootstrap): string {
-  return b.full_name.trim().split(/\s+/)[0] || b.email.split("@")[0] || "there";
-}
-
-function Home({ bootstrap, workspace }: { bootstrap: AllowedBootstrap; workspace: string }) {
-  const first = firstName(bootstrap);
-
-  return (
-    <div className="con-page">
-      <h1 className="con-h1 con-h1-hi">Hello, {first}.</h1>
-      <p className="con-lede">
-        Your account is active and this workspace is ready. There is nothing in
-        it yet.
-      </p>
-
-      <dl className="con-facts">
-        <div>
-          <dt>Workspace</dt>
-          <dd>{workspace}</dd>
-        </div>
-        {bootstrap.role && (
-          <div>
-            <dt>Role</dt>
-            <dd>{bootstrap.role}</dd>
-          </div>
-        )}
-        {bootstrap.scope === "tenant" && bootstrap.schema_name && (
-          <div>
-            <dt>Data</dt>
-            <dd>Shared with your team</dd>
-          </div>
-        )}
-      </dl>
-
-      {/* The solo/tenant split is real behaviour someone will hit, so it is
-          worth saying out loud here instead of surprising them later. */}
-      <p className="con-note">
-        {bootstrap.scope === "solo"
-          ? "You are the only account on your email domain, so this workspace is yours alone. When a colleague signs up with the same domain, SuperHyre creates a shared team workspace and moves your saved candidates into it."
-          : "Candidates saved here are shared with everyone on your email domain. Contact details are shared across the whole SuperHyre platform; your pipeline and notes are not."}
-      </p>
-    </div>
-  );
-}
-
-/**
- * An unbuilt page. States what it will do and which table it will read, rather
- * than showing a fake chart or an empty table with invented columns — when the
- * feature lands, this component is what gets replaced, and until then it is
- * honest about the edge of the product.
- *
- * `backing` is optional because not every page is a view of a table: Support
- * is a contact route, and rendering "this page reads ." for it was the exact
- * dishonesty this component exists to avoid.
- */
 function Placeholder({ route }: { route: Route }) {
   return (
     <div className="con-page">

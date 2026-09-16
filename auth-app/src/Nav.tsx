@@ -4,6 +4,7 @@ import {
 } from "@phosphor-icons/react";
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { BorderGlow } from "./glow";
 import { CAMPAIGN_NAV, FOOT_NAV, GROUP_OF, NAV, ROUTES } from "./nav";
 import type { Icon } from "@phosphor-icons/react";
 import type { NavItem, NavLeaf, RouteId } from "./nav";
@@ -69,24 +70,6 @@ const WEIGHT = "regular" as const;
  * Everything not per-layer — geometry, the dash pair, the centring offset —
  * stays in access.css.
  */
-const GLOW_LAYERS = Array.from({ length: 16 }, (_, i) => {
-  const t = i / 15; // 0 = outermost and faintest, 1 = the core
-  return {
-    /** Dash length, in the normalised pathLength=100 units. */
-    len: +(26 - 17 * t).toFixed(2),
-    /* Thinned twice on review, both times because it read as thick rather than
-       as light: widths began at 7px and the peak alpha at 0.16. Sixteen layers
-       composite as 1 - product(1 - a), so the visible result is much stronger
-       than any single number here suggests — which is exactly how a ramp like
-       this creeps into looking heavy. */
-    width: +(5 - 4 * t).toFixed(2),
-    /* Quadratic, so brightness collects in the middle few layers instead of
-       spreading evenly and washing the whole streak out. */
-    opacity: +(0.018 + 0.072 * t * t).toFixed(3),
-    blur: +(3 - 2.85 * t).toFixed(2),
-  };
-});
-
 
 type Props = {
   route: RouteId;
@@ -615,41 +598,6 @@ function Row({
         </ul>
       </div>
     </li>
-  );
-}
-
-/**
- * A soft light sweeping a control's own outline.
- *
- * An SVG stroke on a rect matching the host's border, with a dash gap swept by
- * stroke-dashoffset — a dash is a length of the path, so it follows the curve
- * and the corners cannot be wrong. See GLOW_LAYERS for why the falloff is
- * sampled across sixteen dashes rather than hand-tuned in three.
- *
- * Extracted when the campaign switcher's search field wanted the same
- * treatment. The alternative was a second copy of sixteen layers and ninety
- * lines of CSS, which is how two things that look alike start drifting.
- * The host controls radius through --glow-ry and visibility through its own
- * :hover / :focus-within.
- */
-function BorderGlow() {
-  return (
-    <svg className="glow-ring" aria-hidden="true" focusable="false">
-      {GLOW_LAYERS.map((layer, i) => (
-        <rect
-          key={i}
-          pathLength={100}
-          style={{
-            // @ts-expect-error -- custom property, read by the shared
-            // dash/offset rule in access.css.
-            "--len": layer.len,
-            strokeWidth: `${layer.width}px`,
-            strokeOpacity: layer.opacity,
-            filter: `blur(${layer.blur}px)`,
-          }}
-        />
-      ))}
-    </svg>
   );
 }
 

@@ -1,6 +1,6 @@
 # SuperHyre — design system
 
-**Status:** working draft · **Revision:** 25 · **Last changed:** 2026-09-15
+**Status:** working draft · **Revision:** 33 · **Last changed:** 2026-09-16
 
 > **This file is a proposal layer, not the implementation.** The CSS custom
 > properties in `auth-app/src/access.css` and `style.css` are what actually
@@ -107,7 +107,108 @@ only overflow menu in the panel.
 was the `···` menu, the `+ New search` action row, and sentence-case labelling
 — not the fill, which was the part that had to come back out.
 
-### Anti-tells
+### Case study: the orchestrator (Home) — *Rebuilt at revision 27*
+
+*Not a component spec — a worked example of every rule in this document,
+including the ones I broke. The components it is built from are §5.8 and
+§5.9; the colour system it forced is §2.*
+
+The surface a recruiter works in. Revision 26 shipped it bland and it was
+judged, correctly, as something a customer would close. What it got wrong is
+worth keeping written down, because each fault was a rule applied without its
+purpose.
+
+| Fault | The rule I was leaning on | What was actually true |
+|---|---|---|
+| **626px of empty ground** — ~61% of the viewport, content welded to the bottom edge | "the page is the surface, not a widget on it" | A transcript hugs the composer; a *landing state* must start at the top. One anchor cannot serve both, and I used the transcript's for both. |
+| **Four identical text-only cards** | "asymmetry from content weight (§0)" | All four tiles held the same content *type* — a title and a sentence — so the asymmetry was decorative. I cited the clause while breaking it. |
+| **`24 / 61 / 9` as dead numbers** | brevity | A recruiter cannot tell whether 61 contacted is good. Answering that is the entire job of the header. |
+| **One accent hue everywhere** | "restraint" | Nothing was colour-coded, so nothing was scannable: eleven rail rows had to be *read*. Sage sat defined-and-unused with "Q3 stays open" written as if deferring were deciding. |
+| **No tasks, no config, no affordances** | — | There was no answer to "what should I do now", which is the only reason to open a home surface twice. |
+
+Passing a contrast table and a squint test is not the same as being good. Both
+passed at revision 26.
+
+#### What the rebuild is
+
+**Anchoring is per state.** `.orc-stream.has-turns` bottom-anchors; without it
+the landing content flows from the top and fills. Measured after: the gap under
+the header went **626px → 24px**. Still `margin-top: auto` on the first child
+rather than `justify-content: flex-end`, which looks identical until content
+outgrows the box and then makes the top of the transcript unreachable.
+
+**The bento is configured, not hard-coded.** Eight tile kinds, each
+*structurally* different — a ring, a funnel, a face stack, a file list, a time
+strip, brand-logo discs, a metric with its trailing shape, and one deliberately
+quiet text kind. If two kinds would render the same shape, one should not
+exist. Size (`s`/`m`/`l` → 1×1 / 2×1 / 2×2), hue, order and membership are the
+recruiter's, persisted to `localStorage` under a versioned key. Reorder is
+drag **and** a keyboard path in the menu, because drag alone is a pointer-only
+affordance.
+
+**Between the bento and the composer: My Tasks.** Filter chips and search that
+genuinely filter, ordered urgent-first then by state, with the row's agent
+affordance revealed by **opacity** so the row's box is byte-identical hovered
+and not — `display: none` and `visibility: hidden` were both rejected for
+taking the button out of the tab order and killing the `:focus-within` path.
+
+**A reply is an artefact.** A quiet truthful `Thought for Ns` (the *measured*
+elapsed time), then a card with an app header, field rows sharing one label
+origin, and semantically tinted `section` blocks that read as discrete
+reviewable objects. Revision 26 rendered one sentence, which is why there was
+nothing to do once the reply landed.
+
+#### Motion
+
+| | |
+|---|---|
+| 60ms | Press. Scale only, controls only. |
+| 150ms | Feedback. Hover shade and elevation. **Nothing translates.** |
+| 280ms | Arrival. The landing block assembling, once, 28ms per tile. |
+| 520ms | The focal moment. The send becoming the agent. Exactly one. |
+| loops | Reserved for genuinely live state: the working mark, a pulse dot. |
+
+**Hover never translates.** With four columns the cursor crosses several tiles
+on the way anywhere, so a lift-by-moving would ripple the whole surface. Press
+*does* move — by then you have already hit the target.
+
+The **28ms stagger is not a second focal moment**: the longest total is under
+250ms, inside the feedback band, and it is driven by `:nth-child` so the grid
+component knows nothing about it.
+
+The focal moment is a **FLIP** — the mark's final position is its ordinary
+layout position, given the inverse transform on its first frame and animated to
+identity, so the send visibly *becomes* the agent using one element rather than
+a decoy handing off to a real one. Transform only, never `top`/`left`.
+
+#### And it still does not fake work
+
+`delight.md` forbids faking work. There is no orchestrator backend, so:
+
+- stage lists name the steps a brief **will** run, in order
+- every fixture renders the table it stands in for (`recruiter_tasks`,
+  `agent_conversations`, `org_candidates`, `outreach_queue`, `org_integrations`)
+- the reply's `note` block says plainly that nothing is wired
+- unwired controls carry a lock glyph, an uppercase caption and `aria-disabled`
+
+The last one has a contrast consequence worth recording: the obvious way to
+mark the commit button unavailable is `opacity: 0.55`, which puts its white
+label at about **2.5:1**. Unavailability is carried by lock, caption and ARIA —
+**never by degrading text**. This is the same failure as the two below.
+
+#### Two failures of my own, both caught by measuring
+
+1. I invented a tertiary grey `#9a9188` in four places. It measures **2.75:1**.
+   §3.3 forbids it in as many words: *there is no third ink.*
+2. Told to fix it, I wrote `opacity: 0.8` over a legal `--ink-2`. That measures
+   **4.19:1**. **A translucent pass at a legal colour is still an illegal
+   colour.**
+
+Both are now `--ink-2`, demoted by size. The lesson is that "demote this text"
+has exactly two safe tools — size and weight — and reaching for a colour or an
+alpha is the reflex to distrust.
+
+### Anti-tells### Anti-tells
 
 Adopted from [Impeccable](https://github.com/pbakaus/impeccable) — a design
 language for AI coding harnesses, whose premise is that every model trained on
@@ -171,63 +272,236 @@ corrected values.
 
 ---
 
-## 2. Colour
+## 2. Colour — *Adopted at revision 27*
 
-### 2.1 Brand — *Proposed*
+Rewritten after measuring three reference screenshots pixel by pixel instead of
+describing them. Everything below is solved for a contrast floor, not picked.
+
+### 2.0 The finding — *where saturation belongs*
+
+The surface built at revision 26 came back described as *"low aesthetic, kinda
+the old feel of light wood"*. That was correct, and the cause was not the
+accent. It was **where the colour was**:
+
+| | Chroma (C\*) | Share of screen |
+|---|---|---|
+| Reference app ground | **0.01** (pure `#ffffff`) | ~60% |
+| Reference sub-panel | ~1.07 (`#f5f7fb`, measured) | small |
+| Reference chips / CTAs / marks | **s 89–93%** | under 5% |
+| **My revision-26 ground** | **2.76** | **~60%** |
+
+So the old surface did not lack colour. It had colour in the wrong place: a
+saturated warm plane across most of the viewport with muted content on top. A
+large, desaturated, warm area reads as aged paper — and once the ground is
+itself a colour, every accent on it is competing rather than landing.
+
+> **The rule: desaturate the large areas, saturate the small ones.**
+> Grounds and panels are near-neutral. Hue lives in chips, marks, strokes,
+> bars and fills — small enough to carry real saturation without tinting the
+> room.
+
+The one place the references were *not* followed is temperature. Theirs is a
+cool neutral; ours leans warm, because the mark is orange and a cool ground
+fights it. Measured, that costs almost nothing: brand orange separates from a
+warm near-neutral at ΔE 80.8 against 81.6 on pure white.
+
+### 2.1 Neutrals — *Adopted at revision 27*
+
+| Token | Hex | C\* | Use | Measured |
+|---|---|---|---|---|
+| `--surface` / `--nav-surface` | `#ffffff` | 0.01 | Cards, fields | — |
+| `--page` | `#f7f7f5` | **1.01** | The ground | white card lifts **1.073:1** |
+| `--sub` | `#f3f2f0` | 1.07 | A plane **inside a card** | **1.119:1** on white |
+| `--hairline` | `#edeae6` | 2.30 | Decorative edge | 1.199:1 on white |
+| `--rule` | `#e4e1db` | 3.28 | Stronger divider | 1.305:1 on white |
+
+`--page` was solved for a 1.072 lift because that is the **card-to-panel step
+measured out of the reference itself**. Ink on it: `--ink` 13.17:1,
+`--ink-2` 7.08:1.
+
+**`--sub` is a plane inside a CARD, and that constraint is load-bearing.** On
+`--page` it lands at 1.04:1 — invisible, along with any `--hairline` divider
+drawn on it. A panel that sits directly on the ground (the campaign header, the
+rail) must either be a white card or carry its own hairline. Both callers hit
+this and both handled it; the token's name is not a suggestion.
+
+`--nav-panel` moved `#faf8f5` → `#fbfbfa` (C\* 1.67 → 0.50) for the same
+reason, so the peach active row and the orange mark read as chosen colour
+rather than more of the same warm.
+
+### 2.1.1 The canvas — *Adopted at revision 29*
+
+`--page` is **`#ffffff`**, and that is a structural decision rather than a
+shade. Sampled out of the reference:
+
+| | Measured |
+|---|---|
+| page background | `#ffffff` |
+| composer fill | `#ffffff` |
+| rail card fill | `#ffffff` |
+| status card fill | `#ffffff` |
+| every one against every other | **1.000:1** |
+
+**Nothing in the reference is separated by tone.** Cards are outlined regions
+on one continuous surface, demarcated by a hairline at roughly 1.30:1 — which
+is almost exactly `--nav-edge-panel` (1.33:1), so the existing edge token was
+already correct.
+
+That is the whole reason it reads as *one board with content floating on it*.
+The model therefore inverted:
+
+- **was:** toned ground (`#f7f7f5`), white cards lifting off it by 1.073:1
+- **is:** one white canvas, cards demarcated by a hairline only
+
+`--sub` (#f3f2f0) keeps exactly one job: a recessed plane **inside** a card. On
+the white canvas it is 1.00:1 — invisible — which is now a feature, because it
+means a `--sub` panel can only ever appear where it is legible.
+
+**The rail has no `border-left`.** That single line was the biggest reason the
+surface read as two documents pasted side by side. What separates the columns
+is **space** — the reference gives it ~113px of empty canvas and no rule at
+all. A full-height divider says "these are different things"; the panels
+inside already say where they begin.
+
+### 2.1.2 Colour zones — *Adopted at revision 29*
+
+Two revisions were spent getting the *amount* of colour wrong in both
+directions — 26 saturated spots read as cluttered, 7 read as bland. Neither was
+a quantity problem. Sampling the reference band by band, counting saturated
+pixels:
+
+| Band | % of its own area saturated | Share of ALL page colour |
+|---|---|---|
+| greeting | 24.2% | 23.7% |
+| **bento** | **19.8%** | **65.8%** |
+| tasks header | 0.0% | 0.0% |
+| task rows | 2.1% | 5.1% |
+| composer | 4.4% | 5.5% |
+
+**The greeting and the bento hold 89.5% of the page's colour. Everything else
+is near-colourless.**
+
+> **Colour is concentrated in zones. A zone is loud; the space between zones is
+> silent.**
+
+This supersedes the flat per-viewport budget of §4.3 as the *primary*
+instrument — the budget still caps the accent at three instances, but an evenly
+spread allowance is exactly what produced both failures. A page needs one or two
+places where colour is genuinely dense and the rest quiet.
+
+The zones on this surface:
+
+1. **The greeting** — one washed phrase. `--c-blue-tint` carrying
+   `--c-blue-text` at 4.90:1. Blue and not brand, because the brand is the
+   *action* colour and a greeting is not an action.
+2. **The bento** — the engine, carrying ~two thirds. Three devices, all from
+   the reference: **exactly one tinted tile** among white siblings (the
+   reference's warm-yellow `#fef9e2` card); **brand marks in real brand
+   colour** (a logo identifying a thing in a list is the permitted case); and
+   **data visualisation in full hue**, which is the most defensible colour on
+   any page because it encodes a quantity.
+3. **Nothing else.** Task rows get at most two small chips; the tasks header
+   gets none at all. The counter-intuitive finding is that the chips I twice
+   agonised over contribute **5.1%** — they are accents, not the carrier.
+
+If two tiles are tinted, neither is special. That rule is enforced in code.
+
+### 2.2 Brand — *the only action colour*
 
 | Token | Hex | Use | Measured |
 |---|---|---|---|
-| `--primary` | `#D76127` | Fills, the mark, shapes. **Never small text.** | 3.73:1 on white — decorative and large-text only |
-| `--primary-fill` | `#BF5623` | **Buttons that carry white text.** 11% darker than `--primary`. | white text **4.59:1** ✓ |
-| `--primary-text` | `#B95322` | Primary colour used *as* text, links, active labels | **4.86:1** on white, **4.58:1** on `#FAF8F5` ✓ |
-| `--secondary` | `#F59861` | Fills and tints only | dark text on it 6.69:1 ✓ / white 2.20 ✗ |
-| `--accent` | `#FAB795` | Tint fills, hover washes | dark text 8.60:1 ✓ |
-| `--accent-light` | `#FFDCC2` | Active nav row, selected states | dark text 11.39:1 ✓ |
+| `--accent` | `#ea5a1e` | The mark, fills, shapes. **Never text, never a button label.** | white text **3.51:1** ✗ |
+| `--accent-fill` | `#cc4d17` | **Primary buttons carrying white text.** | white text **4.52:1** ✓ |
+| `--accent-deep` | `#b8400f` | Conservative option for small or dense labels | white text 5.56:1 ✓ |
+| `--accent-tint` | `#fdeae2` | Soft brand wash, name highlight, prompt intent | `--ink` 12.14:1 ✓ |
+| `--accent-text` | `#b24c20` | Brand **as text** | 5.32:1 white, 4.57:1 on its tint ✓ |
 
-The existing live token is `--accent: #ea5a1e`, and `--accent-deep: #b8400f`
-(5.56:1 on white) already plays exactly the role `--primary-text` plays here.
-**Decision needed** — see [Open questions](#open-questions) Q1.
+The references put a vivid sky blue on every primary button. It is good-looking
+and it was **rejected**: the mark is orange and the brand does not change
+because a screenshot was persuasive. Measuring it was still worth it —
 
-### 2.2 Sage — *Proposed, new to the product*
+- sampled reference CTA `#51a7f5` → white text **2.56:1**, fails outright
+- live `--accent` `#ea5a1e` → white text **3.51:1**, also fails
 
-A second hue family. Nothing in the live site has one; this is the largest
-genuinely new idea in the reference and worth keeping, because it gives status
-and category colour somewhere to live that is not the brand orange.
+Both buttons are illegal. `--accent-fill` is the same brand hue solved for the
+floor: the most vivid orange that legally carries white text. **Blue is not an
+action colour here** — it survives only as `--c-blue`, one of seven category
+hues, used for status and never for a button.
 
-| Token | Hex | Use | Measured |
-|---|---|---|---|
-| `--sage` | `#AFB29F` | Fills, dividers, muted chips | dark text 6.79:1 ✓ / as text 2.17 ✗ |
-| `--sage-deep` | `#77846E` | Large text, icons, borders | 3.95:1 — large text and UI only |
-| `--sage-text` | `#6A7562` | Sage used as body text | **4.85:1** on white, **4.57:1** on bg ✓ |
-| `--sage-fill` | `#6D7965` | Sage button carrying white text | white **4.59:1** ✓ |
+### 2.3 Category + status hues — *Adopted at revision 27*
 
-### 2.3 Neutrals — *Proposed*
+Seven hues × five roles. Every value solved, none picked.
 
-| Token | Hex | Use | vs live |
-|---|---|---|---|
-| `--bg` | `#FAF8F5` | Page | live console `--page: #f6f5f4` — near-identical, slightly warmer |
-| `--surface` | `#FFFFFF` | Cards, fields | same as live `--card` |
-| `--border` | `#E8E3DD` | Hairlines | 1.20:1 on bg — decorative only. For a **meaningful** boundary (focus ring, input outline) 3:1 is required; use `--sage-deep` or `--muted` |
-| `--muted` | `#74766E` | Secondary text | **only on white (4.61:1)**. On `--bg` it is 4.35:1 ✗. Live `--ink-2: #6c6158` is 6.02:1 and safe on both — **prefer the live one** |
-| `--text` | `#272923` | Body | 14.71:1 on white. Live `--ink: #271f18` is 16.21:1 |
+| Hue | `--c-*` | `-tint` | `-line` | `-text` | `-fill` |
+|---|---|---|---|---|---|
+| brand | `#c87248` | `#f9ede7` | `#ead0c3` | `#9f5b38` | `#b16038` |
+| amber | `#aa8825` | `#f9f4e7` | `#eae0c3` | `#846d25` | `#8b742c` |
+| sage | `#559d3d` | `#ebf9e7` | `#cceac3` | `#477c35` | `#41852a` |
+| teal | `#349c98` | `#e7f9f8` | `#c3eae8` | `#2e7b79` | `#298280` |
+| blue | `#588acd` | `#e7eff9` | `#c3d4ea` | `#3d6dac` | `#3d76c2` |
+| violet | `#9b72d0` | `#efe7f9` | `#d4c3ea` | `#8051be` | `#8d5ecc` |
+| rose | `#d16476` | `#f9e7ea` | `#eac3c9` | `#b84054` | `#c64c60` |
 
-### 2.4 Semantic — *Proposed*
+Guarantees, all measured:
 
-Each has a **fill** form and a **text** form, because the reference's single
-value fails as text in three of four cases.
+- `--c-*` clears **3:1 on white and on its own tint** (worst 3.02) — icons,
+  strokes, bars, drop indicators
+- `--c-*-text` clears **4.5:1 on white and on its own tint** (worst 4.53)
+- `--c-*-fill` carries **white text at ≥4.5:1** (worst 4.50)
+- `--ink` on every tint clears **11.7:1**
+- every hue clears its floor on `--page` too (worst mark 3.08, worst text 4.63)
 
-| Role | Fill | Text | Measured (text, on bg) |
-|---|---|---|---|
-| Success | `#77846E` | `#6A7562` | 4.57:1 ✓ |
-| Warning | `#F59861` | `#9F633F` | 4.57:1 ✓ |
-| Error | `#E57373` | `#AE5757` | 4.61:1 ✓ |
-| Info | `#5B86E5` | `#4C6FBE` | 4.58:1 ✓ |
+**The `--c-*` marks were solved against white and their own tint — and
+nothing else.** Put one on any other plane and you are outside what was
+measured. Two that were checked and fail the 3:1 icon floor:
 
-Success and the sage family are the same hue on purpose — "good" and "calm"
-being one colour is a deliberate simplification, not an oversight. Say so if you
-want them separated.
+| Mark on plane | Measured |
+|---|---|
+| `--c-sage` on `--accent-tint` | **2.87:1** ✗ |
+| `--c-teal` on `--sub` | **2.95:1** ✗ |
 
----
+So a category mark never goes on a selection wash or a recessed panel. When
+that collision came up on the rail's selected brief row, the resolution was to
+drop the hue rather than rescue it — the mode's icon *shape* already carried
+the distinction, so the colour was a second encoding of one fact.
+
+Two further decisions worth keeping:
+
+**Amber sits at h45, not h38.** At h38 it measured fine and was *useless* —
+rendered beside brand terracotta at a real 18px it was the same colour. Hue
+separation is a legibility property and it has to be checked by rendering, not
+by reading the number.
+
+**A tinted tile does not work on this ground.** Tints at l94 lift only
+1.003–1.046 off `--page`, so a tinted card floats invisibly. Tiles are white
+(per §4.2) and hue enters through the icon chip, a hairline, viz strokes and
+text. This is why the seven hues have no `-card` role.
+
+### 2.4 Hue is never the only carrier
+
+A coloured dot, chip, bar or ring always ships with a label, glyph or number.
+Strip every hue out and the surface must still read — that is the test, and it
+is also what makes the palette safe for colour-blind users without a second
+theme. The one place colour genuinely is alone is the hue picker in a tile's
+menu, which is why each swatch carries its name in `aria-label` and `title`.
+
+### 2.5 Semantic mapping
+
+No separate semantic palette. Status maps onto the seven:
+
+| Role | Hue | Notes |
+|---|---|---|
+| Positive / done / connected | `sage` | |
+| In progress / scheduled | `blue` | |
+| Waiting / attention | `amber` | |
+| Blocked / overdue / decline | `rose` | |
+| Agent / intelligence | `violet` | |
+| Neutral / to do | `teal` | |
+| Campaign identity | `brand` | |
+
+`Delta` takes an `invert` flag for metrics where down is good. Without it a
+falling time-to-hire renders as a decline, which is the commonest way a
+dashboard lies without anyone editing a number.
 
 ## 3. Typography
 
@@ -437,6 +711,221 @@ Rules, in force:
   chrome. Marked as such in the CSS so nobody "fixes" it or copies it inward.
 
 ---
+
+### 4.3 Loudness — *Adopted at revision 28*
+
+The revision-27 surface passed every contrast check and came back judged
+**cluttered**. Measured against the reference it was aping:
+
+| | revision 27 | reference |
+|---|---|---|
+| Bordered elements in view | **68** | ~6 |
+| Distinct saturated colour spots | **26** | ~6, one hue |
+| Chips / deltas | **11** | 0 |
+| Table names on screen | **7** | 0 |
+| Elements with a resting shadow | **15** | ~1 |
+
+The reference is **not** cleaner because it holds less. It holds a breadcrumb,
+a title, a composer with two modes and four context controls, three
+suggestions, an agent-status card, recent searches, three stats, seven
+configuration rows and a shortlist. It is cleaner because **exactly one thing
+is loud and everything else is quiet.**
+
+> Cleanliness is restraint in **treatment**, not in **quantity**.
+
+So density was never the problem — uniformity was. Every element had a border,
+a shadow, a radius, a tinted glyph and a footer, so nothing receded and
+everything competed. Four tiers, and an element may only wear the treatment of
+its own tier.
+
+#### Tier 0 — Hero. **Exactly one per screen.**
+
+The composer, and nothing else. White surface, `--r-card`,
+`--nav-edge-panel`, **`--e2` at rest — the only resting shadow on the
+surface**, the travelling glow ring (§4.4), generous padding, and the one
+accent-filled control.
+
+Fifteen elements had a shadow at revision 27, which is the arithmetic reason
+the composer stopped reading as primary. One `--e2` only means something when
+its neighbours have none.
+
+#### Tier 1 — Structure. Type only, no container.
+
+Breadcrumb, campaign name, section headings. No border, no background, no
+shadow, no glyph. `--ink` for the name, `--ink-2` for the breadcrumb. Size and
+weight do the work.
+
+#### Tier 2 — Content blocks. Hairline, **no resting shadow**.
+
+Bento tiles, My Tasks, rail panels. `1px solid var(--hairline)`, `--r-card`,
+`--e1` **on hover only**.
+
+- Header is **plain text** — `12.5px/600 --ink`. No tinted glyph container.
+  Those six coloured squares did nothing but badge a card as a card.
+- Body is **two-tone**: label `--ink-2`, value `--ink`, on one row. This is
+  the reference's whole mechanism and it replaces most chips.
+
+**Qualification, earned in build.** Tier 2's `--e1`-on-hover is a *press*
+affordance. A block that is not interactive does not get it — a shadow
+tracking the pointer over a non-interactive `<article>` implies pressability
+that is not there, which is the same class of lie as a live-looking dead
+button. The reply artefact therefore carries a hairline and no shadow in any
+state, deliberately, and not because it missed a rule.
+
+#### Tier 3 — Quiet metadata. `--ink-2`, small, no container.
+
+Counts, timestamps, helper text, "2 of 4 connected".
+
+#### The colour budget — a hard cap
+
+Colour is for **exception**, never decoration. Target ≤8 saturated spots in
+view, against 26 measured.
+
+- **Accent (orange): max 3 instances.** The send button, the active nav row,
+  at most one primary action in the rail.
+- **Status hues: only where the value genuinely varies between sibling rows.**
+  Permitted — task state (five rows, four states); channel connected or not.
+  Forbidden — a hue on every row of a list, a per-card "category" tint, a
+  delta chip on a number with only one possible mood.
+
+> **The test: if every sibling in a list gets a coloured chip, the colour
+> carries no information and must come out.** Colour that never differs is
+> decoration.
+
+This is what retired the per-brief campaign chip, the per-row wait dot, the
+three header state chips, the sage check badge on every connected channel, the
+four brief mode glyphs, the per-tile category accent, and the avatar stack's
+one-hue-per-person — four people rendering as four colours is eight saturated
+spots encoding what the initials already say. **Identity is not a status, and
+only status earns the palette.**
+
+#### Measured outcome
+
+| | revision 27 | revision 28 | target |
+|---|---|---|---|
+| Composer position | **557px below the fold** | **top, fully visible** | hero |
+| Elevation shadows | 15 | **1** | 1 |
+| Distinct colour spots | 26 | **7** | ≤8 |
+| Bordered elements | 68 | 32 | ~12 |
+| Chips / deltas | 11 | **0** | 0 |
+| Table names on screen | 7 | **0** | 0 |
+
+Two counting notes, because the naive detector is wrong in both directions: a
+structural ring (`0 0 0 2px` white, letting overlapping avatars cut into each
+other) and an inset row divider are **not** elevation and must be excluded, or
+the count reads 9 when the real answer is 1. Conversely `sr-only` text still
+carries a colour and still counts.
+
+#### Honesty without noise
+
+Seven table names on screen were developer notes leaking into the product. The
+commitment to never fake data is unchanged — it is satisfied by stating it
+**once, quietly**, at the foot of the surface. The only per-component exception
+is the reply artefact's `note`, which sits directly beneath a button that looks
+like it would send something, and therefore has to speak where it stands.
+
+### 4.4 The travelling glow — *Adopted at revision 28*
+
+A 16-layer composited bloom on one `rect`, swept by `stroke-dashoffset`. It was
+built for the sidebar's quick-find field and was, for two revisions, the best
+interaction in the product and the only one of its kind — which is exactly what
+was wrong with it.
+
+> *"When one screen uses a glow-on-hover and another uses none, it breaks the
+> interaction rhythm."*
+
+**The glow belongs to a class of element, not to a component.** Every field the
+user is about to type into gets it; nothing else does. That now means quick
+find, the switcher's search, and the composer — which was the most important
+field in the product and the one field without it.
+
+It lives in `glow.tsx`. A host needs `position: relative`, an opacity trigger
+in the `.glow-ring` rule list, and — if its radius is not a pill — its own
+`--glow-ry` set to its radius **less half its border width**, because the
+stroke rides the border's centreline.
+
+Two traps, both documented at the rule and both of which cost a session:
+
+- a `calc()` resolving to a bare number is **invalid** for
+  `stroke-dasharray`/`stroke-dashoffset` and fails silently
+- centring the layers with a per-frame `calc()` over an inherited variable
+  drifts out of phase; the fix is a negative `animation-delay`
+
+Under `prefers-reduced-motion` the sweep stops and the border warms instead —
+hover still answers, which is the intentional alternative rather than a kill
+switch.
+
+### 4.5 The composition — *Adopted at revision 31*
+
+Measured off the reference as fractions of a 1568px window:
+
+| | Share | Value |
+|---|---|---|
+| left margin | 5.6% | 88px |
+| **content** | **53.6%** | **840px** |
+| gutter | 9.6% | 150px |
+| **rail** | **26.4%** | **414px** |
+| right margin | 4.8% | 76px |
+
+Three things were wrong against that. The rail was **312px** where the
+reference gives its own a quarter of the width. There was **no right margin at
+all**, so the rail sat flush against the window edge. And the content took
+whatever was left, which with a railed sidebar meant a **1108px** composer —
+far past the ~840px the reference sets.
+
+**The composition is capped and centred, not stretched.**
+
+```
+.orc {
+  max-width: 1290px;
+  margin-inline: auto;
+  padding-right: 34px;
+  column-gap: 56px;
+  grid-template-columns: minmax(0, 1fr) 340px;
+}
+```
+
+That is the rule this pass exists to establish:
+
+> **A wider window buys a surface more air, not bigger components.**
+
+Stretching is how "fill the space" turns into "everything grew", which is
+exactly the note that came back. Capping the composition and letting the
+leftover become page margin gives a stable 830px content column at any width —
+measured identical with the sidebar expanded and railed.
+
+### 4.6 Vertical rhythm — *Adopted at revision 31*
+
+**One owner.** `.orc-stream` sets `gap: 22px` and no block carries a vertical
+margin of its own.
+
+Measured before: **20 / 30 / 10 / 0 / 10px** between consecutive blocks — not a
+scale, just whatever each block's margins summed to across two containers that
+both set a gap. After: **22 / 22 / 22 / 22 / 22**.
+
+The test of whether a rhythm is real: change the one number and the whole page
+re-spaces. If some gaps move and others do not, a block is still carrying its
+own margin.
+
+Two bugs this surfaced, both worth knowing:
+
+- `.tk { margin-top: 10px }` was the entire cause of the one 32px gap, and its
+  comment claimed it was matching "the bento's own gap" — a margin that
+  duplicates a gap is always a rhythm bug, however it is justified.
+- A substitution that tried to fix the gap **replaced a string that no longer
+  existed and silently did nothing**, so the source read as fixed while the
+  page measured as broken. Every edit to this stylesheet is now asserted to
+  match exactly once before it is written.
+
+**Padding is uniform at 16px** on every wide card (bento tile, task card,
+composer) and **14px** in the rail, which is narrower. Measured before: 13/14,
+16/18, 16/14, and 11/12 — four values for one job.
+
+`.rail-stats` was overriding `.rail-panel` with `11px 12px 12px` at equal
+specificity, later in the sheet. It was invisible in the source and only
+appeared when the computed padding disagreed with the rule that looked like it
+set it. A panel that needs different padding has to say why; uniform is the
+default.
 
 ## 5. Components
 
@@ -857,6 +1346,116 @@ staircase). Keep it inert and `aria-hidden`, as that one is.
 
 ---
 
+### 5.8 Micro-visualisations ✅ *(`viz.tsx`)*
+
+The vocabulary the bento is built from. Each answers a question a bare number
+cannot, and each takes a `hue` resolved through one function so the
+`--c-<hue>-<variant>` convention lives in exactly one place.
+
+| Primitive | Answers |
+|---|---|
+| `Ring` | what fraction of the way through is this |
+| `Spark` | which direction has it been moving |
+| `Delta` | by how much, and is that good (`invert` when down is good) |
+| `Funnel` | where does the pipeline actually narrow |
+| `Stack` | who, as faces rather than a count |
+| `Chip` | what state is this in |
+| `Dot` | the smallest state marker |
+| `Glyph` | what kind of thing is this |
+
+Three implementation notes that each cost a bug once:
+
+- `pathLength={100}` on a ring normalises the circumference so the dash maths
+  is a percentage. A `calc()` resolving to a bare number is **invalid** for
+  `stroke-dasharray` and fails silently, leaving a full ring.
+- Anything stretched by `preserveAspectRatio="none"` needs
+  `vector-effect="non-scaling-stroke"`, or a 2px line renders at 5px on a wide
+  tile.
+- A flat series has zero span. Dividing by it collapses the line to the
+  baseline; giving it a span of 1 puts it up the middle, which is the truthful
+  shape.
+
+### 5.9 Reply artefacts ✅ *(`Reply.tsx`)*
+
+`lead` · `field` · `section` · `note`. The `section` is the load-bearing one: a
+tinted block in its own hue with a title in `--c-<hue>-text` and its own edit
+affordance, so it reads as a discrete reviewable unit rather than a paragraph
+with a background.
+
+The prompt renders the recruiter's own words large in `--serif` — the one piece
+of human prose on the surface, where the agent's output is UI — with the
+leading clause washed in `--accent-tint`. That span comes from a **string
+split** (first comma, or six words, whichever is shorter), and the code says so
+at length: it is a typographic device, **not NLP**, and nothing claims to have
+parsed intent.
+
+### 5.10 Reply kinds — *Adopted at revision 32*
+
+There was one reply shape: the artefact card. Good for what it is, but it was
+*the special kind*, and the ordinary kinds were missing. Four now, behind one
+`Reply({ reply, onAnswer })` that dispatches on `reply.kind`.
+
+| Kind | Treatment |
+|---|---|
+| **prose** | Paragraphs. 15px/1.65 `--ink` at 62ch. **No card, no border, no background.** |
+| **question** | The agent asks. A `why` line, 2–4 options, and the composer as the free-text path. |
+| **artefact** | The reviewable object. The only one with a card. |
+| **trace** | A disclosure on the `Thought for Ns` line, carried by all three. |
+
+**Prose must look like nothing.** If prose looks designed, the artefact card
+stops meaning "this one is special" — and that distinction is the whole reason
+to have kinds at all. The card is earned by being a reviewable object with a
+commit action; a paragraph earns nothing.
+
+**The trace is "what it thought and came across".** Collapsed by default and
+**not in the DOM when collapsed** — a transcript only grows, so leaving four
+expanded traces mounted is a cost that compounds. Each step carries a `label`,
+a `detail`, and `found` items — and the hierarchy is *inverted on purpose*:
+label `--ink`, detail `--ink-2`, findings back to `--ink`. The findings are the
+half a recruiter could not have guessed, so the eye goes label → found with the
+conclusion sitting between them as a caption.
+
+**The trace's honesty line LEADS rather than trails**, departing from this
+document's honesty-last convention. `--orc-fixtures` and `.rep-note` sit
+*under* things that look like they would act, qualifying an act not yet taken.
+Trace steps are assertions about the past, and a correction arriving after four
+believed assertions is too late.
+
+**A question's options seed the composer and never act.** Verified: clicking
+one filled the field with "Include candidates who are up to two years short on
+seniority, and mark them as a stretch", moved focus to the input, and left the
+turn count unchanged. That is the established pattern — a suggestion hands you
+a draft, it does not send it.
+
+Two implementation notes worth keeping:
+
+- `<button aria-expanded>` rather than `<details>`/`<summary>`, so nothing
+  remains in the DOM when closed and there is no UA marker to strip off the
+  thought line's typography. `aria-controls` is dropped while closed rather
+  than dangling at an id not in the document.
+- The caret is **swapped** (`CaretRight`/`CaretDown`), never rotated. A
+  rotation is a transform, and this surface's one interaction transform is the
+  60ms press.
+
+### 5.11 The working indicator — *Adopted at revision 32*
+
+**The mark does not move.** It used to rotate in stepped thirds. Spinning a
+logo is the cheapest loader there is and it works against what a logo is: an
+identity that tumbles reads as a throbber, not a presence.
+
+The motion moved to a ring outside it — an arc that travels while **its own
+length compresses and expands**, 10% of the circumference at its shortest and
+42% at its longest. Two animations on one element at deliberately different
+periods (1.15s travel, 1.9s breathe) so the pattern never resolves into a
+single repeating gesture.
+
+Both dash values are stated in every keyframe: interpolating a two-value
+`stroke-dasharray` requires the lists to be the same length, and omitting the
+gap invalidates the whole declaration rather than inheriting it.
+
+Reduced motion holds a static incomplete arc — still visibly working, with
+nothing in motion.
+
 ## 6. Verifying a colour change
 
 Every ratio in this file was computed, not estimated. To re-check after an edit:
@@ -943,3 +1542,11 @@ which is the wrong home for a system-wide constant. Move it to a shared module
 | 23 | 2026-09-15 | Decluttered the panel head. Workspace trigger went to one line — the hint ("Your organization" / "Personal workspace") was the densest thing there for the least information, since the name already says which it is, and it still earns its place in the switcher where it separates rows. Bell lost its resting outline: two outlined shapes side by side in a 224px row was most of the clutter, and the quick-find trigger is the row's subject while the bell is an adjunct already legible from its glyph and badge; the outline arrives on hover, when a boundary is useful. Rhythm: brand row 56→54, workspace block padding 10→12, tools 12→16 and gap 8→10. Badge knockout ring switched from `--nav-surface` to `--nav-panel` — it was white because the panel used to be, and a knockout must match what it knocks out of. |
 | 24 | 2026-09-15 | Separated organisation from workspace, which the code had conflated: `ownWorkspace()` used the organisation's NAME as the workspace's name and labelled the tenant as a workspace. Organisation is the tenant (`core.organizations`, `tenant_<slug>`, the RLS boundary, not switchable); workspace is the scope inside it at `user` or `org` level. Added §5.3.0 with the model. The switcher now groups `Your workspace` above the organisation's own heading; the account row shows name over organisation and the email moved into the account menu. Org-level rows stay disabled because switching one would change which schema is read — the deliberate difference from the campaign switcher. |
 | 25 | 2026-09-15 | Workspace switcher rebuilt on the same shell as the campaign switcher: portaled, 316px, search field with its own border glow, two divisions — `Personal workspace` and `Org workspaces` — with the organisation named in a closing note rather than as a group label, since it is the boundary and not a heading of peers. Extracted `SwitcherPopover` rather than copying: the markup was never the hard part, but the portal, position measurement, keyboard cursor, focus latch and dismissal had each already cost a bug, and duplicating that list was not an option. Arrows walk enabled rows ACROSS group boundaries; empty groups drop away instead of leaving a heading over nothing; disabled rows carry `aria-disabled` as well as the dimming. Removed the 15 now-dead `.nav-ws-pop` / `.nav-ws-item` / `.nav-ws-head` rules. Group divisions are separated by space, not a rule — a divider inside a bordered popover would be the third boundary in 300px. |
+| 26 | 2026-09-15 | Built the orchestrator (Home): campaign header with three movement metrics, bento opening state, blended composer with Sourcing/Agent modes and sourcing-only context slots, right rail of briefs and campaign setup (channels with real brand marks, collaborators), and the send-to-reply choreography. Added §5.4 with the ground's derivation, the naming argument for "brief", and the motion thesis. Ground is `#f4f1ec` — 27% saturation against the 54% that §0 records as having failed. Caught two of my own violations while auditing: I invented a tertiary grey `#9a9188` in four places (2.75:1, fails outright) which §3.3 forbids in as many words, and then tried to demote the same token with `opacity: 0.8` (4.19:1) — a translucent pass at a legal colour is still an illegal colour. Both now `--ink-2`, demoted by size. 25/25 text elements pass. |
+| 27 | 2026-09-16 | Rebuilt the orchestrator and the colour system after the revision-26 surface was judged bland and "light wood". Measured three reference screenshots pixel by pixel: the finding was not which accent they use but WHERE the saturation sits — their ground is C* 0.01 with s89-93% concentrated in under 5% of pixels, mine was C* 2.76 across ~60% of the screen. New rule in §2.0: desaturate the large areas, saturate the small ones. Ground `#f4f1ec` → `--page #f7f7f5` (C* 2.76 → 1.01), `--nav-panel` neutralised, `--sub` added as a plane inside a card, and seven category hues × five roles added, every value solved for its floor. Rejected the references' blue primary — orange stays the only action colour — but measuring it was worth it: their `#51a7f5` carries white text at 2.56:1 and our own `--accent` at 3.51:1, so both buttons were illegal; `--accent-fill #cc4d17` is the brand hue solved for 4.5:1. Amber moved h38→h45 after rendering it beside brand terracotta at real size. Home rebuilt: per-state anchoring (dead space 626px → 24px), eight structurally distinct configurable tile kinds with size/hue/order/membership persisted locally, a My Tasks section, an enriched rail, structured reply artefacts, and a documented five-band motion set. 49 text elements audited, zero failures. |
+| 28 | 2026-09-16 | Cleanliness pass. The revision-27 surface passed every contrast check and came back judged cluttered, with the composer 557px BELOW THE FOLD on a 1568x895 laptop — the core of the product, unreachable without scrolling. Measured the gap against the reference: 68 bordered elements vs ~6, 26 saturated colour spots vs ~6, 11 chips vs 0, 7 table names vs 0, 15 resting shadows vs ~1. Diagnosis in §4.3: density was never the problem, UNIFORMITY was — every element wore a border, a shadow, a tinted glyph and a footer, so nothing receded. Added the four-tier loudness hierarchy, the colour budget (≤ 8 saturated spots; accent capped at 3 instances; a hue only where sibling rows genuinely differ), and the rule that cleanliness is restraint in treatment rather than in quantity. Structurally: the composer moved from the last grid row to the second, so it is permanently visible and the transcript grows downward under it — which also retired the per-state anchoring that existed only because it had been last. Removed the greeting (a third heading competing with the campaign name and the composer's own placeholder), cut the default bento from five tiles to three, demoted suggestions from cards to bare lines, moved the stats out of the header into the rail, and replaced seven per-card table names with one quiet line. §4.4: extracted the travelling glow to `glow.tsx` and applied it to the CLASS of element (any field you type into) rather than to one favourite component — the composer was the most important field in the product and the only one without it. Motion rewritten to five documented bands over classes, on the research finding that animations draw attention once while micro-interactions sustain it. |
+| 29 | 2026-09-16 | Canvas and colour-zone pass, after the surface was judged "not blended" and "bland with no vibrance". Two measurements drove it. (1) THE CANVAS: every fill in the reference is `#ffffff` — page, composer, rail cards, status cards, all 1.000:1 against each other — so cards are outlined regions on one continuous surface, never separated by tone. `--page` went `#f7f7f5` → `#ffffff`, and the rail's `border-left` was deleted: that one line was the main reason the right column read as a second document. Columns are now separated by 55px of canvas and nothing else. §2.1.1. (2) COLOUR ZONES: sampling saturated pixels per band showed the greeting and the bento hold 89.5% of the reference's colour while its tasks header holds 0.0% and its task rows just 5.1%. So colour is concentrated, not distributed — which explains both the cluttered version (26 spots, spread) and the bland one (7 spots, spread). §2.1.2. Structurally: the composer went back BELOW the bento as asked, and the fold problem was fixed the right way this time with `position: sticky` rather than by reordering the page; it is a sticky last child INSIDE the scroll container, which also cured a 15px ragged edge caused by it not sharing the stream's `scrollbar-gutter`. All four blocks now share one `--orc-measure` — left and right spread measured at 0px, against three different widths before. One 20px rhythm replaced gaps of 10/73/14/10/24. The greeting returned (wrong to remove it) with a blue wash. Interactions: three new arrival gestures that each animate TO the real datum — a ring sweeping to its percentage, a spark drawing left to right, and a number counting up — deliberately NOT the travelling glow, which stays exclusive to fields you type into, because an effect reused everywhere stops being a signal. Two contrast fixes fell out of the build: the funnel's per-step fade toward its tint put bars 2-5 at 2.96 / 2.50 / 2.12 / 1.82:1, under the 3:1 a data mark owes, and it was unfixable by tuning because the undiluted mark is only ~3.3:1 — so the fade was deleted outright and depth is carried by the bar widths, which are the datum. And the rail's stat labels went from uppercase to sentence case: "SHORTLISTED" with +0.03em tracking needs ~78px against a ~67px column, so two of three rendered as "SHORTLIS…". Uppercase costs roughly a fifth of the width for the same word and the tracking it needs costs more again; the uppercase micro-label device belongs where there is a full column to spend it. |
+| 30 | 2026-09-16 | Spacing and placement pass. The gap between the content and the rail was the `--orc-measure: 980px` cap: with the sidebar railed the column is 1188px, so the content stopped 208px short and left a 168px void — measured. The measure now fills its column (`min(100%, 1240px)`) and the rail's gutter is a deliberate 28px margin rather than leftover space; gap to rail 168px → 40px. Widgets shrunk: `grid-auto-rows` 176 → 144px. 138 was tried and rejected on a measurement — the `replies` tile's action overlapped its last name row by 4px, which `scrollHeight` could not detect because the tile is `overflow: visible`; 144 became safe only after dropping that tile's "Longest wait first" label, which restated what the ordering already does. The task list is now a constant 140px with its own scroll, so total page height (and therefore where the composer lands) no longer depends on how many tasks exist; it is sized to clip a row mid-height, which is the clearest signal a list scrolls. The composer stopped being sticky — it was only pinned because the page overflowed, and with the widgets and list bounded the whole surface fits a 1012px viewport, so it sits in the flow at 75% of the viewport height instead of glued to the bottom edge (92% before). Recommended searches moved from above the composer to below it, rendered as pills with a search glyph rather than bare sentences, and the honesty line moved to the very foot; both were spending vertical budget above the field. "Customise home" folded onto the greeting baseline, reclaiming another 50px. Rhythm tightened 20 → 14px. Verified: 0 tile collisions, 0 horizontal overflow, no page scroll, and 75% composer placement in both sidebar states at 1568x1012. |
+| 31 | 2026-09-16 | Composition and spacing pass, on the note "don't fill spaces by increasing the size — we need subtle and just the right amount of spaces" and "components feel too big". §4.5: measured the reference's proportions (content 53.6%, gutter 9.6%, rail 26.4%, right margin 4.8%) and found the rail at 312px with NO right margin and the content stretching to 1108px. The composition is now capped at 1290px and centred, so a wider window buys page margin rather than bigger components — content is a stable 830px with the sidebar expanded or railed, the composer went 1108 → 830, tiles 453 → 409, the rail 312 → 340, and the page gained a 34px right margin plus a 56px gutter. §4.6: vertical rhythm reduced to ONE owner (`.orc-stream` gap 22px, no per-block margins) after measuring 20/30/10/0/10; now 22 across every boundary. Padding unified to 16px on wide cards and 14px in the rail, from four different values. Two process bugs recorded: a `.tk { margin-top: 10px }` whose comment justified duplicating a gap, and a string substitution that silently matched nothing so the source read as fixed while the page measured broken — every stylesheet edit is asserted to match exactly once now. Tile content is being trimmed to a measured 108px content box rather than the rows being grown, because the components were the thing judged too big. |
+| 32 | 2026-09-16 | Reply kinds, the working indicator, and the bento default. §5.10: added prose, question and a reasoning trace beside the artefact, behind one `Reply({ reply, onAnswer })` dispatching on `kind` — prose deliberately looks like nothing, because if it looks designed the artefact's card stops meaning "special". The trace is collapsed and absent from the DOM when closed, shows each step's `found` items (the half a recruiter could not guess), and puts its honesty line FIRST — a documented departure from honesty-last, since trace steps assert about the past and a correction after four believed assertions is too late. Question options seed the composer and never act; verified the turn count stays unchanged. §5.11: the mark stopped spinning. A tumbling logo reads as a throbber rather than a presence, so `@keyframes orc-turn` was deleted and the motion moved to an orbiting arc whose dash length breathes (10%→42% of the circumference) on two different periods. DELETED the prompt's intent wash: it took a "leading clause" by string split, and on "Find me good candidates" — four words, no comma — both bounds missed and it washed the ENTIRE message as one orange serif pill. That was the common case, not an edge case, and the comment defending it was wrong. DELETED the WORST DROP panel: it reported the largest ADJACENT funnel loss, which is always Sourced → Shortlisted by construction, so it could only ever print the same finding while framing intended behaviour as a failure; not replaced, because an honest version needs a baseline no fixture carries. Bento default cut to FOUR tiles, two wide and two narrow alternating over a THREE-column grid (only 3 tracks let `m`+`s` fill a row exactly). `pipeline` left the default on a measurement — it needs 222px and overflowed a 140px row by 51px when I ignored that; it stays in the gallery at `l`. Greeting bar moved to the top of the page where it survives into the conversation state, the campaign gained a name-derived mark beside its title, and the page-level fixtures line was removed — the load-bearing honesty marker stays at the point of action. |
+| 33 | 2026-09-16 | Bumped the tile-layout storage key v1 → v2, which should have shipped with revision 32. The bento went from a four-column grid to three and the default from five tiles to four, so a saved layout was structurally VALID (`kind`, `size` and `hue` all still validate) and semantically stale: a `size: "l"` that meant half the width now means two-thirds, and a five-tile arrangement that tiled cleanly at four columns leaves a hole at three. The result was people looking at a layout the current grid could not produce — tiles stacked in one column with one floating outside the content measure. This is precisely the case the versioned key exists for, and the lesson is that versioning only helps if the bump actually happens when the shape changes. The arrangement is now verified off real geometry rather than from the spec: row 1 long+short, row 2 short+long, four tiles on a 3 × 312px grid, bento 294px tall. |
