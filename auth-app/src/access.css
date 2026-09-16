@@ -4682,7 +4682,11 @@ body {
      bottom padding is counted. Without it the header sat flush against the
      first tile while every other section had 32px, so the one boundary the
      eye hits first was the only one not on the rhythm. */
-  row-gap: 20px;
+  /* 32px, the section rhythm: the gap between the page header and the first
+     section is a section boundary like any other. It was 20, which put the
+     header closer to the content than the content's own blocks are to each
+     other. */
+  row-gap: 32px;
   grid-template-rows: auto minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
@@ -5114,6 +5118,27 @@ body {
   cursor: not-allowed;
 }
 
+/* ── the page header ──
+   The page's name, and the one control that acts on the whole page. Sits above
+   the stream on the same 64px inset everything else aligns to, so the heading
+   starts on the same edge as the cards below it. */
+.orc-page {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 22px 0 0 64px;
+  max-width: calc(var(--orc-measure) + 64px);
+}
+
+.orc-page-h {
+  margin: 0;
+  font: 600 21px/1.2 var(--ui);
+  letter-spacing: -0.019em;
+  color: var(--ink);
+}
+
 /* ══════════════════════════ tasks as the hero ═══════════════════════════════
 
    The Tier 0 treatment, applied to the task list on Home. The hierarchy allows
@@ -5149,13 +5174,6 @@ body {
    The bento, under the hero, labelled so it reads as support rather than as
    more of the thing above it. */
 .orc-context { display: grid; gap: 12px; }
-
-.orc-context-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 16px;
-}
 
 .orc-context-h {
   margin: 0;
@@ -5700,13 +5718,11 @@ body {
      SECTIONS that happen to share a wrapper, so the space between them has to
      match the rhythm everything else on the page sits on.
 
-     The top padding is the exception, and it lives here rather than on the
-     stream because only Home uses this wrapper: Agent has a header supplying
-     its own top spacing, so padding the shared stream would double it there.
-     Without it Home's first card sat flush against the top of the viewport
-     once the campaign header came off — measured at 0px. */
+     No top padding. It was added when Home had no header at all and its first
+     card sat flush against the viewport; with a page header back, the grid's
+     row-gap supplies that space and the padding double-counted it — measured
+     46px against the 32px rhythm. */
   gap: 32px;
-  padding-top: 26px;
   /* Wider than the old 760px: the bento is four columns now and a large tile
      spans two of them, so a narrow measure squeezed every tile into a column
      too thin for a funnel label plus its bar plus its count. */

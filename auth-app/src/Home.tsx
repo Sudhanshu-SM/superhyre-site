@@ -60,6 +60,25 @@ export function Home({
        the right edge and the content stopped short of it for no reason. */
     <div className="orc is-solo">
       <div className="orc-main">
+        {/* ── THE PAGE'S OWN NAME ──
+            The sidebar shows which page you are on, but only while it is
+            expanded — railed it is an icon, and the surface then had nothing
+            on it saying where you were. A page heading is also what the widget
+            control needs to sit beside: it was next to "At a glance", which
+            put it inside the thing it edits. */}
+        <header className="orc-page">
+          <h1 className="orc-page-h">Home</h1>
+          <button
+            type="button"
+            className="orc-add"
+            onClick={(e) => setGallery(e.currentTarget)}
+            aria-haspopup="dialog"
+          >
+            <GridFour size={14} weight="bold" aria-hidden="true" />
+            Edit widgets
+          </button>
+        </header>
+
         <div className="orc-stream">
           <div className="orc-open">
             {/* ── TASKS FIRST, AND TASKS AS THE HERO ──
@@ -78,18 +97,11 @@ export function Home({
             {/* Context for the tasks above. Labelled, because an unheaded grid
                 of cards below a headed section reads as part of it. */}
             <section className="orc-context" aria-label="Campaign at a glance">
-              <div className="orc-context-head">
-                <h2 className="orc-context-h">At a glance</h2>
-                <button
-                  type="button"
-                  className="orc-add"
-                  onClick={(e) => setGallery(e.currentTarget)}
-                  aria-haspopup="dialog"
-                >
-                  <GridFour size={14} weight="bold" aria-hidden="true" />
-                  Customise
-                </button>
-              </div>
+              {/* Just the label now. The widget control moved to the page
+                  header: "Edit widgets" names what it acts on, so it does not
+                  need to sit adjacent to it, and one page-level control in the
+                  page's own header is where someone looks for it. */}
+              <h2 className="orc-context-h">At a glance</h2>
 
               <Bento
                 layout={tiles.layout}
