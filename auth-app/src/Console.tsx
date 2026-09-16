@@ -7,6 +7,7 @@ import { Agent } from "./Agent";
 import { Home } from "./Home";
 import { Palette } from "./Palette";
 import { CURRENT_CAMPAIGN } from "./workspaces";
+import type { Scope } from "./orchestrator";
 import type { Campaign } from "./workspaces";
 import { GROUP_OF, ROUTES, routeFromHash } from "./nav";
 import type { Route, RouteId } from "./nav";
@@ -163,6 +164,19 @@ export function Console({ bootstrap, onSignOut, signingOut }: Props) {
      is honest while there is no campaigns table. */
   const [campaign, setCampaign] = useState<Campaign>(CURRENT_CAMPAIGN);
 
+  /* Which campaign the OVERVIEW is reporting on, or all of them.
+     Distinct from `campaign` above, and the distinction is real rather than an
+     oversight: `campaign` is a NAVIGATION context — it decides which sub-pages
+     the sidebar offers, so it is always exactly one campaign and there is no
+     "all" for it to be. This is an ANALYTICS scope, which has to be able to
+     mean everything, because the first question on a dashboard is usually the
+     total. Collapsing the two would force the sidebar to invent sub-pages for
+     a campaign that is not selected.
+
+     It lives here, not in Home, so that scoping the overview, walking to the
+     Agent and coming back does not silently reset to All. */
+  const [scope, setScope] = useState<Scope>("all");
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       /* metaKey for macOS, ctrlKey elsewhere. Checking both rather than
@@ -268,7 +282,8 @@ export function Console({ bootstrap, onSignOut, signingOut }: Props) {
           {/* Routes gain a real page here one at a time; everything still on
               Placeholder says so and names the table it will read. */}
           {route === "home" ? (
-            <Home onBrief={brief} />
+            <Home onBrief={brief} name={firstName(bootstrap)}
+                  scope={scope} onScope={setScope} />
           ) : route === "agent" ? (
             <Agent
               campaign={campaign}
@@ -297,6 +312,19 @@ export function Console({ bootstrap, onSignOut, signingOut }: Props) {
  */
 function displayName(b: AllowedBootstrap): string {
   return b.full_name.trim() || b.email.split("@")[0] || "Signed in";
+}
+
+/**
+ * The first token of the display name, for the greeting.
+ *
+ * "Hello Priya Rajan" greets a database row; "Hello Priya" greets a person.
+ * Falls through to "there" rather than to the whole string, because the last
+ * resort of `displayName` is "Signed in" and "Hello Signed in" is worse than
+ * the generic.
+ */
+function firstName(b: AllowedBootstrap): string {
+  const first = displayName(b).split(/\s+/)[0];
+  return !first || first === "Signed" ? "there" : first;
 }
 
 function Placeholder({ route }: { route: Route }) {

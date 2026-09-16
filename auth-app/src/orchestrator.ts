@@ -4,6 +4,7 @@ import {
   Target, UsersThree, VideoCamera
 } from "@phosphor-icons/react";
 import type { Icon } from "@phosphor-icons/react";
+import { CAMPAIGNS } from "./workspaces";
 
 /**
  * The orchestrator surface: briefs, modes, campaign configuration.
@@ -312,27 +313,47 @@ export type TaskItem = {
   id: string;
   title: string;
   state: TaskState;
-  campaign: string;
-  /** Urgency drives the leading dot's hue and the ordering, not decoration. */
-  urgent: boolean;
+  /** Keyed to CAMPAIGNS, so tasks and the overview filter by the same id. */
+  campaignId: CampaignKey;
+  /**
+   * Days until due: 0 is today, negative is overdue, positive is ahead.
+   *
+   * THIS REPLACED A BOOLEAN `urgent`, and the replacement is the reason the
+   * list can carry a time filter at all. The flag was standing in for a due
+   * date the fixture did not have, which was fine while the only question was
+   * "is this row loud" and stopped being fine the moment the list needed
+   * Today / Next 7 days — you cannot range-filter a boolean. A number answers
+   * both: `pressing` becomes `dueInDays <= 0`, so the urgency treatment and
+   * the filter now read the SAME field instead of one approximating the other.
+   */
+  dueInDays: number;
   chips: readonly TaskChip[];
 };
 
 export const TASKS: readonly TaskItem[] = [
   { id: "k1", title: "Approve the outreach draft for four staff engineers",
-    state: "doing", campaign: "Senior Backend Engineers", urgent: true,
+    state: "doing", campaignId: "backend-snr", dueInDays: 0,
     chips: [{ label: "By today", hue: "rose", Icon: Clock }, { label: "4 drafts", hue: "blue", Icon: Envelope }] },
   { id: "k2", title: "Screening call with Meera Raghavan",
-    state: "todo", campaign: "Senior Backend Engineers", urgent: true,
+    state: "todo", campaignId: "backend-snr", dueInDays: 0,
     chips: [{ label: "10:30", hue: "amber", Icon: Clock }, { label: "Join", hue: "blue", Icon: VideoCamera }] },
+  /* Overdue, and blocked BECAUSE it is waiting on a person. The two facts
+     belong together: this is the row that proves an overdue task is not the
+     same thing as a neglected one. */
   { id: "k3", title: "Confirm the comp band before the hiring-manager loop",
-    state: "blocked", campaign: "Senior Backend Engineers", urgent: false,
+    state: "blocked", campaignId: "backend-snr", dueInDays: -2,
     chips: [{ label: "Waiting on Punith", hue: "rose", Icon: UsersThree }] },
   { id: "k4", title: "Shortlist the Bangalore SRE longlist",
-    state: "todo", campaign: "Platform SRE", urgent: false,
+    state: "todo", campaignId: "platform-sre", dueInDays: 1,
     chips: [{ label: "By tomorrow", hue: "teal", Icon: Clock }, { label: "31 to review", hue: "violet", Icon: Target }] },
+  { id: "k6", title: "Draft the SRE outreach sequence",
+    state: "todo", campaignId: "platform-sre", dueInDays: 3,
+    chips: [{ label: "In 3 days", hue: "teal", Icon: Clock }] },
+  { id: "k7", title: "Review the iOS take-home submissions",
+    state: "doing", campaignId: "ios-mid", dueInDays: 5,
+    chips: [{ label: "5 to review", hue: "violet", Icon: Target }] },
   { id: "k5", title: "Send the iOS screening summaries to the panel",
-    state: "done", campaign: "iOS Engineers", urgent: false,
+    state: "done", campaignId: "ios-mid", dueInDays: -1,
     chips: [{ label: "Sent", hue: "sage", Icon: Check }] },
 ];
 
@@ -431,65 +452,163 @@ export const SUGGESTIONS: Record<ModeId, readonly string[]> = {
 };
 
 /* ═══════════════════════════ overview data ══════════════════════════════════
-   What Home shows. Fixtures against `org_candidates` and `campaigns`.        */
+
+   What Home shows, and the one invariant that makes its campaign filter
+   trustworthy:
+
+       THE PARTS SUM TO THE WHOLE.
+
+   Every number here is stored PER CAMPAIGN. "All campaigns" is not a fourth
+   fixture sitting beside the three — it IS the three added up. That is the
+   difference between a filter and a lie: were the overall totals their own
+   hand-written numbers, the day someone edited one campaign the header would
+   disagree with the sum of its own parts, and nothing in the type system would
+   notice. 148 candidates is 78 + 46 + 24, and it reads 148 because that is
+   what those add to, not because 148 is typed anywhere.
+
+   Fixtures against `org_candidates` and `campaigns`.                         */
+
+/** The fourteen days the chart plots and its x-axis labels. Oldest first. */
+export const DAYS: readonly string[] = [
+  "Mon 2", "Tue 3", "Wed 4", "Thu 5", "Fri 6", "Sat 7", "Sun 8",
+  "Mon 9", "Tue 10", "Wed 11", "Thu 12", "Fri 13", "Sat 14", "Sun 15",
+];
 
 export type DayPoint = { day: string; n: number };
 
-/**
- * Candidates sourced per day, oldest first.
- *
- * Fourteen days rather than seven: a week cannot show a weekend dip against a
- * weekday run-rate, so it cannot show a shape — and the shape is the entire
- * reason this is a chart and not a number.
- */
-export const SOURCED_BY_DAY: readonly DayPoint[] = [
-  { day: "Mon 2", n: 6 },
-  { day: "Tue 3", n: 11 },
-  { day: "Wed 4", n: 9 },
-  { day: "Thu 5", n: 14 },
-  { day: "Fri 6", n: 12 },
-  { day: "Sat 7", n: 3 },
-  { day: "Sun 8", n: 2 },
-  { day: "Mon 9", n: 15 },
-  { day: "Tue 10", n: 19 },
-  { day: "Wed 11", n: 13 },
-  { day: "Thu 12", n: 21 },
-  { day: "Fri 13", n: 17 },
-  { day: "Sat 14", n: 4 },
-  { day: "Sun 15", n: 2 },
-];
+export type Funnel = {
+  shortlisted: number; contacted: number; replied: number; interviews: number;
+};
 
-/**
- * The four stages Home reports, in pipeline order.
- *
- * Not the same list as the Pipeline tile's five: this one starts at
- * Shortlisted because Sourced is the chart directly above it, and a number
- * repeated two inches from its own graph is the kind of redundancy that makes
- * a dashboard feel padded.
- */
-export type Step = { id: string; label: string; n: number; of: number };
-
-export const STEPS: readonly Step[] = [
-  { id: "shortlisted", label: "Shortlisted", n: 24, of: 148 },
-  { id: "contacted", label: "Contacted", n: 61, of: 148 },
-  { id: "replied", label: "Replied", n: 17, of: 61 },
-  { id: "interviews", label: "Interviews", n: 6, of: 17 },
-];
-
-export type ActiveCampaign = {
-  id: string;
-  name: string;
-  role: string;
-  /** Open roles on this req. */
+type CampaignOverview = {
+  /** Sourced per day, index-aligned to DAYS. */
+  sourced: readonly number[];
+  funnel: Funnel;
+  /** Open roles on the req. */
   open: number;
-  /** Candidates in flight. */
-  live: number;
   /** Days since anything moved — the number that says a campaign has stalled. */
   quietFor: number;
 };
 
-export const ACTIVE_CAMPAIGNS: readonly ActiveCampaign[] = [
-  { id: "sbe", name: "Senior Backend Engineers", role: "Engineering", open: 3, live: 61, quietFor: 0 },
-  { id: "sre", name: "Platform SRE", role: "Engineering", open: 2, live: 31, quietFor: 2 },
-  { id: "ios", name: "iOS Engineers", role: "Engineering", open: 1, live: 12, quietFor: 9 },
-];
+/**
+ * Keyed by the ids in workspaces.ts CAMPAIGNS — the canonical list the sidebar
+ * switcher already reads.
+ *
+ * It did not used to be. This table carried its own `sbe` / `sre` / `ios` for
+ * the same three campaigns the switcher called `backend-snr` / `platform-sre` /
+ * `ios-mid`: two id spaces for one concept, which works right up until
+ * something has to filter by campaign across both. Naming them once is what
+ * lets Home's header, the task list and the sidebar mean the same campaign.
+ *
+ * Only three of the seven carry data. The scope switcher offers exactly these
+ * plus All, because putting four all-zero views behind a control that looks
+ * like it narrows data is a worse answer than not offering them.
+ */
+const OVERVIEW = {
+  "backend-snr": {
+    sourced: [3, 6, 5, 7, 6, 2, 1, 8, 10, 7, 11, 9, 2, 1],
+    funnel: { shortlisted: 13, contacted: 33, replied: 10, interviews: 4 },
+    open: 3, quietFor: 0,
+  },
+  "platform-sre": {
+    sourced: [2, 3, 3, 5, 4, 1, 1, 5, 6, 4, 6, 5, 1, 0],
+    funnel: { shortlisted: 7, contacted: 19, replied: 5, interviews: 1 },
+    open: 2, quietFor: 2,
+  },
+  "ios-mid": {
+    sourced: [1, 2, 1, 2, 2, 0, 0, 2, 3, 2, 4, 3, 1, 1],
+    funnel: { shortlisted: 4, contacted: 9, replied: 2, interviews: 1 },
+    open: 1, quietFor: 9,
+  },
+} as const satisfies Record<string, CampaignOverview>;
+
+/** A campaign with overview data, as a literal union rather than `string`. */
+export type CampaignKey = keyof typeof OVERVIEW;
+
+/** What the overview is showing: everything, or one campaign. */
+export type Scope = "all" | CampaignKey;
+
+export const SCOPED: readonly CampaignKey[] =
+  Object.keys(OVERVIEW) as CampaignKey[];
+
+export const isScoped = (s: Scope): s is CampaignKey => s !== "all";
+
+/** Display name from the canonical list, so no name is written twice. */
+export const campaignName = (id: string): string =>
+  CAMPAIGNS.find((c) => c.id === id)?.name ?? id;
+
+/** The campaigns a scope covers — one, or all of them. This fold is the only
+ *  place "all" is given meaning, so every card agrees on what it means. */
+const keysFor = (scope: Scope): readonly CampaignKey[] =>
+  isScoped(scope) ? [scope] : SCOPED;
+
+export function sourcedFor(scope: Scope): readonly DayPoint[] {
+  const keys = keysFor(scope);
+  return DAYS.map((day, i) => ({
+    day,
+    n: keys.reduce((a, k) => a + (OVERVIEW[k].sourced[i] ?? 0), 0),
+  }));
+}
+
+export type Step = { id: string; label: string; n: number; of: number };
+
+/**
+ * The four stages Home reports, in pipeline order.
+ *
+ * Starts at Shortlisted because Sourced is the chart directly above it, and a
+ * number repeated two inches from its own graph is the kind of redundancy that
+ * makes a dashboard feel padded.
+ */
+export function stepsFor(scope: Scope): readonly Step[] {
+  const keys = keysFor(scope);
+  const add = (pick: (f: Funnel) => number) =>
+    keys.reduce((a, k) => a + pick(OVERVIEW[k].funnel), 0);
+
+  const sourced = sourcedFor(scope).reduce((a, d) => a + d.n, 0);
+  const contacted = add((f) => f.contacted);
+  const replied = add((f) => f.replied);
+
+  /* Each denominator is the step it came FROM, the only honest one for a
+     funnel: 17 replies is 28% of the 61 contacted, not 11% of everyone
+     sourced. Printed beside the bar so the ratio can be checked. */
+  return [
+    { id: "shortlisted", label: "Shortlisted", n: add((f) => f.shortlisted), of: sourced },
+    { id: "contacted", label: "Contacted", n: contacted, of: sourced },
+    { id: "replied", label: "Replied", n: replied, of: contacted },
+    { id: "interviews", label: "Interviews", n: add((f) => f.interviews), of: replied },
+  ];
+}
+
+export type ActiveCampaign = {
+  id: CampaignKey;
+  name: string;
+  role: string;
+  open: number;
+  /**
+   * Candidates in flight — DERIVED from the funnel, never stored. It used to be
+   * its own fixture field reading 61 for Senior Backend Engineers, which was
+   * also the OVERALL contacted count: one number that happened to equal a
+   * different number, waiting to be read as the same fact. Deriving it means
+   * this card and the Progress card cannot drift apart.
+   */
+  live: number;
+  quietFor: number;
+};
+
+export function campaignsFor(scope: Scope): readonly ActiveCampaign[] {
+  return keysFor(scope).map((k) => {
+    const meta = CAMPAIGNS.find((c) => c.id === k);
+    const o = OVERVIEW[k];
+    return {
+      id: k,
+      name: meta?.name ?? k,
+      role: meta?.role ?? "",
+      open: o.open,
+      live: o.funnel.contacted,
+      quietFor: o.quietFor,
+    };
+  });
+}
+
+/** A campaign quiet this long has stalled rather than merely paused. */
+export const STALE_DAYS = 7;

@@ -1,7 +1,9 @@
-import { Clock, MagnifyingGlass, Sparkle } from "@phosphor-icons/react";
+import { CaretDown, Clock, MagnifyingGlass, Sparkle } from "@phosphor-icons/react";
 import { useId, useMemo, useState } from "react";
-import { TASKS, TASK_STATE_HUE, TASK_STATE_LABEL } from "./orchestrator";
-import type { Hue, TaskChip, TaskItem, TaskState } from "./orchestrator";
+import {
+  SCOPED, TASKS, TASK_STATE_HUE, TASK_STATE_LABEL, campaignName,
+} from "./orchestrator";
+import type { Hue, Scope, TaskChip, TaskItem, TaskState } from "./orchestrator";
 import { Chip, Dot } from "./viz";
 
 /**
@@ -82,7 +84,7 @@ import { Chip, Dot } from "./viz";
  * which is precisely the row nobody needs, and pulsing it advertises a closed
  * loop as live.
  */
-const pressing = (t: TaskItem) => t.urgent && t.state !== "done";
+const pressing = (t: TaskItem) => t.dueInDays <= 0 && t.state !== "done";
 
 /**
  * THE ONE ROW TREATMENT ALLOWED TO SHOUT.
@@ -119,35 +121,40 @@ const alarm = (t: TaskItem) => t.state === "blocked" || pressing(t);
  */
 const STATE_RANK: Record<TaskState, number> = { blocked: 0, doing: 1, todo: 2, done: 3 };
 
-type FilterId = "all" | "today" | "blocked" | "done";
+/* ── THE TWO CONTROLS, AND WHY THEY ARE THESE TWO ────────────────────────────
 
-type Filter = {
-  /** Pill label. */
+   This row used to be four pills: All / Today / Blocked / Done. That list mixed
+   two different questions — WHEN is this due, and WHAT state is it in — into
+   one control where selecting an answer to one erased your answer to the other.
+   You could not ask for "blocked things due this week" because the control had
+   no way to hold both.
+
+   So it split by question. Time is a filter; state is already visible as a chip
+   on every row, which is why it does not need one — a list of seven rows each
+   labelled "Blocked" or "In progress" is faster to scan than a control you have
+   to operate to learn the same thing.                                        */
+
+type TimeId = "today" | "week" | "all";
+
+type TimeFilter = {
+  /** Option label. */
   label: string;
   /** The same predicate as a noun phrase, so the empty line can name it. */
   noun: string;
   match: (t: TaskItem) => boolean;
 };
 
-const FILTER: Record<FilterId, Filter> = {
-  all: { label: "All", noun: "tasks", match: () => true },
-  /* `recruiter_tasks` will carry a due date and this becomes a comparison
-     against it. Until then `urgent` IS the fixture's due-today marker — the
-     two flagged tasks are exactly the two whose lead label reads "By today"
-     and "10:30" — so the filter reads the flag rather than inventing a
-     timestamp to compare against, which is the one thing this surface must
-     not do. `alarm` above makes the same substitution and cites this. */
-  today: { label: "Today", noun: "tasks due today", match: pressing },
-  blocked: { label: "Blocked", noun: "blocked tasks", match: (t) => t.state === "blocked" },
-  done: { label: "Done", noun: "done tasks", match: (t) => t.state === "done" },
+const TIME: Record<TimeId, TimeFilter> = {
+  /* TODAY INCLUDES OVERDUE, and that is the point rather than a shortcut:
+     something that was due on Monday stopped being Monday's problem and became
+     today's. Giving overdue its own tab would let the one row that has already
+     slipped hide behind a control nobody thinks to click. */
+  today: { label: "Today", noun: "tasks due today", match: (t) => t.dueInDays <= 0 },
+  week: { label: "Next 7 days", noun: "tasks due in the next week", match: (t) => t.dueInDays <= 7 },
+  all: { label: "Any time", noun: "tasks", match: () => true },
 };
 
-/**
- * Pill order, separate from the record for the same reason HUES is separate
- * from HUE_LABEL in orchestrator.ts. Ordered by how often it is wanted: the
- * default, then the urgent slice, then the two states worth isolating.
- */
-const FILTER_ORDER: readonly FilterId[] = ["all", "today", "blocked", "done"];
+const TIME_ORDER: readonly TimeId[] = ["today", "week", "all"];
 
 /* ── which chip of the two or three gets rendered ─────────────────────────────
 
@@ -201,7 +208,7 @@ const lead = (t: TaskItem): TaskChip | undefined =>
   }, undefined);
 
 export function Tasks({
-  onOpen, hero = false, today = false,
+  onOpen, hero = false, today = false, scope, onScope,
 }: {
   onOpen: (prompt: string) => void;
   /**
@@ -217,31 +224,51 @@ export function Tasks({
    */
   hero?: boolean;
   /**
-   * Locks the list to today and hides the filter row.
+   * Starts the time filter on Today rather than Any time.
    *
-   * Home's left column is "today's tasks", so offering an All filter there
-   * would let the column stop being what its own heading says it is. The
-   * filters are not disabled, they are absent — a control that is present but
-   * refuses is worse than one that was never offered.
-   *
-   * Search stays, because narrowing within today is still narrowing within
-   * today.
+   * A DEFAULT, NOT A LOCK. It used to hide the filter row outright, on the
+   * reasoning that Home's left column is "today's tasks" and an All filter
+   * would let the column stop being what its heading says. That was the right
+   * instinct about the heading and the wrong conclusion about the control: the
+   * heading can follow the filter. So the filter is offered, the column names
+   * whatever it is currently showing, and the two cannot contradict.
    */
   today?: boolean;
+  /**
+   * WHICH CAMPAIGN, AND WHO OWNS IT — read from a prop, written through a
+   * callback, never held in here.
+   *
+   * Home's header carries the same control. That is deliberate and it is NOT
+   * two filters: both drive one piece of state in Console, so changing the
+   * campaign in this card moves the header select and re-scopes all three
+   * analytics cards with it. Two entry points to one truth.
+   *
+   * The alternative — a local campaign filter private to this list — would put
+   * two controls reading "All campaigns" and "Platform SRE" on one screen,
+   * each correct about a different half of the page. That is the version that
+   * lies.
+   */
+  scope: Scope;
+  onScope: (s: Scope) => void;
 }) {
-  const [filter, setFilter] = useState<FilterId>(today ? "today" : "all");
+  const [time, setTime] = useState<TimeId>(today ? "today" : "all");
   const [query, setQuery] = useState("");
   /* Named so the section becomes a landmark a screen reader can jump to. Via
      useId rather than a literal, which is what the rest of the app does — a
      hardcoded id is a duplicate waiting for the second instance. */
   const headingId = useId();
 
-  const active = FILTER[filter];
+  const active = TIME[time];
 
-  /* How many tasks are NOT due today, for the footer. Counted off the fixture
-     through the same predicate the Today filter uses, so the two can never
-     disagree about what "today" means. */
-  const laterCount = TASKS.length - TASKS.filter(FILTER.today.match).length;
+  /* Campaign membership, used by the rows AND the footer count, so the two
+     cannot disagree about which campaign they are describing. */
+  const inScope = (t: TaskItem) => scope === "all" || t.campaignId === scope;
+
+  /* How many tasks in scope fall OUTSIDE the current window, for the footer.
+     Counted off the fixture through the very predicate the filter uses, so the
+     footer can never disagree with the list about where "today" ends. */
+  const laterCount =
+    TASKS.filter(inScope).length - TASKS.filter((t) => inScope(t) && active.match(t)).length;
 
   const rows = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -251,14 +278,17 @@ export function Tasks({
        "Blocked" plus "comp" narrows to blocked tasks whose title matches,
        not to one or the other. */
     return TASKS.filter(
-      (t) => active.match(t) && (!needle || t.title.toLowerCase().includes(needle)),
+      (t) =>
+        active.match(t)
+        && (scope === "all" || t.campaignId === scope)
+        && (!needle || t.title.toLowerCase().includes(needle)),
     ).sort(
       /* Urgent first, then by state. Array#sort is stable, so ties keep the
          fixture's own order and the list does not reshuffle between renders. */
       (a, b) =>
         Number(pressing(b)) - Number(pressing(a)) || STATE_RANK[a.state] - STATE_RANK[b.state],
     );
-  }, [active, query]);
+  }, [active, query, scope]);
 
   return (
     <section className={`tk${hero ? " is-hero" : ""}`} aria-labelledby={headingId}>
@@ -278,25 +308,44 @@ export function Tasks({
         </div>
 
         <div className="tk-head-r">
-          {/* Pill-shaped, but not coloured. Selected-versus-unselected is a
-              state the treatment itself has to carry, and four outlines of
-              which exactly one is filled says so — in ink, at 14.13:1, with
-              no hue spent on it. */}
-          {!today && (
-          <div className="tk-filters" role="group" aria-label="Filter tasks">
-            {FILTER_ORDER.map((id) => (
-              <button
-                key={id}
-                type="button"
-                className="tk-filter"
-                aria-pressed={id === filter}
-                onClick={() => setFilter(id)}
-              >
-                {FILTER[id].label}
-              </button>
-            ))}
-          </div>
-          )}
+          {/* NATIVE SELECTS, and that is a decision rather than a shortcut.
+              Four pills cost four always-visible buttons to express one
+              choice; a select costs one control and scales to the campaign
+              list without the header reflowing. It also arrives with keyboard
+              handling, type-ahead and the platform's own popup — three things
+              a custom popover has to reimplement and usually gets wrong on
+              the first pass.
+
+              Styled, never restyled: the caret is the only added chrome and
+              the field wears --r-field like every other input. */}
+          <label className="tk-sel">
+            <select
+              className="tk-sel-i"
+              value={time}
+              onChange={(e) => setTime(e.target.value as TimeId)}
+              aria-label="Filter tasks by when they are due"
+            >
+              {TIME_ORDER.map((id) => (
+                <option key={id} value={id}>{TIME[id].label}</option>
+              ))}
+            </select>
+            <CaretDown size={11} weight="bold" aria-hidden="true" />
+          </label>
+
+          <label className="tk-sel">
+            <select
+              className="tk-sel-i"
+              value={scope}
+              onChange={(e) => onScope(e.target.value as Scope)}
+              aria-label="Filter tasks by campaign"
+            >
+              <option value="all">All campaigns</option>
+              {SCOPED.map((k) => (
+                <option key={k} value={k}>{campaignName(k)}</option>
+              ))}
+            </select>
+            <CaretDown size={11} weight="bold" aria-hidden="true" />
+          </label>
 
           <div className="tk-search">
             <MagnifyingGlass size={13} weight="bold" aria-hidden="true" />
@@ -351,7 +400,7 @@ export function Tasks({
                       chip's label after a middle dot, which was the chip-less
                       pass approximating a chip in text — the chip is back, so
                       the approximation goes. */}
-                  <p className="tk-meta">{t.campaign}</p>
+                  <p className="tk-meta">{campaignName(t.campaignId)}</p>
                 </div>
 
                 {/* AT MOST TWO PILLS, IN THIS ORDER, AND THE ORDER IS THE
@@ -400,7 +449,7 @@ export function Tasks({
                   type="button"
                   className="tk-ask"
                   aria-label={`Ask the agent about: ${t.title}`}
-                  onClick={() => onOpen(`Help me with this ${t.campaign} task: ${t.title}.`)}
+                  onClick={() => onOpen(`Help me with this ${campaignName(t.campaignId)} task: ${t.title}.`)}
                 >
                   <Sparkle size={12} weight="fill" aria-hidden="true" />
                   Ask the agent
@@ -420,9 +469,10 @@ export function Tasks({
 
           Counted off the fixture, never asserted. Only in `today` mode —
           with the filters visible the other tabs already answer this. */}
-      {today && laterCount > 0 && (
+      {time !== "all" && laterCount > 0 && (
         <p className="tk-next">
-          {laterCount} more {laterCount === 1 ? "task" : "tasks"} after today
+          {laterCount} more {laterCount === 1 ? "task" : "tasks"}
+          {time === "today" ? " after today" : " beyond this week"}
         </p>
       )}
 

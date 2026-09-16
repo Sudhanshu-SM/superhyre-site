@@ -1,6 +1,6 @@
 # SuperHyre — design system
 
-**Status:** working draft · **Revision:** 35 · **Last changed:** 2026-09-16
+**Status:** working draft · **Revision:** 36 · **Last changed:** 2026-09-16
 
 > **This file is a proposal layer, not the implementation.** The CSS custom
 > properties in `auth-app/src/access.css` and `style.css` are what actually
@@ -1599,6 +1599,142 @@ stretch the rows, it ends with **"3 more tasks after today"** — counted off th
 fixture through the same predicate the Today filter uses, so the two can never
 disagree about what today means.
 
+### 5.14 The overview gains a filter — *Adopted at revision 36*
+
+A campaign scope, a time window, a greeting, and a real axis.
+
+#### The parts sum to the whole, or the filter is a lie
+
+Every overview number is now stored **per campaign**. "All campaigns" is not a
+fourth fixture beside the three — it is the three folded:
+
+```ts
+sourcedFor("all")  // DAYS.map(day => sum of each campaign's value for that day)
+stepsFor("all")    // each step folded, numerator AND denominator
+```
+
+Measured: 78 + 46 + 24 = 148, and the funnel folds to exactly `[24, 61, 17, 6]`.
+148 reads 148 because that is what those add to, not because 148 is typed
+anywhere.
+
+This is the whole reason the control is trustworthy. Had the overall totals
+stayed hand-written, the day someone edited one campaign the header would
+report a number that no longer equalled the sum of its own parts, and **nothing
+in the type system would notice.** So it is pinned by test, and the tests assert
+*relations* rather than values — day-by-day equality, not "the total is 148",
+because a test that hardcodes the fixture has to be edited whenever a number
+changes, which trains everyone to update tests without reading them.
+
+`live` stopped being a stored field and became `funnel.contacted`. It had been
+its own number reading 61 for one campaign — which was also the *overall*
+contacted count. Two unrelated quantities that happened to match, waiting to be
+read as the same fact.
+
+#### One id space
+
+`orchestrator.ts` called the campaigns `sbe` / `sre` / `ios`; `workspaces.ts`
+called the same three `backend-snr` / `platform-sre` / `ios-mid`. Two id spaces
+for one concept works right up until something has to filter by campaign across
+both. They are now the canonical ids, and names are looked up rather than
+written twice.
+
+Only three of the seven campaigns carry data, and the switcher offers exactly
+those plus All. Four all-zero views behind a control that looks like it narrows
+data is worse than not offering them.
+
+#### One control per question
+
+The task filter was four pills — All / Today / Blocked / Done — which mixed
+**when** a task is due with **what state** it is in, in one control where
+answering one question erased your answer to the other. "Blocked things due this
+week" was unaskable.
+
+Time became a select. State did not come back as a second one: every row already
+wears its state as a chip, and *a list you can read beats a control you have to
+operate to learn the same thing.*
+
+Today deliberately means `dueInDays <= 0` — **overdue included**. Something due
+on Monday stopped being Monday's problem and became today's; giving overdue its
+own tab lets the one row that has already slipped hide behind a control nobody
+thinks to click.
+
+That required replacing the boolean. `urgent: boolean` was standing in for a due
+date the fixture did not have — fine while the only question was "is this row
+loud", useless the moment the list needed a range. **You cannot range-filter a
+boolean.** `dueInDays: number` answers both, so the urgency treatment and the
+filter now read the same field instead of one approximating the other.
+
+#### Two entry points, one truth
+
+The campaign filter appears twice — page header and task card — and both write
+the same state in Console. Not two filters: two handles on one. A local campaign
+filter private to the list would put two controls on screen reading "All
+campaigns" and "Platform SRE", each correct about a different half of the page.
+
+It lives in Console, not Home, so scoping the overview, walking to the Agent and
+coming back does not silently reset to All. Verified across that round trip.
+
+Kept distinct from the sidebar's `campaign`, and the distinction is real:
+`campaign` is a **navigation** context, always exactly one, with no "all" for it
+to be; this is an **analytics** scope, which must be able to mean everything.
+
+#### Hello, not Home
+
+"Home" restated what the highlighted sidebar item already says, so the largest
+type on the page was spent on its least interesting fact. 30px, lower, and
+indented 16px past the content edge as asked — which does break the shared 64px
+left edge every other element on the page starts at. It survives because 30px
+type carries more side bearing than a 12.5px card title, so the indent reads as
+air at this size in a way it would not at 13px. One `margin-left` away from
+snapping back if it ever reads as a misalignment.
+
+"New campaign" is **wired**, and to the thing that actually creates a campaign.
+There is no campaigns table, so the tempting version is a modal with a name
+field that posts nowhere. But the product's own model answers it: you do not
+fill in a campaign, you brief the agent. The button seeds the composer and
+navigates — the same move the task rows make.
+
+#### The axis took three attempts, and the first two were about measurement
+
+| Attempt | What broke |
+|---|---|
+| Stretch a `340×104` viewBox with CSS | Glyphs scale with the box: an 11px label rendered near **19px**, and *resized when the sidebar collapsed*. Filling a different aspect needs `preserveAspectRatio="none"`, under which a circle is drawn as an **ellipse**. |
+| Measure with `ResizeObserver`, draw 1:1 | The SVG's `width` attribute gave it intrinsic width, which **propped its own container open** — the box never reported shrinking, so the chart ratcheted permanently wider on every sidebar expansion and painted 642px through a 548px card. Then, fixed by taking it out of flow, the observer turned out **not to fire at all** in headless: a freshly constructed `ResizeObserver` on the same node reported nothing in 700ms, so the chart rendered *nothing*. |
+| Percentages, no measurement | Works. |
+
+The rule: **paths tolerate a non-uniform stretch; type and circles do not.** So
+the SVG holds only the fill and the curve in a 0–100 square, with
+`vector-effect: non-scaling-stroke` pinning the line at 2.5px. The labels, the
+gridlines and the markers are HTML positioned in percent on top. Text keeps its
+real size, circles stay circular, and it re-lays-out at any width with no
+JavaScript. Verified: `plotW` 517 → 373 → 613 across viewports, markers 7×7 at
+every one.
+
+A component that renders nothing until an async callback arrives has made its
+own existence conditional on a callback it cannot guarantee.
+
+Axis maximum rounds up to a multiple of **four**, not five or ten: the axis gets
+three lines (nothing, half, full) and four is the smallest step keeping the
+midpoint whole at every scale this chart sees. 21 → 24 with a midline of 12; a
+multiple of five gives 25 and a midline of 12.5, and half a candidate is not a
+quantity. It also bounds headroom to 3 units, so the curve fills its box instead
+of cowering under a generous round number. Scoping rescales it honestly: 24 → 12
+→ 8 → 4.
+
+Four date labels, evenly spaced including both ends. Fourteen collide at any
+width this card has.
+
+#### Two measured corrections
+
+- The top value label is **centred on** the top gridline, so half its
+  line-height sits above it. At `top: 0` that half landed inside `.ov-big`'s box
+  — a 6px overlap between "24" and "148", both hard against the card's left
+  edge, so a real collision rather than a box artefact. Insetting the axis 7px
+  gives the label its half-line and the peak marker more clearance at once.
+- The solo campaigns card is **centred**, not top-aligned. One row in a card
+  sized for three leaves ~60px of slack; pinned to the top that reads as a card
+  whose content failed to load.
+
 ## 6. Verifying a colour change
 
 Every ratio in this file was computed, not estimated. To re-check after an edit:
@@ -1695,3 +1831,4 @@ which is the wrong home for a system-wide constant. Move it to a shared module
 | 33 | 2026-09-16 | Bumped the tile-layout storage key v1 → v2, which should have shipped with revision 32. The bento went from a four-column grid to three and the default from five tiles to four, so a saved layout was structurally VALID (`kind`, `size` and `hue` all still validate) and semantically stale: a `size: "l"` that meant half the width now means two-thirds, and a five-tile arrangement that tiled cleanly at four columns leaves a hole at three. The result was people looking at a layout the current grid could not produce — tiles stacked in one column with one floating outside the content measure. This is precisely the case the versioned key exists for, and the lesson is that versioning only helps if the bump actually happens when the shape changes. The arrangement is now verified off real geometry rather than from the spec: row 1 long+short, row 2 short+long, four tiles on a 3 × 312px grid, bento 294px tall. |
 | 34 | 2026-09-16 | The composer reads the brief. §5.12. Research finding: conversational input measures 30-60s per message and the cost is not typing but that you cannot tell what was understood, so people re-read and rewrite defensively. A sourcing brief is a structured query wearing prose clothing, so the composer now underlines the spans it RECOGNISES beneath the words in their facet's colour — seniority, skill, scale, location, company, tenure — with the same reading repeated as chips below the field for anyone who cannot rely on colour. Matching is a fixed auditable vocabulary, never a model, so the only claim made is "these words are in my vocabulary"; unrecognised text staying plain is the useful half of the signal. This is the honest version of the intent wash deleted at revision 32, which highlighted a string split. Implemented as a mirror div behind a transparent-texted textarea, with four traps documented at the rules: pre-wrap plus overflow-wrap are as load-bearing as the font, `inset: 0` resolves against the padding box (16px misalignment, fixed with a content-box wrapper rather than a duplicated padding value), `-webkit-text-fill-color` is inherited by ::placeholder and made it invisible, and the mirror's scrollTop must track the field's. Two bugs caught by tests rather than by looking: "Staff engineers" under-claimed as "staff" until plurals were tolerated, and "5 years" collapsed to "years" until patterns were ordered before the word list. 12 new tests; 83 total. |
 | 35 | 2026-09-16 | Home becomes a fixed overview and the widget feature is deleted. §5.13. Two columns at 50/50: today's tasks left (the page asks "what should I do now" and the list is what answers it; the guidance puts the answer top-left), three analytics cards right — sourced-per-day as a smooth area chart, a four-step progress card, and active campaigns. The three are ROWS of a stretched grid track rather than cards with their own heights, so their sum equals the list's by construction; measured 620/620 with cards at 193/193/193, and 50/50 holding in both sidebar states (columns reclaim the collapsed rail: 582 → 676). Deleted the tile gallery entirely — Bento.tsx, TileMenu.tsx, tileLayout.ts, the tile model in orchestrator.ts and 198 CSS rules — because configurability cost a persisted schema, five key versions in one session, two popovers, a drag interaction and a resting state that had to look deliberate at three sizes and seven hues, to answer a question a fixed overview answers for everyone. Research changed three decisions I would have got wrong: markers go on high/low/latest rather than all fourteen points; the LINE is pale and the MARKERS are vibrant, not the reverse; and the palette is three hues with rose reserved for a campaign that has actually stalled. One measured bug: the chart plot had no definite height, so `height: 100%` fell back to the viewBox aspect ratio — 178px at 582px wide — which inflated the card, the stack and then the task list to 883px for two tasks. |
+| 36 | 2026-09-16 | The overview gains a campaign filter, a time window, an axis and a greeting. §5.14. Every number is stored PER CAMPAIGN and "All campaigns" is the fold — 78+46+24=148, funnel folds to [24,61,17,6] — because hand-written overall totals would let the header disagree with the sum of its own parts with nothing in the type system noticing; pinned by 13 tests asserting RELATIONS (day-by-day equality, each step inside its denominator) rather than fixture values. `live` became derived from `funnel.contacted`: it had been a stored 61 that was also the overall contacted count, two unrelated numbers that happened to match. Unified the two campaign id spaces (`sbe` vs `backend-snr`) onto the canonical list. Four task pills became two selects because the pills mixed WHEN with WHAT STATE in one control, making "blocked things due this week" unaskable; state needs no control since every row wears a chip. Today means dueInDays <= 0, overdue INCLUDED — which forced replacing `urgent: boolean` with a number, since you cannot range-filter a boolean. The campaign filter appears twice writing one piece of Console state: two handles on one truth, and it survives navigating to the Agent and back. "Home" became "Hello <name>" at 30px, indented 16px past the shared 64px left edge as asked. "New campaign" is wired to the composer rather than a modal posting nowhere. The axis took three attempts and the first two were about measurement: a stretched viewBox scaled 11px type to ~19px and drew round markers as ellipses; a ResizeObserver version let the SVG's width attribute prop its own container open so the chart ratcheted wider and painted 642px through a 548px card, then — once out of flow — never fired at all in headless and rendered nothing. The rule: paths tolerate a non-uniform stretch, type and circles do not. SVG holds only fill and curve in a 0-100 square with non-scaling-stroke; labels, gridlines and markers are HTML in percent. Verified plotW 517/373/613 across viewports with markers 7x7 at each. Axis max rounds to a multiple of four so the midpoint stays whole (21→24, midline 12). Two measured corrections: the centred top label overlapped .ov-big by 6px until the axis was inset 7px, and the solo campaigns card is centred rather than top-aligned into ~60px of void. |

@@ -5139,6 +5139,82 @@ body {
   color: var(--ink);
 }
 
+/* ── the greeting ──
+
+   GREETED, NOT TITLED. "Home" restated what the highlighted sidebar item
+   already says, so the largest type on the page was spent on its least
+   interesting fact.
+
+   Bigger, lower, and nudged right, as asked. The nudge is worth writing down
+   because it costs something: every other thing on this page starts at the
+   64px content inset — the task card, the analytics stack, the right margin —
+   so a heading at 80px is deliberately OFF that shared edge. It survives
+   because 30px type carries more side bearing than a 12.5px card title, so a
+   16px optical indent reads as air at this size in a way it would not at 13px.
+   If it ever reads as a misalignment instead, delete the margin-left and the
+   greeting drops back into the column with everything else.
+
+   `center` rather than the inherited `baseline`: a 30px heading and a 30px
+   button have no shared baseline worth aligning to, and baseline alignment
+   would sit the button's text on the greeting's, pushing the button low. */
+.orc-page.is-greet {
+  align-items: center;
+  padding-top: 40px;
+  padding-bottom: 2px;
+  /* NO padding-right. Measured: .orc-page already ends on the same right edge
+     as the analytics stack (1504 at a 1568 viewport), because the 64px right
+     margin is carried by .orc further up. Adding it here shortened the header
+     to 1440 and stood the controls 64px inside the cards they scope. */
+}
+
+.orc-page-h.is-greet {
+  margin-left: 16px;
+  font-size: 30px;
+  line-height: 1.15;
+  letter-spacing: -0.022em;
+}
+
+.orc-page-r {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+}
+
+/* ── new campaign ──
+
+   The page's one filled control, and the only place --accent-fill appears on
+   Home. 4.52:1 for white type, which clears the 4.5 body floor — the lighter
+   --accent measures 3.51:1 and would not.
+
+   NO RESTING SHADOW. The hierarchy allows exactly one per page and the task
+   card holds it; a filled orange button is already the loudest thing here
+   without elevation. Hover is a shade step to --accent-text, which is darker
+   rather than lighter, so the button deepens under the cursor instead of
+   glowing. Nothing translates; press is the shared 60ms scale. */
+.orc-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: var(--r-field);
+  background: var(--accent-fill);
+  /* The house exception: there is no --ink-inverse, and --nav-surface names a
+     plane rather than type. See .tk-filter's old note for the argument. */
+  color: #fff;
+  font: 600 12.5px/1 var(--ui);
+  letter-spacing: -0.011em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color var(--t-dim);
+}
+
+.orc-new:hover { background: var(--accent-text); }
+
+.orc-new:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
 /* ══════════════════════════════ home overview ═══════════════════════════════
 
    Two columns at 50/50: the task list, and three analytics cards.
@@ -5253,24 +5329,163 @@ body {
    list that stretches to match the stack. Measured: 883px of column for two
    tasks.
 
-   88px is a chart, not a hero: it has fourteen points and three markers to
-   place, and past ~100px the extra is spent on empty space above a curve
-   rather than on resolving it. */
+   104px, up from 88. The extra 16 is not more curve — it is the x-axis row
+   plus the headroom a marker on the peak needs so it is not clipped by the
+   top edge. It costs nothing because the card's footer left with it: the
+   per-day average moved up into the header line, where it sits next to the
+   range it is averaged over. */
 .ov-chart-plot {
-  height: 88px;
+  height: 104px;
   flex: none;
   display: flex;
   align-items: stretch;
 }
 
+/* ── THE BOX IS MEASURED; THE SVG IS NOT SCALED ──
+   This used to be `width: 100%; height: 100%` on the SVG itself, stretching a
+   340×104 viewBox to whatever the card was. That works for a bare curve and
+   breaks the moment the chart has text and circles in it: glyphs scale with
+   the box, so an 11px label rendered at ~19px and CHANGED SIZE when the
+   sidebar collapsed, and filling a box of a different aspect needs
+   preserveAspectRatio="none", under which a circle is drawn as an ellipse.
+
+   So the box is what CSS sizes, and viz.tsx measures it with a ResizeObserver
+   and draws at 1:1. The SVG carries its own width/height in pixels — do not
+   put dimensions back on .vz-area. */
+/* ── the chart, and why none of it is measured ──
+
+   Percentages all the way down. The SVG holds only the fill and the curve, in
+   a 0–100 square stretched by preserveAspectRatio="none"; the labels, the
+   gridlines and the markers are HTML positioned in percent on top of it.
+
+   That split is the third attempt and the first correct one. Stretching a
+   pixel viewBox scaled the axis TYPE with the box (an 11px label rendered near
+   19px, and resized when the sidebar collapsed) and drew the round markers as
+   ellipses. Measuring the box with a ResizeObserver instead fixed the
+   distortion and introduced two worse faults: the SVG's width attribute gave
+   it intrinsic width, which propped its own container open so the chart could
+   only ratchet wider and never shrink back; and the observer does not fire at
+   all in a headless browser, so the chart rendered nothing whatsoever.
+
+   Paths tolerate a non-uniform stretch — no glyphs, and
+   vector-effect: non-scaling-stroke pins the line width. Type and circles do
+   not tolerate it, so they are not in there. Do not move them back in, and do
+   not give .vz-area a pixel size. */
+
+.vz-chart {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+
+/* The value column. space-between, so the three labels land exactly on the
+   three gridlines without either knowing the other's position. */
+.vz-yaxis {
+  position: absolute;
+  left: 0;
+  /* 7px, not 0. The top label is CENTRED on the top gridline, so half its
+     line-height sits above it; at top: 0 that half landed inside the big
+     number's box — measured as a 6px overlap between "24" and "148", which
+     are also both hard against the card's left edge, so the collision was
+     real rather than merely a box artefact. Insetting the whole axis gives
+     the label its half-line and the peak marker more clearance at once. */
+  top: 7px;
+  bottom: 17px;
+  width: 22px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-end;
+  /* Centres each label on its line rather than hanging it below. */
+  margin-top: -0.5em;
+  margin-bottom: -0.5em;
+}
+
+/* Inset past the value column on the left, above the date row at the bottom. */
+.vz-plot {
+  position: absolute;
+  left: 31px;
+  right: 0;
+  /* Matches .vz-yaxis, or the gridlines stop lining up with their labels. */
+  top: 7px;
+  bottom: 17px;
+}
+
+/* ── the axis ──
+   Quieter than the curve in every dimension. An axis is scaffolding for
+   reading the data, so the moment it competes with the data it has stopped
+   doing its job: the gridline is the same hairline the cards are bordered
+   with, and the type is the smallest on the surface.
+
+   The zero line alone steps up to --rule. It is not a gridline, it is the
+   datum the area dies into. */
+.vz-grid {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1px solid var(--hairline);
+  pointer-events: none;
+}
+
+.vz-grid.is-base { border-top-color: var(--rule); }
+
+.vz-ax {
+  font: 400 10.5px/1 var(--ui);
+  letter-spacing: -0.004em;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .vz-area {
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
   height: 100%;
-  /* The area's own bottom edge is the baseline; letting it overflow the
-     rounded corner it sits in would show a square edge inside a round card. */
   overflow: visible;
 }
+
+/* ── the markers ──
+   HTML, so they stay circular in a box the curve is being stretched across.
+   The ring is --nav-surface (the card's own fill) and the dot is the hue: a
+   marker sitting on the line has to read as on top of it, not merged into it.
+
+   The inline `background` is the hue; the ring is the box-shadow spread, which
+   is one element instead of two and cannot be knocked out of registration. */
+.vz-mark {
+  position: absolute;
+  width: 6.5px;
+  height: 6.5px;
+  border-radius: 50%;
+  /* Centres the dot ON its datum rather than below and right of it. */
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 2.75px var(--nav-surface);
+  pointer-events: none;
+}
+
+/* The date row. Absolute per label with a percent offset, so the spacing comes
+   from the data's own index positions rather than from flex distribution —
+   a label sits under its point, which is the only place it is true. */
+.vz-xaxis {
+  position: absolute;
+  left: 31px;
+  right: 0;
+  bottom: 0;
+  height: 13px;
+}
+
+.vz-xaxis > .vz-ax {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+}
+
+/* The ends anchor inward, or the first label hangs off the left of the plot
+   and the last one runs past the right edge of the card. */
+.vz-xaxis > .vz-ax:first-child { transform: none; }
+.vz-xaxis > .vz-ax:last-child { transform: translateX(-100%); }
 
 .ov-foot {
   margin: 8px 0 0;
@@ -5396,6 +5611,30 @@ body {
 }
 
 .ov-camp-q.is-stale { color: var(--c-rose-text); font-weight: 600; }
+
+/* ── scoped to one campaign ──
+   One row where there were three, so the card has slack its siblings do not.
+   It spends that on the campaign's own subtitle and its counts on a third
+   line, rather than on a single row floating in an otherwise empty card. */
+/* CENTRED, not top-aligned. One row in a card sized for three leaves ~60px
+   of slack; pinned to the top that reads as a card whose content failed to
+   load, whereas centred it reads as a card with one thing in it. The rail
+   learned the same lesson — see the auto-margin note there. */
+.ov-camps.is-solo { align-content: center; gap: 0; }
+
+.ov-camps.is-solo .ov-camp {
+  grid-template-areas: "dot name quiet" "dot meta quiet" "dot extra quiet";
+  row-gap: 3px;
+}
+
+.ov-camp-x {
+  grid-area: extra;
+  margin-top: 2px;
+  font: 500 11px/1.3 var(--ui);
+  letter-spacing: -0.004em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
 
 /* ── narrow ──
    One column below 1180px. Two 50% columns of this content stop working before
@@ -5680,10 +5919,10 @@ body {
 
    COMPLETE REPLACEMENT for the existing `.tk*` block in access.css — every
    `.tk*` rule between the bento's closing media query and the `right rail`
-   banner. Two `.tk-filter:active` declarations live OUTSIDE that range, in the
-   shared press-feedback group near the foot of the file alongside `.tm-kind`
-   and `.rail-brief`; they are correct as they stand and are not reproduced
-   here.
+   banner. The filter pills that used to live here are gone — see the filter
+   selects below for why four became two — and with them the two
+   `.tk-filter:active` entries that sat in the shared press-feedback group at
+   the foot of the file.
 
    ── ONE CARD, NOT FIVE ──
    The card carries the only border in this block, and the only box-shadow in
@@ -5834,57 +6073,81 @@ body {
   gap: 8px;
 }
 
-/* ── filter pills ── */
+/* ── the two filter selects ──
 
-/* PILL-SHAPED, NOT COLOURED. This is the one place in the block where the
-   treatment IS the information: a filter is selected or it is not, and four
-   outlines of which exactly one is filled says so at a glance. That is the
-   opposite case to the row chips, where the hue encodes which state or which
-   deadline — here there is nothing for a hue to encode, so none is spent. */
+   FOUR PILLS BECAME TWO SELECTS, and the reason is that the pills were one
+   control answering two questions. All / Today / Blocked / Done mixed WHEN a
+   task is due with WHAT state it is in, so choosing an answer to one erased
+   your answer to the other and "blocked things due this week" was unaskable.
 
-.tk-filters {
-  display: flex;
+   Time became a select. State did not come back as a second one, because
+   every row already wears its state as a chip — a list you can read is
+   faster than a control you have to operate to learn the same thing.
+
+   Native <select>, styled rather than rebuilt. It arrives with keyboard
+   handling, type-ahead and the platform popup, and it scales to a campaign
+   list without the header reflowing; four more pills would not have. The
+   chrome added here is a border, a caret and the field radius every other
+   input on the surface wears. */
+
+.tk-sel {
+  position: relative;
+  display: inline-flex;
   align-items: center;
-  gap: 4px;
-}
-
-.tk-filter {
-  padding: 5px 11px;
+  gap: 5px;
+  height: 26px;
+  padding: 0 8px 0 9px;
   border: 1px solid var(--hairline);
-  border-radius: var(--r-pill);
+  border-radius: var(--r-field);
   background: transparent;
-  color: var(--ink-2);
-  font: 500 11.5px/1.25 var(--ui);
-  letter-spacing: -0.006em;
+  color: var(--ink);
   cursor: pointer;
-  transition: background-color var(--t-dim), border-color var(--t-dim), color var(--t-dim);
+  /* Shade only on hover. The control does not move or resize under the
+     cursor — the header it sits in would twitch. */
+  transition: background-color var(--t-dim), border-color var(--t-dim);
 }
 
-/* Shade only. The pill does not move, gain weight, or change size on hover —
-   a control that resizes under the cursor makes the row it sits in twitch. */
-.tk-filter:hover { background: var(--sub); }
+.tk-sel:hover { background: var(--sub); }
 
-.tk-filter:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-
-/* THE SELECTED PILL IS INK, NOT ACCENT.
-   --accent-fill was the other candidate and it is rejected: orange is this
-   surface's single ACTION colour, it is rationed, and one of the few
-   instances is already spent on the composer's send button. Putting it on a
-   view control puts two primaries in one viewport and the eye lands on the
-   filter instead of on the thing that submits. --ink on white is 14.13:1, the
-   highest contrast available, and a neutral high-contrast selection is what
-   the reference's own solid dark pill is doing.
-
-   #fff IS THE ONE LITERAL IN THIS BLOCK, and it is deliberate. There is no
-   --ink-inverse token. --nav-surface would resolve to the same white, but it
-   names a PLANE, and borrowing a plane token for type is the kind of misuse
-   that silently breaks the day a card stops being white. White-out type on a
-   filled control is the house exception; everything else here is a token. */
-.tk-filter[aria-pressed="true"] {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: #fff;
+/* focus-within, not focus: the focusable thing is the <select> inside. */
+.tk-sel:focus-within {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+  border-color: var(--rule);
 }
+
+.tk-sel-i {
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: 500 11.5px/1 var(--ui);
+  letter-spacing: -0.006em;
+  color: inherit;
+  cursor: pointer;
+  /* Capped so the longest campaign name cannot push the search field out of
+     the header. Chrome sizes a select to its widest OPTION, not to the
+     selection, so without this the control is as wide as
+     "Senior Backend Engineers" no matter what is picked. */
+  max-width: 124px;
+  text-overflow: ellipsis;
+}
+
+.tk-sel-i:focus { outline: none; }
+
+/* Non-interactive: clicks belong to the select underneath it. */
+.tk-sel > svg {
+  color: var(--ink-2);
+  flex: none;
+  pointer-events: none;
+}
+
+/* The page-header instance. One step up in every dimension because it scopes
+   the whole page rather than one card, and it sits beside a 30px greeting. */
+.tk-sel.is-lg { height: 30px; padding: 0 10px 0 12px; }
+.tk-sel.is-lg > .tk-sel-i { font-size: 12.5px; max-width: 168px; }
 
 /* ── search ── */
 
@@ -6199,7 +6462,7 @@ body {
      surface makes for its shade transitions. */
   .tk-ask,
   .tk-row,
-  .tk-filter,
+  .tk-sel,
   .tk-search { transition: none; }
 }
 
@@ -7865,16 +8128,12 @@ body {
    to feel like the surface took the hit, too small and too fast to read as
    movement. Scoped to this surface's controls so the sidebar and the sign-in
    flow keep their existing behaviour. */
-.bn-tile:active,
 .orc-add:active,
 .orc-rec:active,
 .orc-send:not(:disabled):active,
 .orc-mode:active,
 .orc-slot:active,
-.tm-seg:not(:disabled):active,
-.tm-hue:active,
-.tm-kind:active,
-.tk-filter:active,
+.orc-new:active,
 .rail-brief:active,
 .rail-new:active {
   transform: scale(0.985);
@@ -7914,16 +8173,12 @@ body {
     animation-delay: 0ms !important;
   }
 
-  .bn-tile:active,
   .orc-add:active,
   .orc-rec:active,
   .orc-send:not(:disabled):active,
   .orc-mode:active,
   .orc-slot:active,
-  .tm-seg:not(:disabled):active,
-  .tm-hue:active,
-  .tm-kind:active,
-  .tk-filter:active,
+  .orc-new:active,
   .rail-brief:active,
   .rail-new:active {
     transform: none;

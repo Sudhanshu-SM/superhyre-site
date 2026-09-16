@@ -366,53 +366,83 @@ export function Counter({ value, ms = 900 }: { value: number; ms?: number }) {
   );
 }
 
-/* ── area: a shape over time, with anchored markers ──────────────────────── */
+/* ── the sourced-per-day chart ────────────────────────────────────────────── */
 
 /**
- * A smooth area chart sized to its container.
+ * A nice axis maximum at or above the peak.
  *
- * ── WHY MARKERS ON FOUR POINTS AND NOT FOURTEEN ─────────────────────────────
- * The guidance is explicit: *"enable markers when peaks and valleys matter, or
- * when the first or last value carries special meaning"*. A dot on every point
- * is decoration that competes with the line it sits on; a dot on the high, the
- * low and the latest is three facts a reader would otherwise have to squint
- * for.
+ * Rounding up to a multiple of FOUR rather than the usual five or ten, because
+ * the axis gets three lines — nothing, half, full — and a multiple of four is
+ * the smallest step that keeps the midpoint a whole number at every scale this
+ * chart sees. 21 becomes 24 and the midline reads 12; a multiple of five would
+ * make it 25 and the midline 12.5, and half a candidate is not a quantity.
  *
- * ── WHY THE LINE IS PALE AND THE MARKERS ARE NOT ────────────────────────────
- * Also from the guidance, and counter-intuitive: *"choose a line colour that
- * is light and a marker that is bright and dark"*. The instinct is to make the
- * line the vibrant thing, which then leaves the markers with nowhere brighter
- * to go. Inverting it is what lets the anchors actually pop.
+ * It also bounds the headroom to at most 3 units above the peak, so the curve
+ * still fills its box instead of cowering under a generous round number.
+ */
+const niceTop = (hi: number) => Math.max(4, Math.ceil(hi / 4) * 4);
+
+/**
+ * Candidates sourced per day: an area curve with a labelled scale.
  *
- * ── SMOOTHING ──────────────────────────────────────────────────────────────
- * Catmull-Rom through the points, converted to cubic beziers. Not a plain
- * polyline, because this is a daily count whose shape is the message; not a
- * spline with high tension either, which overshoots below zero on a weekend
- * dip and draws candidates that were never sourced.
+ * ── NOTHING HERE IS MEASURED, AND THAT IS THE DESIGN ────────────────────────
+ * Every coordinate is a PERCENTAGE, so the chart has no idea how wide it is and
+ * never needs to find out. Two earlier versions did need to, and both broke:
+ *
+ *   v1 stretched a 340×104 viewBox with CSS. Fine for a bare curve; wrong once
+ *      there was type in it. Glyphs scale with the box, so an 11px axis label
+ *      rendered near 19px and CHANGED SIZE when the sidebar collapsed. Filling
+ *      a box of another aspect also needs preserveAspectRatio="none", under
+ *      which a circle is drawn as an ellipse — the markers squashed.
+ *
+ *   v2 measured the container with a ResizeObserver and drew at 1:1. Correct in
+ *      principle, and it failed twice in practice. The SVG carried a pixel
+ *      width attribute, which gave it intrinsic width, which propped its own
+ *      container open — so the box never reported shrinking and the chart
+ *      ratcheted permanently wider on every sidebar expansion. And once that
+ *      was fixed by taking the SVG out of flow, the observer turned out not to
+ *      deliver callbacks at all in a headless browser: a freshly constructed
+ *      ResizeObserver on the same node reported nothing within 700ms, so the
+ *      chart simply never appeared. A component that renders nothing until an
+ *      async callback arrives has made its own existence conditional on a
+ *      callback it cannot guarantee.
+ *
+ * So: the SVG holds ONLY the fill and the curve, in a 0–100 square stretched by
+ * `preserveAspectRatio="none"` — safe, because a path has no glyphs to distort
+ * and `vector-effect="non-scaling-stroke"` holds the line at 2.5px regardless.
+ * Everything that must not distort — the labels, the gridlines, the round
+ * markers — is HTML positioned in percent. Text keeps its real size, circles
+ * stay circular, and the whole thing re-lays-out at any width with no
+ * JavaScript involved.
  */
 export function Area({
-  data, hue, w = 320, h = 96,
+  data, hue, h = 104,
 }: {
   data: readonly { day: string; n: number }[];
   hue: Hue;
-  w?: number;
   h?: number;
 }) {
   if (data.length < 2) return null;
 
-  const pad = 10;
-  const lo = 0;
-  const hi = Math.max(...data.map((d) => d.n)) || 1;
-  const x = (i: number) => pad + (i / (data.length - 1)) * (w - pad * 2);
-  const y = (n: number) => pad + (1 - (n - lo) / (hi - lo)) * (h - pad * 2);
+  const hi = Math.max(...data.map((d) => d.n));
+  const top = niceTop(hi);
 
-  const pts = data.map((d, i) => ({ x: x(i), y: y(d.n), n: d.n, day: d.day, i }));
+  /* Percent, not pixels. The SVG's own 0–100 viewBox uses the same numbers,
+     which is why one pair of functions serves both the path and the markers. */
+  const px = (i: number) => (i / (data.length - 1)) * 100;
+  const py = (n: number) => (1 - n / top) * 100;
+
+  const pts = data.map((d, i) => ({ x: px(i), y: py(d.n), n: d.n, day: d.day, i }));
 
   /* Tension 0.5 is the standard Catmull-Rom weighting. Anything higher starts
      bowing the curve past its own data points, which on a count that bottoms
-     out at 2 over a weekend means drawing a dip below zero. */
+     out at 2 over a weekend means drawing candidates that were never sourced.
+
+     Computed in the 0–100 square and then stretched: the horizontal skew that
+     introduces changes the tangents, never the knots, so the curve still
+     passes exactly through every day's value. */
   const T = 0.5;
-  let path = `M${pts[0]!.x.toFixed(2)} ${pts[0]!.y.toFixed(2)}`;
+  let path = `M${pts[0]!.x.toFixed(3)} ${pts[0]!.y.toFixed(3)}`;
   for (let i = 0; i < pts.length - 1; i++) {
     const p0 = pts[i - 1] ?? pts[i]!;
     const p1 = pts[i]!;
@@ -422,45 +452,108 @@ export function Area({
     const c1y = p1.y + ((p2.y - p0.y) / 6) * T;
     const c2x = p2.x - ((p3.x - p1.x) / 6) * T;
     const c2y = p2.y - ((p3.y - p1.y) / 6) * T;
-    path += ` C${c1x.toFixed(2)} ${c1y.toFixed(2)}, ${c2x.toFixed(2)} ${c2y.toFixed(2)}, ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`;
+    path += ` C${c1x.toFixed(3)} ${c1y.toFixed(3)}, ${c2x.toFixed(3)} ${c2y.toFixed(3)}, ${p2.x.toFixed(3)} ${p2.y.toFixed(3)}`;
   }
 
-  /* The anchors. A Set because the last point is often also the high or the
-     low, and drawing a marker twice at the same coordinate doubles its alpha. */
+  /* The anchors. A Map because the last point is often also the high or the
+     low, and drawing a marker twice at one coordinate doubles its alpha. */
   const peak = pts.reduce((a, b) => (b.n > a.n ? b : a));
   const trough = pts.reduce((a, b) => (b.n < a.n ? b : a));
   const last = pts[pts.length - 1]!;
   const marks = [...new Map([peak, trough, last].map((p) => [p.i, p])).values()];
 
+  /* Top down, because that is the order they are stacked in the axis column.
+     Three lines — nothing, half, full. A line per unit would out-ink the curve
+     it is there to help read. */
+  const ticks = [top, top / 2, 0];
+
+  /* FOUR date labels, evenly spaced and including both ends. Fourteen would
+     collide at any width this card has; the guidance is that labels go where
+     they carry meaning, and for a date axis that is the range and its interior
+     rhythm rather than every tick. */
+  const xlabs = [...new Map(
+    [0, 1, 2, 3]
+      .map((k) => Math.round((k * (data.length - 1)) / 3))
+      .map((i) => [i, data[i]?.day ?? ""] as const)
+      .filter(([, day]) => day !== ""),
+  ).entries()];
+
   const gid = `area-${hue}`;
 
   return (
-    <svg className="vz-area" viewBox={`0 0 ${w} ${h}`} role="img"
-         aria-label={`Sourced per day, ${data[0]!.day} to ${last.day}. High ${peak.n} on ${peak.day}, low ${trough.n} on ${trough.day}, latest ${last.n}.`}>
-      <defs>
-        {/* Fades to nothing rather than stopping at a hard edge, so the area
-            reads as depth under the line instead of a filled block. */}
-        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={tok(hue)} stopOpacity="0.20" />
-          <stop offset="100%" stopColor={tok(hue)} stopOpacity="0" />
-        </linearGradient>
-      </defs>
+    <div
+      className="vz-chart"
+      style={{ height: h }}
+      role="img"
+      aria-label={
+        `Candidates sourced per day, ${data[0]!.day} to ${last.day}. `
+        + `Scale 0 to ${top}. High ${peak.n} on ${peak.day}, `
+        + `low ${trough.n} on ${trough.day}, latest ${last.n} on ${last.day}.`
+      }
+    >
+      <div className="vz-yaxis">
+        {ticks.map((t) => <span key={t} className="vz-ax">{t}</span>)}
+      </div>
 
-      <path d={`${path} L${last.x.toFixed(2)} ${h} L${pts[0]!.x.toFixed(2)} ${h} Z`}
-            fill={`url(#${gid})`} stroke="none" />
+      <div className="vz-plot">
+        {ticks.map((t) => (
+          <span
+            key={t}
+            className={`vz-grid${t === 0 ? " is-base" : ""}`}
+            style={{ top: `${py(t)}%` }}
+          />
+        ))}
 
-      {/* Pale, on purpose. It carries the shape; the markers carry the facts. */}
-      <path d={path} fill="none" stroke={tok(hue, "line")} strokeWidth={2.5}
-            strokeLinecap="round" strokeLinejoin="round" />
+        {/* aria-hidden: the wrapper already carries the whole description, and
+            a second announcement of the same figure is noise. */}
+        <svg
+          className="vz-area"
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          aria-hidden="true"
+        >
+          <defs>
+            {/* Fades to nothing rather than stopping at a hard edge, so the
+                area reads as depth under the line, not a filled block. */}
+            <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={tok(hue)} stopOpacity="0.20" />
+              <stop offset="100%" stopColor={tok(hue)} stopOpacity="0" />
+            </linearGradient>
+          </defs>
 
-      {marks.map((p) => (
-        <g key={p.i}>
-          {/* A ring in the card's own colour, so a marker sitting on the line
-              reads as on top of it rather than merged into it. */}
-          <circle cx={p.x} cy={p.y} r={5} fill="var(--nav-surface)" />
-          <circle cx={p.x} cy={p.y} r={3.25} fill={tok(hue)} />
-        </g>
-      ))}
-    </svg>
+          <path d={`${path} L100 100 L0 100 Z`} fill={`url(#${gid})`} stroke="none" />
+
+          {/* Pale, on purpose: it carries the shape, the markers carry the
+              facts. non-scaling-stroke is what keeps it 2.5px in a box that is
+              being stretched ~6:1 horizontally. */}
+          <path
+            d={path}
+            fill="none"
+            stroke={tok(hue, "line")}
+            strokeWidth={2.5}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+
+        {/* HTML, not <circle>, so they stay round in a stretched box. The ring
+            is the card's own colour, so a marker on the line reads as sitting
+            on top of it rather than merged into it. */}
+        {marks.map((p) => (
+          <span
+            key={p.i}
+            className="vz-mark"
+            style={{ left: `${p.x}%`, top: `${p.y}%`, background: tok(hue) }}
+          />
+        ))}
+      </div>
+
+      <div className="vz-xaxis">
+        {xlabs.map(([i, day]) => (
+          <span key={i} className="vz-ax" style={{ left: `${px(i)}%` }}>{day}</span>
+        ))}
+      </div>
+    </div>
   );
 }
