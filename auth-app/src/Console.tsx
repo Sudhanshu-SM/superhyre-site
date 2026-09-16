@@ -268,7 +268,7 @@ export function Console({ bootstrap, onSignOut, signingOut }: Props) {
           {/* Routes gain a real page here one at a time; everything still on
               Placeholder says so and names the table it will read. */}
           {route === "home" ? (
-            <Home campaign={campaign} onBrief={brief} />
+            <Home onBrief={brief} />
           ) : route === "agent" ? (
             <Agent
               campaign={campaign}

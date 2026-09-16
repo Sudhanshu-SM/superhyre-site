@@ -1,8 +1,7 @@
 import {
-  CalendarBlank, ChartBar, ChatCircleDots, Check, Clock,
-  ClockCounterClockwise, Envelope, FilePdf, FileText, Files, FunnelSimple,
-  MicrosoftOutlookLogo, MicrosoftTeamsLogo, NotionLogo, Plugs, SlackLogo,
-  Sparkle, Target, UsersThree, VideoCamera,
+  Check, Clock, Envelope, FilePdf, FileText, FunnelSimple,
+  MicrosoftOutlookLogo, MicrosoftTeamsLogo, NotionLogo, SlackLogo, Sparkle,
+  Target, UsersThree, VideoCamera
 } from "@phosphor-icons/react";
 import type { Icon } from "@phosphor-icons/react";
 
@@ -223,142 +222,13 @@ export const HUE_LABEL: Record<Hue, string> = {
   blue: "Slate blue", violet: "Violet", rose: "Rose",
 };
 
-/* ════════════════════════════════ tiles ═════════════════════════════════════
+/* The tile model — TileKind, TileSpec, TILE_SPAN, TILE_KINDS, DEFAULT_LAYOUT,
+   SIZE_RANK — was deleted with the widget gallery. Home shows a fixed
+   overview now: what it displays is a decision rather than a preference, so
+   there is no spec to persist, no size to clamp and no version to bump.
 
-   The bento is CONFIGURED, not hard-coded. A recruiter's home should show the
-   things that recruiter looks at, and the previous version shipped four tiles
-   of one kind (a title and a sentence) which made the asymmetry decorative —
-   the grid claimed content weight it did not have.
-
-   A tile kind therefore has to earn its place by showing something structurally
-   different: a ring, a funnel, a stack of faces, a file list, a time strip. If
-   two kinds would render the same shape, one of them should not exist.        */
-
-export type TileSize = "s" | "m" | "l";
-
-/** What a size means in grid terms. `l` is the only one that takes two rows. */
-/**
- * Spans, against a THREE-column grid.
- *
- * `m` at 2 of 3 columns plus an `s` at 1 fills a row exactly, which is what
- * the two-wide/two-narrow default depends on. `l` keeps its two rows for
- * anyone who wants a tall tile from the gallery, but nothing ships with one.
- */
-export const TILE_SPAN: Record<TileSize, { cols: number; rows: number }> = {
-  s: { cols: 1, rows: 1 },
-  m: { cols: 2, rows: 1 },
-  l: { cols: 2, rows: 2 },
-};
-
-export const TILE_SIZE_LABEL: Record<TileSize, string> = {
-  s: "Small", m: "Wide", l: "Large",
-};
-
-export type TileKind =
-  | "resume" | "suggest" | "pipeline" | "replies"
-  | "sources" | "calendar" | "channels" | "metric";
-
-export type TileSpec = {
-  /** Stable per placement, so two tiles of the same kind can coexist. */
-  id: string;
-  kind: TileKind;
-  size: TileSize;
-  hue: Hue;
-};
-
-/**
- * The gallery. `reads` names the table each tile will query once the backend
- * exists, and the tile renders that name where a real product would render a
- * "last updated" — the same honesty rule the reply copy follows.
- */
-export type TileKindInfo = {
-  kind: TileKind;
-  label: string;
-  blurb: string;
-  Icon: Icon;
-  size: TileSize;
-  hue: Hue;
-  reads: string;
-  /**
-   * The smallest size that actually holds this kind's content.
-   *
-   * Data rather than a rule in the menu, because the constraint belongs to the
-   * content and not to the UI that happens to change it — `setKind` and `add`
-   * both enforce it without either knowing which kind is awkward.
-   *
-   * It exists because of one measurement: `pipeline` needs 222px and a
-   * single-height tile gets 140px, so putting it at `m` overflowed its own
-   * card by 51px and drew the action straight through the funnel bars. Every
-   * other kind was measured under 140 (resume 139, metric 137, calendar 135,
-   * sources 136, suggest 125, replies 121, channels 118).
-   */
-  minSize: TileSize;
-};
-
-/** s < m < l, for comparing against `minSize`. */
-export const SIZE_RANK: Record<TileSize, number> = { s: 0, m: 1, l: 2 };
-
-export const TILE_KINDS: readonly TileKindInfo[] = [
-  { kind: "resume", label: "Pick up where you left off", Icon: ClockCounterClockwise,
-    blurb: "The brief you last worked, and how far it got.",
-    size: "m", hue: "brand", reads: "agent_conversations", minSize: "s" },
-  { kind: "pipeline", label: "Pipeline", Icon: FunnelSimple,
-    blurb: "Stage-by-stage counts for this campaign.",
-    size: "m", hue: "violet", reads: "org_candidates", minSize: "m" },
-  { kind: "replies", label: "Waiting on you", Icon: ChatCircleDots,
-    blurb: "Candidates who replied and have had no answer.",
-    size: "m", hue: "rose", reads: "outreach_queue", minSize: "s" },
-  { kind: "calendar", label: "Next interviews", Icon: CalendarBlank,
-    blurb: "What is scheduled over the next few days.",
-    size: "m", hue: "blue", reads: "interviews", minSize: "s" },
-  { kind: "sources", label: "Role context", Icon: Files,
-    blurb: "Job descriptions and notes this campaign reads from.",
-    size: "s", hue: "amber", reads: "campaign_documents", minSize: "s" },
-  { kind: "channels", label: "Channels", Icon: Plugs,
-    blurb: "Where the agent is allowed to speak.",
-    size: "s", hue: "teal", reads: "org_integrations", minSize: "s" },
-  { kind: "metric", label: "Single metric", Icon: ChartBar,
-    blurb: "One number with its trailing shape.",
-    size: "s", hue: "sage", reads: "org_candidates", minSize: "s" },
-  { kind: "suggest", label: "Suggested brief", Icon: Sparkle,
-    blurb: "A brief worth running, from the campaign's current state.",
-    size: "s", hue: "violet", reads: "agent_conversations", minSize: "s" },
-];
-
-export const TILE_KIND_INFO: Record<TileKind, TileKindInfo> =
-  Object.fromEntries(TILE_KINDS.map((k) => [k.kind, k])) as Record<TileKind, TileKindInfo>;
-
-/**
- * The layout a new recruiter lands on.
- *
- * Deliberately not one of everything: eight tiles is a wall, and a default
- * that overwhelms teaches people to ignore the surface rather than shape it.
- *
- * Cut from five to three, and the reason is worth recording. Five tiles plus a
- * task list filled the viewport so completely that the composer — the actual
- * product — ended up 557px below the fold, and the surface came back judged
- * cluttered. The default now leaves the composer and one row of context above
- * the fold, and anyone who wants the other five kinds can add them. A default
- * has to be defensible on a laptop, not on the largest screen in the office.
- */
-export const DEFAULT_LAYOUT: readonly TileSpec[] = [
-  /* FOUR tiles, two wide and two narrow, over the three-column grid:
-       row 1   resume (2 cols) + metric (1)
-       row 2   pipeline (2)    + channels (1)
-
-     `replies` ("Waiting on you") is OUT and `pipeline` has its wide slot.
-     Both are one row tall, so neither leaves the dead space the old two-row
-     pipeline did.
-
-     Pipeline fits a single row now because its funnel runs in two columns —
-     five stages over three rows is 50px against the 86px a single column
-     needed, which is what took it from 222px to inside the 106px content box.
-     See `.vz-funnel` for the column-major reasoning. */
-  { id: "t-resume", kind: "resume", size: "m", hue: "brand" },
-  { id: "t-metric", kind: "metric", size: "s", hue: "sage" },
-  { id: "t-pipeline", kind: "pipeline", size: "m", hue: "violet" },
-  { id: "t-channels", kind: "channels", size: "s", hue: "teal" },
-];
+   The PAYLOADS below survive, because the overview cards read the same
+   fixtures the tiles did. */
 
 /* ══════════════════════════ tile payloads ═══════════════════════════════════
    Fixtures. Every one names the table it stands in for.                      */
@@ -559,3 +429,67 @@ export const SUGGESTIONS: Record<ModeId, readonly string[]> = {
     "Draft outreach for everyone shortlisted but not contacted",
   ],
 };
+
+/* ═══════════════════════════ overview data ══════════════════════════════════
+   What Home shows. Fixtures against `org_candidates` and `campaigns`.        */
+
+export type DayPoint = { day: string; n: number };
+
+/**
+ * Candidates sourced per day, oldest first.
+ *
+ * Fourteen days rather than seven: a week cannot show a weekend dip against a
+ * weekday run-rate, so it cannot show a shape — and the shape is the entire
+ * reason this is a chart and not a number.
+ */
+export const SOURCED_BY_DAY: readonly DayPoint[] = [
+  { day: "Mon 2", n: 6 },
+  { day: "Tue 3", n: 11 },
+  { day: "Wed 4", n: 9 },
+  { day: "Thu 5", n: 14 },
+  { day: "Fri 6", n: 12 },
+  { day: "Sat 7", n: 3 },
+  { day: "Sun 8", n: 2 },
+  { day: "Mon 9", n: 15 },
+  { day: "Tue 10", n: 19 },
+  { day: "Wed 11", n: 13 },
+  { day: "Thu 12", n: 21 },
+  { day: "Fri 13", n: 17 },
+  { day: "Sat 14", n: 4 },
+  { day: "Sun 15", n: 2 },
+];
+
+/**
+ * The four stages Home reports, in pipeline order.
+ *
+ * Not the same list as the Pipeline tile's five: this one starts at
+ * Shortlisted because Sourced is the chart directly above it, and a number
+ * repeated two inches from its own graph is the kind of redundancy that makes
+ * a dashboard feel padded.
+ */
+export type Step = { id: string; label: string; n: number; of: number };
+
+export const STEPS: readonly Step[] = [
+  { id: "shortlisted", label: "Shortlisted", n: 24, of: 148 },
+  { id: "contacted", label: "Contacted", n: 61, of: 148 },
+  { id: "replied", label: "Replied", n: 17, of: 61 },
+  { id: "interviews", label: "Interviews", n: 6, of: 17 },
+];
+
+export type ActiveCampaign = {
+  id: string;
+  name: string;
+  role: string;
+  /** Open roles on this req. */
+  open: number;
+  /** Candidates in flight. */
+  live: number;
+  /** Days since anything moved — the number that says a campaign has stalled. */
+  quietFor: number;
+};
+
+export const ACTIVE_CAMPAIGNS: readonly ActiveCampaign[] = [
+  { id: "sbe", name: "Senior Backend Engineers", role: "Engineering", open: 3, live: 61, quietFor: 0 },
+  { id: "sre", name: "Platform SRE", role: "Engineering", open: 2, live: 31, quietFor: 2 },
+  { id: "ios", name: "iOS Engineers", role: "Engineering", open: 1, live: 12, quietFor: 9 },
+];

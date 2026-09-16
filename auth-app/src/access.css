@@ -5139,6 +5139,276 @@ body {
   color: var(--ink);
 }
 
+/* ══════════════════════════════ home overview ═══════════════════════════════
+
+   Two columns at 50/50: the task list, and three analytics cards.
+
+   ── HOW THE COLUMNS STAY LEVEL ──
+   The three cards are ROWS of a stretched grid track, not three cards with
+   heights of their own. `align-items: stretch` (the default) makes both columns
+   as tall as the taller one, and `grid-template-rows: repeat(3, 1fr)` then
+   splits that height into three equal parts. So no card knows the list's
+   height and none has to be told it — the sum is equal to the list's height by
+   construction rather than by a number kept in sync by hand.
+
+   That is also why the task list owns the height: it is the only element here
+   with intrinsic content length, so it defines the track and the cards divide
+   it.                                                                       */
+
+.ov {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  align-items: stretch;
+  max-width: var(--orc-measure);
+}
+
+.ov-stack {
+  display: grid;
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  min-height: 0;
+}
+
+/* ── a card ──
+   Hairline and a resting shadow. These DO take a shadow, unlike the Tier 2
+   cards elsewhere: the brief was that they should feel part of the canvas with
+   proper shadows, and on a white canvas a 1px hairline alone leaves a card
+   looking drawn on rather than laid on. --e1 is the lightest step and stays
+   under the 0.14 opacity ceiling, so the task list's --e2 is still visibly the
+   nearer plane and the hierarchy survives. */
+.ov-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+  background: var(--nav-surface);
+  box-shadow: var(--e1);
+}
+
+.ov-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.ov-h {
+  margin: 0;
+  font: 600 12.5px/1.2 var(--ui);
+  letter-spacing: -0.011em;
+  color: var(--ink);
+}
+
+.ov-sub {
+  font: 400 11px/1.2 var(--ui);
+  letter-spacing: -0.006em;
+  color: var(--ink-2);
+}
+
+.ov-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font: 500 11px/1.2 var(--ui);
+  letter-spacing: -0.006em;
+  color: var(--ink-2);
+  text-decoration: none;
+  transition: color var(--t);
+}
+
+.ov-link:hover { color: var(--accent-text); }
+.ov-link.is-warn { color: var(--c-rose-text); }
+.ov-link:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+
+/* ── the headline number ──
+   "KPI numbers go much larger to establish hierarchy." Tabular, because it
+   counts up on mount and proportional digits would shuffle the unit beside it
+   on every frame. */
+.ov-big {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin: 0 0 2px;
+  font: 600 26px/1 var(--ui);
+  letter-spacing: -0.026em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.ov-big-unit {
+  font: 400 11.5px/1.2 var(--ui);
+  letter-spacing: -0.006em;
+  color: var(--ink-2);
+}
+
+/* ── A DEFINITE HEIGHT, AND THAT IS THE FIX ──
+   This was `flex: 1 1 auto` with the svg at `height: 100%`. With no definite
+   height anywhere in the chain, `100%` fell back to the viewBox's aspect
+   ratio, so at 582px wide the chart resolved to 178px tall — which inflated
+   this card, then the stack that equalises to its tallest card, then the task
+   list that stretches to match the stack. Measured: 883px of column for two
+   tasks.
+
+   88px is a chart, not a hero: it has fourteen points and three markers to
+   place, and past ~100px the extra is spent on empty space above a curve
+   rather than on resolving it. */
+.ov-chart-plot {
+  height: 88px;
+  flex: none;
+  display: flex;
+  align-items: stretch;
+}
+
+.vz-area {
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* The area's own bottom edge is the baseline; letting it overflow the
+     rounded corner it sits in would show a square edge inside a round card. */
+  overflow: visible;
+}
+
+.ov-foot {
+  margin: 8px 0 0;
+  font: 400 11px/1.3 var(--ui);
+  letter-spacing: -0.006em;
+  color: var(--ink-2);
+}
+
+.ov-foot strong { font-weight: 600; color: var(--ink); }
+
+/* ── the progress steps ──
+   Label, bar, number, denominator. One row per step, on one grid so all four
+   bars share an origin — four bars starting at different x cannot be compared,
+   which is the only reason to draw them. */
+.ov-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  align-content: space-between;
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 9px;
+}
+
+.ov-step {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr) 30px 44px;
+  align-items: center;
+  gap: 9px;
+}
+
+.ov-step-l {
+  font: 500 11.5px/1.3 var(--ui);
+  letter-spacing: -0.006em;
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ov-step-track {
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--c-violet-tint);
+  overflow: hidden;
+}
+
+.ov-step-bar {
+  display: block;
+  height: 100%;
+  border-radius: var(--r-pill);
+  background: var(--c-violet);
+}
+
+.ov-step-n {
+  font: 600 13px/1 var(--ui);
+  letter-spacing: -0.016em;
+  color: var(--ink);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The denominator, so the bar's percentage can be checked rather than
+   trusted. One step quieter than the number it qualifies. */
+.ov-step-of {
+  font: 400 10.5px/1 var(--ui);
+  letter-spacing: -0.004em;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── active campaigns ── */
+
+.ov-camps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  align-content: space-between;
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 8px;
+}
+
+.ov-camp {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  grid-template-areas: "dot name quiet" "dot meta quiet";
+  align-items: center;
+  column-gap: 9px;
+}
+
+.ov-camp > .vz-dot { grid-area: dot; }
+
+.ov-camp-n {
+  grid-area: name;
+  font: 500 12px/1.35 var(--ui);
+  letter-spacing: -0.008em;
+  color: var(--ink);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ov-camp-n:hover { color: var(--accent-text); }
+.ov-camp-n:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 3px; }
+
+.ov-camp-m {
+  grid-area: meta;
+  font: 400 10.5px/1.35 var(--ui);
+  letter-spacing: -0.004em;
+  color: var(--ink-2);
+}
+
+.ov-camp-q {
+  grid-area: quiet;
+  font: 400 10.5px/1 var(--ui);
+  letter-spacing: -0.004em;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.ov-camp-q.is-stale { color: var(--c-rose-text); font-weight: 600; }
+
+/* ── narrow ──
+   One column below 1180px. Two 50% columns of this content stop working before
+   the viewport gets small: the progress rows need 74px of label plus a bar
+   plus two numbers, and the chart needs enough width for fourteen days to read
+   as a shape rather than a spike. The stack's rows go intrinsic here, since
+   there is no longer a task list beside them defining the height. */
+@media (max-width: 1180px) {
+  .ov { grid-template-columns: minmax(0, 1fr); }
+  .ov-stack { grid-template-rows: none; }
+  .ov-card { min-height: 148px; }
+}
+
 /* ══════════════════════════ tasks as the hero ═══════════════════════════════
 
    The Tier 0 treatment, applied to the task list on Home. The hierarchy allows
@@ -5165,115 +5435,42 @@ body {
   letter-spacing: -0.019em;
 }
 
-/* Five rows before it scrolls rather than three. The hero can afford the
-   height, and on a page whose job is "what should I do now" the answer being
-   mostly visible matters more than the context below it being fully visible. */
-.tk.is-hero .tk-list { height: 268px; }
+/* ── THE HERO LIST DEFINES THE COLUMN HEIGHT ──
+   A fixed list height here would fight the overview grid: the three cards
+   beside it divide whatever height this column turns out to be, so this
+   column has to have an opinion about its height and the list has to fill it.
 
-/* ── the context section ──
-   The bento, under the hero, labelled so it reads as support rather than as
-   more of the thing above it. */
-.orc-context { display: grid; gap: 12px; }
+   `flex: 1` on the list inside a column-flex card means the card grows to its
+   content and the list takes the slack — so five rows show, the sixth clips
+   mid-row as the scroll signal, and the cards next to it divide exactly that. */
+.tk.is-hero { display: flex; flex-direction: column; min-height: 0; }
+/* `flex: 1` on the list, so this card grows to whatever height the column
+   turns out to be and the list absorbs it — rather than the list fixing a
+   height the three cards beside it would then have to be told about. The stack
+   holds the real content, so the stack defines the height and the list fills
+   it. */
+.tk.is-hero .tk-list { flex: 1 1 auto; height: auto; min-height: 180px; }
 
-.orc-context-h {
-  margin: 0;
-  font: 600 13px/1.2 var(--ui);
-  letter-spacing: -0.011em;
-  color: var(--ink-2);
-}
-
-/* ══════════════════════════ the brief gauge ═════════════════════════════════
-
-   Six slots naming the parts of a brief, present whether or not anything has
-   matched. This is the surface's signature component: at rest it is what makes
-   the composer recognisably THIS product rather than a rounded box with a
-   placeholder, and it teaches what to say without a form.
-
-   Empty and filled are the same shape and the same size, so a slot filling in
-   does not move its neighbours. Only the border style, the fill and the text
-   change — which is also why the label is present in both states and the
-   colour is never the only thing that changed.                              */
-
-.orc-gauge {
-  list-style: none;
+/* The footer on a `today` list. Quietest thing in the card — it is a pointer,
+   not a task. */
+.tk-next {
   margin: 10px 0 0;
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-/* `orc-gslot`, not `orc-slot`. The composer's context chips ("Job
-   description", "Set filters") already own `.orc-slot`, and reusing it gave
-   the gauge their styling and them the gauge's — two different controls that
-   happened to look alike, which is how a collision hides. */
-.orc-gslot {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 5px;
-  padding: 2.5px 9px;
-  /* Dashed while empty: the established convention on this surface for a slot
-     that is waiting for something, already used by the composer's context
-     chips. Solid once filled, so the transition reads as "this is settled". */
-  border: 1px dashed var(--rule);
-  border-radius: var(--r-pill);
-  font: 400 11px/1.45 var(--ui);
+  padding-top: 10px;
+  border-top: 1px solid var(--hairline);
+  font: 400 11.5px/1.3 var(--ui);
   letter-spacing: -0.006em;
   color: var(--ink-2);
-  /* Only properties that cannot move a neighbour. A width or padding
-     transition here would make the whole row shuffle as you type, which is the
-     one thing a gauge must never do while you are looking at it. */
-  transition: background var(--t-dim), border-color var(--t-dim), color var(--t-dim);
 }
 
-.orc-gslot.is-on {
-  border-style: solid;
-  font-weight: 400;
-}
+/* The `.bn*` (bento) and `.tm*` (tile menu and gallery) blocks were deleted
+   with the widget feature — 198 rules for a configurable grid Home no longer
+   has. The `.orc-context` label went with them; there is nothing under the
+   overview to label.
 
-.orc-gslot b {
-  font-weight: 600;
-  /* Inherits the slot's colour in both states — ink-2 when empty, the facet's
-     text token when filled. */
-}
-
-/* The matched words. One step down from the label, because the label is what
-   the slot IS and this is what happened to land in it. */
-.orc-gslot-v {
-  color: var(--ink);
-  font-size: 10.5px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .orc-gslot { transition: none; }
-}
-
-.orc-composer-note {
-  max-width: var(--orc-measure);
-  margin: 9px 2px 0;
-  font: 400 11.5px/1.5 var(--ui);
-  color: var(--ink-2);
-}
-
-/* --ink-2, not a fourth grey. I reached for #9a9188 as a "tertiary" tone in
-   four places here without measuring it; it is 2.75:1, which fails body text
-   outright. DESIGN.md §3.3 says it in as many words: there is no third ink —
-   reach for weight, size, or --ink-2 before inventing another. The demotion
-   these needed was size, and they already had it. */
-/* No opacity here either: 0.8 over the ground computed to 4.19:1, which is
-   the same failure in a different disguise — a translucent pass at a legal
-   colour is still an illegal colour. The stage list is demoted by SIZE. */
-.orc-composer-stages { color: var(--ink-2); }
-
-/* ── reduced motion ──
-   The mark stops turning and the dots stop pulsing, but the reply still
-   arrives with its opacity change: reduced motion means less movement, not the
-   loss of the signal that the agent finished. */
-@media (prefers-reduced-motion: reduce) {
-  .orc-mark.is-working svg,
-  .orc-stage-dots i { animation: none; }
-  .orc-stage-dots i { opacity: 0.6; }
-}
+   Do not restore them to "keep the option". The option was the cost: a
+   persisted layout schema, a version to bump on every shape change, two
+   popovers, a drag interaction, and a resting state that had to look
+   deliberate at three sizes and seven hues.                                 */
 
 /* ═════════════════════════════ viz primitives ═══════════════════════════════
 
@@ -5475,1921 +5672,6 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .vz-dot.is-pulse { animation: none; }
   .vz-funnel-bar { transition: none; }
-}
-
-/* ════════════════════════ tile menu + gallery ═══════════════════════════════
-
-   Both portal into <body>, so everything they reference has to exist at :root.
-   Geometry is inline (measured against the anchor at mount); everything below
-   is appearance.                                                             */
-
-.tm {
-  position: fixed;
-  z-index: 70;
-  display: grid;
-  gap: 2px;
-  padding: 10px;
-  border: 1px solid var(--nav-edge-panel);
-  border-radius: var(--r-card);
-  background: var(--nav-surface);
-  /* --e3 is the top of the elevation scale and a portaled panel over the page
-     is exactly what it is for. Opacity stays at the 0.14 ceiling. */
-  box-shadow: var(--e3);
-}
-
-.tm-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 2px 2px 8px;
-  border-bottom: 1px solid var(--hairline);
-  margin-bottom: 6px;
-}
-
-.tm-head-name {
-  flex: 1 1 auto;
-  min-width: 0;
-  font: 600 12.5px/1.2 var(--ui);
-  letter-spacing: -0.011em;
-  color: var(--ink);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tm-x,
-.tm-reset {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  flex: none;
-  padding: 3px 6px;
-  border: 0;
-  border-radius: var(--r-field);
-  background: transparent;
-  color: var(--ink-2);
-  font: 500 10.5px/1 var(--ui);
-  letter-spacing: -0.006em;
-  cursor: pointer;
-  transition: background var(--t), color var(--t);
-}
-
-.tm-x:hover,
-.tm-reset:hover { background: var(--sub); color: var(--ink); }
-
-.tm-group { display: grid; gap: 5px; padding: 5px 2px; }
-
-.tm-label {
-  font: 500 9.5px/1 var(--ui);
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: var(--ink-2);
-}
-
-.tm-row { display: flex; gap: 4px; }
-
-/* A segmented control rather than a dropdown: three options that the user
-   wants to compare, and a select would hide two of them behind a click. */
-.tm-seg {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  flex: 1 1 0;
-  min-width: 0;
-  padding: 5px 7px;
-  border: 1px solid var(--nav-edge-panel);
-  border-radius: var(--r-field);
-  background: var(--nav-surface);
-  color: var(--ink-2);
-  font: 500 11px/1 var(--ui);
-  letter-spacing: -0.006em;
-  cursor: pointer;
-  transition: background var(--t), color var(--t), border-color var(--t);
-}
-
-.tm-seg:hover:not(:disabled) { background: var(--sub); color: var(--ink); }
-
-.tm-seg.is-on {
-  background: var(--accent-tint);
-  border-color: var(--accent-fill);
-  color: var(--accent-text);
-  font-weight: 600;
-}
-
-.tm-seg:disabled { opacity: 0.4; cursor: default; }
-
-/* The kind picker. A native select, restyled to the menu's field language but
-   left as a select so it keeps platform keyboard behaviour and type-ahead. */
-.tm-select {
-  width: 100%;
-  padding: 6px 8px;
-  border: 1px solid var(--nav-edge-panel);
-  border-radius: var(--r-field);
-  background: var(--nav-surface);
-  color: var(--ink);
-  font: 500 12px/1.3 var(--ui);
-  letter-spacing: -0.008em;
-  cursor: pointer;
-  /* The UA arrow is kept: replacing it means owning the appearance of a
-     control whose popup is still the platform's, and the two then disagree. */
-}
-
-.tm-select:hover { border-color: var(--accent-fill); }
-.tm-select:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-
-/* A stated consequence, not a warning — so --ink-2 rather than a hue. */
-.tm-note {
-  font: 400 10.5px/1.4 var(--ui);
-  letter-spacing: -0.004em;
-  color: var(--ink-2);
-}
-
-.tm-hues { display: flex; gap: 5px; }
-
-.tm-hue {
-  width: 26px;
-  height: 26px;
-  display: grid;
-  place-items: center;
-  flex: none;
-  padding: 0;
-  border: 1px solid;
-  border-radius: var(--r-pill);
-  cursor: pointer;
-  transition: box-shadow var(--t);
-}
-
-/* The selected swatch is marked by a tick INSIDE it, not by a ring around it:
-   a ring in a row of coloured circles reads as one more colour. */
-.tm-hue.is-on { box-shadow: 0 0 0 2px var(--nav-surface), 0 0 0 3px var(--ink); }
-
-.tm-foot { padding-top: 6px; margin-top: 4px; border-top: 1px solid var(--hairline); }
-
-.tm-remove {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  padding: 6px 7px;
-  border: 0;
-  border-radius: var(--r-field);
-  background: transparent;
-  color: var(--c-rose-text);
-  font: 500 11.5px/1 var(--ui);
-  letter-spacing: -0.006em;
-  cursor: pointer;
-  transition: background var(--t);
-}
-
-.tm-remove:hover { background: var(--c-rose-tint); }
-
-/* ── gallery ── */
-
-.tm-gallery { padding: 10px 8px 8px; }
-
-.tm-kinds {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 1px;
-  max-height: min(60vh, 420px);
-  overflow: hidden auto;
-  overscroll-behavior: contain;
-}
-
-.tm-kind {
-  display: flex;
-  align-items: flex-start;
-  gap: 9px;
-  width: 100%;
-  padding: 8px;
-  border: 0;
-  border-radius: var(--r-field);
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
-  transition: background var(--t);
-}
-
-.tm-kind:hover { background: var(--sub); }
-
-.tm-kind-body { display: grid; gap: 2px; min-width: 0; flex: 1 1 auto; }
-
-.tm-kind-name {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  font: 500 12px/1.3 var(--ui);
-  letter-spacing: -0.011em;
-  color: var(--ink);
-}
-
-/* Not a warning — duplicates are allowed. It is a fact, so it reads as one. */
-.tm-kind-used {
-  flex: none;
-  padding: 1px 5px;
-  border-radius: var(--r-pill);
-  background: var(--sub);
-  color: var(--ink-2);
-  font: 500 9.5px/1.4 var(--ui);
-  letter-spacing: 0;
-}
-
-.tm-kind-blurb {
-  font: 400 11px/1.4 var(--ui);
-  letter-spacing: -0.006em;
-  color: var(--ink-2);
-}
-
-.tm-kind-add { flex: none; margin-top: 3px; color: var(--ink-2); }
-
-.tm-kind:hover .tm-kind-add { color: var(--accent-text); }
-
-/* ═══════════════════ orchestrator: landing layout ═══════════════════════════
-
-   The landing state flows from the top and fills. Previously it shared the
-   transcript's bottom anchor, which left 626px of empty ground above it.      */
-
-.orc-open {
-  display: grid;
-  /* Same 32px as the stream's gap: the task list and the context grid are two
-     SECTIONS that happen to share a wrapper, so the space between them has to
-     match the rhythm everything else on the page sits on.
-
-     No top padding. It was added when Home had no header at all and its first
-     card sat flush against the viewport; with a page header back, the grid's
-     row-gap supplies that space and the padding double-counted it — measured
-     46px against the 32px rhythm. */
-  gap: 32px;
-  /* Wider than the old 760px: the bento is four columns now and a large tile
-     spans two of them, so a narrow measure squeezed every tile into a column
-     too thin for a funnel label plus its bar plus its count. */
-  max-width: var(--orc-measure);
-}
-
-/* ── the greeting ──
-   Restored. The note that replaced it said "do not restore", on the grounds
-   that it competed with the campaign name and the composer placeholder. With
-   the composer back at the bottom it competes with nothing, and it is the
-   first element in the reference in both screenshots that were held up as the
-   target. Being wrong twice about the same element is worth recording. */
-/* Greeting on the left, the one page-level control on the right, sharing a
-   baseline. Folding the button up here reclaimed 50px from the stack above the
-   composer, which is where the vertical budget was going. */
-/* ── THE TOP BAR ──
-   A direct child of .orc-main now rather than of the landing group, so it
-   survives into the conversation state and the surface keeps a stable top
-   edge. That also means it no longer inherits the stream's inset, so it
-   repeats the same 64px here — the one number every block on the page aligns
-   to. Hard-coding it twice is the cost of the greeting outliving the group it
-   used to live in; the alternative was a wrapper whose only job was padding. */
-.orc-hi-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-  padding: 22px 0 0 64px;
-  max-width: calc(var(--orc-measure) + 64px);
-}
-
-.orc-hi {
-  margin: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0 12px;
-  font: 600 clamp(24px, 2.6vw, 31px)/1.2 var(--ui);
-  letter-spacing: -0.021em;
-}
-
-/* The wash. --c-blue-tint carrying --c-blue-text measures 4.90:1, and at this
-   size the floor is 3:1 — so the tint is doing hierarchy rather than scraping
-   past a limit. Blue rather than the brand orange because the brand is the
-   ACTION colour and a greeting is not an action; spending accent here would
-   put three oranges in one viewport before the send button gets its one. */
-.orc-hi-name {
-  padding: 0.06em 0.34em 0.12em;
-  border-radius: var(--r-field);
-  background: var(--c-blue-tint);
-  color: var(--c-blue-text);
-}
-
-.orc-hi-q { color: var(--ink-2); font-weight: 500; }
-
-/* ── recommended searches ──
-   Below the composer, and rendered as rows with a search glyph rather than as
-   the bare sentences they were. The glyph is what makes them read as searches
-   you could run instead of as prose someone left on the page; at rest they are
-   still quiet, and the row only fills on hover. */
-.orc-recs { display: grid; gap: 8px; max-width: var(--orc-measure); }
-
-.orc-recs-k {
-  margin: 0;
-  font: 500 10.5px/1 var(--ui);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--ink-2);
-}
-
-.orc-recs-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.orc-rec {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 7px 12px 7px 10px;
-  border: 1px solid var(--hairline);
-  border-radius: var(--r-pill);
-  background: var(--nav-surface);
-  color: var(--ink-2);
-  font: 400 12.5px/1.2 var(--ui);
-  letter-spacing: -0.008em;
-  cursor: pointer;
-  text-align: left;
-  transition: background var(--t), color var(--t), border-color var(--t);
-}
-
-.orc-rec svg { flex: none; color: var(--ink-2); transition: color var(--t); }
-
-.orc-rec:hover {
-  background: var(--c-blue-tint);
-  border-color: var(--c-blue-line);
-  color: var(--c-blue-text);
-}
-
-.orc-rec:hover svg { color: var(--c-blue); }
-
-.orc-rec:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-
-/* `.orc-fixtures` was deleted with its markup. It was the page-level "this is
-   all fixture data" line, and it went because it was developer notes rendered
-   into the product. The commitment is unchanged and now lives where it is
-   load-bearing: `.rep-note`, which sits directly under a button that looks
-   like it would send something, and the trace's own leading note. */
-
-.orc-add {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 11px;
-  border: 1px solid var(--nav-edge-panel);
-  border-radius: var(--r-pill);
-  background: var(--nav-surface);
-  color: var(--ink-2);
-  font: 500 11.5px/1 var(--ui);
-  letter-spacing: -0.006em;
-  cursor: pointer;
-  transition: background var(--t), color var(--t), border-color var(--t);
-}
-
-.orc-add:hover {
-  background: var(--accent-tint);
-  border-color: var(--accent-fill);
-  color: var(--accent-text);
-}
-
-.orc-add:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-
-/* ═══════════════════════════ campaign header ════════════════════════════════
-
-   REPLACES the whole `.orc-head` / `.orc-head-chips` / `.orc-head-metrics` /
-   `.orc-head-strip` / `.orc-head-window` / `.orc-head-reads` /
-   `.orc-head-stats` / `.orc-stat*` / `.orc-head-ask` block, including both of
-   its media queries.
-
-   ── TIER 1: TYPE ONLY ──
-   Breadcrumb, name, one affordance. No border, no background, no shadow, no
-   glyph container, no chip, no figure. Size and weight do the work, which is
-   the whole definition of the tier.
-
-   ── WHAT THE DELETIONS COST IN LINES, AND WHY THAT IS THE POINT ──
-   This block was ~290 lines. Roughly 200 of them existed to make a 420px
-   measurement panel sit beside a title without drifting on a wide viewport,
-   then to restack that panel and its action at 1100px, then to turn its three
-   columns into three labelled rows at 620px. All three problems were real and
-   all three were self-inflicted: the panel did not belong in the header. It is
-   in the rail now, where a 312px column has one layout and needs no
-   breakpoints, and the header has none either.
-
-   ── HEIGHT ──
-   ~73px, from ~124px. The composer moves up by the difference and by the
-   height of everything else that left, which was the measured complaint.     */
-
-.orc-head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  /* Same 64px left inset as the bar above and the stream below. The old
-     `clamp(20px, 3.4vw, 40px)` scaled with the viewport, so the campaign name
-     sat at a different left edge from every block under it. */
-  padding: 14px 0 12px 64px;
-}
-
-/* The campaign's mark. A tinted square with its glyph, hue derived from the
-   name so it is stable per campaign — see `campaignHue`. Sized to the two-line
-   id block beside it rather than to the glyph, which is what keeps the row
-   reading as one object.
-
-   Its tint sits on the WHITE canvas, never on another wash, because --c-*
-   marks were solved against white and their own tint only: --c-sage on
-   --accent-tint measures 2.87:1 and fails the 3:1 icon floor. */
-.orc-head-mark {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  flex: none;
-  border: 1px solid;
-  border-radius: var(--r-field);
-}
-
-/* Grows, which is what pushes the affordance to the right edge. The old rule
-   was `flex: 0 1 auto` with a `justify-content` fight in the parent, because
-   there were three children competing for the line. There are two. */
-.orc-head-id {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.orc-head-kicker {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0 0 5px;
-  font: 500 11px/1 var(--ui);
-  letter-spacing: -0.011em;
-  color: var(--ink-2);
-}
-
-/* 22px/600 is large text by the WCAG definition either way (≥18.66px bold), so
-   --ink at 14.13:1 on the ground is far past any floor that applies. Ellipsis
-   rather than wrap: the name is one line of identity and a campaign called
-   something long should push the dots, not the composer. */
-.orc-head-name {
-  margin: 0;
-  font: 600 22px/1.15 var(--ui);
-  letter-spacing: -0.02em;
-  color: var(--ink);
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-/* ── the one affordance ──
-   A link to Settings wearing a DotsThree. Same treatment as `.rail-manage`:
-   ink-2 at rest, --sub and --ink on hover, no border and no shadow in either
-   state. An icon-only control has to be at least 24px to be hittable and the
-   glyph inside it is 18px, so 28px is the smallest square that holds both
-   without the shape touching the wash's edge. */
-
-.orc-head-menu {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 28px;
-  height: 28px;
-  border-radius: var(--r-pill);
-  color: var(--ink-2);
-  text-decoration: none;
-  transition: color var(--t), background var(--t-dim);
-}
-
-.orc-head-menu:hover {
-  color: var(--ink);
-  background: var(--sub);
-}
-
-.orc-head-menu:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-
-/* The wash is the only thing here that animates, and with motion reduced it
-   becomes a swap — suppressed, not removed, matching the rest of the surface. */
-@media (prefers-reduced-motion: reduce) {
-  .orc-head-menu { transition: none; }
-}
-
-/* ══════════════════════════════ bento ══════════════════════════════════════
-
-   Bento.tsx. The orchestrator's opening grid — eight tile kinds, each a
-   different shape — and the page's COLOUR ENGINE.
-
-   STAGING FILE. This is the complete replacement for the `.bn*` block in
-   access.css; access.css keeps the `.bn > *` entrance animation and the
-   `.bn-tile:active` press, which live in the motion section and are not this
-   block's to own.
-
-   ── THE CONTENT BUDGET, AND WHY IT IS THE POINT OF THIS REVISION ────────────
-   The review said the components feel too big, that the surface wants subtle
-   and just-the-right-amount-of-spaces, and — the load-bearing half — that the
-   answer is NOT to fill space by increasing size. So a row is 140px and the
-   tiles were trimmed to fit it. Nothing here got smaller type or tighter
-   padding; several tiles got LESS IN THEM, which is what a bento tile is for.
-   A tile is a glance; every one of them has an action that opens the full
-   view, so showing two items and a counted remainder is the honest density at
-   the widths this grid actually gets, and it is what the reference does (two
-   or three items per card, never everything).
-
-   THE FRAME, which every sum below is built on:
-
-     padding            16px  x2   = 32.00
-     border              1px  x2   =  2.00   ← see the note under this table
-     .bn-head                      = 22.00   (.bn-menu 22x22 is its tallest child)
-     .bn-tile gap        8px  x2   = 16.00   (x1 for the two kinds with no action)
-     .bn-act     10.5px / 1.3      = 13.65
-
-   which leaves the body 140 - 34 - 22 - 8 - 8 - 13.65 = 54.35px when there is
-   an action and 76.00px when there is not.
-
-   THE BORDER IS THE TRAP, AND IT COST THIS FILE TWO PIXELS TWICE. `.bn-tile`
-   is border-box inside a 140px grid row, so the row height INCLUDES the 1px
-   edge on each side: the usable content box is 140 - 32 - 2 = 106px, not the
-   108px that "140 minus the padding" suggests. Summing children and padding
-   alone puts every kind 2px under its real height — which is exactly the size
-   of the error class this pass exists to stop. Every TOTAL below is the
-   figure a browser reports for `getBoundingClientRect().height` on the
-   article, border included, and every one was measured as well as summed.
-
-   RE-ADD THEM IF YOU CHANGE A NUMBER. At 138px rows the `replies` action
-   overlapped its last name row by 4px and `scrollHeight` could not see it,
-   because .bn-tile is `overflow: visible`. A miss here is invisible to every
-   automated check and obvious to the reader.
-
-   ── COLOUR IS A ZONE, NOT A BUDGET ──────────────────────────────────────────
-   The reference was sampled band by band, counting saturated pixels:
-
-     greeting      24.2% of its own area   23.7% of the page's colour
-     BENTO         19.8%                   65.8%
-     tasks header   0.0%                    0.0%
-     task rows      2.1%                    5.1%
-     composer       4.4%                    5.5%
-
-   The greeting and this grid hold 89.5% of the page's colour between them, and
-   this grid alone holds two thirds of it. Everything below is near-colourless.
-
-   That measurement is the correction to the two revisions before this one. A
-   colour allowance spread evenly over every component read as CLUTTER when the
-   allowance was large and as BLAND when it was small, because an evenly
-   saturated page has no zones and therefore nothing to look at first. Neither
-   was a quantity problem. So this block is loud, the blocks around it are
-   silent, and colour arrives here in exactly three forms:
-
-     1. ONE TINTED TILE   — .bn-tile.is-accent, the single strongest colour
-        moment on the page, and the only full-tint plane anywhere on it.
-     2. BRAND MARKS       — .bn-ch-disc, a logo identifying a platform, and
-        .bn-src-ic, a file mark identifying a type. Identity, not state.
-     3. MEASUREMENT       — Ring, Funnel, Spark, Dot in the configured hue.
-        Colour that encodes a quantity, the most defensible on the page.
-
-   ── WHAT MUST NOT COME BACK ─────────────────────────────────────────────────
-   Revision 27 gave every tile the same five treatments and read as clutter
-   because nothing receded. Five things went and four of them stay gone:
-
-     1. the resting `box-shadow`.  A card that is always raised is not raised.
-        --e1 appears under :hover and nowhere else; --e2 is the composer's, and
-        the composer is the one Tier 0 element on the screen.
-     2. the header Glyph.  Eight tinted squares whose only job was to mark a
-        card as a card. The header is plain text; the tile's identity is its
-        title and its interior shape.
-     3. the 1px hue top edge (`.bn-tile::before`).  A coloured rule per tile,
-        tying the hue to nothing once the header became text.
-     4. the footer table name (`.bn-reads`).  Seven table names on screen were
-        developer notes leaking into the product. One quiet line at the foot of
-        the surface carries the no-fake-data commitment for the whole page.
-
-   The fifth — the inner --sub panel — is now gone from every tile. It survived
-   one revision inside `pipeline`, holding a figure DERIVED from the funnel
-   above it, and went when that figure did (it could not vary — see the note
-   where .bn-pipe-edge used to be). The only --sub left in this file is
-   .bn-ch-disc.is-off, which is a STATE on a control rather than a recessed
-   region, so "no panel inside a card" now holds without an exception.
-
-   The distinction that makes all of this consistent: a hue on a card edge, a
-   header glyph, a top rule or a per-row wash colours a tile BECAUSE IT IS A
-   TILE, and a reader learns nothing from a colour every sibling has. A hue on
-   one tile out of eight, on a brand mark, or on a bar whose width is a number
-   is information. Add colour of the first kind and this surface is cluttered
-   again; that is the regression, not saturation as such.
-
-   ── EVERY FOREIGN-HUE MARK CARRIES ITS OWN WHITE GROUND ─────────────────────
-   Measured, because this is where a tinted plane gets dangerous:
-
-     --c-* mark on WHITE               3.30 – 3.68 : 1   pass
-     --c-* mark on ITS OWN tint        3.04 – 3.07 : 1   pass, barely
-     --c-* mark on ANOTHER hue's tint  2.75 – 2.92 : 1   FAIL (3:1 floor)
-     --c-* mark on --sub               2.95 – 3.29 : 1   teal and sage FAIL
-     --c-*-line on ITS OWN tint        1.19 – 1.37 : 1   a track disappears
-     --sub on any tint                 1.02 – 1.08 : 1   a panel disappears
-
-   The tinted tile is whichever tile the recruiter dragged to the front, so a
-   brand mark, a file mark or a rose exception dot can land over a tint it was
-   never solved against. Rather than a list of per-kind exceptions, one rule:
-   a mark whose hue is not the tile's own, and any trough or recessed panel,
-   sits on `background: var(--nav-surface)`. On the white canvas that ground is
-   1.000:1 and invisible; on the one tinted tile it is load-bearing. Marked
-   WHITE GROUND at each site below.
-
-   ── HOVER ───────────────────────────────────────────────────────────────────
-   A shadow appearing (none → --e1) and the border stepping one shade darker.
-   No transform anywhere: a cell that slides under the pointer is legible
-   against every tile beside it that did not move, and the grid reads loose.
-
-   ── SELECTORS THIS REVISION DROPPED ─────────────────────────────────────────
-   Fourteen. Six are structure the trims left with nothing to do; the other
-   eight are the worst-drop panel, deleted outright. Listed here so a reader of
-   the old block can find each one:
-
-     .bn-rep         a flex column with one child once the avatar row went
-     .bn-rep-top     the Stack + "4 need a reply" row — the 37.0px `replies` cut
-     .bn-rep-grp     a flex column with one child once its label and the row went
-     .bn-cal-grp     one day group is on screen now, so .bn-cal IS that column
-     .bn-src-txt     the stacked name/meta block; both are row items now
-     .bn-sug         a flex column with one child once the kicker went
-     .bn-pipe        a flex column with one child once the panel went
-     .bn-pipe-edge   ┐
-     .bn-pipe-edge-v │  the worst-drop callout: a figure that could not vary,
-     .bn-pipe-edge-m │  because the largest adjacent narrowing in a recruiting
-     .bn-pipe-edge-n │  funnel is the first step by construction. Deleted, not
-     .bn-pipe-edge-t │  replaced — the honest version needs a baseline no
-     .bn-pipe-edge-f ┘  fixture carries. Full reasoning at the deletion site.
-     .bn-tile.is-accent .bn-pipe-edge — its white ground, gone with it
-
-   One selector is new: .bn-met-lead. See the `metric` arithmetic.            */
-
-/* ── the grid ───────────────────────────────────────────────────────────────
-
-   176 -> 152 -> 144 -> 140. Each step was the same finding from a different
-   angle: the widgets were too tall, and a taller row is the one fix that
-   cannot help, because it pushes the composer further down the viewport and
-   the tiles simply grow air they had not earned.
-
-   140 is not another guess at a row height. It is the number the CONTENT was
-   cut to fit: 140 - 32px of padding = a 108px content box, and every kind's
-   sum below lands under it with 2.7px to 22.5px to spare.
-
-   TWO GAPS, ON PURPOSE, and they are not interchangeable:
-
-     column-gap 12px  is the column rhythm, and the content column is now
-                      left-anchored and flexes with the sidebar: the page margins have
-                      widened twice, so a 2-column `m` tile is 380px with the
-                      sidebar expanded and 474px collapsed. It does not matter:
-                      every kind's height was MEASURED at 202px, 380px, 409px
-                      and 474px and is identical at all four, because the only
-                      wrap-dependent block on the surface (.bn-sug-t) declares
-                      its line count. `suggest` gets SHORTER at 474px, never
-                      taller. Nothing below is sized in pixels across
-                      the row's axis; every list item shrinks, and the one
-                      wrapping block declares its line count.
-     row-gap    14px  is what makes the two-row `l` span 2 x 140 + 14 = 294px,
-                      which is the figure .bn-pipe is budgeted against.       */
-
-.bn {
-  display: grid;
-  /* THREE columns, not four. The default is two wide tiles and two narrow
-     ones, and only a 3-track grid lets `m`(2) + `s`(1) fill a row exactly —
-     at four columns that pairing leaves a hole, and 2+2 gives four identical
-     tiles, which is a row of cards rather than a bento. */
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  /* Fixed rather than auto, because `l` spans two of them and a row sized by
-     content would make the large tile exactly as tall as its own contents —
-     which is the same as not spanning at all. */
-  grid-auto-rows: 140px;
-  column-gap: 12px;
-  row-gap: 14px;
-  /* Explicitly NOT `grid-auto-flow: dense`. Dense packing back-fills holes
-     with whatever tile happens to fit, so the rendered order stops matching
-     `layout` — and drag-to-reorder becomes a move to a slot the user cannot
-     predict. A hole is cheaper than a grid that rearranges itself. It would
-     also break the accent, which is the FIRST tile in the layout and has to
-     be the first tile on screen. */
-}
-
-/* ── the shell ───────────────────────────────────────────────────────────── */
-
-/* --hairline rather than --nav-edge-panel: at 1.199:1 it is the quieter of the
-   two neutral edges, and with eight of these on screen the difference between
-   the two steps is the difference between a grid and a wall. */
-.bn-tile {
-  /* Driven entirely by TILE_SPAN, via the two span properties Bento.tsx sets.
-     A spec's `size` is therefore the only thing deciding its footprint. */
-  grid-column: span var(--bn-cols, 1);
-  grid-row: span var(--bn-rows, 1);
-  display: flex;
-  flex-direction: column;
-  /* 9 -> 8. Two of these sit between the header, the body and the action, so
-     the pair is 16px of the 108px content box either way; 8px buys 2px back
-     across every kind and is indistinguishable at this scale. It is the only
-     spacing in this file that moved DOWN, and it moved by one pixel — the
-     budget was met by taking content out, not by squeezing the frame. */
-  gap: 8px;
-  min-width: 0;
-  /* 13/14/12 -> 16 flat. Uniform, and stated once: three different numbers on
-     one box is a thing a reader notices as wrongness without being able to
-     name it, and the asymmetry was buying 7px that the content cuts now give
-     back many times over. This is the floor — nothing in this file goes under
-     16px, because the review asked for airier and not denser. */
-  padding: 16px;
-  background: var(--nav-surface);
-  border: 1px solid var(--hairline);
-  border-radius: var(--r-card);
-  transition: box-shadow var(--t), border-color var(--t);
-}
-
-/* The shadow ARRIVES on hover rather than stepping up, which is what makes it
-   legible: --e1 → --e2 on an already-raised card is a change of about four
-   pixels of blur that nobody reads. A neutral step, not the tile's hue — a
-   coloured edge per tile is exactly what the clutter revision did. */
-.bn-tile:hover {
-  box-shadow: var(--e1);
-  border-color: var(--nav-edge-panel);
-}
-
-/* ── THE ONE TINTED TILE ────────────────────────────────────────────────────
-
-   The reference's "Previously viewed files" card is a full warm-yellow panel
-   among white siblings, and it is the single strongest colour moment on its
-   page — precisely because it has no sibling. Tint two and neither is special;
-   tint eight and this is the cluttered revision in a warmer hue.
-
-   EXACTLY ONE IS GUARANTEED IN Bento.tsx, NOT HERE. `accent={i === 0}` on the
-   layout map: the position is the predicate, so no fixture edit, added tile or
-   reorder can produce a second one. This sheet cannot enforce it — a class is
-   whatever the markup says — which is why the rule lives where it can be true
-   by construction rather than by convention.
-
-   Measured: --c-*-tint against the white canvas is 1.088 – 1.202 : 1, the same
-   order as --sub inside a card (1.119). It reads as COLOUR, not as luminance —
-   which is the whole reason it can be this loud without shouting. Its
-   --c-*-line edge is 1.29 – 1.64 : 1 on white, so the tinted tile is actually
-   better demarcated than its --hairline siblings at 1.199. That is right for
-   the one tile meant to lead.
-
-   Ink is safe on every tint without qualification: --ink is 11.75 – 12.99 : 1
-   and --ink-2 is 6.32 – 6.98 : 1 on all seven. Only MARKS needed measuring,
-   and they are handled by the WHITE GROUND rule.                             */
-
-.bn-tile.is-accent {
-  background: var(--bn-tint);
-  border-color: var(--bn-line);
-}
-
-/* The neutral hover step would read as a mistake on a tinted plane — a grey
-   edge arriving on a warm card. The hue edge holds and the shadow does the
-   work, which is the same two-part signal every other tile gets. */
-.bn-tile.is-accent:hover {
-  border-color: var(--bn-line);
-}
-
-/* ── drag ───────────────────────────────────────────────────────────────────
-   An OUTLINE for the drop target, never a border-width or margin change: an
-   outline is painted outside the box model, so the grid cannot reflow and jump
-   out from under the cursor mid-drag.
-
-   --nav-edge (3.34:1 on white) rather than the tile's hue: a drop target is a
-   meaningful boundary and owes 3:1, but it is an interaction boundary and not
-   a measurement, so it belongs to the neutral language. No shadow either — the
-   outline is the whole signal, and --e2 is the composer's tier.              */
-
-.bn-tile.is-over {
-  outline: 2px solid var(--nav-edge);
-  outline-offset: -4px;
-}
-
-/* Measured: --nav-edge over a tint is 2.78 – 3.07 : 1 and fails on four of the
-   seven hues, so the tinted tile cannot use it. --ink-2 is 6.32 – 6.98 : 1 on
-   all seven and is already this surface's demoted neutral. */
-.bn-tile.is-accent.is-over {
-  outline-color: var(--ink-2);
-}
-
-/* The vacated slot. Opacity is legitimate here and nowhere else on this
-   surface: it is a transient pointer state with nothing to read inside it, not
-   a way to demote text — dimming a legal ink token is how a previous pass
-   produced 4.19:1 body copy. */
-.bn-tile.is-dragging {
-  opacity: 0.45;
-  cursor: grabbing;
-}
-
-/* ── header ─────────────────────────────────────────────────────────────────
-
-   22.00px, and it is .bn-menu that sets it — the title is 15.63px and the
-   badge 18.83px, so the 22x22 button is the tallest child in every header.
-   That is deliberate and it is why the number is the same for all eight kinds:
-   a header whose height depended on whether the tile happened to carry a
-   badge would put the body's top edge 3.2px lower on some tiles than on their
-   neighbours, which at eight-across is the kind of misalignment that reads as
-   sloppiness without being locatable. A uniform header is worth 3.2px.      */
-
-.bn-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-/* The header, entire. A tinted 26px Glyph used to sit to the left of this and
-   it is not coming back: it identified the card as a card, which the card
-   already does, and eight of them were eight coloured spots spent on nothing.
-   Type carries the tier — 12.5px/600 --ink is Tier 2's header.
-
-   It also carries a COUNT on the one kind that hides part of its list: see the
-   `title` override on `sources` in Bento.tsx, and .bn-k below for the device
-   it borrows (the reference's GUESTS (6)). 12.5 x 1.25 = 15.63px. */
-.bn-title {
-  flex: 1;
-  min-width: 0;
-  font: 600 12.5px/1.25 var(--ui);
-  letter-spacing: -0.011em;
-  color: var(--ink);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* ── WHAT CHANGED SINCE YOU LAST LOOKED ─────────────────────────────────────
-
-   The hook, and the honest version of it: not a streak and not a badge for
-   showing up — both reward the visit rather than reporting on it — but the one
-   thing a person comes back for. Three kinds carry it (replies, pipeline,
-   metric); a badge on all eight would be the even-distribution mistake again
-   one tier down. Bento.tsx documents each derivation and why there is no
-   `last_seen_at` behind it yet.
-
-   The tile's own hue, which is the only hue it can be: --c-*-text on
-   --c-*-tint measures 4.53 – 4.58 : 1, clearing the body floor on all seven,
-   and any other pairing is unmeasured. It is also the one place the hue
-   properties reach a tile that is not the accent, which is what keeps the tile
-   menu's hue picker meaningful on every kind.
-
-   2 + 9.5 x 1.35 + 2 + 2 borders = 18.83px, under .bn-menu's 22, so a badge
-   never changes a header's height.                                           */
-
-.bn-new {
-  flex: none;
-  padding: 2px 6px;
-  background: var(--bn-tint);
-  border: 1px solid var(--bn-line);
-  border-radius: var(--r-pill);
-  font: 600 9.5px/1.35 var(--ui);
-  letter-spacing: 0.01em;
-  color: var(--bn-text);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-/* WHITE GROUND. On the accent tile the badge's tint IS the card's tint, so the
-   chip would vanish and leave floating coloured text. White brings both the
-   fill and the 1px edge back, and --c-*-text on white is 4.97 – 5.47 : 1. */
-.bn-tile.is-accent .bn-new {
-  background: var(--nav-surface);
-}
-
-/* Only present when the grid is reorderable, and only visible on hover: it is
-   a hint that the tile can be picked up, and the tile is draggable from
-   anywhere, so a permanently visible handle would be six dots of noise in
-   every header. */
-.bn-grip {
-  display: inline-grid;
-  place-items: center;
-  flex: none;
-  margin-left: -4px;
-  color: var(--ink-2);
-  opacity: 0;
-  cursor: grab;
-  transition: opacity var(--t-dim);
-}
-
-.bn-tile:hover .bn-grip { opacity: 1; }
-
-.bn-menu {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  background: none;
-  border: 0;
-  border-radius: var(--r-field);
-  color: var(--ink-2);
-  cursor: pointer;
-  /* Hidden with opacity, not `display: none` or `visibility: hidden`: both of
-     those drop the button out of the tab order, which would leave the tile
-     menu unreachable without a pointer. At opacity 0 it still focuses, and the
-     :focus-visible rule below brings it back into view when it does. */
-  opacity: 0;
-  transition: opacity var(--t-dim), background var(--t), color var(--t);
-}
-
-.bn-tile:hover .bn-menu,
-.bn-menu:focus-visible { opacity: 1; }
-
-.bn-menu:hover {
-  background: var(--nav-hover);
-  color: var(--ink);
-}
-
-.bn-menu:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 1px;
-}
-
-/* ── body and the one action ─────────────────────────────────────────────── */
-
-/* `flex: 1` and every body laying its content out from the top, which is what
-   makes the leftover budget read as AIR UNDER THE CONTENT rather than as
-   content floating in a box. `replies` has 20.65px of it and `channels`
-   22.47px; that space is the review's "just the right amount", and filling it
-   by growing a list or a numeral is the move the review specifically ruled
-   out. Leave it empty. */
-.bn-body {
-  flex: 1;
-  min-height: 0;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-/* No `.bn-foot` wrapper. It existed to hold the action beside the table name;
-   with the table name gone it was a flex row with one child, and two of the
-   eight kinds have no action at all, so for those it was an empty element
-   contributing a gap. The button is the tile's last flex child instead, which
-   is why it needs align-self — the column stretches by default and a
-   full-width text button reads as a bar.
-
-   10.5 x 1.3 = 13.65px, and the caret is 11px, so the text sets the height.
-   This row is also where two of the trims put their COUNTS: `sources` and
-   `calendar` each print a counted total in their label ("Summarise all 3
-   sources", "Prepare 3 briefings"), which is the one place on a 140px tile
-   where a number costs nothing — the row already exists. */
-.bn-act {
-  flex: none;
-  align-self: flex-start;
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  background: none;
-  border: 0;
-  border-radius: var(--r-field);
-  font: 600 10.5px/1.3 var(--ui);
-  letter-spacing: -0.006em;
-  /* INK AT REST, accent on hover. This was --accent-text, which put one orange
-     link in every tile that has an action — three in the default layout,
-     against a budget of three instances for the whole surface that the
-     composer's send button and the rail's one primary action already spend two
-     of. A control that repeats per tile can never be one of the three. The
-     caret, the pointer cursor and the hover colour carry the affordance; the
-     accent was never the thing carrying it. */
-  color: var(--ink);
-  white-space: nowrap;
-  cursor: pointer;
-  transition: color var(--t);
-}
-
-.bn-act:hover { color: var(--accent-text); }
-
-.bn-act:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-}
-
-.bn-act svg { flex: none; }
-
-/* ── the two shared body devices ─────────────────────────────────────────── */
-
-/* The micro-label. The reference's device (GUESTS (6), WHERE) — uppercase,
-   tracked out, --ink-2, naming what is under it and carrying its own count
-   where there is one to carry.
-
-   THAT COUNT IS NOW LOAD-BEARING. `calendar` shows two of its slots and its
-   .bn-k reads "Today (2) · 1 later", which is the whole remainder disclosure
-   in a line the tile was already paying 9.5px for. Both numbers come off
-   array lengths in Bento.tsx — a literal here would be the fake-data failure
-   at one-word scale. 9.5 x 1 = 9.50px. */
-.bn-k {
-  font: 600 9.5px/1 var(--ui);
-  letter-spacing: 0.085em;
-  text-transform: uppercase;
-  color: var(--ink-2);
-  white-space: nowrap;
-}
-
-/* TWO-TONE, which is what replaced the chips. Label --ink-2, value --ink, one
-   row. There is no third ink and no opacity pass: 0.8 over --ink-2 measures
-   4.19:1 and fails the body floor, so demotion is tone within the legal pair
-   plus weight.
-
-   `align-items: center` and not baseline: both parts are 11.5px so the two are
-   visually identical, and a baseline row whose child has `overflow: hidden`
-   aligns on the wrong edge in some engines. Source order is free — metric
-   leads with the value, channels leads with the label. 11.5 x 1.35 = 15.53px
-   in both. */
-.bn-two {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  min-width: 0;
-  margin: 0;
-}
-
-/* The label never shrinks: it is a fixed phrase, and an ellipsed label
-   ("Connect…") stops naming what the value is. */
-.bn-two-k {
-  flex: none;
-  font: 400 11.5px/1.35 var(--ui);
-  letter-spacing: -0.006em;
-  color: var(--ink-2);
-  white-space: nowrap;
-}
-
-/* The value is the part that varies in length, so it is the part that gives
-   way. `flex: 0 1 auto` is the default: shrink, never grow. */
-.bn-two-v {
-  min-width: 0;
-  font: 600 11.5px/1.35 var(--ui);
-  letter-spacing: -0.006em;
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.bn-empty {
-  font: 400 12px/1.4 var(--ui);
-  letter-spacing: -0.011em;
-  color: var(--ink-2);
-}
-
-/* ── resume: where was I ────────────────────────────────────────────────────
-
-   BUDGET, and this kind was already inside it — nothing was cut:
-
-     .bn-resume            max(ring 52, text block 53.375)   =  53.38
-       .bn-resume-t          14   x 1.3    = 18.20
-       gap                                 =  3.00
-       .bn-resume-got        11.5 x 1.35   = 15.53
-       gap                                 =  3.00
-       .bn-resume-sub        10.5 x 1.3    = 13.65
-     frame (34 + 22 + 8 + 8 + 13.65)       =  85.65
-     ───────────────────────────────────────────────
-     TOTAL                                 = 138.98  of 140     (1.02 spare)
-     inside padding and border             = 106.98  of 106  ← 0.98 over 106
-
-   THE TIGHTEST KIND ON THE SURFACE, AND THE ONE FIGURE HERE WORTH ARGUING
-   ABOUT. Read strictly against a 106px content box it is 0.98px over; read
-   against the thing that actually matters — does the article fit a 140px
-   border-box row — it clears by 1.02px, measured. Both are true because the
-   0.98px lives in the border, which the row includes.
-
-   WHY 1.02px IS ACCEPTABLE HERE AND 0.73px WAS NOT ON `suggest`: nothing in
-   this body can reflow. Three lines, all `white-space: nowrap`, plus a ring
-   whose size is a number in Bento.tsx — so the height is three exact line
-   boxes and a constant, identical at 202px, 380px, 409px and
-   474px (measured at all four). `suggest` interpolates a campaign name and wraps, which is a height
-   that changes with content; this one cannot.
-
-   IF IT EVER NEEDS MORE, THE RING IS THE FLOOR, NOT THE TEXT. The text block
-   is 53.38px and the ring is 52px, so tightening the 3px gaps only gets 1.38px
-   before the ring becomes the constraint — take the ring to 48px in Bento.tsx
-   at the same time or the change buys nothing. A fourth line does not fit at
-   any combination, which is why the campaign and the elapsed time share
-   .bn-resume-sub.
-
-   The ring leads and it is 52px rather than the 46 it was. In the reference
-   the data mark is the largest object in its card, not a footnote beside the
-   text, and this is the tile's one measurement.                              */
-
-.bn-resume {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-
-/* WHITE GROUND. The ring's track is --c-*-line over its own tint at
-   1.19 – 1.37 : 1 — it disappears, and with it the "out of what" the arc is a
-   fraction of. The disc is exactly the ring's bounding box, because viz.tsx
-   sets .vz-ring's width and height inline and padding would be added outside
-   them; at a 6px stroke the outer edge lands on the box edge, so the whole
-   ring sits on white with nothing clipped. Reads as a medallion, which is the
-   reference's own idiom for a mark on a tinted card. */
-.bn-tile.is-accent .vz-ring {
-  background: var(--nav-surface);
-  border-radius: var(--r-pill);
-}
-
-.bn-resume-txt {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-}
-
-.bn-resume-t {
-  font: 600 14px/1.3 var(--ui);
-  letter-spacing: -0.014em;
-  color: var(--ink);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* HOW FAR IT GOT — the answer, so it is the line directly under the title and
-   it is a value rather than a caption. Both counts the ring is drawn from are
-   printed here, so the percentage in the middle of it is never a figure the
-   reader has to take on trust. */
-.bn-resume-got {
-  font: 500 11.5px/1.35 var(--ui);
-  letter-spacing: -0.006em;
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Provenance, one step down: which campaign and how long ago. It answers the
-   second question, so it takes the second tone. */
-.bn-resume-sub {
-  font: 400 10.5px/1.3 var(--ui);
-  letter-spacing: 0.005em;
-  color: var(--ink-2);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* ── pipeline: where is this stalling ───────────────────────────────────────
-
-   THE ONLY TWO-ROW KIND, so its ceiling is 2 x 140 + 14px row-gap = 294px:
-
-     .bn-pipe-stages                            = 136.40
-       .bn-k                  9.5  x 1          =   9.50
-       gap                                      =   5.00
-       .vz-funnel  5 x (11 x 1.2) + 4 x 14      = 121.90
-     frame (34 + 22 + 8 + 8 + 13.65)            =  85.65
-     ────────────────────────────────────────────────────
-     TOTAL                                      = 222.05  of 294  (71.95 spare)
-     inside padding and border                  = 188.05  of 260
-     as the ACCENT tile (+14px white ground)    = 236.05  of 294
-
-   IT STILL NEEDS TWO ROWS, AND THAT IS ARITHMETIC RATHER THAN PREFERENCE.
-   A single 140px row leaves a tile with an action 54.35px of body, and the
-   five funnel rows are 66px before a single gap or the label — so no gap
-   setting reaches 54.35px, and at viz's 7px floor the region is still 108.5px.
-   `l` is forced, exactly as orchestrator.ts already records; what changed is
-   that it went from having nothing to spare to having a quarter of the span
-   spare. Whether a size between `m` and `l` should exist is orchestrator's
-   call, not this sheet's.
-
-   THE SPARE BECOMES AIR UNDER THE FUNNEL, NOT GAPS INSIDE IT, AND THAT WAS
-   NOT FREE — see .bn-pipe-stages .vz-funnel below. The funnel used to take
-   `flex: 1` and `align-content: space-between`, which was right when the
-   worst-drop panel was underneath it absorbing 72.5px. With the panel gone,
-   the same two declarations spread five bars over 194px — rendered and looked
-   at, that is roughly 55px between rows, and the narrowing shape stops reading
-   because the eye cannot group bars that far apart. The stretch is replaced by
-   the gap the stretch was actually producing at `l`, so the funnel looks like
-   the one that shipped and no longer depends on what is beneath it.
-
-   (The 294 figure also settles a note from the brief for this pass, which had
-   `pipeline` at 298px and the fix being viz's 7px funnel gap dropped to 6.
-   Summed child by child it was 264.65px even WITH the panel, and the 298 is
-   explainable: with `flex: 1` on the funnel, a rendered pipeline tile always
-   fills its cell exactly — 2 x 144 + 12 = 300 under the previous grid — so
-   measuring the rendered height returns the cell and not the need. viz.tsx
-   needs no change, and needs one even less now.)
-
-   .bn-pipe is gone: a flex column with one child once the panel left. */
-
-/* The funnel region, with its micro-label and no panel of its own: the bars
-   are the tile's body and the card is already their container. */
-.bn-pipe-stages {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-/* 14px, AND IT IS THE NUMBER THE OLD STRETCH RENDERED — not a new taste call.
-   With the worst-drop panel in place, `l` left the funnel 121.35px, which
-   `space-between` turned into (121.35 - 66) / 4 = 13.84px between rows. So
-   14px reproduces the funnel that shipped, as a constant rather than as a
-   by-product of how much room happened to be left over.
-
-   NO `flex: 1` AND NO `align-content` ANY MORE. Those made the funnel's
-   rhythm a function of its siblings, which was survivable while a panel sat
-   below it and became wrong the moment that panel left: five bars at 55px
-   apart read as five separate measurements rather than one narrowing. The
-   remaining ~72px now pools UNDER the funnel as air above the action, which
-   is what every other trimmed tile on this surface does with its slack.
-
-   Centring the block instead was tried and rejected: it pulls the STAGES
-   label away from the header and reads as a mistake rather than as space. */
-.bn-pipe-stages .vz-funnel {
-  gap: 14px;
-}
-
-/* 9px rather than viz's 7. Five bars in the tile's configured hue are the
-   largest single block of colour in the grid and the reason this band measures
-   ~20% saturated; at 7px they read as a legend for the numbers beside them
-   rather than as the measurement. Height only — the track's fill is set inline
-   by viz.tsx and is not this sheet's to change. It also costs the budget
-   nothing: .vz-funnel-label at 11px/1.2 is 13.2px and sets the row. */
-.bn-pipe-stages .vz-funnel-track {
-  height: 9px;
-}
-
-/* WHITE GROUND. The track's fill is --c-*-tint, which over the SAME tint is
-   1.000:1 — the trough vanishes and the bars lose the full-width reference
-   their widths are a fraction of. That reference is the datum here, not
-   decoration, so the whole funnel region gets a white plane on the accent
-   tile. No border: a plane change without an edge, which is how this surface
-   separates regions, and a bordered panel inside a bordered card is the thing
-   seven of the eight kinds dropped.
-
-   The 14px of vertical padding was the one accent-only cost in the file and it
-   is now trivially affordable: with the worst-drop panel gone `pipeline` has
-   about 100px of slack in its two-row span. */
-.bn-tile.is-accent .bn-pipe-stages {
-  background: var(--nav-surface);
-  border-radius: var(--r-field);
-  padding: 7px 8px;
-}
-
-/* ── NO --sub PANEL ANYWHERE IN THE GRID NOW ────────────────────────────────
-
-   `.bn-pipe-edge` and its five children stood here — a recessed panel holding
-   "84% · Sourced → Shortlisted" with a rose down-arrow — and they are deleted,
-   not moved. Bento.tsx carries the full reasoning; the short version is that
-   the figure could not vary. The largest adjacent narrowing in a recruiting
-   funnel is the first step by construction, because sourcing is broad and
-   shortlisting is selective, so the panel printed the same finding for every
-   campaign and coloured intended behaviour as an exception.
-
-   Seven selectors went with it: .bn-pipe-edge, .bn-tile.is-accent
-   .bn-pipe-edge, .bn-pipe-edge-v, .bn-pipe-edge-m, .bn-pipe-edge-n,
-   .bn-pipe-edge-t and .bn-pipe-edge-f. So did .bn-pipe — a flex column holding
-   one child once the panel left, so .bn-pipe-stages is the body directly.
-
-   THIS IS ALSO WHERE THE LAST --sub PANEL AND THE LAST FOREIGN-HUE MARK IN A
-   TILE'S OWN COMPOSITION WENT, so two claims in the header above lost their
-   subject and have been corrected there: there is no inner --sub panel left in
-   any tile, and the only --sub remaining in this file is .bn-ch-disc.is-off,
-   which is a STATE on a control and not a recessed region. The WHITE GROUND
-   rule is unchanged in substance — it still governs .bn-new, .bn-src-ic,
-   .bn-ch-disc, .bn-rep-mark, .vz-ring and .bn-met-spark — there is simply one
-   less place it applies.
-
-   DO NOT REINTRODUCE A DERIVED FIGURE HERE. An honest "this step is worse than
-   it should be" needs a baseline — this campaign against its own history, or
-   against comparable campaigns — and nothing in the fixtures carries one. The
-   five bars and their counts already show where the funnel narrows.          */
-
-/* ── replies: who am I keeping waiting ──────────────────────────────────────
-
-   THE 37.0px CUT. The avatar Stack and the "4 need a reply" two-tone row sat
-   above this list, and together with the 8px gap under them they cost 37.0px
-   of a 54.35px body — two thirds of the budget spent on a SUMMARY OF THE THING
-   DIRECTLY BELOW IT. The list names all four people and prints how long each
-   has waited; four faces and the number four add nothing a reader cannot see
-   one line down, and the header already says "Waiting on you". The count is
-   still printed, in the action ("Chase 4 replies"), off WAITING.length.
-
-   With the Stack gone, .bn-rep and .bn-rep-grp were flex columns with a single
-   child each, so the list IS the body now — three elements out, one selector
-   left.
-
-     .bn-rep-list  2 x (11 x 1.35) + 6px row-gap  =  35.70
-     frame (34 + 22 + 8 + 8 + 13.65)              =  85.65
-     ──────────────────────────────────────────────────────
-     TOTAL                                        = 121.33  of 140  (18.67 spare)
-     inside padding and border                    =  87.33  of 106
-
-   Nothing is hidden: four entries, two columns, two rows. The 18.67px left
-   over is air under the names, and the row-gap went from 3px to 6px because
-   3px was what a crammed tile could afford, not what two rows of names want.
-   That is spacing the cut paid for; it is not the tile growing.              */
-
-/* A grid and not a flex row, because the marker column has to be RESERVED
-   whether or not the row carries a dot. Only rows past the urgency threshold
-   get one, and in a two-column list a dot that shifted its own row's text
-   would break the alignment between the columns — the same layout-shift
-   problem the opacity-based hover reveals avoid. */
-.bn-rep-list {
-  list-style: none;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px 14px;
-  min-width: 0;
-}
-
-.bn-rep-row {
-  display: grid;
-  grid-template-columns: 11px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-
-/* WHITE GROUND. 11px around a 7px dot rather than 7px flush. Rose is the
-   exception hue whatever hue the tile is configured in, so on the accent tile
-   it is a foreign mark and measures 2.82:1 against a tint — under the floor.
-   Two pixels of white on each side is the whole fix, and on the white canvas
-   the disc is 1.000:1 and cannot be seen. 11px is also under the 14.85px name
-   line, so the marker never sets a row's height. */
-.bn-rep-mark {
-  display: inline-grid;
-  place-items: center;
-  width: 11px;
-  height: 11px;
-  background: var(--nav-surface);
-  border-radius: var(--r-pill);
-}
-
-/* 11 x 1.35 = 14.85px, the tallest cell in the row and therefore the row. */
-.bn-rep-name {
-  min-width: 0;
-  font: 500 11px/1.35 var(--ui);
-  letter-spacing: -0.006em;
-  color: var(--ink);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* The two-tone pair for this list, applied per row: the name is the value in
-   --ink, the wait is the label in --ink-2. Every row used to carry a coloured
-   dot derived from this number — four siblings, three hues, nothing scannable,
-   because a colour every row has is not a signal. The number was always the
-   carrier; it still is, and the ranking reads with no hue in the list at all.
-
-   No "Longest wait first" label above the list either, and that one is a
-   measured removal: it restated what the ordering already does and it cost
-   15px in a tile whose content was 4px taller than its box. It stays gone. */
-.bn-rep-wait {
-  font: 500 10.5px/1.35 var(--ui);
-  letter-spacing: -0.006em;
-  color: var(--ink-2);
-  font-variant-numeric: tabular-nums;
-}
-
-/* ── calendar: what is next ─────────────────────────────────────────────────
-
-   THE 32.5px CUT, AND IT CAME OUT OF STRUCTURE RATHER THAN DATA. Three slots
-   in two day groups cost 81.85px, of which 34.0px was the grouping itself —
-   two .bn-k headers at 9.5px, their two 4px gaps and the 7px gap between the
-   groups — for three rows of 14.95px. Grouping is a good device and an
-   expensive one, so there is ONE group on screen now: the nearest day, capped
-   at two slots, with everything not shown counted in that group's own label
-   ("Today (2) · 1 later"). Both numbers come off array lengths.
-
-   That is the trade the brief asked to consider, and the cap is why it is
-   safe: two groups is 63.9px and blows the 54.35px body, so the number of
-   rows cannot be left to depend on how the fixture happens to split by day.
-
-     .bn-k                       9.5  x 1              =   9.50
-     gap                                               =   5.00
-     .bn-cal-list  2 x (11.5 x 1.3) + 5px gap          =  34.90
-     frame (34 + 22 + 8 + 8 + 13.65)                   =  85.65
-     ───────────────────────────────────────────────────────────
-     TOTAL                                             = 135.02  of 140  (4.98 spare)
-     inside padding and border                         = 101.02  of 106
-
-   No panel. The strip is the tile's whole body, so it had nothing to be
-   separated from. .bn-cal-grp is gone with the second group — this element is
-   that column now, and its gap is the 5px a .bn-k owes the thing it names,
-   which is the same 5px .bn-sug and .bn-pipe-stages use.                     */
-
-.bn-cal {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  min-width: 0;
-}
-
-.bn-cal-list {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  min-width: 0;
-}
-
-/* Time first and fixed-width, so the times form a column the eye can run
-   down. Tabular figures are what make that column hold: a proportional 1
-   shifts every row it appears in. */
-.bn-cal-row {
-  display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 7px;
-  min-width: 0;
-}
-
-.bn-cal-when {
-  font: 600 11px/1.3 var(--ui);
-  letter-spacing: -0.011em;
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-}
-
-/* The icon separates a video call from an email, which the `kind` text does
-   not ("Screening" could be either), so the shape stays. Its tint did not, and
-   this is the case that shows where the line is: a slot's hue was arbitrary —
-   assigned per row, meaning nothing, colouring all three rows. A file's type
-   colour and a platform's brand colour are learned conventions attached to the
-   thing itself, which is why those two came back and this one did not.
-
-   13px, under the 14.95px `who` line, so the glyph does not set the row. */
-.bn-cal-ic {
-  display: inline-grid;
-  place-items: center;
-  color: var(--ink-2);
-}
-
-/* 11.5 x 1.3 = 14.95px, the tallest cell in the row and therefore the row. */
-.bn-cal-who {
-  font: 400 11.5px/1.3 var(--ui);
-  letter-spacing: -0.006em;
-  color: var(--ink);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.bn-cal-kind {
-  font: 500 10px/1.3 var(--ui);
-  letter-spacing: 0.01em;
-  color: var(--ink-2);
-  white-space: nowrap;
-}
-
-/* ── sources: what is this role reading from ────────────────────────────────
-
-   THE 44.4px CUT, AND IT IS TWO CUTS. Three two-line rows came to 94.4px
-   against a 54.35px body — the worst overrun on the surface, 40px over its
-   tile — and neither halving the list nor flattening the rows would have been
-   enough alone:
-
-     three two-line rows   94.40   (row = 22px chip vs 25.8px text block)
-     two two-line rows     61.60   still 7.25px over
-     two one-line rows     50.00   fits, 4.35px spare
-
-   So the type/size meta moved from under the file name to the end of its row —
-   which is where the reference puts a size badge anyway — and the list shows
-   two of three. A 22px white-ground chip beside a 13.8px name was also paying
-   8.2px a row for a box taller than the text inside it, so the chip is 20px:
-   still 1.5px of measured ground around a 17px glyph, no longer the thing
-   setting the row height by a wide margin.
-
-     .bn-src-row  first   20px chip + 3px padding-bottom  =  23.00
-     .bn-src-row          20 + 3 + 3 + 1px hairline       =  27.00
-     frame (34 + 22 + 8 + 8 + 13.65)                      =  85.65
-     ──────────────────────────────────────────────────────────────
-     TOTAL                                                = 135.64  of 140  (4.36 spare)
-     inside padding and border                            = 101.64  of 106
-
-   THE THIRD FILE IS NOT HIDDEN, IT IS COUNTED TWICE OVER. A separate "and 1
-   more" line is 17px (a hairline, 3px of clearance and a 10px/1.3 line) and
-   there are 4.35px — it does not fit at any padding this file is willing to
-   use. So the count goes where the tile is already spending pixels: the header
-   reads "Role context (3)" (the reference's GUESTS (6) device, see .bn-k) and
-   the action reads "Summarise all 3 sources". Both numbers are SOURCES.length.
-
-   A hairline between rows rather than a gap: a rule reads as a file list where
-   spacing alone reads as two unrelated lines. A separator, not a box — the one
-   border style that does not add a bordered element.                         */
-
-.bn-src {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-/* One line, three cells: type mark, name, and the meta the reference puts
-   where a size badge would go. .bn-src-txt is gone — a two-line stack of a
-   file's own label was the right shape when the tile had 94px for it.
-
-   FLEX AND NOT GRID, BECAUSE THE TILE HAS NO FIXED WIDTH. An `m` tile is
-   380px with the sidebar out and 474px with it collapsed, and `s` is a
-   quarter of the content column — about 202px. A grid with an `auto` meta
-   track holds the meta at max-content and starves the name down to nothing at
-   `s`; two flex items that both shrink give up space in proportion to what
-   they asked for, so the name keeps roughly its share at every width and
-   neither is ever the one that vanishes. No width in this row is a pixel
-   value except the chip, and the chip is a square. */
-.bn-src-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  padding: 3px 0;
-  border-top: 1px solid var(--hairline);
-}
-
-.bn-src-row:first-child {
-  padding-top: 0;
-  border-top: 0;
-}
-
-/* THE FILE'S OWN HUE IS BACK, set inline from `source.hue` because the value
-   is per-row data and a class per hue would be seven dead rules. It was pulled
-   as "three rows, three hues, restating a shape that already says the type",
-   and that had it backwards: the shape and the colour are one mark, and a red
-   PDF / black Notion / blue document is the convention every file browser a
-   recruiter has ever opened already taught them. Identity, not state — d1 is
-   rose in every render, so there is no per-row code to learn.
-
-   WHITE GROUND. These hues are the FILE's, never the tile's, so on the accent
-   tile every one of them is foreign: 2.75 – 2.92 : 1 against a tint. A white
-   square is 1.000:1 on the canvas and invisible there; on the tinted tile it
-   is the measured ground the mark was solved against, and it reads as the
-   file-type chip the reference puts in the same position.
-
-   20 and not 22: with one-line rows the chip is what sets the row height, so
-   the two pixels are 4px across the list. 17px glyph, 1.5px of ground each
-   side — which is all the rule needs, since it is the ink's own pixels that
-   have to stand on white. */
-.bn-src-ic {
-  display: inline-grid;
-  place-items: center;
-  flex: none;
-  width: 20px;
-  height: 20px;
-  background: var(--nav-surface);
-  border-radius: var(--r-field);
-}
-
-/* 11.5 x 1.2 = 13.8px. Well under the 20px chip, which is the point — the row
-   is a predictable 20px regardless of what a file is called.
-
-   `flex: 1 1 auto` so the name takes the spare width at 380px and 474px, which
-   is what pushes the meta to the row's right edge without a margin trick. */
-.bn-src-name {
-  flex: 1 1 auto;
-  min-width: 0;
-  font: 500 11.5px/1.2 var(--ui);
-  letter-spacing: -0.011em;
-  color: var(--ink);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Now the row's last item rather than a second line under the name. It never
-   GROWS — the phrase is short and fixed ("PDF · 82 KB") and a stretched meta
-   would drift away from the edge the eye reads it at — but it does shrink,
-   which is the half that matters at `s`: pinned, it would take 94px of a
-   130px row and leave the file name four characters. */
-.bn-src-meta {
-  flex: 0 1 auto;
-  min-width: 0;
-  font: 400 10px/1.2 var(--ui);
-  letter-spacing: 0.005em;
-  color: var(--ink-2);
-  text-align: right;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* ── channels: where can the agent speak ────────────────────────────────────
-
-   Inside the budget, with one width fix — this kind has no action, so it keeps
-   the 13.65px the others spend on one:
-
-     .bn-ch-row  4 discs + the add button, 28px, one row  =  28.00
-     gap                                                  =  10.00
-     .bn-two             11.5 x 1.35                      =  15.53
-     frame (34 + 22 + 8)                                  =  64.00
-     ──────────────────────────────────────────────────────────────
-     TOTAL                                                = 117.52  of 140  (22.48 spare)
-     inside padding and border                            =  83.52  of 106
-
-   22.48px of air under it, and the temptation to spend that on a bigger disc
-   or a second line of detail is exactly what the review ruled out. Five marks
-   and one line naming who is live is the whole glance.
-
-   The width fix is .bn-ch-row below: at the `s` size this tile DEFAULTS to,
-   five 30px marks wrapped to a second line and took the tile to 156.5px. */
-
-.bn-ch {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  min-width: 0;
-}
-
-/* FIVE MARKS, ONE ROW, AT EVERY SIZE THIS TILE IS OFFERED AT — and that is why
-   the disc is 28px and the gap 6px rather than 30 and 7.
-
-   `channels` DEFAULTS TO `s` in the gallery, which is one column: about 202px,
-   so 168px of content box. Four brand marks plus the add button at 30px with
-   7px gaps need 178px, so the row wrapped to two lines, the 30px row became 67
-   and the tile came to 156.5px in a 140px cell — a measured overflow reachable
-   the moment a recruiter adds this tile, and one that predates this pass. At
-   28/6 the row is 164px and fits with 4.5px to spare, and at `m` (380px and
-   up) nothing about it changes.
-
-   The 17px glyphs are untouched: the disc lost 2px of white ring, from 6.5px
-   to 5.5px, so the measured WHITE GROUND below is unaffected. `flex-wrap`
-   stays as the backstop for a width nobody has designed for yet. */
-.bn-ch-row {
-  list-style: none;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-/* CONNECTED IS A BARE MARK IN ITS OWN BRAND — present, in colour, nothing
-   around it. The logos were desaturated to --ink-2 when the chrome colour came
-   out, and that overshot: a brand mark identifying a thing in a list is the
-   permitted case for identity colour, a recruiter recognises Slack's aubergine
-   before they read the word, and these four are a large share of the
-   reference's vibrance. Bento.tsx maps each to its nearest token — violet,
-   blue, teal, ink — so nothing here is a literal hex.
-
-   NOT the disc tint coming back. That tint claimed to encode STATE, which is
-   why it failed: "connected" was violet for Slack and orange for Notion, and
-   nobody can learn a code that changes per row. This is identity, constant per
-   platform, and state is carried by three other things — the dashed ring
-   below, the step to --ink-2, and the row naming who is live.
-
-   WHITE GROUND. The mark's colour belongs to the platform, never to the tile,
-   so on the accent tile all four are foreign. The 30px box already existed;
-   filling it white costs nothing on the canvas (1.000:1) and is what keeps
-   3.30 – 3.68 : 1 rather than 2.75. */
-.bn-ch-disc {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  background: var(--nav-surface);
-  border-radius: var(--r-pill);
-  color: var(--ink);
-}
-
-/* NOT CONNECTED IS AN EMPTY DASHED RING — the placeholder idiom, which reads
-   as a slot waiting to be filled. Three carriers, none of them hue: the dashed
-   ring is a shape difference so it survives greyscale, the mark steps down to
-   --ink-2, and the row below names who is live. --rule and not --hairline for
-   the dash alone: a 1.199:1 dash does not read as a shape, and this edge has a
-   state to carry.
-
-   It also has to stay INK. --c-teal on --sub is 2.95:1 and --c-sage 2.99:1, so
-   a coloured mark cannot stand on this plane — which is measurement choosing
-   the design rather than taste: colour lands on the live channels because the
-   live channels are the ones standing on white.
-
-   Opacity was the other option and it is the move that produced 2.75:1 ink
-   last time. */
-.bn-ch-disc.is-off {
-  background: var(--sub);
-  border: 1px dashed var(--rule);
-  color: var(--ink-2);
-}
-
-/* WHITE GROUND, and the one case where it is aesthetic as well: --sub over a
-   tint is 1.02 – 1.08 : 1, so the recessed fill is invisible on the accent
-   tile and all it contributes is a neutral grey cast over a warm plane. The
-   dash and the ink step carry the state without it. */
-.bn-tile.is-accent .bn-ch-disc.is-off {
-  background: var(--nav-surface);
-}
-
-/* The row's own affordance, and deliberately not accent-filled: this is a
-   secondary control inside a tile, and the accent is budgeted to three
-   instances on the whole surface. White plane, solid edge and the `+` glyph
-   distinguish it from a dashed placeholder without spending one. */
-.bn-ch-add {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: var(--r-pill);
-  border: 1px solid var(--hairline);
-  background: var(--nav-surface);
-  color: var(--ink-2);
-  cursor: pointer;
-  transition: background var(--t), border-color var(--t), color var(--t);
-}
-
-.bn-ch-add:hover {
-  background: var(--nav-hover);
-  border-color: var(--nav-edge-panel);
-  color: var(--ink);
-}
-
-.bn-ch-add:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-}
-
-/* ── metric: is this number moving ──────────────────────────────────────────
-
-   THE 17.5px CUT, AND IT IS NOT THE SPARKLINE. Stacked, this kind was four
-   objects deep — 29px numeral, 15.53px change line, 6px of clearance and a
-   34px sparkline — 88.53px against a 78px body. The brief's fix was to take 12
-   of those pixels off the sparkline, which lands the tile on 140.00px exactly:
-   nil clearance, on the one surface where a 4px miss has already shipped once.
-
-   The change line moved BESIDE the numeral instead. "61" and "+18 in the
-   trailing 7 days" are one statement about one number, they were never two
-   facts needing two lines, and a 15.53px line next to a 29px numeral is free —
-   the row is the numeral's height. That buys 17.53px, so the sparkline keeps
-   the 34px that makes it a measurement rather than a hairline under a large
-   number, and the tile lands 5px clear.
-
-     .bn-met-lead  max(numeral 29 x 1, .bn-two 11.5 x 1.35)  =  29.00
-     .bn-met gap                                             =   4.00
-     .bn-met-spark padding-top                               =   6.00
-     .vz-spark                                               =  34.00
-     frame (34 + 22 + 8)                                     =  64.00
-     ─────────────────────────────────────────────────────────────────
-     TOTAL                                                   = 137.00  of 140  (3.00 spare)
-     inside padding and border                               = 103.00  of 106
-
-   WHAT IS NOT COMING BACK is the tinted <Delta> pill this row used to hold.
-   That was the objection recorded against `.bn-met-top`, and it stands: the
-   sparkline already states the direction, so the pill was a second coloured
-   object saying the same thing, and painting "+18" green is the tile telling
-   the reader how to feel about a number whose desirability it cannot know.
-   A row is not a pill. The two-tone pair is the same device `channels` uses. */
-
-.bn-met {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-/* `align-items: center` and not baseline: a 29px/1 numeral and an 11.5px line
-   have line boxes that do not share a baseline offset, so a baseline row would
-   be taller than its tallest child by whatever the smaller text overhangs —
-   an unpredictable number, in a file whose whole point is predictable ones.
-   Centred, the row is exactly 29px. */
-.bn-met-lead {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  min-width: 0;
-}
-
-/* 29 x 1 = 29.00px, and it is the row. The review's rule applied here: the
-   answer does not get smaller to make room — the line beside it moved. */
-.bn-met-n {
-  flex: none;
-  font: 600 29px/1 var(--ui);
-  letter-spacing: -0.024em;
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-}
-
-/* WHAT GIVES WAY WHEN THE ROW IS NARROW, in priority order.
-
-   At `m` — 380px with the sidebar out, 474px with it collapsed — the row is
-   about 200px of content in a 346px box and nothing moves. At `s` it is a
-   quarter of the content column, roughly 202px, and the same content has
-   170px: something has to give, and the base .bn-two rules pick the wrong
-   thing. `.bn-two-v` is the shrinkable one there and `.bn-two-k` is pinned,
-   which is right for `channels` (its value is a list of platform names) and
-   backwards here, where the value is the FIGURE and the label is a phrase
-   explaining it. So the two are swapped for this one row: the delta is
-   never truncated, and "in the trailing 7 days" ellipses instead.
-
-   Neither rule changes a height — both parts are 11.5px/1.35 = 15.53px, under
-   the numeral's 29px line box either way. */
-.bn-met-lead .bn-two-v { flex: none; }
-
-.bn-met-lead .bn-two-k { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-
-/* Pushed to the floor of the tile. The sparkline answers "is this accelerating
-   or stalled", and it only reads as a trend line when it sits on a baseline
-   rather than floating between two lines of text. `margin-top: auto` means the
-   5px of slack lands here, above the line, so the padding-top below is the
-   intrinsic floor rather than the rendered gap. */
-.bn-met-spark {
-  display: block;
-  margin-top: auto;
-  padding-top: 6px;
-}
-
-/* 34px rather than viz's 26. This is the tile's one measurement and the only
-   coloured object in it, and at 26px it was a hairline under a large number.
-   The path is stretched by `preserveAspectRatio="none"` with a non-scaling
-   stroke, so the height costs no line weight. Kept at 34 because the change
-   line moving up beside the numeral paid for it. */
-.bn-met-spark .vz-spark {
-  height: 34px;
-}
-
-/* WHITE GROUND. The sparkline's area fill is --c-*-tint, so on a tile tinted
-   in the same hue the fill is 1.000:1 and only the stroke survives — legible
-   at 3.04 – 3.07 : 1, but the shape under a line is half of what a sparkline
-   says. The plane brings it back.
-
-   4/2 vertical padding against the 6px above: 4 + 34 + 2 = 40 and 6 + 34 = 40,
-   so the accent tile is the same height as its siblings and no accent-only
-   overrun exists here. */
-.bn-tile.is-accent .bn-met-spark {
-  background: var(--nav-surface);
-  border-radius: var(--r-field);
-  padding: 4px 5px 2px;
-}
-
-/* ── suggest: the quiet one ─────────────────────────────────────────────────
-
-     .bn-sug-t   2 clamped lines, 14.5 x 1.35    =  39.15
-     frame (34 + 22 + 8 + 8 + 13.65)             =  85.65
-     ────────────────────────────────────────────────────
-     TOTAL                                       = 124.77  of 140  (15.23 spare)
-     inside padding and border                   =  90.77  of 106
-
-   THE SENTENCE IS THE WHOLE BODY NOW. The "WORTH RUNNING" kicker above it was
-   defended as saying what the sentence IS, and that defence does not survive
-   the tile's own header saying "Suggested brief" two lines higher: the reader
-   was told what this was twice before reaching it. Same cut as the `replies`
-   avatar row and the "Longest wait first" label — a label restating its
-   neighbour — and .bn-sug went with it, a flex column with one child.
-
-   IT ALSO BOUGHT THE MARGIN THIS KIND NEEDED MOST. The prompt interpolates a
-   campaign name, so this is the ONLY wrap-dependent block left on the surface.
-   With the kicker it cleared a 140px row by 0.73px — the same invisible margin
-   that let the `replies` action overlap a name row — and the clamp alone was
-   not enough insurance for that, since a clamp declares the height only as
-   long as nobody edits the leading. 15.2px is insurance.
-
-   No panel, no bars, no list, no viz, and therefore no colour at all — seven
-   tiles carrying a measurement and an eighth that declines to is a
-   composition; eight that all shout is the wall this surface was twice.      */
-
-/* Larger than any other body text in the grid, precisely because it is the
-   only thing in its tile — and 1.35 rather than 1.45 leading so two lines are
-   39.15px. Two lines, declared: `line-clamp` for engines that have shipped it
-   unprefixed and the -webkit- pair for the rest, which is still the only form
-   Chromium and Safari honour. Three lines is 58.73px and 144.38px of tile, so
-   the clamp is the difference between fitting and not — not a nicety. */
-.bn-sug-t {
-  margin: 0;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  overflow: hidden;
-  font: 500 14.5px/1.35 var(--ui);
-  letter-spacing: -0.014em;
-  color: var(--ink);
-}
-
-/* ── narrower ───────────────────────────────────────────────────────────────
-   Two columns needs no span clamping at all: no tile is wider than two, so `m`
-   fills a row and `l` still spans 2x2. The spans keep working untouched, which
-   is the whole reason they are expressed as a size and not as a hard-coded
-   column pair. The accent follows the layout's first tile at every width,
-   because it is decided in the map and not by a grid position.
-
-   Every sum above holds here and gets wider: a 2-column tile is 380px at the
-   narrowest live content column, more when the sidebar collapses, and more
-   again below 1080px — and no kind's height depends on its width now that
-   .bn-sug-t is clamped and every other multi-line block is nowrap or flex.  */
-
-@media (max-width: 1080px) {
-  .bn { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-
-@media (max-width: 640px) {
-  .bn {
-    grid-template-columns: minmax(0, 1fr);
-    grid-auto-rows: auto;
-  }
-  /* This wins over the per-tile spans because those travel as custom
-     properties rather than as `grid-column` itself — an inline `grid-column`
-     would have needed !important here. min-height keeps the tall interiors
-     (the funnel) from collapsing now that rows are content-sized. */
-  .bn-tile {
-    grid-column: 1 / -1;
-    grid-row: auto;
-    min-height: 168px;
-  }
-  /* Four names in two columns inside a single-column tile gives each name
-     about 90px, which ellipses every one of them. One column, and the tile is
-     content-sized here so the extra rows cost nothing. */
-  .bn-rep-list {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 
 /* ═══════════════════════════════ my tasks ═══════════════════════════════════

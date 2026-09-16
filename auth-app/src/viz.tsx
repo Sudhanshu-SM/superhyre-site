@@ -365,3 +365,102 @@ export function Counter({ value, ms = 900 }: { value: number; ms?: number }) {
     </>
   );
 }
+
+/* ── area: a shape over time, with anchored markers ──────────────────────── */
+
+/**
+ * A smooth area chart sized to its container.
+ *
+ * ── WHY MARKERS ON FOUR POINTS AND NOT FOURTEEN ─────────────────────────────
+ * The guidance is explicit: *"enable markers when peaks and valleys matter, or
+ * when the first or last value carries special meaning"*. A dot on every point
+ * is decoration that competes with the line it sits on; a dot on the high, the
+ * low and the latest is three facts a reader would otherwise have to squint
+ * for.
+ *
+ * ── WHY THE LINE IS PALE AND THE MARKERS ARE NOT ────────────────────────────
+ * Also from the guidance, and counter-intuitive: *"choose a line colour that
+ * is light and a marker that is bright and dark"*. The instinct is to make the
+ * line the vibrant thing, which then leaves the markers with nowhere brighter
+ * to go. Inverting it is what lets the anchors actually pop.
+ *
+ * ── SMOOTHING ──────────────────────────────────────────────────────────────
+ * Catmull-Rom through the points, converted to cubic beziers. Not a plain
+ * polyline, because this is a daily count whose shape is the message; not a
+ * spline with high tension either, which overshoots below zero on a weekend
+ * dip and draws candidates that were never sourced.
+ */
+export function Area({
+  data, hue, w = 320, h = 96,
+}: {
+  data: readonly { day: string; n: number }[];
+  hue: Hue;
+  w?: number;
+  h?: number;
+}) {
+  if (data.length < 2) return null;
+
+  const pad = 10;
+  const lo = 0;
+  const hi = Math.max(...data.map((d) => d.n)) || 1;
+  const x = (i: number) => pad + (i / (data.length - 1)) * (w - pad * 2);
+  const y = (n: number) => pad + (1 - (n - lo) / (hi - lo)) * (h - pad * 2);
+
+  const pts = data.map((d, i) => ({ x: x(i), y: y(d.n), n: d.n, day: d.day, i }));
+
+  /* Tension 0.5 is the standard Catmull-Rom weighting. Anything higher starts
+     bowing the curve past its own data points, which on a count that bottoms
+     out at 2 over a weekend means drawing a dip below zero. */
+  const T = 0.5;
+  let path = `M${pts[0]!.x.toFixed(2)} ${pts[0]!.y.toFixed(2)}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] ?? pts[i]!;
+    const p1 = pts[i]!;
+    const p2 = pts[i + 1]!;
+    const p3 = pts[i + 2] ?? p2;
+    const c1x = p1.x + ((p2.x - p0.x) / 6) * T;
+    const c1y = p1.y + ((p2.y - p0.y) / 6) * T;
+    const c2x = p2.x - ((p3.x - p1.x) / 6) * T;
+    const c2y = p2.y - ((p3.y - p1.y) / 6) * T;
+    path += ` C${c1x.toFixed(2)} ${c1y.toFixed(2)}, ${c2x.toFixed(2)} ${c2y.toFixed(2)}, ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}`;
+  }
+
+  /* The anchors. A Set because the last point is often also the high or the
+     low, and drawing a marker twice at the same coordinate doubles its alpha. */
+  const peak = pts.reduce((a, b) => (b.n > a.n ? b : a));
+  const trough = pts.reduce((a, b) => (b.n < a.n ? b : a));
+  const last = pts[pts.length - 1]!;
+  const marks = [...new Map([peak, trough, last].map((p) => [p.i, p])).values()];
+
+  const gid = `area-${hue}`;
+
+  return (
+    <svg className="vz-area" viewBox={`0 0 ${w} ${h}`} role="img"
+         aria-label={`Sourced per day, ${data[0]!.day} to ${last.day}. High ${peak.n} on ${peak.day}, low ${trough.n} on ${trough.day}, latest ${last.n}.`}>
+      <defs>
+        {/* Fades to nothing rather than stopping at a hard edge, so the area
+            reads as depth under the line instead of a filled block. */}
+        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={tok(hue)} stopOpacity="0.20" />
+          <stop offset="100%" stopColor={tok(hue)} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+
+      <path d={`${path} L${last.x.toFixed(2)} ${h} L${pts[0]!.x.toFixed(2)} ${h} Z`}
+            fill={`url(#${gid})`} stroke="none" />
+
+      {/* Pale, on purpose. It carries the shape; the markers carry the facts. */}
+      <path d={path} fill="none" stroke={tok(hue, "line")} strokeWidth={2.5}
+            strokeLinecap="round" strokeLinejoin="round" />
+
+      {marks.map((p) => (
+        <g key={p.i}>
+          {/* A ring in the card's own colour, so a marker sitting on the line
+              reads as on top of it rather than merged into it. */}
+          <circle cx={p.x} cy={p.y} r={5} fill="var(--nav-surface)" />
+          <circle cx={p.x} cy={p.y} r={3.25} fill={tok(hue)} />
+        </g>
+      ))}
+    </svg>
+  );
+}

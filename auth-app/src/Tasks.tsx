@@ -201,7 +201,7 @@ const lead = (t: TaskItem): TaskChip | undefined =>
   }, undefined);
 
 export function Tasks({
-  onOpen, hero = false,
+  onOpen, hero = false, today = false,
 }: {
   onOpen: (prompt: string) => void;
   /**
@@ -216,8 +216,20 @@ export function Tasks({
    * a Tier 2 card like its neighbours.
    */
   hero?: boolean;
+  /**
+   * Locks the list to today and hides the filter row.
+   *
+   * Home's left column is "today's tasks", so offering an All filter there
+   * would let the column stop being what its own heading says it is. The
+   * filters are not disabled, they are absent — a control that is present but
+   * refuses is worse than one that was never offered.
+   *
+   * Search stays, because narrowing within today is still narrowing within
+   * today.
+   */
+  today?: boolean;
 }) {
-  const [filter, setFilter] = useState<FilterId>("all");
+  const [filter, setFilter] = useState<FilterId>(today ? "today" : "all");
   const [query, setQuery] = useState("");
   /* Named so the section becomes a landmark a screen reader can jump to. Via
      useId rather than a literal, which is what the rest of the app does — a
@@ -225,6 +237,11 @@ export function Tasks({
   const headingId = useId();
 
   const active = FILTER[filter];
+
+  /* How many tasks are NOT due today, for the footer. Counted off the fixture
+     through the same predicate the Today filter uses, so the two can never
+     disagree about what "today" means. */
+  const laterCount = TASKS.length - TASKS.filter(FILTER.today.match).length;
 
   const rows = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -265,6 +282,7 @@ export function Tasks({
               state the treatment itself has to carry, and four outlines of
               which exactly one is filled says so — in ink, at 14.13:1, with
               no hue spent on it. */}
+          {!today && (
           <div className="tk-filters" role="group" aria-label="Filter tasks">
             {FILTER_ORDER.map((id) => (
               <button
@@ -278,6 +296,7 @@ export function Tasks({
               </button>
             ))}
           </div>
+          )}
 
           <div className="tk-search">
             <MagnifyingGlass size={13} weight="bold" aria-hidden="true" />
@@ -392,9 +411,24 @@ export function Tasks({
         </ul>
       )}
 
+      {/* ── WHAT IS NEXT, WHEN THE COLUMN HAS SLACK ──
+          Today's list is short by design, and on Home it sits in a column
+          whose height is set by the three analytics cards beside it — measured
+          at 544px for two tasks. Rather than pad that with air or stretch the
+          rows to fill it, it ends with the thing a person looking at a short
+          today would want next: how much is waiting behind it.
+
+          Counted off the fixture, never asserted. Only in `today` mode —
+          with the filters visible the other tabs already answer this. */}
+      {today && laterCount > 0 && (
+        <p className="tk-next">
+          {laterCount} more {laterCount === 1 ? "task" : "tasks"} after today
+        </p>
+      )}
+
       {/* No fixture footer. It named `recruiter_tasks` under every render of
-          this card; the surface now states that once, at its foot, for all of
-          its sections at once. Do not add a second one here. */}
+          this card; the surface states that once, at its foot, for all of its
+          sections at once. Do not add a second one here. */}
     </section>
   );
 }

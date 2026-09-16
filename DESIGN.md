@@ -1,6 +1,6 @@
 # SuperHyre — design system
 
-**Status:** working draft · **Revision:** 34 · **Last changed:** 2026-09-16
+**Status:** working draft · **Revision:** 35 · **Last changed:** 2026-09-16
 
 > **This file is a proposal layer, not the implementation.** The CSS custom
 > properties in `auth-app/src/access.css` and `style.css` are what actually
@@ -1539,6 +1539,66 @@ a change to one that misses the other is the entire failure mode.
   first**, because ground is claimed once and the more specific reader has to
   go first.
 
+### 5.13 The Home overview — *Adopted at revision 35*
+
+Two columns at 50/50: today's tasks, and three analytics cards.
+
+#### The tile gallery is gone, and that is the change
+
+No sizes, no hues, no reordering, no persisted layout, no version key. What
+Home shows is a **decision**, not a preference.
+
+Configurability was answering "different recruiters watch different numbers",
+and it cost: a persisted schema, a version to bump on every shape change (v1
+through v5 in one session), two popovers, a drag interaction, and a resting
+state that had to look deliberate at three sizes and seven hues. **198 CSS
+rules and three modules deleted.** An overview that answers the same four
+questions for everyone needs none of it and can be composed rather than tiled.
+
+#### How the columns stay level
+
+The three cards are **rows of a stretched grid track**, not cards with heights
+of their own:
+
+```css
+.ov       { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch }
+.ov-stack { grid-template-rows: repeat(3, minmax(0, 1fr)) }
+```
+
+`stretch` makes both columns as tall as the taller; `1fr × 3` splits that into
+equal parts. No card knows the list's height and none is told it — the sum
+equals it *by construction* rather than by a number kept in sync by hand.
+Measured: 620 / 620, cards 193 / 193 / 193.
+
+#### What the research changed
+
+| Finding | What I would have done |
+|---|---|
+| *"Enable markers when peaks and valleys matter, or when the first or last value carries special meaning"* | A dot on all 14 points. Now: high, low, latest — deduped, since the last point is often also the high. |
+| *"Choose a line colour that is light and a marker that is bright and dark"* | A vivid line. Inverted: `--c-blue-line` for the curve, `--c-blue` for the markers — which is what leaves the anchors anywhere brighter to go. |
+| *"10 colours makes it look like a candy store and removes the ability to use colour for emphasis"* | A hue per card. Now three: blue owns the chart, violet the bars, **rose is reserved for a campaign that has actually stalled**. |
+| *"Top-left is prime real estate"* | Numbers first. The task list is top-left because the page's question is *what should I do now*. |
+
+Smoothing is Catmull-Rom at tension 0.5 — not a polyline (the shape is the
+message) and not a higher tension, which bows past its own points and on a
+weekend trough of 2 draws candidates that were never sourced.
+
+#### One bug worth the note
+
+The chart's plot was `flex: 1 1 auto` with the svg at `height: 100%`. With no
+definite height in the chain, `100%` fell back to **the viewBox's aspect
+ratio** — at 582px wide that is 178px tall, which inflated the card, then the
+stack that equalises to its tallest card, then the task list that stretches to
+match. Measured: **883px of column for two tasks.** A definite 88px on the plot
+fixed all three.
+
+#### And the empty column is filled with information
+
+Today's list is short by design, so on Home it has slack. Rather than pad it or
+stretch the rows, it ends with **"3 more tasks after today"** — counted off the
+fixture through the same predicate the Today filter uses, so the two can never
+disagree about what today means.
+
 ## 6. Verifying a colour change
 
 Every ratio in this file was computed, not estimated. To re-check after an edit:
@@ -1634,3 +1694,4 @@ which is the wrong home for a system-wide constant. Move it to a shared module
 | 32 | 2026-09-16 | Reply kinds, the working indicator, and the bento default. §5.10: added prose, question and a reasoning trace beside the artefact, behind one `Reply({ reply, onAnswer })` dispatching on `kind` — prose deliberately looks like nothing, because if it looks designed the artefact's card stops meaning "special". The trace is collapsed and absent from the DOM when closed, shows each step's `found` items (the half a recruiter could not guess), and puts its honesty line FIRST — a documented departure from honesty-last, since trace steps assert about the past and a correction after four believed assertions is too late. Question options seed the composer and never act; verified the turn count stays unchanged. §5.11: the mark stopped spinning. A tumbling logo reads as a throbber rather than a presence, so `@keyframes orc-turn` was deleted and the motion moved to an orbiting arc whose dash length breathes (10%→42% of the circumference) on two different periods. DELETED the prompt's intent wash: it took a "leading clause" by string split, and on "Find me good candidates" — four words, no comma — both bounds missed and it washed the ENTIRE message as one orange serif pill. That was the common case, not an edge case, and the comment defending it was wrong. DELETED the WORST DROP panel: it reported the largest ADJACENT funnel loss, which is always Sourced → Shortlisted by construction, so it could only ever print the same finding while framing intended behaviour as a failure; not replaced, because an honest version needs a baseline no fixture carries. Bento default cut to FOUR tiles, two wide and two narrow alternating over a THREE-column grid (only 3 tracks let `m`+`s` fill a row exactly). `pipeline` left the default on a measurement — it needs 222px and overflowed a 140px row by 51px when I ignored that; it stays in the gallery at `l`. Greeting bar moved to the top of the page where it survives into the conversation state, the campaign gained a name-derived mark beside its title, and the page-level fixtures line was removed — the load-bearing honesty marker stays at the point of action. |
 | 33 | 2026-09-16 | Bumped the tile-layout storage key v1 → v2, which should have shipped with revision 32. The bento went from a four-column grid to three and the default from five tiles to four, so a saved layout was structurally VALID (`kind`, `size` and `hue` all still validate) and semantically stale: a `size: "l"` that meant half the width now means two-thirds, and a five-tile arrangement that tiled cleanly at four columns leaves a hole at three. The result was people looking at a layout the current grid could not produce — tiles stacked in one column with one floating outside the content measure. This is precisely the case the versioned key exists for, and the lesson is that versioning only helps if the bump actually happens when the shape changes. The arrangement is now verified off real geometry rather than from the spec: row 1 long+short, row 2 short+long, four tiles on a 3 × 312px grid, bento 294px tall. |
 | 34 | 2026-09-16 | The composer reads the brief. §5.12. Research finding: conversational input measures 30-60s per message and the cost is not typing but that you cannot tell what was understood, so people re-read and rewrite defensively. A sourcing brief is a structured query wearing prose clothing, so the composer now underlines the spans it RECOGNISES beneath the words in their facet's colour — seniority, skill, scale, location, company, tenure — with the same reading repeated as chips below the field for anyone who cannot rely on colour. Matching is a fixed auditable vocabulary, never a model, so the only claim made is "these words are in my vocabulary"; unrecognised text staying plain is the useful half of the signal. This is the honest version of the intent wash deleted at revision 32, which highlighted a string split. Implemented as a mirror div behind a transparent-texted textarea, with four traps documented at the rules: pre-wrap plus overflow-wrap are as load-bearing as the font, `inset: 0` resolves against the padding box (16px misalignment, fixed with a content-box wrapper rather than a duplicated padding value), `-webkit-text-fill-color` is inherited by ::placeholder and made it invisible, and the mirror's scrollTop must track the field's. Two bugs caught by tests rather than by looking: "Staff engineers" under-claimed as "staff" until plurals were tolerated, and "5 years" collapsed to "years" until patterns were ordered before the word list. 12 new tests; 83 total. |
+| 35 | 2026-09-16 | Home becomes a fixed overview and the widget feature is deleted. §5.13. Two columns at 50/50: today's tasks left (the page asks "what should I do now" and the list is what answers it; the guidance puts the answer top-left), three analytics cards right — sourced-per-day as a smooth area chart, a four-step progress card, and active campaigns. The three are ROWS of a stretched grid track rather than cards with their own heights, so their sum equals the list's by construction; measured 620/620 with cards at 193/193/193, and 50/50 holding in both sidebar states (columns reclaim the collapsed rail: 582 → 676). Deleted the tile gallery entirely — Bento.tsx, TileMenu.tsx, tileLayout.ts, the tile model in orchestrator.ts and 198 CSS rules — because configurability cost a persisted schema, five key versions in one session, two popovers, a drag interaction and a resting state that had to look deliberate at three sizes and seven hues, to answer a question a fixed overview answers for everyone. Research changed three decisions I would have got wrong: markers go on high/low/latest rather than all fourteen points; the LINE is pale and the MARKERS are vibrant, not the reverse; and the palette is three hues with rose reserved for a campaign that has actually stalled. One measured bug: the chart plot had no definite height, so `height: 100%` fell back to the viewBox aspect ratio — 178px at 582px wide — which inflated the card, the stack and then the task list to 883px for two tasks. |
