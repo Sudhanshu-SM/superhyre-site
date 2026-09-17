@@ -1,6 +1,6 @@
 # SuperHyre — design system
 
-**Status:** working draft · **Revision:** 36 · **Last changed:** 2026-09-16
+**Status:** working draft · **Revision:** 37 · **Last changed:** 2026-09-16
 
 > **This file is a proposal layer, not the implementation.** The CSS custom
 > properties in `auth-app/src/access.css` and `style.css` are what actually
@@ -1735,6 +1735,68 @@ width this card has.
   sized for three leaves ~60px of slack; pinned to the top that reads as a card
   whose content failed to load.
 
+### 5.15 Sourced becomes a banner; the fourth slot becomes Conversion — *Adopted at revision 37*
+
+Two changes to the same problem: the page read bland and the bottom was empty.
+
+#### Sourced left the stack for a full-width banner
+
+It used to be the top card of the three-card `.ov-stack`, sized like its
+neighbours — a third of a 582px column for the one chart that carries a real
+trend. Sourcing is most of a recruiter's day; the fix was giving it the width a
+stretched grid row could never provide; it is now a direct child of
+`.orc-stream`, bounded to the same `--orc-measure` content width as `.ov`
+above it, with a taller plot (220px, up from 104) and more x-axis labels (7,
+up from 4) so the extra room reads as a shape rather than stranded whitespace
+between four widely-spaced dates.
+
+One real bug caught in the move: `Area`'s x-axis label count was hardcoded to
+four. Generalised to a `labels` prop — `Math.round((k * (data.length-1)) /
+(labels-1))` — so the banner can ask for seven without a second component.
+
+#020 Verified: banner width matches `.ov` exactly at every width tested (981
+expanded / 1372 railed at 1568px; 716 at the 1100px single-column breakpoint),
+7 labels render, zero collisions swept across every text node in the card.
+
+#### The freed slot did not get backfilled with a guess
+
+Sourced's old place at the top of the stack was left dashed and stated "not
+decided yet" for one turn, rather than invented — the same instinct that
+killed the tile gallery. That would have been exactly the thing this surface
+refuses everywhere else: a metric implying a capability the page didn't
+actually have.
+
+#### Conversion: researched, not assumed
+
+What went in the slot **was researched before it was built** — real 2026
+sourcing-outreach benchmarks (cold email ~5%, personalised outreach 18-25%,
+top-decile senders ~11%) and real KPI-card design guidance (never show a
+percentage in isolation; pair it with its numerator and denominator or it is a
+vanity metric — the same rule Progress's `of X` labels already followed).
+
+Three ratios, not five, because the research on repeated-element attention
+(the viewer barely registers past the first couple) applies to one card in a
+stack exactly as it does to a KPI row:
+
+```
+Response rate        replied / contacted    28%  (17 of 61 replied)
+Interview rate        interviews / replied   35%  (6 of 17 replied)
+Sourced -> interview   interviews / sourced   4%  (6 of 148 sourced)
+```
+
+28% response rate sits above even the personalised-outreach benchmark band
+(18-25%) — a number worth knowing, which a bare unbenchmarked percentage would
+not have been.
+
+All three fold out of the exact `stepsFor` call Progress already makes — no
+new fixture, so Conversion and Progress cannot report numbers that disagree.
+`shortlisted.of`, reused as the sourced total, is why the card does not also
+call `sourcedFor` a second time.
+
+Centred stat blocks, not left-label/right-number rows: Progress already owns
+that shape for counts one card down, and copying it here would make the two
+cards read as the same list rather than two different questions.
+
 ## 6. Verifying a colour change
 
 Every ratio in this file was computed, not estimated. To re-check after an edit:
@@ -1832,3 +1894,4 @@ which is the wrong home for a system-wide constant. Move it to a shared module
 | 34 | 2026-09-16 | The composer reads the brief. §5.12. Research finding: conversational input measures 30-60s per message and the cost is not typing but that you cannot tell what was understood, so people re-read and rewrite defensively. A sourcing brief is a structured query wearing prose clothing, so the composer now underlines the spans it RECOGNISES beneath the words in their facet's colour — seniority, skill, scale, location, company, tenure — with the same reading repeated as chips below the field for anyone who cannot rely on colour. Matching is a fixed auditable vocabulary, never a model, so the only claim made is "these words are in my vocabulary"; unrecognised text staying plain is the useful half of the signal. This is the honest version of the intent wash deleted at revision 32, which highlighted a string split. Implemented as a mirror div behind a transparent-texted textarea, with four traps documented at the rules: pre-wrap plus overflow-wrap are as load-bearing as the font, `inset: 0` resolves against the padding box (16px misalignment, fixed with a content-box wrapper rather than a duplicated padding value), `-webkit-text-fill-color` is inherited by ::placeholder and made it invisible, and the mirror's scrollTop must track the field's. Two bugs caught by tests rather than by looking: "Staff engineers" under-claimed as "staff" until plurals were tolerated, and "5 years" collapsed to "years" until patterns were ordered before the word list. 12 new tests; 83 total. |
 | 35 | 2026-09-16 | Home becomes a fixed overview and the widget feature is deleted. §5.13. Two columns at 50/50: today's tasks left (the page asks "what should I do now" and the list is what answers it; the guidance puts the answer top-left), three analytics cards right — sourced-per-day as a smooth area chart, a four-step progress card, and active campaigns. The three are ROWS of a stretched grid track rather than cards with their own heights, so their sum equals the list's by construction; measured 620/620 with cards at 193/193/193, and 50/50 holding in both sidebar states (columns reclaim the collapsed rail: 582 → 676). Deleted the tile gallery entirely — Bento.tsx, TileMenu.tsx, tileLayout.ts, the tile model in orchestrator.ts and 198 CSS rules — because configurability cost a persisted schema, five key versions in one session, two popovers, a drag interaction and a resting state that had to look deliberate at three sizes and seven hues, to answer a question a fixed overview answers for everyone. Research changed three decisions I would have got wrong: markers go on high/low/latest rather than all fourteen points; the LINE is pale and the MARKERS are vibrant, not the reverse; and the palette is three hues with rose reserved for a campaign that has actually stalled. One measured bug: the chart plot had no definite height, so `height: 100%` fell back to the viewBox aspect ratio — 178px at 582px wide — which inflated the card, the stack and then the task list to 883px for two tasks. |
 | 36 | 2026-09-16 | The overview gains a campaign filter, a time window, an axis and a greeting. §5.14. Every number is stored PER CAMPAIGN and "All campaigns" is the fold — 78+46+24=148, funnel folds to [24,61,17,6] — because hand-written overall totals would let the header disagree with the sum of its own parts with nothing in the type system noticing; pinned by 13 tests asserting RELATIONS (day-by-day equality, each step inside its denominator) rather than fixture values. `live` became derived from `funnel.contacted`: it had been a stored 61 that was also the overall contacted count, two unrelated numbers that happened to match. Unified the two campaign id spaces (`sbe` vs `backend-snr`) onto the canonical list. Four task pills became two selects because the pills mixed WHEN with WHAT STATE in one control, making "blocked things due this week" unaskable; state needs no control since every row wears a chip. Today means dueInDays <= 0, overdue INCLUDED — which forced replacing `urgent: boolean` with a number, since you cannot range-filter a boolean. The campaign filter appears twice writing one piece of Console state: two handles on one truth, and it survives navigating to the Agent and back. "Home" became "Hello <name>" at 30px, indented 16px past the shared 64px left edge as asked. "New campaign" is wired to the composer rather than a modal posting nowhere. The axis took three attempts and the first two were about measurement: a stretched viewBox scaled 11px type to ~19px and drew round markers as ellipses; a ResizeObserver version let the SVG's width attribute prop its own container open so the chart ratcheted wider and painted 642px through a 548px card, then — once out of flow — never fired at all in headless and rendered nothing. The rule: paths tolerate a non-uniform stretch, type and circles do not. SVG holds only fill and curve in a 0-100 square with non-scaling-stroke; labels, gridlines and markers are HTML in percent. Verified plotW 517/373/613 across viewports with markers 7x7 at each. Axis max rounds to a multiple of four so the midpoint stays whole (21→24, midline 12). Two measured corrections: the centred top label overlapped .ov-big by 6px until the axis was inset 7px, and the solo campaigns card is centred rather than top-aligned into ~60px of void. |
+| 37 | 2026-09-17 | Sourced becomes a full-width banner below both columns; the freed top-of-stack slot becomes a researched Conversion card. §5.15. Sourcing is most of a recruiter's day, so the chart left the three-card stack for a direct-child-of-.orc-stream banner at the full content measure, plot height 104→220, x-axis labels 4→7 via a new generalised `labels` prop on `Area`. The freed slot was NOT backfilled with a guessed metric for one turn (dashed, "not decided yet") before being researched: real 2026 sourcing-outreach benchmarks (personalised outreach 18-25% reply, top-decile ~11%) and KPI-card design guidance (never show a percentage without its numerator/denominator, the same rule Progress's `of X` labels already followed) landed on three ratios — response rate 28% (17 of 61), interview rate 35% (6 of 17), sourced→interview 4% (6 of 148) — not five, because the research on repeated-element attention loss applies to one card exactly as it does to a KPI row. All three fold out of the same `stepsFor` call Progress makes, so the two cards cannot disagree; `shortlisted.of` is reused as the sourced total rather than calling `sourcedFor` again. Verified: banner width matches `.ov` at every width and sidebar state (981/1372/716), 7 labels render, zero text collisions swept, 3-stat row holds at the 1100px single-column breakpoint. |

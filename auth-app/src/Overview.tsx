@@ -6,7 +6,8 @@ import {
 import { Area, Counter, Dot } from "./viz";
 
 /**
- * The three analytics cards on Home's right column.
+ * Home's analytics: one full-width banner, and three cards stacked beside the
+ * task list.
  *
  * ── ONE CARD, ONE QUESTION ──────────────────────────────────────────────────
  * The guidance is that a dashboard card holds one metric or one chart, and that
@@ -14,14 +15,23 @@ import { Area, Counter, Dot } from "./viz";
  * cleverness". So each of these answers exactly one thing:
  *
  *   Sourced    is the pipeline filling, and at what rate
+ *   (next)     reserved — see NextMetricCard
  *   Progress   where are those people now
  *   Campaigns  which reqs are live, and is any of them stalling
  *
+ * ── SOURCED IS A BANNER, NOT A STACK ROW ─────────────────────────────────────
+ * It used to be the top card of the three-card stack, sized like its
+ * neighbours. Moved out because sourcing is most of what a recruiter's day is
+ * — squeezing the one chart that carries a genuine trend into a third of a
+ * 582px column was the wrong trade the moment there was a whole page width
+ * available instead. It is a direct child of `.orc-stream` now, sized like any
+ * other section rather than folded into the stack — see `.ov-chart.is-wide`.
+ *
  * ── EVERY CARD TAKES THE SAME `scope` AND NONE OF THEM OWNS IT ──────────────
- * The scope is a prop, never state in here. Three cards each holding their own
- * copy of "which campaign" is three chances to disagree with the header that
- * set it — and a dashboard whose cards disagree about what they are counting is
- * worse than one with no filter at all. They read; Console decides.
+ * The scope is a prop, never state in here. Cards each holding their own copy
+ * of "which campaign" is chances to disagree with the header that set it — and
+ * a dashboard whose cards disagree about what they are counting is worse than
+ * one with no filter at all. They read; Console decides.
  *
  * The numbers themselves come from `sourcedFor` / `stepsFor` / `campaignsFor`,
  * which FOLD per-campaign fixtures. "All campaigns" is the sum of the parts
@@ -36,7 +46,13 @@ import { Area, Counter, Dot } from "./viz";
  * are ink-2, and that is what leaves rose with any force.
  */
 
-/* ── sourced over time ───────────────────────────────────────────────────── */
+/* ── sourced over time — the full-width banner ─────────────────────────────
+   Scaled up from the card it used to be: a taller plot (220px, up from 104)
+   and more x-axis labels (7, up from 4) so the extra width buys a readable
+   shape instead of stranded whitespace between four widely-spaced dates. The
+   header, the count and the per-day rate are unchanged — a bigger number is
+   the only other concession, because the fourteen-day total is still the
+   first thing this card should say. */
 
 export function SourcedCard({ scope }: { scope: Scope }) {
   const data = sourcedFor(scope);
@@ -48,12 +64,9 @@ export function SourcedCard({ scope }: { scope: Scope }) {
   const perDay = Math.round((total / days) * 10) / 10;
 
   return (
-    <article className="ov-card ov-chart">
+    <article className="ov-card ov-chart is-wide">
       <header className="ov-head">
         <h3 className="ov-h">Sourced</h3>
-        {/* The rate AND the range on one line. The average used to sit in a
-            footer beneath the chart; the x-axis wanted that row, and a rate
-            belongs next to the range it is averaged over anyway. */}
         <span className="ov-sub">{perDay} a day · last {days} days</span>
       </header>
 
@@ -66,11 +79,85 @@ export function SourcedCard({ scope }: { scope: Scope }) {
       </p>
 
       <div className="ov-chart-plot">
-        <Area data={data} hue="blue" h={104} />
+        <Area data={data} hue="blue" h={220} labels={7} />
       </div>
     </article>
   );
 }
+
+/* ── conversion: rates, not counts ────────────────────────────────────────────
+
+   Sourced's old slot at the top of the stack. Not a fourth volume number —
+   Progress right below already owns raw counts, so repeating them here would
+   answer the same question twice. A RATE is a different question: not how
+   many, but how well each step is converting, which is the number a
+   recruiter checks against their own gut sense of whether outreach is working.
+
+   ── WHICH THREE, AND WHY NOT FIVE ──
+   Researched against real 2026 sourcing-outreach benchmarks before picking
+   these three:
+     Response rate       replied / contacted   the industry's own headline
+                          metric — cold email averages ~5%, personalised
+                          outreach 18-25%, top-decile senders ~11%. A number
+                          worth comparing yourself against, which is exactly
+                          what a bare percentage cannot support on its own.
+     Interview rate       interviews / replied  is the screening any good,
+                          once someone is actually talking to you.
+     Sourced -> interview  interviews / sourced  the top-line yield: how many
+                          do I need to source for one interview. Comparable to
+                          the ~4-5% industry figure for applicant funnels.
+   Shortlist rate and contact rate exist in the same data and were left out.
+   The KPI-card research is consistent on this: a repeated element loses the
+   viewer's attention fast past the first couple, and this is one card in a
+   stack, not a KPI row that gets a whole page width to spread five numbers
+   across.
+
+   ── NEVER A BARE PERCENTAGE ──
+   Every ratio prints its own numerator/denominator underneath, because the
+   research is unanimous that an isolated percentage is a vanity metric — a
+   28% response rate off 61 contacted reads completely differently than the
+   same 28% off 4. This is the same rule Progress already follows with its
+   `of X` labels; here each of the three ratios needs its OWN denominator
+   printed, since 61, 17 and 148 are three different bases, not one shared at
+   the top of the card.
+
+   All three fold out of the exact same `stepsFor` call Progress makes — no
+   new fixture, and no risk of disagreeing with it. */
+export function ConversionCard({ scope }: { scope: Scope }) {
+  const steps = stepsFor(scope);
+  const [shortlisted, , replied, interviews] = steps;
+
+  /* shortlisted.of and contacted.of are both the sourced total (see
+     stepsFor) — reusing it here rather than calling sourcedFor again keeps
+     this card's number identical to Progress's by construction. */
+  const sourced = shortlisted!.of;
+  const pct = (n: number, of: number) => (of > 0 ? Math.round((n / of) * 100) : 0);
+
+  const stats = [
+    { label: "Response rate", pct: pct(replied!.n, replied!.of), n: replied!.n, of: replied!.of, unit: "replied" },
+    { label: "Interview rate", pct: pct(interviews!.n, interviews!.of), n: interviews!.n, of: interviews!.of, unit: "replied" },
+    { label: "Sourced → interview", pct: pct(interviews!.n, sourced), n: interviews!.n, of: sourced, unit: "sourced" },
+  ];
+
+  return (
+    <article className="ov-card">
+      <header className="ov-head">
+        <h3 className="ov-h">Conversion</h3>
+      </header>
+
+      <div className="ov-conv">
+        {stats.map((s) => (
+          <div className="ov-conv-stat" key={s.label}>
+            <p className="ov-conv-pct">{s.pct}%</p>
+            <p className="ov-conv-label">{s.label}</p>
+            <p className="ov-conv-of">{s.n} of {s.of} {s.unit}</p>
+          </div>
+        ))}
+      </div>
+    </article>
+  );
+}
+
 
 /* ── where they are now ──────────────────────────────────────────────────── */
 

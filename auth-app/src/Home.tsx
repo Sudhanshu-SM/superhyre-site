@@ -1,6 +1,6 @@
 import { CaretDown, Plus } from "@phosphor-icons/react";
 import { useCallback } from "react";
-import { CampaignsCard, ProgressCard, SourcedCard } from "./Overview";
+import { CampaignsCard, ConversionCard, ProgressCard, SourcedCard } from "./Overview";
 import type { Scope } from "./orchestrator";
 import { SCOPED, campaignName } from "./orchestrator";
 import { Tasks } from "./Tasks";
@@ -27,7 +27,8 @@ import { Tasks } from "./Tasks";
  * The right column is three equal cards whose combined height equals the
  * list's. They are grid rows in a stretched track rather than three cards with
  * heights of their own, so the two columns stay level by construction: no card
- * knows the list's height and none has to be told it.
+ * knows the list's height and none has to be told it. Sourced is not one of
+ * the three — it is a full-width banner below both columns; see Overview.tsx.
  *
  * ── THE SCOPE IS ONE PIECE OF STATE WITH TWO ENTRY POINTS ───────────────────
  * The campaign filter appears twice — once in the page header, once in the task
@@ -112,11 +113,13 @@ export function Home({
             <Tasks onOpen={brief} hero today scope={scope} onScope={onScope} />
 
             <div className="ov-stack">
-              <SourcedCard scope={scope} />
+              <ConversionCard scope={scope} />
               <ProgressCard scope={scope} />
               <CampaignsCard scope={scope} />
             </div>
           </div>
+
+          <SourcedCard scope={scope} />
         </div>
       </div>
     </div>

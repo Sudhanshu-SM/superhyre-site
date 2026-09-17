@@ -416,11 +416,15 @@ const niceTop = (hi: number) => Math.max(4, Math.ceil(hi / 4) * 4);
  * JavaScript involved.
  */
 export function Area({
-  data, hue, h = 104,
+  data, hue, h = 104, labels = 4,
 }: {
   data: readonly { day: string; n: number }[];
   hue: Hue;
   h?: number;
+  /** How many x-axis date labels to show, evenly spaced including both ends.
+   *  Four suits a ~550px card; the full-width banner asks for more so the
+   *  labels do not sit stranded across the extra room. */
+  labels?: number;
 }) {
   if (data.length < 2) return null;
 
@@ -467,13 +471,12 @@ export function Area({
      it is there to help read. */
   const ticks = [top, top / 2, 0];
 
-  /* FOUR date labels, evenly spaced and including both ends. Fourteen would
-     collide at any width this card has; the guidance is that labels go where
-     they carry meaning, and for a date axis that is the range and its interior
-     rhythm rather than every tick. */
+  /* Evenly spaced across `labels` points, including both ends. More than the
+     data can support collapses through the Map's de-dupe rather than crowd —
+     asking for 14 on a 14-point series is safe, not an error. */
   const xlabs = [...new Map(
-    [0, 1, 2, 3]
-      .map((k) => Math.round((k * (data.length - 1)) / 3))
+    Array.from({ length: labels }, (_, k) => k)
+      .map((k) => Math.round((k * (data.length - 1)) / (labels - 1)))
       .map((i) => [i, data[i]?.day ?? ""] as const)
       .filter(([, day]) => day !== ""),
   ).entries()];
