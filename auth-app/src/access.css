@@ -3906,32 +3906,37 @@ body {
   color: var(--ink-2);
 }
 
-/* Replaces .ex-cta, which went with the store link. There is no accent fill
-   on this page any more: installing is now three manual steps, and an accent
-   button implies one click does it. Numbers are drawn in the marker rather
-   than an accent chip because the sequence is the information here. */
-.ex-steps {
-  margin: 0;
-  padding: 0 0 0 20px;
-  max-width: 60ch;
-  font: 400 14px/1.6 var(--ui);
-  color: var(--ink-2);
+/* .ex-cta is BACK. It went with the store link when the listing pointed at
+   someone else's item (7bfd4a0): three manual load-unpacked steps replaced it
+   because an accent button implies one click does it, and it was not one
+   click. The listing is ours now, so it is one click again.
+
+   Rebuilt against the current tokens rather than the pre-rebuild declaration
+   this replaces, which used --accent with ink-coloured text at a measured
+   4.17:1 — legal for large text, not for the 4.5:1 body floor it was set in.
+   --accent-fill with white type is 4.52:1, the same pairing .orc-new uses, so
+   the app has one filled-button convention rather than two. */
+.ex-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 42px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: var(--r-field);
+  background: var(--accent-fill);
+  color: #fff;
+  font: 600 14.5px/1 var(--ui);
+  letter-spacing: -0.011em;
+  text-decoration: none;
+  transition: background-color var(--t-dim);
 }
 
-.ex-steps li { margin: 0 0 7px; }
-.ex-steps li:last-child { margin-bottom: 0; }
-.ex-steps li::marker { color: var(--ink); font-weight: 600; }
-.ex-steps strong { color: var(--ink); font-weight: 600; }
-
-/* Same treatment as .ex-install-foot code, which this list now sits above. */
-.ex-steps code {
-  padding: 2px 5px;
-  border-radius: 4px;
-  background: #f4ece4;
-  font: 500 11.5px/1 ui-monospace, "SF Mono", Menlo, monospace;
-  color: #ad3b0c;
-  overflow-wrap: anywhere;
-}
+/* Shade only, and darker rather than lighter — the button deepens under the
+   cursor instead of glowing. Nothing translates; press joins the shared 60ms
+   scale group below rather than declaring its own. */
+.ex-cta:hover { background: var(--accent-text); }
+.ex-cta:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
 .ex-install-foot {
   margin: 14px 0 0;
@@ -8134,6 +8139,7 @@ body {
 .orc-mode:active,
 .orc-slot:active,
 .orc-new:active,
+.ex-cta:active,
 .rail-brief:active,
 .rail-new:active {
   transform: scale(0.985);
@@ -8179,6 +8185,7 @@ body {
   .orc-mode:active,
   .orc-slot:active,
   .orc-new:active,
+  .ex-cta:active,
   .rail-brief:active,
   .rail-new:active {
     transform: none;

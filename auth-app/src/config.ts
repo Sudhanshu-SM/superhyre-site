@@ -42,25 +42,25 @@ export function redirectTarget(): string {
 
 // Where "Install extension" points.
 //
-/* No CHROME_STORE_URL. There is no published Chrome Web Store listing for
-   this extension yet. The constant used to point at store item
-   nfalnofcehfocfgncjpjgpcablgfipdf, which is a different product ("Reklis -
-   Rekzon LinkedIn Sourcing"), currently reports as unavailable, and ships
-   under an extension ID that is not the one the manifest pins — so the link
-   was worse than no link. ExtensionPage documents the load-unpacked path
-   instead.
-
-   When the listing goes live, three things change together:
-     1. restore a single CHROME_STORE_URL constant here,
-     2. set EXTENSION_ID below to the ID the store assigned (it is NOT the
-        pinned one — the store strips `key` and owns the keypair), and
-     3. add chrome-extension://<store-id> to the reveal-phone function's
-        EXTENSION_ORIGINS and https://<store-id>.chromiumapp.org/ to the
-        Google OAuth client's authorized redirect URIs.
-   Miss (3) and the published extension installs fine but cannot sign in. */
+// Live: item nnikafiiilljpghnbnipnnppbiiaehmj, the ID Chrome assigned on
+// publish. NOT the `key`-pinned dev ID in manifest.ts — the store strips
+// `key` and owns the keypair, so this differs from what an unpacked build
+// reports at chrome://extensions, and that is expected rather than a bug.
+//
+// This ID going live only finishes one of three things that had to move
+// together, and the other two are NOT config in this repo — confirm both
+// before trusting this page's happy path:
+//   1. this ID + CHROME_STORE_URL, done here,
+//   2. chrome-extension://nnikafiiilljpghnbnipnnppbiiaehmj added to the
+//      reveal-phone function's EXTENSION_ORIGINS secret, or phone reveals
+//      403 for every store-installed user even though sign-in works, and
+//   3. https://nnikafiiilljpghnbnipnnppbiiaehmj.chromiumapp.org/ added to the
+//      Google OAuth client's authorized redirect URIs, or sign-in itself
+//      fails as an opaque redirect_uri_mismatch.
+export const CHROME_STORE_URL =
+  "https://chromewebstore.google.com/detail/nnikafiiilljpghnbnipnnppbiiaehmj";
 
 // The ID the extension identifies itself by. Shown on the install panel so
 // someone can confirm in chrome://extensions that the thing they installed is
-// the thing this console is talking about. Currently the ID pinned by the
-// `key` in the extension's manifest, which is what an unpacked build gets.
-export const EXTENSION_ID = "pgeckagnkclnkjaekbeadgjhgikioapp";
+// the thing this console is talking about.
+export const EXTENSION_ID = "nnikafiiilljpghnbnipnnppbiiaehmj";

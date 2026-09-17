@@ -1,6 +1,6 @@
 import { ArrowSquareOut, EnvelopeSimple, Phone } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
-import { EXTENSION_ID } from "./config";
+import { CHROME_STORE_URL, EXTENSION_ID } from "./config";
 import {
   contactFound, describeActivityError, fetchActivity, orderStages, TERMINAL_STAGES,
 } from "./activity";
@@ -404,19 +404,17 @@ function Row({ c, team }: { c: RecentCandidate; team: boolean }) {
 }
 
 /* ── install ────────────────────────────────────────────────────────────
-   There is no Chrome Web Store listing. This used to link to one, at a store
-   ID that is not ours: the item is branded "Reklis - Rekzon LinkedIn
-   Sourcing", it currently reports as unavailable, and its extension ID is not
-   the ID the manifest pins. That last part is the real damage. The OAuth
-   redirect is https://<id>.chromiumapp.org/ and the reveal function's
-   ALLOWED_ORIGIN is chrome-extension://<id>, both hardcoded to the pinned ID,
-   so a build installed under any other ID can neither sign in nor reveal a
-   number. An install button that hands someone a dead end is worse than no
-   button, because they conclude the product is broken rather than unreleased.
-
-   So this states the distribution that actually exists today: a build loaded
-   unpacked. When a listing is published, both tones collapse back to one link
-   and CHROME_STORE_URL comes back with it.
+   The listing is live again, so this reverts to one click rather than three
+   manual steps. It used to point at Chrome Web Store item
+   nfalnofcehfocfgncjpjgpcablgfipdf — a different product entirely
+   ("Reklis - Rekzon LinkedIn Sourcing"), shipping under an extension ID that
+   was not the one the manifest pinned. That was the real damage: the OAuth
+   redirect and the reveal function's allowed origin are both keyed to a
+   specific ID, so a build installed under someone else's ID could neither
+   sign in nor reveal a number, and an install button leading there was worse
+   than no button — it reads as the product being broken rather than
+   unreleased. CHROME_STORE_URL now names OUR item, so that failure mode does
+   not apply here.
 
    `tone` is the whole difference between the empty state and the standing
    footer note. The accent fill exists once on the page, and only in the
@@ -425,8 +423,12 @@ function InstallPanel({ tone }: { tone: "primary" | "quiet" }) {
   if (tone === "quiet") {
     return (
       <p className="ex-hint">
-        On another browser profile or machine, load the extension there too:
-        it captures profiles per browser, not per account.
+        <a className="ex-link" href={CHROME_STORE_URL} target="_blank" rel="noreferrer noopener">
+          Get the Chrome extension
+          <ArrowSquareOut size={12} weight="bold" aria-hidden="true" />
+        </a>
+        {" "}on another browser profile or machine — it captures profiles per
+        browser, not per account.
       </p>
     );
   }
@@ -438,23 +440,13 @@ function InstallPanel({ tone }: { tone: "primary" | "quiet" }) {
         Nothing has come through yet. The sidebar is what captures profiles, so
         it needs to be installed in the browser you source in.
       </p>
-      <ol className="ex-steps">
-        <li>
-          Open <code>chrome://extensions</code> and turn on{" "}
-          <strong>Developer mode</strong>.
-        </li>
-        <li>
-          Choose <strong>Load unpacked</strong> and pick the{" "}
-          <code>dist</code> folder from the build.
-        </li>
-        <li>
-          Confirm the ID reads <code>{EXTENSION_ID}</code>, then open a
-          LinkedIn profile and sign in with this same account.
-        </li>
-      </ol>
+      <a className="ex-cta" href={CHROME_STORE_URL} target="_blank" rel="noreferrer noopener">
+        Install extension
+        <ArrowSquareOut size={14} weight="bold" aria-hidden="true" />
+      </a>
       <p className="ex-install-foot">
-        That ID is pinned by the build. Sign-in and phone reveals are both tied
-        to it, so a copy loaded under a different ID will not work.
+        Sign in with this same account. In <code>chrome://extensions</code> the
+        ID should read <code>{EXTENSION_ID}</code>.
       </p>
     </section>
   );
