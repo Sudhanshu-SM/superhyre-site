@@ -67,21 +67,50 @@ export function SourcedCard({ scope }: { scope: Scope }) {
 
   return (
     <article className="ov-card ov-chart is-wide">
+      {/* ── THE HEADER IS JUST A HEADER AGAIN ──
+          The total used to live here as a 32px number on its own row, which
+          cost two things: the panel sat 74px from the card's top edge against
+          17px on the right, and the figure had no container — a big number
+          alone in white space reads as something left behind rather than as a
+          summary. It moved inside the plot, where it is the total OF the
+          series it sits on. This row is now one line: what the card is, and
+          over what period. */}
       <header className="ov-head">
         <h3 className="ov-h">Sourced</h3>
         <span className="ov-sub">{perDay} a day · last {days} days</span>
       </header>
 
-      <p className="ov-big">
-        {/* Counts up on mount AND on scope change, so switching campaigns
-            animates to the new datum instead of snapping. `tabular-nums` on
-            the class, or the row jitters for the duration of the count. */}
-        <Counter value={total} />
-        <span className="ov-big-unit">candidates</span>
-      </p>
-
       <div className="ov-chart-plot">
-        <Area data={data} hue="blue" h={220} labels={7} />
+        {/* ORANGE, because the brand is. `hue` drives the furniture — the
+            panel wash and the dashed rules come off --c-brand's tint and line
+            tokens, which are the palest members of the family and exactly
+            what a background and a reference line should be. `accent` drives
+            the DATA, and it is --accent-fill rather than the hue's own base:
+            #c87248 measures 3.53:1 on white but sits on a warm panel here,
+            where it went muddy. --accent-fill is 4.52:1 and reads as a line
+            rather than a stain.
+
+            That split is the whole reason `accent` exists as a separate prop
+            — see Area. Furniture wants the pale end of a family, data wants
+            the deep end, and one token cannot be both. */}
+        <Area
+          data={data}
+          hue="brand"
+          accent="var(--accent-fill)"
+          h={220}
+          labels={7}
+          noun="sourced"
+          total={
+            <>
+              {/* Counts up on mount AND on scope change, so switching
+                  campaigns animates to the new datum instead of snapping.
+                  `tabular-nums` lives on .vz-total, or the card jitters for
+                  the duration of the count. */}
+              <Counter value={total} />
+              <span className="vz-total-u">candidates</span>
+            </>
+          }
+        />
       </div>
     </article>
   );
@@ -134,10 +163,53 @@ export function ConversionCard({ scope }: { scope: Scope }) {
      this card's number identical to Progress's by construction. */
   const sourced = shortlisted!.of;
 
+  /* ── ORANGE, BECAUSE THE BRAND IS ORANGE — AND TINTS, NOT SHADES ──
+     These were violet first (a hue the brand does not own), then three
+     SHADES of the accent — #ea5a1e / #cc4d17 / #b8400f, getting progressively
+     darker and reading burnt. Now three TINTS: the same accent stepped
+     toward white instead of toward black.
+
+     What made tints possible was moving the TRACK, not the arcs. An arc is
+     read against the ring it sits in, and the brand hue's own `line` token is
+     a mid tint, so `--accent` on `--c-brand-line` measured only 2.39:1 — the
+     brand family had the worst arc/track separation of any hue while looking
+     the heaviest on the page. Dropping the track to the much paler
+     `--accent-tint` lifts that same arc to 3.02:1, and THAT headroom is what
+     the arcs spend on being lighter. Measured against the pale track:
+     3.02 / 2.69 / 2.44:1, each step visibly lighter than the last.
+
+     ── AND THE STEPS ARE SPACED BY dE, NOT BY EYE ──
+     The first attempt at this stepped 1.00 / 0.90 / 0.82 along a white-mix
+     ramp and the three were indistinguishable — measured, dE 9.2 and 8.5,
+     which is under the ~10 where two colours stop reading as two colours at
+     all. WCAG contrast was the wrong metric to pick steps with: it answers
+     "can I see this against the background", not "can I tell these apart".
+     Spaced by CIELAB dE instead, these land at 23.1 and 24.9 — roughly two
+     and a half times the separation, and visibly three tints rather than one
+     colour drawn three times.
+
+     They are also a LIGHTNESS ramp at constant saturation rather than a mix
+     toward white: mixing with white desaturates, so the light end went chalky
+     exactly where it needed to stay orange.
+
+     Against white they run 3.47 / 2.58 / 2.05:1, so the lighter two sit under
+     the 3:1 a lone data mark owes. They are not lone data marks: every ring
+     prints its own percentage in the centre and its own numerator and
+     denominator underneath, which is this file's stated test — remove the
+     colour entirely and all of it still reads. The contrast that governs
+     whether you can see where an arc ENDS is arc-against-track, and all three
+     clear that (2.97 / 2.23 / 1.65:1).
+
+     The label does not follow the arc: it stays on --c-brand-text for all
+     three, because a tint light enough to be a pleasant arc is nowhere near
+     the 4.5:1 that the number inside it owes as text. */
   const stats = [
-    { label: "Response rate", n: replied!.n, of: replied!.of, unit: "replied" },
-    { label: "Interview rate", n: interviews!.n, of: interviews!.of, unit: "replied" },
-    { label: "Sourced → interview", n: interviews!.n, of: sourced, unit: "sourced" },
+    { label: "Response rate", n: replied!.n, of: replied!.of, unit: "replied",
+      color: "#ed5a1d" },
+    { label: "Interview rate", n: interviews!.n, of: interviews!.of, unit: "replied",
+      color: "#f1834f" },
+    { label: "Sourced → interview", n: interviews!.n, of: sourced, unit: "sourced",
+      color: "#f6a98a" },
   ];
 
   return (
@@ -155,11 +227,23 @@ export function ConversionCard({ scope }: { scope: Scope }) {
           it also arrives with the arrival motion every other data primitive
           on this page already uses (the value sweeps in on mount), which text
           alone cannot do. `Ring` already existed in viz.tsx unused — this is
-          its first caller. */}
+          its first caller.
+
+          78px. It went 68 -> 46 when the whole page was over-inflated, but
+          the thing actually inflating it was the VERTICAL funnel in the card
+          below; that is horizontal now, so this card's height is set by the
+          task list beside it rather than by its own content, and the ~50px of
+          slack the rings were leaving was free to spend. Checked: at 78 the
+          card's min-content is still under the 185px the task list dictates,
+          so a bigger ring costs nothing anywhere. */}
       <div className="ov-conv">
         {stats.map((s) => (
           <div className="ov-conv-stat" key={s.label}>
-            <Ring value={s.n} max={s.of} hue="violet" size={68} width={6} />
+            <Ring
+              value={s.n} max={s.of} hue="brand"
+              size={78} width={8}
+              color={s.color} track="var(--accent-tint)"
+            />
             <p className="ov-conv-label">{s.label}</p>
             <p className="ov-conv-of">{s.n} of {s.of} {s.unit}</p>
           </div>
@@ -173,36 +257,50 @@ export function ConversionCard({ scope }: { scope: Scope }) {
 /* ── where they are now ──────────────────────────────────────────────────── */
 
 export function ProgressCard({ scope }: { scope: Scope }) {
-  const [shortlisted, contacted, replied, interviews] = stepsFor(scope);
+  const [, contacted, replied, interviews] = stepsFor(scope);
 
-  /* ── REORDERED FOR AN HONEST TAPER ──
-     stepsFor() returns [shortlisted, contacted, replied, interviews] because
-     that is the order its DENOMINATORS derive in: shortlisted and contacted
-     are both measured against the sourced pool, replied against contacted,
-     interviews against replied. It is not the order their COUNTS decrease in
-     — contacted (61) is larger than shortlisted (24), because they are two
-     separate judgements over the same sourced pool, not one stage feeding the
-     next. A funnel drawn in derivation order would flare outward in the
-     middle before narrowing, which is not a taper, it is a shape that looks
-     broken.
+  /* ── THE TRUE CHAIN, WHICH IS NOT THE ORDER stepsFor RETURNS ──
+     `stepsFor` denominates Shortlisted against SOURCED and Contacted against
+     SOURCED. Those are two parallel judgements over one pool, not consecutive
+     stages, and drawing them in sequence is what made every previous version
+     of this card need a reorder hack and still come out with a step in the
+     middle of the silhouette.
 
-     Reordered by count here — contacted, shortlisted, replied, interviews —
-     so `Funnel` receives a genuinely decreasing sequence. The `of` on each
-     stage stays whatever `stepsFor` actually derived it against, so the
-     printed fraction is never touched by the reorder; only the drawing
-     sequence changes. */
-  const funnel = [contacted!, shortlisted!, replied!, interviews!];
+     The chain the denominators actually describe is a strict nesting:
+
+         Sourced -> Contacted (of sourced) -> Replied (of contacted)
+                 -> Interviews (of replied)
+
+     Every stage is a subset of the one before, so the taper is monotonic by
+     construction rather than by sorting, and no display-order fix is needed.
+
+     Sourced is synthesised as the head of the chain from `contacted.of` —
+     the same total the Sourced banner prints, read off the step that is
+     already denominated against it, so the two cannot disagree.
+
+     Shortlisted is deliberately absent. It is a real number and it is not a
+     funnel stage; forcing it into a sequence it does not belong to is the
+     thing that was breaking the shape. If it wants a home it needs one that
+     does not imply sequence. */
+  const sourced = contacted!.of;
+
+  const chain = [
+    { id: "sourced", label: "Sourced", n: sourced, of: sourced },
+    { id: "contacted", label: "Contacted", n: contacted!.n, of: contacted!.of },
+    { id: "replied", label: "Replied", n: replied!.n, of: replied!.of },
+    { id: "interviews", label: "Interviews", n: interviews!.n, of: interviews!.of },
+  ];
 
   return (
     <article className="ov-card">
       <header className="ov-head">
-        <h3 className="ov-h">Progress</h3>
+        <h3 className="ov-h">Funnel</h3>
         <a className="ov-link" href="#/campaign/candidates">
           All candidates <CaretRight size={11} weight="bold" aria-hidden="true" />
         </a>
       </header>
 
-      <Funnel stages={funnel.map((s) => ({ id: s.id, label: s.label, n: s.n, of: s.of }))} />
+      <Funnel stages={chain} />
     </article>
   );
 }

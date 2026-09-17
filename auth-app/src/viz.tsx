@@ -1,5 +1,6 @@
 import type { Icon } from "@phosphor-icons/react";
 import { TrendDown, TrendUp } from "@phosphor-icons/react";
+import type { MouseEvent, ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import type { Hue } from "./orchestrator";
 
@@ -96,8 +97,35 @@ export function Glyph({ Icon, hue, size = 30 }: { Icon: Icon; hue: Hue; size?: n
  * silently and leaves a full ring.
  */
 export function Ring({
-  value, max, hue, size = 38, width = 4,
-}: { value: number; max: number; hue: Hue; size?: number; width?: number }) {
+  value, max, hue, size = 38, width = 4, color, track,
+}: {
+  value: number; max: number; hue: Hue; size?: number; width?: number;
+  /**
+   * Overrides the ARC colour only — the label keeps its hue token.
+   *
+   * Exists because the conversion card draws three rings that must differ
+   * from each other while staying one family. Passing three different `hue`s
+   * would have changed the label colour three times too, which is three
+   * colours where the intent was one colour at three steps. The label
+   * deliberately does NOT follow: the lighter steps of a tint ramp sit under
+   * the 4.5:1 body floor, and the number inside the ring is text, not a data
+   * mark.
+   */
+  color?: string;
+  /**
+   * Overrides the TRACK colour.
+   *
+   * Measured, not cosmetic. An arc has to be legible against the track it
+   * sits on, and the hue's own `line` token is a mid tint — `--accent` on
+   * `--c-brand-line` is only 2.39:1, so a ring in the brand family had the
+   * WORST arc/track separation of any hue while looking the heaviest. Handing
+   * the track down to the much paler `--accent-tint` lifts the same arc to
+   * 3.02:1. Lightening the track is what buys the arcs room to be tints
+   * rather than burnt shades: the contrast that decides whether you can see
+   * where the arc ends is arc-against-track, not arc-against-card.
+   */
+  track?: string;
+}) {
   const pct = max > 0 ? Math.max(0, Math.min(100, (value / max) * 100)) : 0;
   const r = (size - width) / 2;
   const arc = useRef<SVGCircleElement>(null);
@@ -120,12 +148,12 @@ export function Ring({
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
         <circle
           cx={size / 2} cy={size / 2} r={r} fill="none"
-          stroke={tok(hue, "line")} strokeWidth={width}
+          stroke={track ?? tok(hue, "line")} strokeWidth={width}
         />
         <circle
           ref={arc}
           cx={size / 2} cy={size / 2} r={r} fill="none"
-          stroke={tok(hue)} strokeWidth={width} strokeLinecap="round"
+          stroke={color ?? tok(hue)} strokeWidth={width} strokeLinecap="round"
           pathLength={100} strokeDasharray={`${pct} ${100 - pct}`}
           /* -90deg so it starts at twelve o'clock, which is the only start
              position that reads as progress rather than a pie slice. */
@@ -229,106 +257,204 @@ export function Delta({ value, invert = false }: { value: number; invert?: boole
 
 /* ── funnel: where it narrows ───────────────────────────────────────────────
 
-   A real tapering shape now, not a list of bars. The bars were honest but
-   they were not what "funnel" means to anyone looking at the card — a funnel
-   is a silhouette that narrows, and a row of independent horizontal tracks
-   never reads as one shape no matter how carefully the maximum is shared.
+   ── THE SHAPE LOOKED BROKEN BECAUSE THE SEQUENCE WAS NOT ONE ──
+   Three visual passes failed on this card before the real fault turned up in
+   the data shape. `stepsFor` denominates Shortlisted against SOURCED and
+   Contacted against SOURCED — two parallel judgements over one pool, not one
+   stage feeding the next. Drawing them as consecutive needed a
+   reorder-by-count hack and still produced a step in the middle: a funnel
+   whose second segment is wider than its first is not a funnel.
 
-   ── ORDER IS THE CALLER'S DECISION, NOT THIS COMPONENT'S ──
-   `Funnel` draws whatever sequence it is given, top to bottom, at whatever
-   widths the counts produce. It does not know or enforce that the sequence
-   is a true nested pipeline — see ProgressCard for the real caveat: this
-   product's Shortlisted and Contacted are two separate judgements over the
-   same sourced pool, not stage-then-stage, and are reordered by count before
-   they reach here so the taper is a real decreasing shape rather than one
-   that flares outward in the middle. That reordering is a display decision
-   made by the caller; this component would draw whatever it flares into
-   just as readily, which is exactly why it does not make the decision.
+   The honest chain is the one the denominators already describe, and every
+   stage in it is a strict subset of the one before:
 
-   ── ONE HUE, FOUR MEASURED SHADES, PLUS A STROKE ──
-   `--c-violet-1..4` — see their definition for why the existing tint/line/
-   text/fill tokens do not work here: tint and line are background washes
-   (1.20:1 and 1.64:1 against white) and a filled shape standing on its own
-   needs to clear 3:1 by itself, not merely qualify as a subtle backdrop.
-   Adjacent same-hue steps are still close to each other (1.27-1.40:1), which
-   any single-hue ramp will be — so every band also carries a hairline stroke
-   in the card's own surface colour, which separates neighbours by drawing a
-   boundary rather than by hoping the fill contrast does it alone. */
+       Sourced 148  ->  Contacted 61  ->  Replied 17  ->  Interviews 6
+                        (of sourced)      (of contacted)  (of replied)
+
+   ── THE LAYOUT IS THE REFERENCE'S, THE COLOUR IS OURS ──
+   Built against a supplied reference, which gets three things right that the
+   previous version had backwards:
+
+     LABELS AND COUNTS GO ON TOP. They were underneath, which put the reading
+     order the wrong way round — you met an unexplained shape and then found
+     out what it was. Name first, shape second: the numbers are the fact and
+     the ribbon is the illustration of it.
+
+     THE PERCENTAGES FLOAT ABOVE THE EDGE. Each stage's conversion sits at the
+     top of its own column, in the white space the descending top edge opens
+     up. Nothing overlaps, because the first stage — the only one whose shape
+     reaches the top of the box — is also the only one with no percentage to
+     print: it is the pool everything else is measured against, so "100% of
+     itself" would be noise. The geometry and the omission fit each other
+     exactly.
+
+     THIN DIVIDERS, NOT SEAMS. One hairline per boundary, running the full
+     height of the plot and continuing up through the header row, so the
+     columns read as columns. The ribbon underneath stays completely unbroken;
+     the divider is drawn over it rather than cut out of it.
+
+   The gradient is cool -> pale -> warm rather than four separate hues, which
+   is the reference's move and a better one: a single sweep through a light
+   midpoint reads as one object, and it puts the brand's own orange at the
+   END, on the stage that is actually the win. Four saturated hues is what
+   made every earlier version read as a default chart. Warm-at-the-finish also
+   resolves a tension the earlier note got wrong — the accent is not "spoken
+   for" by the rings above, it is the colour this product means to arrive at,
+   and a funnel that warms as it converges says that.                        */
 export function Funnel({
   stages,
 }: {
-  /** Display order top to bottom — widest first is not enforced, only drawn.
-   *  `of` is the TRUE denominator for the printed fraction; it is not
-   *  necessarily the previous entry in this array. See ProgressCard. */
+  /** Display order left to right, widest first. Each stage's `of` is the
+   *  stage it is denominated against — see the chain above. */
   stages: readonly { id: string; label: string; n: number; of: number }[];
 }) {
   if (stages.length < 2) return null;
 
   const top = stages[0]!.n || 1;
-  /* Floored at 2 so the narrowest real stage still draws a visible sliver —
-     the number beside it carries the truth either way, this floor only keeps
-     a genuinely small band from vanishing into a zero-width line. */
-  const width = (n: number) => Math.max(2, Math.min(100, (n / top) * 100));
-  const bandH = 100 / stages.length;
-  const SHADE = [
-    "var(--c-violet-1)", "var(--c-violet-2)", "var(--c-violet-3)", "var(--c-violet-4)",
+  /* ── EXACT, AND IT WAS NOT ──
+     This floored every stage at 9% of the box "for legibility", which made
+     the last one a lie: 6 of 148 is 4.05%, and rendering it at 9% drew it
+     2.22x taller than the data. The other three were exact, so the chart was
+     right about three quarters of itself and silently wrong about the number
+     a funnel exists to show — the one at the bottom.
+
+     The floor is now 1.5%, which only keeps a genuinely EMPTY stage from
+     vanishing to nothing rather than reshaping a real one. Interviews draws
+     at 3.4px of an 84px box, and a 4% conversion SHOULD look like a thin
+     spout; that is the story. Legibility is the printed count's job, which is
+     why the count sits in the header above it. */
+  const halfOf = (n: number) => Math.max(1.5, Math.min(100, (n / top) * 100)) / 2;
+  const colW = 100 / stages.length;
+
+  /* One boundary per segment edge, plus a final one equal to the last so the
+     funnel closes flat — a spout, not a fabricated point tapering to zero. */
+  const bounds = [
+    ...stages.map((s) => halfOf(s.n)),
+    halfOf(stages[stages.length - 1]!.n),
   ];
+
+  const smooth = (pts: readonly { x: number; y: number }[]) => {
+    const T = 0.5;
+    let d = `M${pts[0]!.x.toFixed(3)} ${pts[0]!.y.toFixed(3)}`;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[i - 1] ?? pts[i]!;
+      const p1 = pts[i]!;
+      const p2 = pts[i + 1]!;
+      const p3 = pts[i + 2] ?? p2;
+      const c1x = p1.x + ((p2.x - p0.x) / 6) * T;
+      const c1y = p1.y + ((p2.y - p0.y) / 6) * T;
+      const c2x = p2.x - ((p3.x - p1.x) / 6) * T;
+      const c2y = p2.y - ((p3.y - p1.y) / 6) * T;
+      d += ` C${c1x.toFixed(3)} ${c1y.toFixed(3)}, ${c2x.toFixed(3)} ${c2y.toFixed(3)},`
+        + ` ${p2.x.toFixed(3)} ${p2.y.toFixed(3)}`;
+    }
+    return d;
+  };
+
+  const xAt = (i: number) => Math.min(100, i * colW);
+
+  /* ── THE WIGGLE, AND WHY IT CANNOT TOUCH A KNOT ──
+     Fixed offsets, not random: a value that changes every render is not a
+     shape, it is a flicker, and it would also shift under React's
+     re-rendering on every scope change.
+
+     They are applied ONLY at segment midpoints — never at a boundary, where
+     the height IS the datum. The edge still passes exactly through every
+     stage's true proportion; it just does not travel between them in a
+     straight line. Same principle as the Sourced curve: knots exact,
+     tangents interpolated.
+
+     Top and bottom carry different offsets on purpose. Mirrored values would
+     make the ribbon breathe symmetrically, which still reads as machined;
+     letting the centre line drift a little is what makes it read as poured.
+     Magnitudes are ~2 units of 100 — under 2px at this height, which is the
+     line between "natural" and "wobbly". */
+  const WIG_TOP = [1.7, -2.0, 1.1, -1.4, 0.8];
+  const WIG_BOT = [-1.8, 1.3, -1.6, 1.2, -0.7];
+
+  const edge = (sign: 1 | -1, wig: readonly number[]) => {
+    const pts: { x: number; y: number }[] = [];
+    for (let i = 0; i < bounds.length; i++) {
+      pts.push({ x: xAt(i), y: 50 + sign * bounds[i]! });
+      if (i < bounds.length - 1) {
+        const midHalf = (bounds[i]! + bounds[i + 1]!) / 2;
+        pts.push({
+          x: (xAt(i) + xAt(i + 1)) / 2,
+          /* Added to y directly rather than to the half-height, so a positive
+             offset always means "lower" for both edges and the two drift
+             independently instead of pinching in unison. */
+          y: 50 + sign * midHalf + (wig[i] ?? 0),
+        });
+      }
+    }
+    return pts;
+  };
+
+  const topPts = edge(-1, WIG_TOP);
+  const botPts = edge(1, WIG_BOT);
+  const d = `${smooth(topPts)} ${smooth([...botPts].reverse()).replace(/^M/, "L")} Z`;
 
   return (
     <div className="vz-funnel-wrap">
-      <svg
-        className="vz-funnel-svg"
-        viewBox="0 0 100 100"
-        preserveAspectRatio="none"
-        aria-hidden="true"
-      >
-        {stages.map((s, i) => {
-          const topW = width(s.n);
-          /* Tapers into the NEXT stage's width, so consecutive bands share an
-             edge and read as one silhouette. The last band has no next stage
-             to taper into, so its bottom matches its own top — a straight
-             closing edge rather than a fabricated final taper. */
-          const botW = i < stages.length - 1 ? width(stages[i + 1]!.n) : topW;
-          const y0 = i * bandH;
-          const y1 = (i + 1) * bandH;
-          const pts = `${50 - topW / 2},${y0} ${50 + topW / 2},${y0} `
-            + `${50 + botW / 2},${y1} ${50 - botW / 2},${y1}`;
-          return (
-            <polygon
-              key={s.id}
-              className="vz-funnel-band"
-              points={pts}
-              fill={SHADE[Math.min(i, SHADE.length - 1)]}
-              stroke="var(--nav-surface)"
-              strokeWidth={1.5}
-              vectorEffect="non-scaling-stroke"
-              /* Top band first, each next one 70ms behind — reads as the
-                 funnel filling downward, the same direction it narrows in,
-                 rather than every band snapping in at once. Suppressed under
-                 reduced motion in the CSS, same as every other primitive
-                 here. */
-              style={{ animationDelay: `${i * 70}ms` }}
-            />
-          );
-        })}
-      </svg>
-
-      <ul className="vz-funnel-list">
+      <ul className="vz-funnel-head">
         {stages.map((s) => (
-          <li key={s.id} className="vz-funnel-item" style={{ height: `${bandH}%` }}>
+          <li key={s.id} className="vz-funnel-hcell">
             <span className="vz-funnel-item-label">{s.label}</span>
-            <span className="vz-funnel-item-n">
-              {s.n}
-              {/* The denominator, printed beside every band rather than once
-                  for the card: each stage folds against a DIFFERENT base
-                  (contacted's is sourced, replied's is contacted), so one
-                  shared "of X" at the top would be wrong for three of the
-                  four rows. */}
-              <span className="vz-funnel-item-of"> of {s.of}</span>
-            </span>
+            <span className="vz-funnel-item-n">{s.n}</span>
           </li>
         ))}
       </ul>
+
+      <div className="vz-funnel-plot">
+        <svg
+          className="vz-funnel-svg"
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          aria-hidden="true"
+        >
+          <defs>
+            {/* Horizontal: one sweep, cool to warm through a pale middle. The
+                pale midpoint is what stops this reading as a stack of
+                coloured blocks — the eye follows one object changing
+                temperature rather than four objects abutting. */}
+            <linearGradient id="fn-ribbon" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="var(--c-blue)" />
+              <stop offset="34%" stopColor="#c3d4ea" />
+              <stop offset="58%" stopColor="#f2ddcb" />
+              <stop offset="82%" stopColor="var(--accent)" />
+              <stop offset="100%" stopColor="var(--accent)" />
+            </linearGradient>
+
+            {/* Vertical: the light. Painted over the SAME path because one
+                gradient cannot run two axes. The middle stop is fully
+                transparent, so the hue underneath stays exactly itself
+                through the body and only the edges are shaped by light. */}
+            <linearGradient id="fn-sheen" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#ffffff" stopOpacity="0.30" />
+              <stop offset="48%" stopColor="#ffffff" stopOpacity="0" />
+              <stop offset="100%" stopColor="#3a2317" stopOpacity="0.14" />
+            </linearGradient>
+          </defs>
+
+          <path className="vz-funnel-band" d={d} fill="url(#fn-ribbon)" />
+          <path className="vz-funnel-sheen" d={d} fill="url(#fn-sheen)" />
+        </svg>
+
+        {/* Overlaid on the plot rather than stacked above it, so the dividers
+            run the full height of the ribbon and the percentages sit in the
+            air the descending edge opens up. */}
+        <ul className="vz-funnel-pcts">
+          {stages.map((s, i) => (
+            <li key={s.id} className="vz-funnel-pcell">
+              {i > 0 && (
+                <span className="vz-funnel-pct">
+                  {s.of > 0 ? Math.round((s.n / s.of) * 100) : 0}%
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }
@@ -490,35 +616,94 @@ const niceTop = (hi: number) => Math.max(4, Math.ceil(hi / 4) * 4);
  * JavaScript involved.
  */
 export function Area({
-  data, hue, h = 104, labels = 4,
+  data, hue, h = 104, labels = 4, noun = "", accent, total,
 }: {
   data: readonly { day: string; n: number }[];
+  /** Drives the PANEL and the GRIDLINES — the chart's furniture. */
   hue: Hue;
   h?: number;
-  /** How many x-axis date labels to show, evenly spaced including both ends.
-   *  Four suits a ~550px card; the full-width banner asks for more so the
-   *  labels do not sit stranded across the extra room. */
+  /** How many x-axis date labels to show, evenly spaced including both ends. */
   labels?: number;
+  /** What one unit is, for the hover readout. Omitted, the tooltip prints the
+   *  bare number rather than inventing a word for it. */
+  noun?: string;
+  /**
+   * The CURVE's colour — line, fill and markers. Separate from `hue` because
+   * the furniture and the data want opposite ends of the same family: the
+   * panel has to stay pale enough to sit under everything, and the line has to
+   * be dark enough to read on top of it. One token cannot be both, and using
+   * the hue's base for the line is what left the old curve looking washed out
+   * against its own panel. Defaults to the hue, so callers that do not care
+   * are unaffected.
+   */
+  accent?: string;
+  /**
+   * The series total, rendered as a card INSIDE the panel's top-right.
+   *
+   * A node rather than a number, so the caller keeps ownership of how it is
+   * composed — `Counter` has to stay on the calling side or the count-up
+   * animation would have to be reimplemented in here.
+   *
+   * It lives inside the plot because that is what it is the total OF. It was
+   * previously a 32px number stacked above the chart in the card header,
+   * which cost a whole row (measured: the panel sat 74px from the card's top
+   * edge against 17px on the right) and gave the figure no container — a big
+   * number floating in white space reads as a leftover, not as a summary.
+   */
+  total?: ReactNode;
 }) {
+  /* Before the early return, so the hook count never changes between renders
+     of the same component. */
+  const [hover, setHover] = useState<number | null>(null);
+
   if (data.length < 2) return null;
 
+  const ink = accent ?? tok(hue);
   const hi = Math.max(...data.map((d) => d.n));
   const top = niceTop(hi);
 
-  /* Percent, not pixels. The SVG's own 0–100 viewBox uses the same numbers,
-     which is why one pair of functions serves both the path and the markers. */
+  /* ── THE BOX, AND WHY IT IS FOUR BOXES ──
+     The previous version had the value labels in a 22px gutter and the plot
+     starting at 31px, with both pinned to the same top and bottom. That put
+     the topmost label centred ON the panel's own top edge — it read as
+     floating outside the chart — and left the curve touching the panel's
+     edges with no air at all.
+
+     So the panel, the data area, the value gutter and the date row are now
+     four separately-positioned boxes:
+
+       GX  the value gutter's width. The labels live entirely to the LEFT of
+           the panel, which is what makes them read as a scale for it rather
+           than as text inside it.
+       PT  air between the panel's top edge and the highest the curve can go.
+       PB  the same at the bottom. Without these the line's own stroke width
+           clips against the panel's rounded corners.
+       XH  the date row, below the panel entirely. */
+  /* 34, not 42. The widest label this scale produces is two digits, and the
+     gutter was sized for room it never used — which pushed the panel's left
+     inset to 59px against 17px on the right. An axis gutter is always wider
+     than the opposite margin, but not three times wider. */
+  const GX = 34;
+  /* 30, up from 24. The dates were centred in a 24px row, which left their
+     glyph tops about 6px under the panel — close enough that they read as
+     hanging off the chart rather than labelling it. The extra 6px buys the
+     row real separation without moving the panel's other three edges. */
+  const XH = 30;
+  const PT = 18;
+  const PB = 14;
+  const plotH = h - PT - XH - PB;
+
   const px = (i: number) => (i / (data.length - 1)) * 100;
   const py = (n: number) => (1 - n / top) * 100;
+  /* Percent within the data area -> pixels from the chart's top, for the
+     things positioned against the whole chart rather than inside the plot. */
+  const yPx = (pctDown: number) => PT + (pctDown / 100) * plotH;
 
   const pts = data.map((d, i) => ({ x: px(i), y: py(d.n), n: d.n, day: d.day, i }));
 
   /* Tension 0.5 is the standard Catmull-Rom weighting. Anything higher starts
      bowing the curve past its own data points, which on a count that bottoms
-     out at 2 over a weekend means drawing candidates that were never sourced.
-
-     Computed in the 0–100 square and then stretched: the horizontal skew that
-     introduces changes the tangents, never the knots, so the curve still
-     passes exactly through every day's value. */
+     out at 2 over a weekend means drawing candidates that were never sourced. */
   const T = 0.5;
   let path = `M${pts[0]!.x.toFixed(3)} ${pts[0]!.y.toFixed(3)}`;
   for (let i = 0; i < pts.length - 1; i++) {
@@ -533,21 +718,24 @@ export function Area({
     path += ` C${c1x.toFixed(3)} ${c1y.toFixed(3)}, ${c2x.toFixed(3)} ${c2y.toFixed(3)}, ${p2.x.toFixed(3)} ${p2.y.toFixed(3)}`;
   }
 
-  /* The anchors. A Map because the last point is often also the high or the
-     low, and drawing a marker twice at one coordinate doubles its alpha. */
   const peak = pts.reduce((a, b) => (b.n > a.n ? b : a));
   const trough = pts.reduce((a, b) => (b.n < a.n ? b : a));
   const last = pts[pts.length - 1]!;
   const marks = [...new Map([peak, trough, last].map((p) => [p.i, p])).values()];
 
-  /* Top down, because that is the order they are stacked in the axis column.
-     Three lines — nothing, half, full. A line per unit would out-ink the curve
-     it is there to help read. */
-  const ticks = [top, top / 2, 0];
+  /* FIVE ticks, up from three, and DASHED RULES ARE BACK.
+     Removing them last pass went too far: a panel tells you where the chart
+     is, but it cannot tell you what a height MEANS, so three floating numbers
+     on the left were a scale with nothing to measure against. The reference
+     carries both — a tinted panel AND faint dashed rules — and it is right.
+     Dashed rather than solid because a dash reads as a reference line and a
+     solid line reads as data; there is already one solid line in here.
 
-  /* Evenly spaced across `labels` points, including both ends. More than the
-     data can support collapses through the Map's de-dupe rather than crowd —
-     asking for 14 on a 14-point series is safe, not an error. */
+     Five works because niceTop always lands on a multiple of four, so every
+     quarter is a whole number at every scale this chart sees: 24 -> 0/6/12/
+     18/24, and scoped to one campaign 8 -> 0/2/4/6/8. */
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => Math.round(top * f)).reverse();
+
   const xlabs = [...new Map(
     Array.from({ length: labels }, (_, k) => k)
       .map((k) => Math.round((k * (data.length - 1)) / (labels - 1)))
@@ -556,6 +744,17 @@ export function Area({
   ).entries()];
 
   const gid = `area-${hue}`;
+  const hovered = hover === null ? null : pts[hover] ?? null;
+  /* Maps a data-area x percentage onto the whole chart's width, since the
+     guide and the readout are positioned against the chart, not the plot. */
+  const atX = (xPct: number) => `calc(${GX}px + (100% - ${GX}px) * ${xPct / 100})`;
+
+  const onMove = (e: MouseEvent<HTMLDivElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    if (r.width <= 0) return;
+    const rel = (e.clientX - r.left) / r.width;
+    setHover(Math.max(0, Math.min(data.length - 1, Math.round(rel * (data.length - 1)))));
+  };
 
   return (
     <div
@@ -568,21 +767,65 @@ export function Area({
         + `low ${trough.n} on ${trough.day}, latest ${last.n} on ${last.day}.`
       }
     >
-      <div className="vz-yaxis">
-        {ticks.map((t) => <span key={t} className="vz-ax">{t}</span>)}
-      </div>
+      <span
+        className="vz-panel"
+        style={{ left: GX, bottom: XH, background: tok(hue, "tint") }}
+      />
 
-      <div className="vz-plot">
-        {ticks.map((t) => (
+      {ticks.map((t) => (
+        <span
+          key={t}
+          className="vz-grid"
+          style={{
+            left: GX,
+            top: yPx(py(t)),
+            backgroundImage:
+              `repeating-linear-gradient(to right, ${tok(hue, "line")} 0 4px, transparent 4px 10px)`,
+          }}
+        />
+      ))}
+
+      {/* Vertical rules at the labelled dates, so a reading can be traced down
+          to its own day rather than eyeballed across. Same dash and the same
+          --line token as the horizontal set: these are one grid seen in two
+          directions, and giving either axis more weight would imply one
+          matters more.
+
+          The first and last are skipped. Their x lands exactly on the panel's
+          own left and right edges, where a dashed rule reads as a broken
+          border rather than as part of the grid. */}
+      {xlabs.map(([i]) => (
+        i === 0 || i === data.length - 1 ? null : (
           <span
-            key={t}
-            className={`vz-grid${t === 0 ? " is-base" : ""}`}
-            style={{ top: `${py(t)}%` }}
+            key={`v${i}`}
+            className="vz-vgrid"
+            style={{
+              left: atX(px(i)),
+              bottom: XH,
+              backgroundImage:
+                `repeating-linear-gradient(to bottom, ${tok(hue, "line")} 0 4px, transparent 4px 10px)`,
+            }}
           />
-        ))}
+        )
+      ))}
 
-        {/* aria-hidden: the wrapper already carries the whole description, and
-            a second announcement of the same figure is noise. */}
+      {/* Entirely left of the panel, each label centred on its own rule. */}
+      {ticks.map((t) => (
+        <span
+          key={t}
+          className="vz-ax is-y"
+          style={{ width: GX - 12, top: yPx(py(t)) }}
+        >
+          {t}
+        </span>
+      ))}
+
+      <div
+        className="vz-plot"
+        style={{ left: GX, top: PT, bottom: XH + PB }}
+        onMouseMove={onMove}
+        onMouseLeave={() => setHover(null)}
+      >
         <svg
           className="vz-area"
           viewBox="0 0 100 100"
@@ -590,43 +833,89 @@ export function Area({
           aria-hidden="true"
         >
           <defs>
-            {/* Fades to nothing rather than stopping at a hard edge, so the
-                area reads as depth under the line, not a filled block. */}
             <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={tok(hue)} stopOpacity="0.20" />
-              <stop offset="100%" stopColor={tok(hue)} stopOpacity="0" />
+              <stop offset="0%" stopColor={ink} stopOpacity="0.30" />
+              <stop offset="45%" stopColor={ink} stopOpacity="0.12" />
+              <stop offset="100%" stopColor={ink} stopOpacity="0.01" />
             </linearGradient>
           </defs>
 
           <path d={`${path} L100 100 L0 100 Z`} fill={`url(#${gid})`} stroke="none" />
 
-          {/* Pale, on purpose: it carries the shape, the markers carry the
-              facts. non-scaling-stroke is what keeps it 2.5px in a box that is
-              being stretched ~6:1 horizontally. */}
+          {/* non-scaling-stroke keeps it 3px in a box stretched ~6:1
+              horizontally — without it the line would be six times thicker
+              across than it is down. */}
           <path
             d={path}
             fill="none"
-            stroke={tok(hue, "line")}
-            strokeWidth={2.5}
+            stroke={ink}
+            strokeWidth={3}
             strokeLinecap="round"
             strokeLinejoin="round"
             vectorEffect="non-scaling-stroke"
           />
         </svg>
 
-        {/* HTML, not <circle>, so they stay round in a stretched box. The ring
-            is the card's own colour, so a marker on the line reads as sitting
-            on top of it rather than merged into it. */}
-        {marks.map((p) => (
+        {/* Hidden while hovering: two kinds of marker on one curve at once
+            reads as two datasets. */}
+        {!hovered && marks.map((p) => (
           <span
             key={p.i}
-            className="vz-mark"
-            style={{ left: `${p.x}%`, top: `${p.y}%`, background: tok(hue) }}
+            className={`vz-mark${p.i === last.i ? " is-last" : ""}`}
+            style={{ left: `${p.x}%`, top: `${p.y}%`, background: ink }}
           />
         ))}
+
+        {hovered && (
+          <span
+            className="vz-hov"
+            style={{ left: `${hovered.x}%`, top: `${hovered.y}%`, background: ink }}
+          />
+        )}
       </div>
 
-      <div className="vz-xaxis">
+      {/* Spans the PANEL's full height rather than dropping from the point,
+          which is what ties the readout to the date beneath it. Positioned
+          against the chart so it can cross the plot's padding. */}
+      {hovered && (
+        <span
+          className="vz-guide"
+          style={{
+            left: atX(hovered.x),
+            bottom: XH,
+            /* The hover guide takes the DATA's colour, not the grid's. With
+               static vertical rules now on the chart, a guide in --line would
+               be a fourth identical dashed line and the reader would have to
+               work out which one was following the cursor. */
+            backgroundImage:
+              `repeating-linear-gradient(to bottom, ${ink} 0 4px, transparent 4px 9px)`,
+          }}
+        />
+      )}
+
+      {hovered && (
+        <div
+          className="vz-tip"
+          style={{ left: atX(hovered.x), top: yPx(hovered.y) - 50 }}
+          aria-hidden="true"
+        >
+          <span className="vz-tip-n" style={{ color: ink }}>
+            {hovered.n}{noun ? ` ${noun}` : ""}
+          </span>
+          <span className="vz-tip-d">{hovered.day}</span>
+        </div>
+      )}
+
+      {/* Hidden while hovering, and that is the whole interaction: at rest
+          the chart states its total, and under the cursor it states one day.
+          Two figures visible at once would be two answers to one question —
+          and the readout tracks the pointer, so at the right-hand end of the
+          series it would collide with this anyway. */}
+      {total && !hovered && (
+        <div className="vz-total" aria-hidden="true">{total}</div>
+      )}
+
+      <div className="vz-xaxis" style={{ left: GX, height: XH }}>
         {xlabs.map(([i, day]) => (
           <span key={i} className="vz-ax" style={{ left: `${px(i)}%` }}>{day}</span>
         ))}

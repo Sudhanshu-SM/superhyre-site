@@ -168,20 +168,6 @@
   --c-blue-text: #3d6dac;   --c-blue-fill: #3d76c2;
   --c-violet: #9b72d0; --c-violet-tint: #efe7f9; --c-violet-line: #d4c3ea;
   --c-violet-text: #8051be; --c-violet-fill: #8d5ecc;
-  /* A measured 4-step lightness ramp at --c-violet's OWN hue/saturation
-     (266°, 50%) — not a rename of tint/line/text/fill, because those four
-     were solved for a different job. tint and line are background washes,
-     meant to sit BEHIND dark text (1.20:1 and 1.64:1 against white — the old
-     bar-based funnel this replaced tried exactly this and its own comment
-     already documents why it failed: "unfixable by tuning, because the
-     undiluted mark is itself only ~3.3:1"). A funnel band is a filled SHAPE
-     standing on its own, not a wash under something else, so it needs to
-     clear the 3:1 floor by itself. All four here do: 3.27 / 4.57 / 6.42 /
-     8.15:1 against white. Adjacent steps still only run 1.27-1.40:1 apart —
-     any same-hue ramp does — which is why the funnel also draws a hairline
-     stroke between bands rather than trusting shade alone to separate them. */
-  --c-violet-1: #a37dd4; --c-violet-2: #8d5ec9;
-  --c-violet-3: #7740bf; --c-violet-4: #6436a1;
   --c-rose: #d16476;   --c-rose-tint: #f9e7ea;   --c-rose-line: #eac3c9;
   --c-rose-text: #b84054;   --c-rose-fill: #c64c60;
 
@@ -265,16 +251,26 @@
      which is exactly why the quick-find trigger looked flat at
      `0 1px 2px / 0.05`.
 
-     Colour is rgba(58,35,23,…), never black: neutral shadow on a warm surface
+     Colour is rgba(84,40,16,…), never black: neutral shadow on a warm surface
      is half of what made the old console read grey. Opacity ceiling is 0.14 and
-     only --e3 reaches it. */
+     only --e3 reaches it.
+
+     ── AND THE CAST IS THE BRAND'S, NOT JUST "WARM" ──
+     Was rgba(58,35,23), which is warm but muddy — 60% saturation, reading as
+     brown. The ask was a visible orange tint in the shadow under every card.
+     The lever is SATURATION, not lightness: rgba(84,40,16) holds the same hue
+     (~21deg, the accent's own family) and pushes saturation 0.60 -> 0.81,
+     while relative luminance only moves 0.022 -> 0.034. So the shadow reads
+     orange rather than grey-brown WITHOUT going lighter, which is what would
+     have quietly weakened every elevation on the surface and broken the one
+     resting-shadow hierarchy. Opacities are untouched for the same reason. */
   --e1:
-    0 1px 1px rgba(58, 35, 23, 0.05),
-    0 2px 6px rgba(58, 35, 23, 0.07);
+    0 1px 1px rgba(84, 40, 16, 0.05),
+    0 2px 6px rgba(84, 40, 16, 0.07);
   --e2:
-    0 1px 1px rgba(58, 35, 23, 0.05),
-    0 5px 14px rgba(58, 35, 23, 0.09);
-  --e3: 0 16px 40px rgba(58, 35, 23, 0.14);
+    0 1px 1px rgba(84, 40, 16, 0.05),
+    0 5px 14px rgba(84, 40, 16, 0.09);
+  --e3: 0 16px 40px rgba(84, 40, 16, 0.14);
 
   /* A four-step word tint scale used to live here, and a --panel-dark for a
      dark collage block. Both are gone: the collage words are uniformly --ink
@@ -4754,8 +4750,17 @@ body {
      Fixed, not a vw clamp and not an auto margin: this is the one number that
      must not move when the sidebar toggles, because it is the edge every
      block on the surface aligns to. Verified identical with the sidebar
-     expanded and collapsed. */
-  padding: 0 0 0 64px;
+     expanded and collapsed.
+
+     ── AND 56px UNDER THE LAST BLOCK ──
+     There was none, so the Sourced banner ended exactly on the viewport's
+     bottom edge and the page read as cut off rather than finished. This is
+     the container's padding rather than a margin on the last block, which
+     keeps the one-rhythm-owner rule intact: blocks still carry no vertical
+     spacing of their own, the stream owns the gaps between them AND the air
+     after the last one. Larger than the 32px section gap on purpose — the
+     space that ends a page should out-rank the space inside it. */
+  padding: 0 0 56px 64px;
   display: flex;
   flex-direction: column;
 }
@@ -5326,39 +5331,46 @@ body {
    "KPI numbers go much larger to establish hierarchy." Tabular, because it
    counts up on mount and proportional digits would shuffle the unit beside it
    on every frame. */
-.ov-big {
+/* ── the series total, inside the plot ──
+   `.ov-big` and `.ov-big-unit` used to render this above the chart and are
+   gone with it — one caller, one use, retired rather than left behind.
+
+   It sits top-right INSIDE the panel now, because that is what it is the
+   total of. A white card on the tinted panel, which is the same treatment the
+   hover readout gets: both are figures floating over the plot rather than
+   parts of it, so they share a language. --e1 against the readout's --e2
+   keeps the hierarchy honest — this one rests, that one follows the cursor.
+
+   The number takes --accent-deep rather than --ink. It is not a third ink; it
+   is the total of the orange series directly beneath it, and tying the figure
+   to its own curve is what makes it read as accumulated rather than as a
+   caption. 5.56:1 on white, well clear of the body floor. */
+.vz-total {
+  position: absolute;
+  z-index: 1;
+  top: 11px;
+  right: 11px;
   display: flex;
   align-items: baseline;
-  gap: 7px;
-  margin: 0 0 2px;
-  font: 600 26px/1 var(--ui);
-  letter-spacing: -0.026em;
-  color: var(--ink);
+  gap: 5px;
+  padding: 5px 11px 7px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-field);
+  background: var(--nav-surface);
+  box-shadow: var(--e1);
+  font: 600 23px/1 var(--ui);
+  letter-spacing: -0.024em;
+  color: var(--accent-deep);
   font-variant-numeric: tabular-nums;
+  /* Never intercepts the pointer: the plot underneath owns mousemove, and a
+     hole in the hover surface at the top-right would make the readout die
+     whenever the cursor crossed this. */
+  pointer-events: none;
 }
 
-/* ── sourced: the full-width banner ──
-   A direct child of .orc-stream now, not a row of .ov-stack's grid — it left
-   the stack because sourcing is most of a recruiter's day and a third of a
-   582px column was the wrong amount of room for the one chart that carries an
-   actual trend. Bounded to the same content measure as .ov, so it lines up
-   with the columns above it rather than running to the sidebar's edge.
-
-   The two numbers that change: the plot gets the headroom .ov-chart-plot's own
-   history warns is easy to get wrong (see that rule), and the headline count
-   steps up one size, because a banner-width card saying 148 in the same 26px
-   as a quarter-width one understates what it was just given. */
-.ov-chart.is-wide {
-  max-width: var(--orc-measure);
-}
-
-.ov-chart.is-wide .ov-big { font-size: 32px; }
-
-.ov-chart.is-wide .ov-chart-plot { height: 220px; }
-
-.ov-big-unit {
-  font: 400 11.5px/1.2 var(--ui);
-  letter-spacing: -0.006em;
+.vz-total-u {
+  font: 500 10.5px/1 var(--ui);
+  letter-spacing: -0.004em;
   color: var(--ink-2);
 }
 
@@ -5381,6 +5393,22 @@ body {
   display: flex;
   align-items: stretch;
 }
+
+/* ── the full-width banner ──
+   RESTORED. A line-range splice that retired `.ov-big` took these two rules
+   out with it, and the symptom was not subtle: the card collapsed to 159px
+   while its chart still rendered at 220, so the panel hung 77px below the
+   card's own bottom edge. Caught by measuring the panel's four insets rather
+   than by looking at it — the overflow was below the fold.
+
+   Bounded to the same content measure as `.ov` above it, so the banner lines
+   up with the two columns rather than running to the sidebar's edge. */
+.ov-chart.is-wide { max-width: var(--orc-measure); }
+
+/* The banner gets the height a trend actually needs. 220 against the 104 a
+   stacked card gets: this is the one chart on the page with a full width to
+   spend, and a 14-point series in 104px is a sparkline, not a chart. */
+.ov-chart.is-wide .ov-chart-plot { height: 220px; }
 
 /* ── THE BOX IS MEASURED; THE SVG IS NOT SCALED ──
    This used to be `width: 100%; height: 100%` on the SVG itself, stretching a
@@ -5419,64 +5447,87 @@ body {
   min-width: 0;
 }
 
-/* The value column. space-between, so the three labels land exactly on the
-   three gridlines without either knowing the other's position. */
-.vz-yaxis {
-  position: absolute;
-  left: 0;
-  /* 7px, not 0. The top label is CENTRED on the top gridline, so half its
-     line-height sits above it; at top: 0 that half landed inside the big
-     number's box — measured as a 6px overlap between "24" and "148", which
-     are also both hard against the card's left edge, so the collision was
-     real rather than merely a box artefact. Insetting the whole axis gives
-     the label its half-line and the peak marker more clearance at once. */
-  top: 7px;
-  bottom: 17px;
-  width: 22px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  align-items: flex-end;
-  /* Centres each label on its line rather than hanging it below. */
-  margin-top: -0.5em;
-  margin-bottom: -0.5em;
-}
+/* ── the four boxes ──
+   The panel, the DATA area, the value gutter and the date row are positioned
+   separately. They used to share one top/bottom, which put the topmost value
+   label centred ON the panel's own edge — reading as floating outside the
+   chart — and left the curve touching the panel with no air at all. The
+   component owns the numbers (GX / PT / PB / XH) and sets them inline. */
 
-/* Inset past the value column on the left, above the date row at the bottom. */
+/* The DATA area: inset from the panel on every side, so the curve has room
+   and its own 3px stroke cannot clip against the panel's rounded corners. */
 .vz-plot {
   position: absolute;
-  left: 31px;
   right: 0;
-  /* Matches .vz-yaxis, or the gridlines stop lining up with their labels. */
-  top: 7px;
-  bottom: 17px;
+}
+
+/* ── the tinted panel ──
+   Its own element rather than a background on .vz-plot, for two reasons: the
+   plot needs no `overflow: hidden`, so the hover readout can rise above the
+   chart's top edge without being clipped; and the panel can span the full
+   height the rules need while the data area stays inset within it. */
+.vz-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  border-radius: 10px;
+  pointer-events: none;
+}
+
+/* ── the rules ──
+   Dashed, and back after a pass without them. A panel tells you where the
+   chart IS; it cannot tell you what a height MEANS, so the values on the left
+   were a scale with nothing to measure against. Dashed rather than solid
+   because a dash reads as a reference and a solid line reads as data — and
+   there is already exactly one solid line in here. */
+.vz-grid {
+  position: absolute;
+  right: 0;
+  height: 1px;
+  background-repeat: repeat-x;
+  background-size: 10px 1px;
+  pointer-events: none;
+}
+
+/* The same grid turned ninety degrees, at the labelled dates. Shares the
+   dash, the token and the weight with the horizontal set on purpose — one
+   grid seen in two directions. The hover guide is deliberately NOT part of
+   this family: it carries the data's colour so it cannot be mistaken for one
+   of the static rules. */
+.vz-vgrid {
+  position: absolute;
+  top: 0;
+  width: 1px;
+  transform: translateX(-50%);
+  background-repeat: repeat-y;
+  background-size: 1px 10px;
+  pointer-events: none;
 }
 
 /* ── the axis ──
    Quieter than the curve in every dimension. An axis is scaffolding for
    reading the data, so the moment it competes with the data it has stopped
-   doing its job: the gridline is the same hairline the cards are bordered
-   with, and the type is the smallest on the surface.
+   doing its job — the type here is the smallest on the surface.
 
-   The zero line alone steps up to --rule. It is not a gridline, it is the
-   datum the area dies into. */
-.vz-grid {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 0;
-  border-top: 1px solid var(--hairline);
-  pointer-events: none;
-}
-
-.vz-grid.is-base { border-top-color: var(--rule); }
-
+   11.5px, up from 10.5: these labels ARE the scale, and a scale nobody can
+   read is not a scale. */
 .vz-ax {
-  font: 400 10.5px/1 var(--ui);
-  letter-spacing: -0.004em;
+  font: 500 11.5px/1 var(--ui);
+  letter-spacing: -0.006em;
   color: var(--ink-2);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+/* A value label: left of the panel entirely, right-aligned against it, each
+   centred on its own rule. Positioning per-tick rather than distributing a
+   flex column is what makes them read as a scale FOR the panel instead of
+   text sitting inside it. */
+.vz-ax.is-y {
+  position: absolute;
+  left: 0;
+  text-align: right;
+  transform: translateY(-50%);
 }
 
 .vz-area {
@@ -5502,31 +5553,61 @@ body {
   border-radius: 50%;
   /* Centres the dot ON its datum rather than below and right of it. */
   transform: translate(-50%, -50%);
-  box-shadow: 0 0 0 2.75px var(--nav-surface);
+  /* Two rings: the card's own fill knocks the line out from under the dot,
+     then a wider translucent halo in the hue lifts it off the plot. The halo
+     is what makes a marker read as placed rather than printed. */
+  box-shadow:
+    0 0 0 2.75px var(--nav-surface),
+    0 0 0 5px rgb(88 138 205 / 0.16);
   pointer-events: none;
 }
 
-/* The date row. Absolute per label with a percent offset, so the spacing comes
-   from the data's own index positions rather than from flex distribution —
-   a label sits under its point, which is the only place it is true. */
-.vz-xaxis {
-  position: absolute;
-  left: 31px;
-  right: 0;
-  bottom: 0;
-  height: 13px;
+/* The latest reading gets a larger halo than the high and the low. All three
+   are anchors, but only one of them is the answer to "where are we now" —
+   and a chart whose most recent point looks exactly like its oldest is making
+   the reader hunt for the thing they came for. */
+.vz-mark.is-last {
+  width: 7.5px;
+  height: 7.5px;
+  box-shadow:
+    0 0 0 3px var(--nav-surface),
+    0 0 0 7px rgb(88 138 205 / 0.18);
 }
 
+/* The date row, BELOW the panel rather than inside it. Absolute per label
+   with a percent offset, so the spacing comes from the data's own index
+   positions rather than from flex distribution — a label sits under its
+   point, which is the only place it is true.
+
+   No flex here: every child is absolutely positioned, so `align-items` on
+   this box did nothing. It was set, and it is what hid the real bug below. */
+.vz-xaxis {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+}
+
+/* ── CENTRED IN THE ROW, NOT PINNED TO ITS TOP ──
+   This was `top: 0`, which absolutely positioned each label flush against the
+   panel's bottom edge — and because absolute positioning ignores the parent's
+   `align-items`, widening the row from 24px to 30px moved the panel up and
+   left the labels exactly where they were. Measured gap: 0px.
+
+   `top: 50%` with the offset folded into the existing transform puts them in
+   the middle of the row, which is what the extra height was bought for. Both
+   axes of the transform have to live in one declaration — a second
+   `transform` would replace the first, not add to it. */
 .vz-xaxis > .vz-ax {
   position: absolute;
-  top: 0;
-  transform: translateX(-50%);
+  top: 50%;
+  transform: translate(-50%, -50%);
 }
 
 /* The ends anchor inward, or the first label hangs off the left of the plot
-   and the last one runs past the right edge of the card. */
-.vz-xaxis > .vz-ax:first-child { transform: none; }
-.vz-xaxis > .vz-ax:last-child { transform: translateX(-100%); }
+   and the last one runs past the right edge of the card. Each restates the
+   vertical half-offset, for the same reason. */
+.vz-xaxis > .vz-ax:first-child { transform: translate(0, -50%); }
+.vz-xaxis > .vz-ax:last-child { transform: translate(-100%, -50%); }
 
 .ov-foot {
   margin: 8px 0 0;
@@ -5769,6 +5850,76 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* ── hover ──
+   A dashed drop to the baseline, a solid marker, and a readout. Together they
+   answer "which day is that, and what was it" without the reader counting
+   along the axis — which is the whole reason a chart gets a hover state
+   rather than a legend.
+
+   The dash is a repeating gradient rather than a dashed border, because a
+   border's dash pattern cannot be tuned per side and the default rhythm is
+   too tight to read at this length. Colour comes from the hue inline. */
+.vz-guide {
+  position: absolute;
+  top: 0;
+  width: 1px;
+  transform: translateX(-50%);
+  background-repeat: repeat-y;
+  background-size: 1px 9px;
+  pointer-events: none;
+}
+
+/* The hovered point, drawn instead of the three resting anchors — see the
+   component for why both at once reads as two datasets. Heavier than a
+   resting marker because it is the one the reader is pointing at. */
+.vz-hov {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 3px var(--nav-surface), 0 0 0 4px currentColor;
+  color: var(--rule);
+  pointer-events: none;
+}
+
+/* ── the readout ──
+   Outside .vz-plot, so the panel cannot clip it. Elevation is --e2 rather
+   than --e1: it floats over the chart, and the one thing a tooltip must never
+   look like is part of the plot it is describing.
+
+   pointer-events: none is load-bearing — the tooltip tracks the cursor, so
+   without it the tooltip would sit under the pointer, take the mousemove, and
+   the chart would flicker between hovered and not. */
+.vz-tip {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 7px 11px;
+  transform: translateX(-50%);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-field);
+  background: var(--nav-surface);
+  box-shadow: var(--e2);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.vz-tip-n {
+  font: 600 12.5px/1.2 var(--ui);
+  letter-spacing: -0.014em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.vz-tip-d {
+  font: 400 10.5px/1.2 var(--ui);
+  letter-spacing: -0.004em;
+  color: var(--ink-2);
+}
+
 .vz-spark { display: block; width: 100%; height: 26px; }
 
 .vz-delta {
@@ -5794,22 +5945,68 @@ body {
 }
 
 /* ── the funnel shape ──
-   A row: the SVG silhouette on the left, the label list on the right, both
-   divided into the SAME number of equal-height bands so the two sides line
-   up without either measuring the other — the same technique the Sourced
-   chart's axis uses to stay aligned with its gridlines. */
+   A COLUMN: the silhouette above, the labels below, divided into the same
+   number of equal-WIDTH columns so the two line up without either measuring
+   the other — the same technique the Sourced chart's axis uses to stay
+   aligned with its gridlines.
+
+   It was a row (vertical funnel, labels beside it) and the turn is a sizing
+   fix as much as a visual one. A vertical taper needed ~200px of height to
+   read, and this card sits in a stretched track matched to the task list, so
+   its height inflated BOTH columns — every card on the page went 195px ->
+   263px. On its side it needs 84px and the cards go back. */
 .vz-funnel-wrap {
   display: flex;
-  align-items: stretch;
-  gap: 14px;
+  flex-direction: column;
+  gap: 7px;
   flex: 1 1 auto;
   min-height: 0;
+  justify-content: center;
+}
+
+/* ── the header row ──
+   Label and count per stage, ABOVE the shape. Reading order matters: name
+   first, illustration second. The left border on every cell but the first is
+   half of each divider — the other half is on the matching percentage cell
+   below, so the two line up into one continuous rule without either knowing
+   about the other. */
+.vz-funnel-head {
+  display: flex;
+  list-style: none;
+  margin: 0 0 7px;
+  padding: 0;
+  flex: none;
+}
+
+.vz-funnel-hcell {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding-left: 9px;
+}
+
+.vz-funnel-hcell + .vz-funnel-hcell { border-left: 1px solid var(--hairline); }
+
+/* The ribbon and its overlay share this box, so the dividers can run the
+   full height of the shape without being cut into it. */
+.vz-funnel-plot {
+  position: relative;
+  height: 84px;
+  flex: none;
 }
 
 .vz-funnel-svg {
-  flex: 0 0 38%;
+  position: absolute;
+  inset: 0;
   display: block;
-  min-height: 0;
+  width: 100%;
+  height: 100%;
+  /* The sheen falls to a shade at the bottom edge, which only reads as depth
+     against a known surface — overflow would let it bleed past the card's
+     rounded corner and expose that it is translucent. */
+  overflow: hidden;
 }
 
 /* Fills downward on mount, matching the direction the shape itself narrows
@@ -5817,31 +6014,61 @@ body {
    elsewhere on this page, so a fourth primitive does not introduce a fourth
    kind of motion. backwards keeps the band invisible during its own delay
    instead of flashing at full opacity before the stagger reaches it. */
+/* OPACITY ONLY, and that is forced by the clipping rather than chosen. Each
+   segment paints the FULL funnel path clipped to its own column, so its
+   bounding box is the whole shape — any transform would scale or slide the
+   entire funnel behind a fixed window, reading as a wipe rather than an
+   arrival. A staggered fade left-to-right says the same thing without
+   fighting the clip.
+
+   `backwards` keeps a segment invisible during its own delay instead of
+   flashing at full opacity before the stagger reaches it. */
 @keyframes vz-funnel-in {
-  from { opacity: 0; transform: scaleY(0.82); transform-origin: 50% 0%; }
-  to { opacity: 1; transform: none; }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .vz-funnel-band {
-  animation: vz-funnel-in 360ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  animation: vz-funnel-in 460ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
 }
 
-.vz-funnel-list {
-  flex: 1 1 0;
-  min-width: 0;
+/* ── the percentage overlay ──
+   Over the ribbon, not stacked above it. Each cell carries the lower half of
+   its divider and parks its conversion at the top-right, in the air the
+   descending top edge opens up. The first stage has no percentage — it is the
+   pool the others are measured against — which is also the only stage whose
+   shape reaches the top of the box, so nothing ever overlaps. */
+.vz-funnel-pcts {
+  position: absolute;
+  inset: 0;
   display: flex;
-  flex-direction: column;
   list-style: none;
   margin: 0;
   padding: 0;
+  pointer-events: none;
 }
 
-.vz-funnel-item {
+.vz-funnel-pcell {
+  flex: 1 1 0;
+  min-width: 0;
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  min-height: 0;
+  justify-content: flex-end;
+  align-items: flex-start;
+  padding: 2px 8px 0 0;
 }
+
+.vz-funnel-pcell + .vz-funnel-pcell { border-left: 1px solid var(--hairline); }
+
+.vz-funnel-pct {
+  font: 600 11px/1 var(--ui);
+  letter-spacing: -0.008em;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The sheen pass sits on top of the colour pass and must never intercept a
+   pointer or be read as its own shape. */
+.vz-funnel-sheen { pointer-events: none; }
 
 .vz-funnel-item-label {
   font: 500 10.5px/1.2 var(--ui);
@@ -5853,19 +6080,10 @@ body {
 }
 
 .vz-funnel-item-n {
-  font: 600 15px/1.3 var(--ui);
-  letter-spacing: -0.016em;
+  font: 600 17px/1.2 var(--ui);
+  letter-spacing: -0.018em;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
-}
-
-/* One step quieter and lighter than the number it qualifies, and NOT
-   tabular — "of 61" reads as a unit attached to the number, not a second
-   figure competing with it for the eye's first stop. */
-.vz-funnel-item-of {
-  font: 400 10.5px/1 var(--ui);
-  letter-spacing: -0.004em;
-  color: var(--ink-2);
 }
 
 .vz-stack { display: inline-flex; align-items: center; }
