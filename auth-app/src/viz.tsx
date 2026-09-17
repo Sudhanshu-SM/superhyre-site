@@ -132,7 +132,18 @@ export function Ring({
           transform={`rotate(-90 ${size / 2} ${size / 2})`}
         />
       </svg>
-      <span className="vz-ring-n" style={{ color: tok(hue, "text") }}>{Math.round(pct)}%</span>
+      {/* Proportional, not fixed: this primitive was unused everywhere until
+          the conversion card asked for it at 76px, double the 38px default,
+          and a font sized for the small ring would sit lost in the middle of
+          the bigger one. 0.24 of size keeps the centred number reading as
+          "the ring's own label" at any size the caller picks, rather than a
+          fixed value that only happened to look right at 38px. */}
+      <span
+        className="vz-ring-n"
+        style={{ color: tok(hue, "text"), fontSize: Math.round(size * 0.24) }}
+      >
+        {Math.round(pct)}%
+      </span>
     </span>
   );
 }
@@ -216,46 +227,109 @@ export function Delta({ value, invert = false }: { value: number; invert?: boole
   );
 }
 
-/* ── funnel: where it narrows ─────────────────────────────────────────────── */
+/* ── funnel: where it narrows ───────────────────────────────────────────────
 
+   A real tapering shape now, not a list of bars. The bars were honest but
+   they were not what "funnel" means to anyone looking at the card — a funnel
+   is a silhouette that narrows, and a row of independent horizontal tracks
+   never reads as one shape no matter how carefully the maximum is shared.
+
+   ── ORDER IS THE CALLER'S DECISION, NOT THIS COMPONENT'S ──
+   `Funnel` draws whatever sequence it is given, top to bottom, at whatever
+   widths the counts produce. It does not know or enforce that the sequence
+   is a true nested pipeline — see ProgressCard for the real caveat: this
+   product's Shortlisted and Contacted are two separate judgements over the
+   same sourced pool, not stage-then-stage, and are reordered by count before
+   they reach here so the taper is a real decreasing shape rather than one
+   that flares outward in the middle. That reordering is a display decision
+   made by the caller; this component would draw whatever it flares into
+   just as readily, which is exactly why it does not make the decision.
+
+   ── ONE HUE, FOUR MEASURED SHADES, PLUS A STROKE ──
+   `--c-violet-1..4` — see their definition for why the existing tint/line/
+   text/fill tokens do not work here: tint and line are background washes
+   (1.20:1 and 1.64:1 against white) and a filled shape standing on its own
+   needs to clear 3:1 by itself, not merely qualify as a subtle backdrop.
+   Adjacent same-hue steps are still close to each other (1.27-1.40:1), which
+   any single-hue ramp will be — so every band also carries a hairline stroke
+   in the card's own surface colour, which separates neighbours by drawing a
+   boundary rather than by hoping the fill contrast does it alone. */
 export function Funnel({
   stages,
 }: {
-  /** Each stage brings its own hue — see `Stage.hue` for why it is per-stage. */
-  stages: readonly { id: string; label: string; count: number; hue: Hue }[];
+  /** Display order top to bottom — widest first is not enforced, only drawn.
+   *  `of` is the TRUE denominator for the printed fraction; it is not
+   *  necessarily the previous entry in this array. See ProgressCard. */
+  stages: readonly { id: string; label: string; n: number; of: number }[];
 }) {
-  const top = Math.max(...stages.map((s) => s.count)) || 1;
-  return (
-    <ul className="vz-funnel">
-      {stages.map((s) => {
-        const pct = (s.count / top) * 100;
-        /* ── NO FADE, AND THAT WAS A CONTRAST FIX ──
-           Bars used to fade toward their tint by 14% per step, for "depth".
-           Measured, that put bars 2-5 at 2.96 / 2.50 / 2.12 / 1.82:1 on white
-           — under the 3:1 a data mark owes — and it was unfixable by tuning,
-           because the undiluted mark is itself only ~3.3:1, so ANY dilution
-           fails. Depth is carried by the bar WIDTHS, which are the datum.
+  if (stages.length < 2) return null;
 
-           ── AND NOT A STACKED BAR ──
-           A single segmented bar would be far shorter, and it is wrong: 148
-           sourced already CONTAINS the 24 shortlisted, so the five counts are
-           nested rather than parts of a whole. Stacking them would draw a
-           total that does not exist. Five bars against a shared maximum is
-           the honest shape; the height came out of the tile's chrome instead. */
-        return (
-          <li key={s.id} className="vz-funnel-row">
-            <span className="vz-funnel-label">{s.label}</span>
-            <span className="vz-funnel-track" style={{ background: tok(s.hue, "tint") }}>
-              <span
-                className="vz-funnel-bar"
-                style={{ width: `${pct}%`, background: tok(s.hue) }}
-              />
+  const top = stages[0]!.n || 1;
+  /* Floored at 2 so the narrowest real stage still draws a visible sliver —
+     the number beside it carries the truth either way, this floor only keeps
+     a genuinely small band from vanishing into a zero-width line. */
+  const width = (n: number) => Math.max(2, Math.min(100, (n / top) * 100));
+  const bandH = 100 / stages.length;
+  const SHADE = [
+    "var(--c-violet-1)", "var(--c-violet-2)", "var(--c-violet-3)", "var(--c-violet-4)",
+  ];
+
+  return (
+    <div className="vz-funnel-wrap">
+      <svg
+        className="vz-funnel-svg"
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        {stages.map((s, i) => {
+          const topW = width(s.n);
+          /* Tapers into the NEXT stage's width, so consecutive bands share an
+             edge and read as one silhouette. The last band has no next stage
+             to taper into, so its bottom matches its own top — a straight
+             closing edge rather than a fabricated final taper. */
+          const botW = i < stages.length - 1 ? width(stages[i + 1]!.n) : topW;
+          const y0 = i * bandH;
+          const y1 = (i + 1) * bandH;
+          const pts = `${50 - topW / 2},${y0} ${50 + topW / 2},${y0} `
+            + `${50 + botW / 2},${y1} ${50 - botW / 2},${y1}`;
+          return (
+            <polygon
+              key={s.id}
+              className="vz-funnel-band"
+              points={pts}
+              fill={SHADE[Math.min(i, SHADE.length - 1)]}
+              stroke="var(--nav-surface)"
+              strokeWidth={1.5}
+              vectorEffect="non-scaling-stroke"
+              /* Top band first, each next one 70ms behind — reads as the
+                 funnel filling downward, the same direction it narrows in,
+                 rather than every band snapping in at once. Suppressed under
+                 reduced motion in the CSS, same as every other primitive
+                 here. */
+              style={{ animationDelay: `${i * 70}ms` }}
+            />
+          );
+        })}
+      </svg>
+
+      <ul className="vz-funnel-list">
+        {stages.map((s) => (
+          <li key={s.id} className="vz-funnel-item" style={{ height: `${bandH}%` }}>
+            <span className="vz-funnel-item-label">{s.label}</span>
+            <span className="vz-funnel-item-n">
+              {s.n}
+              {/* The denominator, printed beside every band rather than once
+                  for the card: each stage folds against a DIFFERENT base
+                  (contacted's is sourced, replied's is contacted), so one
+                  shared "of X" at the top would be wrong for three of the
+                  four rows. */}
+              <span className="vz-funnel-item-of"> of {s.of}</span>
             </span>
-            <span className="vz-funnel-n">{s.count}</span>
           </li>
-        );
-      })}
-    </ul>
+        ))}
+      </ul>
+    </div>
   );
 }
 

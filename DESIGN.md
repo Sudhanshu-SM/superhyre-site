@@ -1,6 +1,6 @@
 # SuperHyre — design system
 
-**Status:** working draft · **Revision:** 37 · **Last changed:** 2026-09-16
+**Status:** working draft · **Revision:** 38 · **Last changed:** 2026-09-16
 
 > **This file is a proposal layer, not the implementation.** The CSS custom
 > properties in `auth-app/src/access.css` and `style.css` are what actually
@@ -1797,6 +1797,81 @@ Centred stat blocks, not left-label/right-number rows: Progress already owns
 that shape for counts one card down, and copying it here would make the two
 cards read as the same list rather than two different questions.
 
+### 5.16 Progress becomes a real funnel; Conversion becomes rings — *Adopted at revision 38*
+
+"Too bland" and "the funnel type view is not implemented" — both true. Bars and
+bare percentages were correct but not visual. Researched twice before touching
+either: funnel-chart design practice, and radial-gauge/progress-ring practice.
+
+#### The funnel is a real tapering silhouette now
+
+Four connected trapezoids, not four independent tracks. Consecutive bands
+share an edge, so the whole thing reads as one narrowing shape rather than a
+row of bars that happen to share a maximum.
+
+**The reorder that makes the taper honest.** `stepsFor()` returns
+`[shortlisted, contacted, replied, interviews]` because that is DERIVATION
+order — shortlisted and contacted are both measured against the sourced pool,
+not against each other. Their raw counts are not monotonic: contacted (61) is
+larger than shortlisted (24), because they are two separate judgements over
+the same pool, not one stage feeding the next. Drawing them in derivation
+order would flare the shape outward in the middle before narrowing — not a
+taper, a shape that looks broken. `ProgressCard` reorders by count before
+handing stages to `Funnel` — contacted, shortlisted, replied, interviews — so
+the drawing sequence is genuinely decreasing. The `of` on each stage is
+untouched by the reorder; only the drawing order changes, never the fraction.
+
+**One hue, four measured shades — and a computed one, not the existing
+tokens.** Reached first for `--c-violet-tint`/`-line`/`-text`/`-fill`, then
+measured them: tint is 1.20:1 against white, line 1.64:1 — both background
+washes meant to sit BEHIND dark text, not stand alone as a filled shape. This
+is exactly what the funnel's own predecessor already found "unfixable by
+tuning". Built a proper 4-step ramp instead at `--c-violet`'s own hue/
+saturation (266°, 50%), lightness only: `--c-violet-1..4`, measuring
+3.27 / 4.57 / 6.42 / 8.15:1 against white. Adjacent steps in ANY same-hue ramp
+are still close (1.27–1.40:1 here), so every band also carries a 1.5px stroke
+in the card's own surface colour — an explicit boundary rather than hoping
+shade alone separates neighbours.
+
+**Motion**: each band fades and grows in top-to-bottom, staggered 70ms apart —
+the same "value reveals itself" language `Ring`/`Spark`/`Counter` already use
+elsewhere on this page, so a fourth primitive does not introduce a fourth kind
+of motion. Suppressed under `prefers-reduced-motion`, same as the others.
+
+#### Conversion: three rings, not three bare percentages
+
+`Ring` already existed in `viz.tsx` — arc sweep-in, per-hue colour, centred
+percentage — built the same session as `Spark` and `Delta`, and used by
+nothing until this card. A ring IS what a rate is: a fraction of a circle.
+Swapping the bare `28%` text for the ring did three things a text-only number
+could not: gave the number a shape, gave it the same mount animation every
+other data primitive on Home already has, and answered "too bland" by putting
+genuine colour and motion where there had only been ink.
+
+`Ring`'s label was a fixed 9.5px, sized for its unused 38px default. Asking
+for it at 68px made the number look lost in the middle of the arc, so the
+label is now `size * 0.24` — proportional, so the primitive stays correct at
+whatever size a future caller picks rather than only at the one size it
+happened to be built for.
+
+The denominator stays printed beside every ring exactly as it was beside every
+bare percentage before — the KPI-card research that shaped the previous
+revision (never show a rate without its numerator and denominator) did not
+stop being true just because the rate gained a shape.
+
+#### What stayed the same
+
+Colour budget is still three. Progress and Conversion both spend violet, not
+a new hue each — a card asking for attention by introducing colour that
+nothing else on the page uses is the exact trap this surface has refused since
+the palette was first measured. `stepsFor()` is still the only source either
+card reads from, so they still cannot disagree with each other.
+
+Verified: 4 bands render, zero text collisions swept, cards stay equal-height
+across breakpoints (263px expanded, 299px railed, 157/314/185 intrinsic at the
+1100px single-column break — the funnel gets MORE dramatic at that width, not
+less, since it goes to a whole column's height with nothing to divide it by).
+
 ## 6. Verifying a colour change
 
 Every ratio in this file was computed, not estimated. To re-check after an edit:
@@ -1895,3 +1970,4 @@ which is the wrong home for a system-wide constant. Move it to a shared module
 | 35 | 2026-09-16 | Home becomes a fixed overview and the widget feature is deleted. §5.13. Two columns at 50/50: today's tasks left (the page asks "what should I do now" and the list is what answers it; the guidance puts the answer top-left), three analytics cards right — sourced-per-day as a smooth area chart, a four-step progress card, and active campaigns. The three are ROWS of a stretched grid track rather than cards with their own heights, so their sum equals the list's by construction; measured 620/620 with cards at 193/193/193, and 50/50 holding in both sidebar states (columns reclaim the collapsed rail: 582 → 676). Deleted the tile gallery entirely — Bento.tsx, TileMenu.tsx, tileLayout.ts, the tile model in orchestrator.ts and 198 CSS rules — because configurability cost a persisted schema, five key versions in one session, two popovers, a drag interaction and a resting state that had to look deliberate at three sizes and seven hues, to answer a question a fixed overview answers for everyone. Research changed three decisions I would have got wrong: markers go on high/low/latest rather than all fourteen points; the LINE is pale and the MARKERS are vibrant, not the reverse; and the palette is three hues with rose reserved for a campaign that has actually stalled. One measured bug: the chart plot had no definite height, so `height: 100%` fell back to the viewBox aspect ratio — 178px at 582px wide — which inflated the card, the stack and then the task list to 883px for two tasks. |
 | 36 | 2026-09-16 | The overview gains a campaign filter, a time window, an axis and a greeting. §5.14. Every number is stored PER CAMPAIGN and "All campaigns" is the fold — 78+46+24=148, funnel folds to [24,61,17,6] — because hand-written overall totals would let the header disagree with the sum of its own parts with nothing in the type system noticing; pinned by 13 tests asserting RELATIONS (day-by-day equality, each step inside its denominator) rather than fixture values. `live` became derived from `funnel.contacted`: it had been a stored 61 that was also the overall contacted count, two unrelated numbers that happened to match. Unified the two campaign id spaces (`sbe` vs `backend-snr`) onto the canonical list. Four task pills became two selects because the pills mixed WHEN with WHAT STATE in one control, making "blocked things due this week" unaskable; state needs no control since every row wears a chip. Today means dueInDays <= 0, overdue INCLUDED — which forced replacing `urgent: boolean` with a number, since you cannot range-filter a boolean. The campaign filter appears twice writing one piece of Console state: two handles on one truth, and it survives navigating to the Agent and back. "Home" became "Hello <name>" at 30px, indented 16px past the shared 64px left edge as asked. "New campaign" is wired to the composer rather than a modal posting nowhere. The axis took three attempts and the first two were about measurement: a stretched viewBox scaled 11px type to ~19px and drew round markers as ellipses; a ResizeObserver version let the SVG's width attribute prop its own container open so the chart ratcheted wider and painted 642px through a 548px card, then — once out of flow — never fired at all in headless and rendered nothing. The rule: paths tolerate a non-uniform stretch, type and circles do not. SVG holds only fill and curve in a 0-100 square with non-scaling-stroke; labels, gridlines and markers are HTML in percent. Verified plotW 517/373/613 across viewports with markers 7x7 at each. Axis max rounds to a multiple of four so the midpoint stays whole (21→24, midline 12). Two measured corrections: the centred top label overlapped .ov-big by 6px until the axis was inset 7px, and the solo campaigns card is centred rather than top-aligned into ~60px of void. |
 | 37 | 2026-09-17 | Sourced becomes a full-width banner below both columns; the freed top-of-stack slot becomes a researched Conversion card. §5.15. Sourcing is most of a recruiter's day, so the chart left the three-card stack for a direct-child-of-.orc-stream banner at the full content measure, plot height 104→220, x-axis labels 4→7 via a new generalised `labels` prop on `Area`. The freed slot was NOT backfilled with a guessed metric for one turn (dashed, "not decided yet") before being researched: real 2026 sourcing-outreach benchmarks (personalised outreach 18-25% reply, top-decile ~11%) and KPI-card design guidance (never show a percentage without its numerator/denominator, the same rule Progress's `of X` labels already followed) landed on three ratios — response rate 28% (17 of 61), interview rate 35% (6 of 17), sourced→interview 4% (6 of 148) — not five, because the research on repeated-element attention loss applies to one card exactly as it does to a KPI row. All three fold out of the same `stepsFor` call Progress makes, so the two cards cannot disagree; `shortlisted.of` is reused as the sourced total rather than calling `sourcedFor` again. Verified: banner width matches `.ov` at every width and sidebar state (981/1372/716), 7 labels render, zero text collisions swept, 3-stat row holds at the 1100px single-column breakpoint. |
+| 38 | 2026-09-17 | Progress becomes a real tapering funnel; Conversion becomes three animated rings. §5.16. Researched funnel-chart and radial-gauge design practice before rebuilding either — "too bland" and "funnel not implemented" were both accurate complaints about bars and bare text. Funnel: four connected trapezoids sharing edges, reordered from stepsFor()'s derivation order (shortlisted, contacted, replied, interviews) to count order (contacted 61, shortlisted 24, replied 17, interviews 6) so the taper is honestly decreasing rather than flaring outward, since Contacted and Shortlisted are parallel judgements over the sourced pool, not sequential stages. Reached for the existing --c-violet tint/line/text/fill tokens first, measured them (1.20:1 / 1.64:1 against white — background washes, not standalone-fill-safe), and built a proper 4-step lightness ramp instead at violet's own hue/saturation: --c-violet-1..4 at 3.27/4.57/6.42/8.15:1. Same-hue adjacent steps still only differ 1.27-1.40:1, so every band also carries a 1.5px stroke in the card's surface colour as an explicit separator. Bands fade+grow in staggered 70ms apart, reduced-motion suppressed, matching Ring/Spark/Counter's existing arrival language. Conversion: swapped three bare percentages for Ring, which already existed in viz.tsx unused since an earlier revision. Ring's label was a fixed 9.5px sized for its 38px default; made proportional (size * 0.24) once asked for at 68px, since a fixed value was only ever correct at the one size it happened to be built for. Colour budget stays three — both cards spend violet, no new hue introduced. Verified zero collisions, cards equal-height across breakpoints (263 expanded / 299 railed / 157-314-185 intrinsic at the 1100px break, where the funnel gets a whole column to itself and reads even more dramatically). |

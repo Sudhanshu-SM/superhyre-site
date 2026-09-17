@@ -3,7 +3,9 @@ import type { Scope } from "./orchestrator";
 import {
   STALE_DAYS, campaignsFor, isScoped, sourcedFor, stepsFor,
 } from "./orchestrator";
-import { Area, Counter, Dot } from "./viz";
+import {
+  Area, Counter, Dot, Funnel, Ring,
+} from "./viz";
 
 /**
  * Home's analytics: one full-width banner, and three cards stacked beside the
@@ -131,12 +133,11 @@ export function ConversionCard({ scope }: { scope: Scope }) {
      stepsFor) — reusing it here rather than calling sourcedFor again keeps
      this card's number identical to Progress's by construction. */
   const sourced = shortlisted!.of;
-  const pct = (n: number, of: number) => (of > 0 ? Math.round((n / of) * 100) : 0);
 
   const stats = [
-    { label: "Response rate", pct: pct(replied!.n, replied!.of), n: replied!.n, of: replied!.of, unit: "replied" },
-    { label: "Interview rate", pct: pct(interviews!.n, interviews!.of), n: interviews!.n, of: interviews!.of, unit: "replied" },
-    { label: "Sourced → interview", pct: pct(interviews!.n, sourced), n: interviews!.n, of: sourced, unit: "sourced" },
+    { label: "Response rate", n: replied!.n, of: replied!.of, unit: "replied" },
+    { label: "Interview rate", n: interviews!.n, of: interviews!.of, unit: "replied" },
+    { label: "Sourced → interview", n: interviews!.n, of: sourced, unit: "sourced" },
   ];
 
   return (
@@ -145,10 +146,20 @@ export function ConversionCard({ scope }: { scope: Scope }) {
         <h3 className="ov-h">Conversion</h3>
       </header>
 
+      {/* RINGS, not bare percentages. The two research findings that changed
+          this card: a percentage with nothing else on the page is a vanity
+          metric — every KPI-card guide says pair it with the numerator and
+          denominator, which the caption line already did — but a bare number
+          is also not yet a VISUAL, and "too bland" was the actual complaint.
+          A ring is a fraction of a circle, which is what a rate literally is;
+          it also arrives with the arrival motion every other data primitive
+          on this page already uses (the value sweeps in on mount), which text
+          alone cannot do. `Ring` already existed in viz.tsx unused — this is
+          its first caller. */}
       <div className="ov-conv">
         {stats.map((s) => (
           <div className="ov-conv-stat" key={s.label}>
-            <p className="ov-conv-pct">{s.pct}%</p>
+            <Ring value={s.n} max={s.of} hue="violet" size={68} width={6} />
             <p className="ov-conv-label">{s.label}</p>
             <p className="ov-conv-of">{s.n} of {s.of} {s.unit}</p>
           </div>
@@ -162,7 +173,25 @@ export function ConversionCard({ scope }: { scope: Scope }) {
 /* ── where they are now ──────────────────────────────────────────────────── */
 
 export function ProgressCard({ scope }: { scope: Scope }) {
-  const steps = stepsFor(scope);
+  const [shortlisted, contacted, replied, interviews] = stepsFor(scope);
+
+  /* ── REORDERED FOR AN HONEST TAPER ──
+     stepsFor() returns [shortlisted, contacted, replied, interviews] because
+     that is the order its DENOMINATORS derive in: shortlisted and contacted
+     are both measured against the sourced pool, replied against contacted,
+     interviews against replied. It is not the order their COUNTS decrease in
+     — contacted (61) is larger than shortlisted (24), because they are two
+     separate judgements over the same sourced pool, not one stage feeding the
+     next. A funnel drawn in derivation order would flare outward in the
+     middle before narrowing, which is not a taper, it is a shape that looks
+     broken.
+
+     Reordered by count here — contacted, shortlisted, replied, interviews —
+     so `Funnel` receives a genuinely decreasing sequence. The `of` on each
+     stage stays whatever `stepsFor` actually derived it against, so the
+     printed fraction is never touched by the reorder; only the drawing
+     sequence changes. */
+  const funnel = [contacted!, shortlisted!, replied!, interviews!];
 
   return (
     <article className="ov-card">
@@ -173,31 +202,11 @@ export function ProgressCard({ scope }: { scope: Scope }) {
         </a>
       </header>
 
-      <ul className="ov-steps">
-        {steps.map((s) => {
-          /* Guarded rather than assumed non-zero: scoped to one campaign a
-             step's denominator is that campaign's previous step, and a
-             campaign with nothing contacted yet would divide by zero. */
-          const pct = s.of > 0 ? Math.round((s.n / s.of) * 100) : 0;
-          return (
-            <li key={s.id} className="ov-step">
-              <span className="ov-step-l">{s.label}</span>
-              {/* The bar is the ratio to the step BEFORE it, which is the only
-                  honest denominator for a funnel: 17 replies is 28% of the 61
-                  contacted, not 11% of everyone sourced. The denominator is
-                  printed so the percentage can be checked. */}
-              <span className="ov-step-track">
-                <span className="ov-step-bar" style={{ width: `${pct}%` }} />
-              </span>
-              <span className="ov-step-n">{s.n}</span>
-              <span className="ov-step-of">of {s.of}</span>
-            </li>
-          );
-        })}
-      </ul>
+      <Funnel stages={funnel.map((s) => ({ id: s.id, label: s.label, n: s.n, of: s.of }))} />
     </article>
   );
 }
+
 
 /* ── which reqs are live ─────────────────────────────────────────────────── */
 

@@ -168,6 +168,20 @@
   --c-blue-text: #3d6dac;   --c-blue-fill: #3d76c2;
   --c-violet: #9b72d0; --c-violet-tint: #efe7f9; --c-violet-line: #d4c3ea;
   --c-violet-text: #8051be; --c-violet-fill: #8d5ecc;
+  /* A measured 4-step lightness ramp at --c-violet's OWN hue/saturation
+     (266°, 50%) — not a rename of tint/line/text/fill, because those four
+     were solved for a different job. tint and line are background washes,
+     meant to sit BEHIND dark text (1.20:1 and 1.64:1 against white — the old
+     bar-based funnel this replaced tried exactly this and its own comment
+     already documents why it failed: "unfixable by tuning, because the
+     undiluted mark is itself only ~3.3:1"). A funnel band is a filled SHAPE
+     standing on its own, not a wash under something else, so it needs to
+     clear the 3:1 floor by itself. All four here do: 3.27 / 4.57 / 6.42 /
+     8.15:1 against white. Adjacent steps still only run 1.27-1.40:1 apart —
+     any same-hue ramp does — which is why the funnel also draws a hairline
+     stroke between bands rather than trusting shade alone to separate them. */
+  --c-violet-1: #a37dd4; --c-violet-2: #8d5ec9;
+  --c-violet-3: #7740bf; --c-violet-4: #6436a1;
   --c-rose: #d16476;   --c-rose-tint: #f9e7ea;   --c-rose-line: #eac3c9;
   --c-rose-text: #b84054;   --c-rose-fill: #c64c60;
 
@@ -5523,67 +5537,9 @@ body {
 
 .ov-foot strong { font-weight: 600; color: var(--ink); }
 
-/* ── the progress steps ──
-   Label, bar, number, denominator. One row per step, on one grid so all four
-   bars share an origin — four bars starting at different x cannot be compared,
-   which is the only reason to draw them. */
-.ov-steps {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  align-content: space-between;
-  flex: 1 1 auto;
-  min-height: 0;
-  gap: 9px;
-}
-
-.ov-step {
-  display: grid;
-  grid-template-columns: 74px minmax(0, 1fr) 30px 44px;
-  align-items: center;
-  gap: 9px;
-}
-
-.ov-step-l {
-  font: 500 11.5px/1.3 var(--ui);
-  letter-spacing: -0.006em;
-  color: var(--ink-2);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ov-step-track {
-  height: 6px;
-  border-radius: var(--r-pill);
-  background: var(--c-violet-tint);
-  overflow: hidden;
-}
-
-.ov-step-bar {
-  display: block;
-  height: 100%;
-  border-radius: var(--r-pill);
-  background: var(--c-violet);
-}
-
-.ov-step-n {
-  font: 600 13px/1 var(--ui);
-  letter-spacing: -0.016em;
-  color: var(--ink);
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-/* The denominator, so the bar's percentage can be checked rather than
-   trusted. One step quieter than the number it qualifies. */
-.ov-step-of {
-  font: 400 10.5px/1 var(--ui);
-  letter-spacing: -0.004em;
-  color: var(--ink-2);
-  font-variant-numeric: tabular-nums;
-}
+/* ── the funnel ──
+   Replaces the bar list — see .vz-funnel-wrap below for the shape itself.
+   Progress just hosts it: a header, then the primitive, nothing else. */
 
 /* ── active campaigns ── */
 
@@ -5698,22 +5654,14 @@ body {
 .ov-conv-stat {
   flex: 1 1 0;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
 }
 
-/* Tabular and one step down from .ov-big's 26px — three of these share a row
-   rather than one owning the whole card, so each gets less weight than a
-   card's single headline number would. */
-.ov-conv-pct {
-  margin: 0 0 2px;
-  font: 600 22px/1.1 var(--ui);
-  letter-spacing: -0.019em;
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-}
-
 .ov-conv-label {
-  margin: 0 0 3px;
+  margin: 6px 0 2px;
   font: 500 10.5px/1.25 var(--ui);
   letter-spacing: -0.004em;
   color: var(--ink-2);
@@ -5811,9 +5759,12 @@ body {
 
 .vz-ring { position: relative; display: inline-grid; place-items: center; flex: none; }
 .vz-ring > svg { display: block; }
+/* font-size comes from Ring's inline style now, proportional to whatever
+   size the caller picked — see the component for why a fixed 9.5px stopped
+   being correct the moment something asked for this at 76px. */
 .vz-ring-n {
   position: absolute;
-  font: 600 9.5px/1 var(--ui);
+  font: 600 1em/1 var(--ui);
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
 }
@@ -5842,95 +5793,79 @@ body {
   font-weight: 500;
 }
 
-/* ── TWO COLUMNS, COLUMN-MAJOR ──
-   A single column of five rows is 86px, and a 140px tile leaves 106px for a
-   header, the bars and an action — which needs 130. The bars were the wrong
-   thing to shrink: this tile is 636px wide and was spending all of it on a
-   label, a bar and a count, so the height went into the width instead. Three
-   rows over two columns is 50px and the tile fits with room to spare.
+/* ── the funnel shape ──
+   A row: the SVG silhouette on the left, the label list on the right, both
+   divided into the SAME number of equal-height bands so the two sides line
+   up without either measuring the other — the same technique the Sourced
+   chart's axis uses to stay aligned with its gridlines. */
+.vz-funnel-wrap {
+  display: flex;
+  align-items: stretch;
+  gap: 14px;
+  flex: 1 1 auto;
+  min-height: 0;
+}
 
-   `grid-auto-flow: column` with an explicit row count, NOT two columns with
-   row flow: a funnel is a sequence, and row-major fill would order it
-   Sourced, Shortlisted / Contacted, Replied — reading across the break
-   instead of down it. Column-major keeps 1-2-3 then 4-5.
+.vz-funnel-svg {
+  flex: 0 0 38%;
+  display: block;
+  min-height: 0;
+}
 
-   The bars stay comparable across the break because every one is scaled to
-   the same maximum; the column boundary changes where they sit, not how long
-   they are. */
-.vz-funnel {
+/* Fills downward on mount, matching the direction the shape itself narrows
+   in — the same "value reveals itself" language Ring and Spark already use
+   elsewhere on this page, so a fourth primitive does not introduce a fourth
+   kind of motion. backwards keeps the band invisible during its own delay
+   instead of flashing at full opacity before the stagger reaches it. */
+@keyframes vz-funnel-in {
+  from { opacity: 0; transform: scaleY(0.82); transform-origin: 50% 0%; }
+  to { opacity: 1; transform: none; }
+}
+
+.vz-funnel-band {
+  animation: vz-funnel-in 360ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+.vz-funnel-list {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
   list-style: none;
   margin: 0;
   padding: 0;
-  display: grid;
-  grid-auto-flow: column;
-  grid-template-rows: repeat(3, auto);
-  grid-auto-columns: minmax(0, 1fr);
-  gap: 5px 22px;
 }
 
-/* One column below 520px, where two would leave each bar too short to read a
-   length off. Back to row flow so the sequence stays top-to-bottom. */
-@media (max-width: 520px) {
-  .vz-funnel {
-    grid-auto-flow: row;
-    grid-template-rows: none;
-  }
+.vz-funnel-item {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 0;
 }
 
-/* ── AND ONE COLUMN, FILLED, IN A TWO-ROW TILE ──
-   The two-column form exists to fit five stages into a 106px content box. A
-   294px box does not need it, so the stages go back to a single column — but
-   they must also FILL that box, or the tile shows five bars at the top and an
-   action at the bottom with ~123px of nothing between them, which is what a
-   two-row pipeline actually looked like.
-
-   `align-content: space-between` over `height: 100%`: the rows keep their
-   natural height and the SPACE between them absorbs the extra, so the bars
-   never stretch into something that reads as a different chart. A tile should
-   look deliberate at every size it can be set to, not just at its default —
-   that is what makes the size control safe to offer. */
-.bn-tile[data-rows="2"] .vz-funnel {
-  grid-auto-flow: row;
-  grid-template-rows: none;
-  height: 100%;
-  align-content: space-between;
-  gap: 9px;
-}
-
-.vz-funnel-row {
-  display: grid;
-  /* Label column is fixed so the bars share one origin; a funnel whose bars
-     start at different x tells you nothing about narrowing. */
-  grid-template-columns: 78px minmax(0, 1fr) 30px;
-  align-items: center;
-  gap: 9px;
-}
-
-.vz-funnel-label {
-  font: 500 11px/1.2 var(--ui);
-  letter-spacing: -0.006em;
+.vz-funnel-item-label {
+  font: 500 10.5px/1.2 var(--ui);
+  letter-spacing: -0.004em;
   color: var(--ink-2);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.vz-funnel-track { height: 7px; border-radius: var(--r-pill); overflow: hidden; }
-
-.vz-funnel-bar {
-  display: block;
-  height: 100%;
-  border-radius: var(--r-pill);
-  /* Width is the datum. It animates on mount only; see the motion block. */
-  transition: width 520ms cubic-bezier(0.16, 1, 0.3, 1);
+.vz-funnel-item-n {
+  font: 600 15px/1.3 var(--ui);
+  letter-spacing: -0.016em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
 }
 
-.vz-funnel-n {
-  font: 600 11px/1 var(--ui);
-  letter-spacing: -0.014em;
-  color: var(--ink);
-  text-align: right;
-  font-variant-numeric: tabular-nums;
+/* One step quieter and lighter than the number it qualifies, and NOT
+   tabular — "of 61" reads as a unit attached to the number, not a second
+   figure competing with it for the eye's first stop. */
+.vz-funnel-item-of {
+  font: 400 10.5px/1 var(--ui);
+  letter-spacing: -0.004em;
+  color: var(--ink-2);
 }
 
 .vz-stack { display: inline-flex; align-items: center; }
@@ -5993,7 +5928,7 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .vz-dot.is-pulse { animation: none; }
-  .vz-funnel-bar { transition: none; }
+  .vz-funnel-band { animation: none; }
 }
 
 /* ═══════════════════════════════ my tasks ═══════════════════════════════════
