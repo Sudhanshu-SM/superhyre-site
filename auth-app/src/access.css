@@ -344,6 +344,58 @@
      for hover washes; anything acknowledging a click stays on --t. */
   --t-dim: 240ms var(--ease-out);
 
+  /* ── THE STATE CHANGE, AND WHY IT BREAKS THE 200ms RULE ON PURPOSE ──
+     `--t` is for FEEDBACK: you clicked, the surface acknowledges, and under
+     200ms is right because anything slower reads as the machine lagging
+     behind your finger. The composer collapsing from a three-line block to a
+     one-line bar is not feedback — it is the page changing what it IS, from
+     a place you write a brief into a conversation you are having, and that
+     is the one moment on this surface worth actually watching happen.
+
+     ── AND IT NEEDS ITS OWN CURVE, WHICH IS THE ACTUAL FIX ──
+     Raising the duration alone did nothing, and measuring says why.
+     `--ease-out` is cubic-bezier(0.23, 1, 0.32, 1) — a very aggressive
+     quint-style curve. Sampled: it covers 39.8% of the distance in the first
+     10% of the duration, 87.4% by a third of the way through, and 90% of the
+     motion is finished 152ms in NO MATTER what duration is set. That is
+     correct for feedback, where the whole point is to answer instantly and
+     let the tail settle, and it is why the collapse still read as snappy at
+     420ms: nominally 420, perceptually 150.
+
+     ── AND THE CURVE WAS RE-PICKED WHEN THE DURATION WENT TO A SECOND ──
+     cubic-bezier(0.4, 0, 0.2, 1) was right at 480ms and wrong at 1000: its
+     dead time — the gap between the click and the first 2% of movement —
+     is 89ms, which is invisible in half a second and reads as lag in one.
+     The obvious "smoother" alternatives are worse in the other direction:
+     easeInOutQuart sits still for 179ms before it starts, and the popular
+     (0.32, 0.72, 0, 1) is 89% finished by 350ms and then crawls for the
+     remaining 650, which is the same front-loading fault in a new costume.
+
+     A long move needs three things at once, and they pull against each
+     other: answer the click immediately, still be visibly travelling at the
+     halfway mark, and land without a long tail nobody can perceive. Grid-
+     searched against exactly those three, the winner is
+     cubic-bezier(0.6, 0.28, 0.44, 1). Against the 750ms the send now runs
+     at: 30ms of dead time (under the ~100ms threshold where a response
+     still reads as instant), 50% of the distance at 348ms — genuinely
+     mid-journey at mid-duration, which none of the stock curves manage —
+     and 95% at 586ms, leaving a 164ms settle rather than a long
+     imperceptible drift. The curve is duration-independent, so the same
+     three properties held when this was 1000ms and will hold if it moves
+     again; only the millisecond figures above are tied to 750.
+
+     It has a real ease-IN, which this sheet bans for feedback because it
+     delays the frames the user is watching for. The ban is about response
+     latency; this is not a response to a press, it is a surface changing
+     state, and 40ms is inside the budget the ban exists to protect. */
+  --ease-morph: cubic-bezier(0.6, 0.28, 0.44, 1);
+
+  /* 750ms, asked for directly. Everything on the send shares it so the
+     travel, the collapse, the shape and the chips are one gesture, and the
+     staggered entrances below are all derived from it at the same ratio —
+     change this and they keep their proportions. */
+  --t-state: 750ms var(--ease-morph);
+
   /* The border-glow sweep's period, read by both the animation and the
      per-layer phase offset that centres the layers on each other. At :root
      because the glow now has two hosts and one of them is portaled out of the
@@ -2032,6 +2084,20 @@ body {
 .orc-composer-field:hover .glow-ring,
 .orc-composer-field:focus-within .glow-ring { opacity: 1; }
 
+/* ── THE GLOW SITS THE MORPH OUT ──
+   It rides the border's centreline at a radius given by `--glow-ry`, a
+   STATIC custom property pinned to the resting 20px card radius. The field's
+   radius is animated by the Web Animations API during the collapse, and WAA
+   cannot write a custom property — so the ring traced a 19.5px-radius shape
+   around a box passing through 23, 25, 27px. That is the doubled, offset
+   outline: not one shape glowing, two shapes disagreeing.
+
+   Matching them would mean driving `--glow-ry` from script every frame, for
+   a decoration. A focus bloom that cannot follow a morph should not be on
+   screen during one; 750ms without it is invisible, and it comes back the
+   moment the field is a settled shape again. */
+.orc-stream.is-morphing .glow-ring { opacity: 0; }
+
 /* Geometry in CSS rather than attributes so calc can inset the stroke by half
    its width — an SVG stroke straddles its path, so without the inset its outer
    half lands outside the box.
@@ -3391,11 +3457,25 @@ body {
 
 /* ── bar ── */
 
+/* ── THE SHELL IS VIEWPORT-LOCKED, AND THE COLUMNS SCROLL INSIDE IT ──
+   `.con` is `min-height: 100dvh`, which is a floor and not a ceiling — so the
+   console grew with its content and the whole document scrolled. That was
+   harmless while everything fit. It stopped being harmless when the live feed
+   became a band at the foot of the page: measured, the shell ran to 1135px in
+   a 1016px window and the band — the one element that must stay glanceable —
+   was pushed 91px below the fold.
+
+   Bounding it here rather than on `.con` keeps the sidebar's own scrolling
+   untouched, and it is what an application shell does: the frame is the
+   window, and the parts that grow without bound (the conversation, the rail)
+   scroll within it. Verified on Home as well as Agent. */
 .con-body {
   grid-column: 2;
   display: flex;
   flex-direction: column;
   min-width: 0;
+  height: 100dvh;
+  overflow: hidden;
 }
 
 @media (max-width: 899px) {
@@ -4740,6 +4820,87 @@ body {
   --orc-gap: clamp(40px, (100vw - 1128px) / 2, 152px);
   --orc-inset-l: var(--orc-gap);
   --orc-inset-r: calc(var(--orc-gap) - 72px);
+
+  /* ── A SECOND ROW FOR THE FOOT BAND ──
+     Row one is the two columns; row two is the live feed spanning both. The
+     band therefore inherits the page's own left inset and right margin rather
+     than carrying its own, which is the only way "full width with spacing
+     from the ends" can stay true when the sidebar toggles and the window
+     resizes. */
+  /* ── THE TWO COLUMNS' SHARED VOCABULARY ──
+     The composer's resting position is stated as an alignment to a panel in
+     the OTHER column, so the numbers that define it cannot live in one
+     column's rule — each would be reading a value it cannot see. They sit
+     here, on the parent both columns share, and each side spends them.
+
+     Two of these are measured content heights rather than chosen spacings,
+     and that is the known drift risk this file has recorded before: change
+     what is inside the stats panel or the size of the page heading and the
+     alignment quietly goes off by the difference. Stated as named constants
+     so the dependency is at least visible; the real fix is a `subgrid`
+     spanning both columns, which is a larger change than this one. */
+  --page-top: 40px;        /* the console's page-level top inset */
+  /* ── WHAT THE FOOT OF THE PAGE COSTS, RESERVED WHETHER OR NOT IT IS THERE ──
+     The band (219px at its settled height), its 28px bottom margin and the
+     22px row gap above it. Reserved unconditionally, including at rest when
+     no band exists, because the whole point is that the rail must sit in
+     the SAME place before and after the first brief. Anything that measures
+     the row it lives in moves when the band arrives and takes the row's
+     height with it. */
+  --band-reserve: 269px;
+
+  /* ── THE RAIL'S TOP INSET, AND WHY IT IS THE PAGE'S OWN ──
+     This was 114px, and at that value the rail needed 883px of a column
+     783px tall — a hundred short, which was being papered over with an
+     inner scrollbar and a fade. Neither was asked for and both were the
+     wrong answer: a column of three fixed panels should FIT, not scroll
+     inside a page that does not.
+
+     40px is the console's page-level top inset, the same line the heading
+     starts on, so both columns now begin together. With the bottom padding
+     also reclaimed (the band terminates this column, so padding above it
+     was spacing against a boundary that already exists) the rail needs 753
+     of 783 and fits with room over.
+
+     This does NOT undo "bring the conversation down rather than lifting the
+     rail" — that was about which column moves to make the composer meet
+     CONFIGURATION, and it still is the conversation: the reservation on
+     `.orc-log` derives from this value and reaches down to it.
+
+     ── AND IT IS DERIVED FROM THE WINDOW, NOT FROM THE ROW ──
+     Packing the rail to the top pinned it against the heading; centring it
+     in the row gave it air, and made it MOVE — the row is `1fr`, the band
+     takes 269px out of it on the first brief, and a centred column jumps
+     about 120px upward at the moment the conversation starts. Correct
+     centring of the wrong thing: the rail is not part of the conversation
+     and must not react to it.
+
+     So the inset is computed from the VIEWPORT, which does not change when
+     a band mounts: whatever is left of the window after the rail's own run
+     and the reserved foot, capped at 120px so there is ample air above it
+     on a tall screen and floored at 24 so a short one degrades to a margin
+     rather than to a negative. Same value at rest and live, by
+     construction. */
+  --rail-top: clamp(
+    24px,
+    calc(100dvh - var(--rail-run) - var(--band-reserve)),
+    120px
+  );
+  --orc-rhythm: 32px;      /* the stream's one section gap */
+  --rail-gap: 22px;        /* between rail panels */
+  --rail-stat-h: 101px;    /* MEASURED: the stats panel's own height */
+  --rail-cfg-h: 283px;     /* MEASURED: the Configuration panel's own height */
+  --rail-hist-h: 238px;    /* MEASURED: the History panel's own height (3 rows + View all) */
+  /* The rail's whole content run, which both columns need: the rail to
+     centre it, the conversation to work out where CONFIGURATION lands. */
+  --rail-run: calc(
+    var(--rail-stat-h) + var(--rail-gap) + var(--rail-cfg-h)
+    + var(--rail-gap) + var(--rail-hist-h)
+  );
+  --orc-head-h: 42px;      /* MEASURED: the page heading's own height */
+
+  grid-template-rows: minmax(0, 1fr) auto;
+  row-gap: 22px;
   flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
@@ -4854,7 +5015,7 @@ body {
      One place sets vertical space between blocks, and blocks carry no vertical
      margins of their own. Change this number and the whole page re-spaces —
      that is the test of whether a rhythm is real. */
-  gap: 32px;
+  gap: var(--orc-rhythm);
   min-height: 0;
   /* The page's constant left inset: 64px, up from 30, so the content clears
      the sidebar properly instead of sitting against it. Matched to the 64px
@@ -4892,9 +5053,34 @@ body {
      content sits the same distance from the sidebar as from the rail without
      either side being typed as a number. Fallbacks are the solo values, for
      any container that sets neither. */
-  padding: 40px var(--orc-inset-r, 56px) 56px var(--orc-inset-l, 64px);
+  /* ── THE TOP INSET IS AN ALIGNMENT, NOT A SPACING ──
+     It was `--page-top` flat, which put the composer level with the rail's
+     FIRST panel. The resting composer lines up with the top of CONFIGURATION,
+     the second one, and THIS COLUMN IS THE ONE THAT MOVES TO MAKE THAT TRUE —
+     the rail keeps its own position. So the inset is whatever puts the
+     composer on that line: the rail's top, plus the stats panel it has to
+     clear, plus the gap after it, then back off the heading and the rhythm
+     that sit between this padding and the composer's own top edge.
+
+     Written as the sum rather than the total for the reason the last
+     alignment in this file proved: the heading measured 42 where 35 was
+     assumed, and a total would have hidden which term was wrong. */
+  /* Back to the page's own top inset. Deriving the ALIGNMENT here pushed the
+     whole column down — heading included — and the heading is the page's
+     title: it belongs on the line every other page starts its content on.
+     The alignment moved to `.orc-intro`'s own height, which puts the space
+     BETWEEN the heading and the composer instead of above both. */
+  padding: var(--page-top) var(--orc-inset-r, 56px) 24px var(--orc-inset-l, 64px);
   display: flex;
   flex-direction: column;
+  /* ── THE COLUMN SCROLLS, THE BAND DOES NOT MOVE ──
+     With the feed promoted to a page row, anything the conversation column
+     cannot fit was pushing the band off the bottom of the window — measured
+     24px past it, and the whole page scrolled to compensate. The column is
+     the part that grows without bound, so the column is the part that
+     scrolls; the band stays put at the foot where it can be glanced at. */
+  min-height: 0;
+  overflow-y: auto;
 }
 
 /* No per-state anchoring any more. That rule existed because the composer was
@@ -4907,8 +5093,28 @@ body {
 /* 14px, down from 22. A turn already sits on the stream's 32px section gap,
    so its own padding was stacking on top of that — 22 + 32 + the prompt's old
    18px bottom margin put ~72px between a two-word prompt and its reply. */
-.orc-turn { padding: 14px 0; max-width: var(--orc-measure); }
+.orc-turn {
+  padding: 14px 0;
+  max-width: var(--orc-measure);
+  /* 320ms behind the send — the same 42% of the journey this sat at when
+     the send was 1000ms. The composer is a little under halfway down by
+     then, so the reply begins appearing into a space that has genuinely
+     started to open rather than racing the thing that is opening it, and
+     the two finish within ~50ms of each other. The sequence stays legible:
+     the landing state leaves, the composer glides down, the transcript
+     fills the room it left, the band arrives under all of it. */
+  animation: turn-in 480ms var(--ease-morph) 320ms both;
+}
 .orc-turn + .orc-turn { border-top: 1px solid var(--nav-rule); }
+
+@keyframes turn-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orc-turn { animation: none; }
+}
 
 .orc-answer { display: flex; gap: 12px; align-items: flex-start; }
 
@@ -4952,7 +5158,11 @@ body {
    (1.15s against 1.9s) so the pattern does not resolve into a single
    repeating gesture. One animation doing both would need every keyframe to
    specify both properties, and the two rhythms could then never drift. */
-.orc-orbit {
+/* (0,2,0) beats `.orc-mark svg`'s (0,1,1): without this the generic rule's
+   17px width/height won, and the ring drew as a small arc in the corner of
+   the 32px mark instead of a circle around it — the "17px" figure below is
+   for the MARK's icon, not this ring, and the two were colliding. */
+.orc-mark .orc-orbit {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -5105,43 +5315,51 @@ body {
 
    `min-height`, not `height`: the heading is one line today and must not clip
    if it ever wraps. */
+/* ── JUST THE HEADING NOW ──
+   This block carried a `100dvh`-tracking height so the composer could chase a
+   CENTRED rail's Configuration panel, and later a 272px floor so the feed
+   could live in the space that created. Both are gone: the rail is
+   top-anchored and the feed is a page row, so the alignment is one constant
+   held on the rail's own padding. Leaving the expression behind computed
+   195px of empty air above the composer — an apparatus outliving the thing
+   it was built for, which is the most common way a stylesheet rots. */
+/* ── THE HEADING BLOCK CARRIES THE ALIGNMENT, NOT THE COLUMN ──
+   The composer's resting top has to meet CONFIGURATION in the rail. Two
+   places could supply that distance: the column's top inset, or this block's
+   own height. The inset was tried and is wrong — it moves the heading down
+   with the composer, and the heading is the page's title, which belongs on
+   the same line every other page starts on.
+
+   So the heading keeps its position and this block reserves the rest of the
+   distance beneath it: the rail's top, plus the stats panel the composer has
+   to clear, plus the gap after it, less the page inset above this block and
+   the rhythm below it. The title sits at the top of that reserved space
+   (`flex-direction: column`, no centring) and the space falls between the
+   two, which is where it was asked to go.
+
+   Only a MIN height: if the heading ever wraps, it grows and the composer
+   moves down with it rather than the text being clipped to hold a line.
+
+   ── THE RESERVATION MOVED OUT TO `.orc-log` ──
+   It was here, and a percentage min-height here resolves to NOTHING: this
+   block sits inside `.orc-log`, whose height at rest is content-driven, and
+   a percentage against an indefinite height computes to zero rather than to
+   what you meant. Measured, the composer stayed at 114 while Configuration
+   sat at 404 — the expression was arithmetically right and attached to the
+   wrong element. The reservation belongs on the stream's own flex child,
+   which is the one with a definite height to be a percentage OF. */
 .orc-intro {
   margin: 0;
-  /* The rail's own floor, padding and content height, summed. */
-  --rail-span: 809px;
-  /* Its first panel plus its gap, less the stream's gap. */
-  --head-floor: 91px;
-  /* ── THE ALIGNMENT YIELDS TO THE CONTENT, AND ONLY WHEN IT MUST ──
-     `height` alone made the slot exactly as tall as the Configuration
-     alignment wanted, and the feed lived inside it. That works while the
-     window is tall. It fails below roughly 1120px, where the arithmetic
-     gives the band 61px against a workflow panel's 173px — and what got cut
-     was the status line at the panel's foot, the single most live thing on
-     the surface, clipped by `overflow: hidden` to preserve a line-up.
-
-     So the two are ranked rather than balanced. `height` states the
-     alignment; `min-height` states the floor the content needs, and because
-     `min-height` wins when it is larger, the alignment holds on a tall window
-     and quietly gives way on a short one. **Never clip live content to keep a
-     decorative alignment** — the line-up is a nicety, the status line is the
-     point of the panel.
-
-     The floor is the sum of what is actually in here, re-measured after the
-     feed gained a card of its own: heading 35 + intro gap 12 + the card's
-     12/14 padding and 2px of border + its header 14 + its 10px gap + the
-     tallest panel 173 = 272. The first figure predated the card and was 24px
-     short, which clipped the status bars the moment the surface was added —
-     a floor derived from content has to be re-derived when the content gains
-     a container. */
-  min-height: 272px;
-  height: max(
-    var(--head-floor),
-    calc(var(--head-floor) + (100dvh - var(--rail-span)) / 2)
-  );
   display: flex;
   flex-direction: column;
-  gap: 12px;
 }
+
+/* On the way out it is absolutely positioned, so the reserved height would
+   only be holding space for a block that has left the flow. Dropping it lets
+   the transcript take the full column immediately, which is what the
+   composer's FLIP measures against. */
+.orc-intro.is-out { min-height: 0; }
+
 
 /* The heading keeps its natural size; the feed takes the remainder. */
 .orc-intro-h { flex: none; }
@@ -5310,6 +5528,319 @@ body {
   letter-spacing: normal;
   color: var(--ink-2);
 }
+
+/* ═══════════════════ the conversation, once it has started ══════════════════
+
+   At rest the column is a heading over a composer. Once a brief is sent it
+   becomes a transcript that scrolls with the composer docked beneath it.   */
+
+/* The transcript, not the column, owns the scroll: the composer has to stay
+   put while the messages move under it. At rest this is just a block. */
+/* ── THE COMPOSER IS BROUGHT DOWN TO MEET CONFIGURATION ──
+   Only at rest — once a conversation exists this block is the transcript and
+   takes the space by `flex: 1` instead.
+
+   The rail is packed to `--rail-top`, so CONFIGURATION sits a fixed
+   distance below it — the stats panel and the gap under it — and the
+   composer needs the same distance less what already stands above it in
+   this column: the stream's own top padding and the rhythm under the
+   heading.
+
+   A percentage would be wrong here even though it looks more principled:
+   `--rail-top` is derived from the VIEWPORT precisely so the rail does not
+   move when the band mounts, and resolving this against the row instead
+   would reintroduce exactly that movement on the other side of the page.
+   Both columns read the same viewport-derived constant, so they cannot
+   disagree.
+
+   `min-height` not `height`, so a wrapping heading pushes the composer down
+   rather than being clipped to hold a line. */
+.orc-stream:not(.is-live) .orc-log {
+  min-height: calc(
+    var(--rail-top) + var(--rail-stat-h) + var(--rail-gap)
+    - var(--page-top) - var(--orc-rhythm)
+  );
+}
+
+.orc-log {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  /* The containing block for the heading on its way out — it is pinned to
+     the offset it was standing at while it fades, so it needs an ancestor
+     with a position to resolve against. */
+  position: relative;
+}
+
+/* ── LEAVING, RATHER THAN BEING DELETED ──
+   The heading and the suggestion list are the landing state, and they used
+   to disappear between one frame and the next: React simply stopped
+   rendering them, which no duration can soften because there is nothing left
+   on screen to animate.
+
+   They now stay mounted for the length of their own exit and are taken OUT
+   OF FLOW for it, pinned by an inline `top` to the offset they were
+   occupying when the send fired. Out of flow matters for more than tidiness:
+   the composer's FLIP measures the FINAL layout one frame after the state
+   change, so these two have to stop taking space IMMEDIATELY or the
+   composer would animate toward a dock that still has the landing state
+   sitting in it, and land 300px short.
+
+   They fade and drift up as the composer travels down past them — opposite
+   directions, which is what makes it read as one surface changing rather
+   than as two unrelated things happening to move. */
+.orc-intro.is-out,
+.orc-recs.is-out {
+  position: absolute;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+  animation: orc-leave 420ms var(--ease-morph) both;
+}
+
+@keyframes orc-leave {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-18px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orc-intro.is-out,
+  .orc-recs.is-out { animation: none; opacity: 0; }
+}
+
+.orc-stream.is-live {
+  /* The column stops scrolling as a whole — its two parts have different jobs
+     now. Without this the composer scrolled away with the conversation. */
+  overflow: hidden;
+  gap: 0;
+}
+
+/* The suggestion list resolves its exit offset against this. Also the reason
+   `overflow: hidden` above cannot be relied on to clip the departing blocks:
+   they are inside it, and they finish fading before they would ever reach
+   an edge. */
+.orc-stream { position: relative; }
+
+.orc-stream.is-live .orc-log {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 20px;
+  /* ── THE OVERFLOW FADES INSTEAD OF BEING CUT ──
+     A hard edge where a scroll container clips reads as a rendering fault; a
+     fade reads as "there is more above". `mask-image` rather than a gradient
+     overlay, because an overlay has to bake in the surface colour and sits on
+     top of the text, making it unselectable at the boundary.
+
+     Only the TOP fades. The bottom is where the newest message is and where
+     the composer begins — fading what you just sent would be the surface
+     hiding its own most recent state. */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 28px);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 28px);
+  /* ── BOTTOM-ALIGNED BY AN AUTO MARGIN, NOT BY justify-content ──
+     This was `justify-content: flex-end`, which bottom-aligns correctly and
+     BREAKS SCROLLING, and the second half is not obvious until it bites. A
+     flex container aligned to the end grows its overflow past the START
+     edge, and overflow in the block-start direction is not reachable: the
+     scrollable area never extends to cover it. Measured with five turns in
+     the log — `scrollHeight` equal to `clientHeight` (so no scrollbar at
+     all, nothing to drag) while the first turn sat at y = -853, eight
+     hundred pixels above the scrollport with no way to reach it. The
+     conversation was not scrolled up, it was amputated.
+
+     `margin-top: auto` on the first item does the same alignment without
+     the fault, because it is the same mechanism the layout already uses for
+     free space: with room to spare the margin absorbs it and the content
+     sits on the composer; with the content overflowing the auto margin
+     resolves to zero and the log scrolls from its true top like any other
+     scrollport. One exchange still rests on the composer, and twenty are
+     all reachable.
+
+     `:first-child` is a positional selector, which this sheet has been
+     bitten by before (rev 43) — so the assumption is stated rather than
+     implied: the log's children are turns, plus the departing heading,
+     which is deliberately rendered AFTER them and taken out of flow, so it
+     can never take this slot. Anything else mounted first would. */
+}
+
+.orc-stream.is-live .orc-log > :first-child { margin-top: auto; }
+
+/* ── THE COMPOSER DOCKS AND SHRINKS ──
+   Its resting height is three lines, because a brief is several lines and the
+   field should say so before one is written. Once a conversation is running
+   that argument inverts: the transcript is the subject and the field is the
+   instrument, so it collapses to a single line and gives the room back. It
+   still grows from its own autosize the moment you type past one line — the
+   floor moves, the ceiling does not. */
+.orc-stream.is-live .orc-composer {
+  flex: none;
+  padding-top: 14px;
+  transition: padding-top var(--t-state);
+}
+
+/* `padding-top` is spatial, so the sheet's global reset already excludes it
+   from `transition-property` under reduced motion (verified: that rule is
+   `!important` and wins regardless of what is declared here). Stated locally
+   anyway, matching the explicit local override every other transition and
+   entrance animation in this file carries beside the global one. */
+@media (prefers-reduced-motion: reduce) {
+  .orc-stream.is-live .orc-composer { transition: none; }
+}
+
+/* ── THE COLLAPSE IS A TRANSITION, NOT A SWAP ──
+   The field goes from a three-line block to a one-line bar the moment a brief
+   is sent, and without a transition that is a jump-cut in the middle of the
+   one interaction the page exists for. Radius and padding animate together
+   over 240ms so the shape arrives with the size; `height` is left to the
+   autosize effect, which writes it directly and would fight a transition. */
+/* Only `border-radius` — the one shape property here that does not touch
+   layout. `padding` was in this list and had to come out: the field's height
+   is animated explicitly now, and a padding transition underneath it is a
+   second, slower opinion about the same box. */
+.orc-composer-field {
+  transition:
+    border-radius var(--t-state),
+    border-color var(--t-dim);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orc-composer-field { transition: border-color var(--t-dim); }
+}
+
+/* ── ONE LINE, WHICH MEANS THE PADDING HAS TO COME DOWN TOO ──
+   Collapsing only the textarea left the field at 80px: its own 16px padding
+   was still sized for a three-line block. 8px vertical against a 22px line
+   and a 28px send button gives a 44px bar — the shape the reference uses, and
+   small enough that the transcript gets the room the collapse was for.
+
+   The padding SNAPS and the field's height is animated instead (in
+   Agent.tsx, from the height measured before the swap). Transitioning both
+   would be the same double-count the chips had: padding is layout, the
+   height animation is already carrying the box's whole size change, and two
+   mechanisms describing one shrink disagree by definition. */
+.orc-stream.is-live .orc-composer-field {
+  padding: 8px 8px 8px 16px;
+  border-radius: var(--r-pill);
+}
+
+/* ── THE SEND BUTTON MOVES BESIDE THE TEXT, NOT BELOW IT ──
+   Collapsing the textarea to one line still left a 76px field: the button
+   sits in its own row under the text, which is right for a three-line block
+   and wrong for a bar. Side by side, the bar is 8 + 28 + 8 = 44px — the
+   shape the reference uses, where the field is one line and the control is
+   at its end. */
+.orc-stream.is-live .orc-composer-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.orc-stream.is-live .orc-field-text { flex: 1 1 auto; min-width: 0; }
+
+.orc-stream.is-live .orc-composer-row { flex: none; }
+
+.orc-stream.is-live .orc-send { width: 28px; height: 28px; }
+
+/* The button's size snaps, like the chips above and for the same reason: it
+   is FLIPped to its new position, and a size still in motion would move the
+   target it is aiming at. The 4px is invisible next to the distance it
+   travels up the collapsing field. */
+
+/* ── THE NOTE GOES, THE CONTROLS DO NOT ──
+   The note is one mode's own sentence — "Find and rank candidates against a
+   role" — which only ever explains a choice; once the choice is made and a
+   conversation is running, it is a caption with nothing left to caption.
+   The mode switch and the attach slots are different: they are CONTROLS, not
+   captions, and a control that only exists before the first message is a
+   control you cannot use for message two — switching from Sourcing to Agent
+   mid-conversation, or attaching a JD after already describing the role,
+   are both ordinary things to want. So they stay, and shrink to match the
+   bar instead of leaving it: label text goes to `font-size: 0` (the icon has
+   its own pixel size from the `size` prop and is untouched by that), the
+   dashed/pill shape collapses to a small square, and `title` — already on
+   every one of these buttons — is what replaces the label for anyone who
+   was reading it rather than recognising the icon. */
+/* ── THE NOTE FADES OUT OF FLOW, IT DOES NOT BLINK OFF ──
+   `display: none` cannot be transitioned, so the one line of caption under
+   the field vanished between two frames while everything around it moved —
+   the last hard cut left in the collapse.
+
+   `position: absolute` takes it out of the flow IMMEDIATELY, which is what
+   the composer's FLIP needs (the block's final height must be settled
+   before it measures), while `opacity` carries it away over the same clock
+   as the rest. `visibility` is delayed by the full duration so it leaves the
+   accessibility tree only once it has actually finished fading — an
+   `opacity: 0` element is still announced, and a caption for a choice
+   already made should not be. */
+.orc-stream.is-live .orc-composer-note {
+  position: absolute;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  /* ── FAST, BECAUSE IT IS IN THE COLLISION PATH ──
+     On the full 750ms this was still at half opacity when the shrinking
+     field had caught up with it, so the caption and the controls overlapped
+     for a third of the collapse. It is one line of explanatory text with
+     nothing to contribute to the journey: it leaves in 180ms, before the box
+     has travelled far enough to reach it, and `visibility` follows so it
+     stops being announced once it is actually gone. */
+  transition: opacity 180ms var(--ease-out), visibility 0s linear 180ms;
+}
+
+.orc-stream.is-live .orc-modes { padding: 0; gap: 4px; background: transparent; }
+
+.orc-stream.is-live .orc-mode,
+.orc-stream.is-live .orc-slots .orc-gslot {
+  padding: 0;
+  width: 26px;
+  height: 26px;
+  gap: 0;
+  justify-content: center;
+}
+
+/* ── THEIR SIZE SNAPS, AND THAT IS THE POINT ──
+   These used to transition width, height, padding and font-size, which
+   sounds like the smoother option and is the opposite. The controls also
+   MOVE — from a row under the text to a cluster beside it — and that move
+   can only be animated by a FLIP, which requires the layout to be settled
+   before it measures. A size still transitioning is a layout still moving,
+   so the two fought: the FLIP aimed at a target drifting underneath it.
+
+   So the box snaps to its final geometry in one frame and every visible
+   change is carried by the animation instead — `Agent.tsx` translates each
+   control along its own path, and the label below fades rather than being
+   squeezed. Nothing here transitions that affects layout. */
+.orc-mode,
+.orc-slots .orc-gslot {
+  transition:
+    background var(--t),
+    color var(--t),
+    border-color var(--t-dim);
+}
+
+/* ── THE LABEL LEAVES WITHOUT TAKING THE LAYOUT WITH IT ──
+   `width: 0` the instant the state flips, so the chip is icon-width from
+   frame one and the FLIP's target is stable; `opacity` is the only thing
+   that takes time. Fading rather than shrinking the text: a font-size
+   animation re-lays out the glyphs every frame, which is both the expensive
+   way and the one that makes a label look crushed rather than gone. */
+.orc-chip-l {
+  white-space: nowrap;
+  transition: opacity var(--t-state);
+}
+
+.orc-stream.is-live .orc-chip-l {
+  width: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.orc-stream.is-live .orc-mode.is-on { background: var(--sub); }
+
+.orc-stream.is-live .orc-slots { gap: 4px; }
+
+.orc-stream.is-live .orc-slots .orc-gslot { border-radius: var(--r-field); }
 
 /* ── composer ── */
 
@@ -6780,6 +7311,26 @@ body {
    supervision surface that demands attention constantly gets ignored
    permanently — which is the opposite of transparency.                      */
 
+/* ── THE THREE CHILDREN ARE PLACED, NOT AUTO-FLOWED ──
+   Adding a second row with three children in the grid sent the RAIL to a
+   third row the browser invented: auto-placement filled row 1 with the
+   conversation, then the band claimed row 2 by spanning both columns, and the
+   rail had nowhere left. Measured as a 1702px-tall page with the rail stacked
+   beneath everything. Explicit placement is the fix — with more than one row,
+   auto-flow is a guess. */
+.orc > .orc-main { grid-row: 1; grid-column: 1; }
+.orc > .orc-rail { grid-row: 1; grid-column: 2; }
+
+/* Spans both columns and sits on the page's own margins: the left inset the
+   conversation uses, and the right margin the rail ends on. It is the one
+   element on the screen exactly as wide as the page. */
+.orc > .feed {
+  grid-row: 2;
+  grid-column: 1 / -1;
+  margin-left: var(--orc-inset-l);
+  margin-bottom: 28px;
+}
+
 /* ── A SURFACE, BECAUSE EVERY NEIGHBOUR HAS ONE ──
    Measured, this block was `background: transparent`, `border: 0`,
    `radius: 0`, `padding: 0` — the ONLY element on the page without a surface,
@@ -6797,6 +7348,31 @@ body {
   border: 1px solid var(--accent-line);
   border-radius: var(--r-card);
   background: var(--nav-surface);
+  /* So the departing panel is cut off by the card's own rounded edge as it
+     drifts out, rather than crossing the border and floating on the page.
+     `clip` not `hidden`: this box never scrolls, and `hidden` would quietly
+     make it a scroll container. */
+  overflow: clip;
+  /* The band mounts the instant the first brief is sent — before this it did
+     not exist in the DOM at all, so it had no transition to play and simply
+     appeared, which read as the one hard cut in an otherwise animated state
+     change. It only ever mounts once (nothing sets `deployed` back to empty),
+     so an animation with no re-trigger condition is exactly right here. */
+  /* Last in the sequence — the band is the consequence of the send, so it
+     arrives once the thing that caused it has essentially landed (the
+     composer is at 95% by 586ms). Overlapping the tail rather than waiting
+     for the full 750: a beat that starts after everything has completely
+     stopped reads as a separate event, not as the end of this one. */
+  animation: feed-band-in 470ms var(--ease-morph) 520ms both;
+}
+
+@keyframes feed-band-in {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .feed { animation: none; }
 }
 
 .feed-head {
@@ -6839,32 +7415,9 @@ body {
 /* The header's dot. Sage rather than the accent, because "working" is a
    healthy state and the accent is reserved for what needs a person. */
 
-/* ── WIDER, AND THE WIDTH COMES OFF THE RIGHT ONLY ──
-   Three workflow panels in 556px gave each 185px, under what a campaign name
-   plus a step label wants. The band reclaims part of the stream's right inset
-   to get to 604px and ~201px panels.
-
-   ── AND NOT OFF BOTH SIDES, WHICH IS WHAT I TRIED FIRST ──
-   Pulling 48px off each side gave a better 652px and kept the band
-   equidistant from sidebar and rail — measured 104 and 104, symmetric by the
-   same arithmetic the composer uses. It was still wrong, and the measurement
-   is what hid it: this page has ONE left edge. The heading, the composer, the
-   mode note and the suggestions all begin at 152px, and that edge is the
-   thing every block on the surface aligns to. A band starting at 104 is
-   symmetric about its own column and ragged against the page, and the ragged
-   edge is what a reader actually sees.
-
-   So the left edge holds and the right gives. The gap to the rail becomes
-   104 against the composer's 152, which is the lesser inconsistency: one is a
-   shared vertical line running the height of the page, the other is a margin
-   against a gutter that already varies.
-
-   Clamped against the inset it is reclaiming, so a narrow window — where
-   `--orc-inset-r` has already shrunk — cannot leave the band hanging outside
-   its own column. */
-.feed {
-  margin-right: calc(-1 * min(48px, max(0px, var(--orc-inset-r, 56px) - 32px)));
-}
+/* The breakout that widened this inside the narrow column is gone with the
+   column: as a page row the band already spans everything, and the negative
+   margin was pushing it 48px past the rail's own right edge. */
 
 /* ── THREE ACROSS, NOT THREE DOWN ──
    Side by side, which also settles the height problem stacking had: three
@@ -6879,14 +7432,39 @@ body {
 .feed-list {
   list-style: none;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
-  /* Stretch, not start. Each column sizing to its own content left the status
-     lines at three different heights — the running panel has a step more than
-     the halted ones, so its bar sat 25px lower and the row of them read as
-     ragged. Equal-height columns let each `.feed-bar`'s `margin-top: auto`
-     settle on the same baseline, and it gives the separators their full
-     run. */
-  align-items: stretch;
+  /* ── auto-FILL, NOT auto-FIT ──
+     `auto-fit` collapses the empty tracks, so one campaign stretched a single
+     panel across the whole band and it snapped back to a third the moment a
+     second arrived — the panel resizing every time the fleet changed, which
+     is motion nobody asked for attached to an event that is not about size.
+     `auto-fill` keeps the three tracks, so a panel is a third of the band
+     whether there are one, two or three of them, and a new one slides into a
+     slot that was already the right shape. */
+  /* `min(280px, 100%)` rather than a bare 280px: a minmax minimum is a HARD
+     floor, so once the band is narrower than one column the track keeps its
+     280px and overflows the panel past the band's own rounded edge —
+     measured 76px past it at a 1100px window. Wrapping the minimum in
+     `min()` lets the single remaining column fall back to the container's
+     width instead, which is the difference between a narrow band and a
+     broken one. */
+  /* The departing panel is absolutely positioned against this, so it needs
+     to resolve against the LIST rather than against whatever happens to be
+     positioned further up the tree. */
+  position: relative;
+  grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
+  /* ── START, NOT STRETCH — REVERSED FROM THE EARLIER RULE ──
+     This was `stretch`, on the argument that unequal columns read as ragged.
+     That was true for the case it was written for — a done agent beside a
+     running one, genuinely different step counts. It stopped being true once
+     deployed agents started walking their own steps on their own clock: three
+     columns a few seconds apart in that walk no longer differ by "ragged", a
+     shorter one stretched to match its tallest sibling is a card with a third
+     of it blank, its status bar floating in open space above nothing. `start`
+     means a card is exactly as tall as however many steps it currently shows
+     — the thing that was actually asked for — and the cost is a divider that
+     stops a little short beside a card that has fewer lines than its
+     neighbour, which reads as normal rather than as a rendering fault. */
+  align-items: start;
   gap: 0;
   margin: 0;
   padding: 0;
@@ -6917,6 +7495,12 @@ body {
 
    Inset top and bottom so it reads as a divider between columns rather than
    as a border around a cell. */
+/* ── THE SIBLINGS SLIDE, THEY DO NOT JUMP ──
+   A new column at the head of the band pushes the others right. Animating the
+   grid COLUMN of the entering item is what makes that a slide: the band
+   reflows continuously from 0fr to 1fr, so every other panel is carried
+   along by the layout rather than snapping to a new position. Nothing needs
+   a transform for the ones that move — the grid does it. */
 .feed-item {
   display: grid;
   grid-template-columns: 1fr;
@@ -6928,12 +7512,61 @@ body {
 }
 
 .feed-item.is-new {
-  animation: feed-open 440ms var(--ease-out) both;
+  animation: feed-open 480ms var(--ease-morph) both;
 }
 
+/* ── AND THE DISPLACED ONE LEAVES TO THE RIGHT ──
+   Taken out of the grid entirely (`position: absolute`) rather than kept as
+   a track that shrinks: the survivors have to close up behind it in the same
+   motion that opens a slot for the arriving panel on the left, and a leaving
+   element that still owns a column is an element the others are queued
+   behind. Pinned to the band's right edge, which is exactly where the last
+   track ended, so it starts its exit from where it was standing.
+
+   Rightward because that is the direction the row is already moving. New
+   campaigns are prepended, so the whole band slides right as the entering
+   column opens; the displaced one carries on in that direction and out. A
+   fade with no drift would read as a panel blinking off, and a drift the
+   other way would fight every other panel on screen.
+
+   Short travel — 24px, not the full width. This is a fade with a direction,
+   not a slide-off: past about a third of its own width the eye starts
+   tracking it as an object going somewhere instead of an object leaving,
+   and the band is meant to be glanced at, not watched. */
+.feed-item.is-gone {
+  position: absolute;
+  top: 0;
+  right: 0;
+  pointer-events: none;
+  animation: feed-leave 440ms var(--ease-morph) both;
+}
+
+@keyframes feed-leave {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(24px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .feed-item.is-gone { animation: none; opacity: 0; }
+}
+
+/* ── THE FIRST CAMPAIGN HAS NOTHING TO PUSH ASIDE ──
+   `feed-open` exists to make ROOM: it takes the entering column from 0fr to
+   1fr so its siblings are carried aside by the layout rather than snapping.
+   With no siblings there is no room to make, and the animation's only
+   remaining effect is harmful — squeezing the panel from zero width makes
+   its text wrap to more lines, so the band renders 16px taller and then
+   shrinks as the column opens. Measured, that reflow landed in the middle
+   of the composer's glide and showed up as a 29px frame in an otherwise
+   even 1s travel.
+
+   The band's own entrance (`feed-band-in`) is the arrival in this case, and
+   it moves nothing around it. */
+.feed-item.is-new:only-child { animation: none; }
+
 .feed-item.is-new > .feed-row {
-  animation: feed-rise 440ms var(--ease-out) both,
-             feed-flash 900ms var(--ease-out) 120ms both;
+  animation: feed-rise 480ms var(--ease-morph) both,
+             feed-flash 820ms var(--ease-out) 100ms both;
 }
 
 @keyframes feed-open {
@@ -6941,8 +7574,14 @@ body {
   to   { grid-template-columns: 1fr; }
 }
 
+/* ── UP FROM THE FOOT OF THE PAGE ──
+   The band sits at the bottom now, so a new campaign arrives from below it —
+   motion that agrees with where the thing lives. 14px rather than the 6 it
+   used when the band was at the top: a longer travel reads as arriving from
+   off-screen rather than as a twitch, and at the foot of the page there is
+   somewhere for it to arrive from. */
 @keyframes feed-rise {
-  from { opacity: 0; transform: translateY(6px) scale(0.97); }
+  from { opacity: 0; transform: translateY(14px) scale(0.98); }
   to   { opacity: 1; transform: none; }
 }
 
@@ -6965,7 +7604,6 @@ body {
   align-items: stretch;
   gap: 5px;
   width: 100%;
-  height: 100%;
   /* ── 20px, AND THE SAME ON EVERY COLUMN ──
      The first column carried `padding-left: 2px` while the others had 14px,
      so its content sat flush with the band's edge and theirs cleared their
@@ -7088,6 +7726,20 @@ body {
   background: var(--rule);
 }
 
+/* ── THE SPINE RUNS OFF THE TOP WHEN THE LIST IS WINDOWED ──
+   A panel shows the step in flight and the two before it; anything earlier
+   is reachable by opening the panel. Ending the rule cleanly above the first
+   visible row would say "this is where the agent started", which is false.
+   Running it to the edge under a fade says the opposite — the sequence
+   continues past what is drawn — and costs no row, which a "+N earlier"
+   label would. The fade is a mask on the line itself, so it needs no second
+   element and cannot be mistaken for a step. */
+.feed-flow.is-cut::before {
+  top: 0;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 12px);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 12px);
+}
+
 .feed-line {
   position: relative;
   display: grid;
@@ -7182,7 +7834,7 @@ body {
   display: flex;
   align-items: center;
   gap: 5px;
-  margin-top: auto;
+  margin-top: 10px;
   padding: 5px 8px;
   border-radius: var(--r-field);
   background: var(--sub);
@@ -8882,7 +9534,7 @@ body {
 .orc-rail {
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: var(--rail-gap);
   min-height: 0;
   /* No inner scroll. The rail used to be its own scrollport, which is the
      other half of why the right column read as a separate document — it moved
@@ -8906,10 +9558,13 @@ body {
      the 34px `padding-right` is the page margin. Padding here as well would
      double-count both and shrink the panels for no reason.
 
-     Vertically it matches `.orc-stream` exactly — 40px above, 56px below — so
-     the two columns start and end on the same lines. It was 22px on both,
-     which was its own number rather than the page's. */
-  padding: 40px 0 56px;
+     Vertically: the top comes from `--rail-top` in the rule below. The
+     bottom is 0 — it was 56px, matching the stream's, and that was right
+     when this column ended in open canvas. It now ends just above the feed
+     band, a real boundary carrying its own margin, so the padding was
+     spacing against a separation that already existed — and was 56 of the
+     100px the column was overflowing by. */
+  padding: 40px 0 0;
 }
 
 /* ── CENTRED ON THE HORIZONTAL MID-LINE ──
@@ -8949,9 +9604,40 @@ body {
 
    `safe center` so a window shorter than the panels does not clip the first
    one with no way to scroll up to it. */
+/* ── TOP-ANCHORED, AND RAISED ──
+   Centred, the rail's first panel sat at 143px in a 1016px window and moved
+   with every resize. Top-anchored it sits at a constant 107px — higher, and
+   fixed, which is what lets the composer meet it with a number rather than an
+   expression that chases the viewport.
+
+   107 is not a chosen value, it is where the composer lands: the stream's
+   40px top inset, plus the heading's 35px, plus the 32px block rhythm. The
+   rail's FIRST panel and the composer's top edge are therefore the same line
+   by construction, and writing the constant as that sum means a change to any
+   term shows up here as an obviously wrong number instead of silent drift. */
 .orc-rail {
-  justify-content: center;
-  justify-content: safe center;
+  /* Packed to the top of a padding that is itself the whole positioning
+     decision (`--rail-top`). NOT centred: centring resolves against the
+     row, the row loses 269px when the band mounts, and the rail visibly
+     jumped upward the instant a conversation began. A column that is not
+     part of the conversation must not move when one starts. */
+  justify-content: flex-start;
+  /* ── THE RAIL DOES NOT MOVE ──
+     Briefly set to `--page-top`, which made the alignment by lifting this
+     column instead of lowering the other one. Rejected: the conversation is
+     what should come down to meet Configuration. This keeps the rail exactly
+     where it has been, and `--orc-stream`'s top inset is derived FROM it. */
+  padding-top: var(--rail-top);
+  /* ── NO INNER SCROLLBAR, AND NO FADE OVER A CLIP ──
+     Both were here and both treated the symptom. The rail is three panels
+     of fixed, known content — nothing streams into it, and there is no
+     state in which the reader wants to scroll a sidebar independently of
+     the page it sits on. It overflowed only because its top inset was
+     114px and its bottom padding 56, and with those corrected there is
+     nothing left to scroll: 753px of column in 783px of row.
+
+     A scrollport was hiding a spacing bug behind an interaction. */
+  min-height: 0;
 }
 
 /* ── section shell ───────────────────────────────────────────────────────── */
@@ -10791,8 +11477,79 @@ body {
    column counts live with the grid that owns them, so only the rail's own
    placement belongs here. */
 
+/* ── BELOW ~990px TALL THE COLUMN GENUINELY DOES NOT FIT ──
+   The rail needs 753px (40px inset + 713px of panels) and the band takes
+   233 more with its gap and margin, so 986px of window is the floor. Above
+   it everything fits and the viewport lock is right: nothing scrolls, and
+   the band is always in view at the foot.
+
+   Below it, something has to give, and the honest choice is the page. The
+   lock exists to keep the band glanceable — it was never a promise that the
+   console fits any window, and holding it at 960px means the rail's last
+   panel crossing into the band, which is the one outcome ruled out. So the
+   lock comes off: rows size to content, the shell grows past the viewport,
+   and the page scrolls like a page. The band is then below the fold, which
+   is a cost, but a reachable band under a whole rail beats a clipped rail
+   over a pinned one.
+
+   1000px rather than 986 so the switch happens before the last few pixels
+   of clearance are gone, not exactly as they run out. */
+@media (max-height: 1000px) {
+  .con-body { height: auto; min-height: 100dvh; overflow: visible; }
+
+  .orc { grid-template-rows: auto auto; }
+
+  /* The internal scrollports were consequences of the lock. Without it they
+     would each be a small window onto their own content inside a page that
+     is already scrolling — two scrollbars for one overflow. */
+  .orc-stream,
+  .orc-stream.is-live .orc-log {
+    overflow: visible;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}
+
 @media (max-width: 1100px) {
-  .orc { grid-template-columns: minmax(0, 1fr); }
+  /* ── THE STACK, AND THE EXPLICIT PLACEMENTS HAVE TO COME OFF WITH IT ──
+     This block drops the page to one column. The two-column layout above
+     now places its children EXPLICITLY (`.orc-main` at column 1, `.orc-rail`
+     at column 2) because three children in a two-row grid were auto-flowing
+     the rail into a phantom third row — and those placements do not know
+     about this breakpoint. `grid-column: 2` against a single-column
+     template does not clamp, it CREATES an implicit second column: measured
+     here, the rail took 386px and the conversation was left with 274,
+     narrower than the rail beside it, and the full-width band shrank to
+     158px. A placement is part of a layout, so it has to be undone wherever
+     that layout is.
+
+     Three rows stacked, and the viewport lock comes off with them: the lock
+     exists so the band stays glanceable at the foot of a screen that fits
+     both columns, and at this width nothing fits that way. Stacked content
+     that is taller than the window should scroll like a page, not be
+     clipped to one. */
+  .orc {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+  }
+
+  .orc > .orc-main { grid-row: 1; grid-column: 1; }
+  .orc > .orc-rail { grid-row: 2; grid-column: 1; padding-top: 0; }
+  .orc > .feed { grid-row: 3; grid-column: 1; margin-left: 0; }
+
+  .con-body { height: auto; min-height: 100dvh; overflow: visible; }
+
+  /* The internal scrollports were the consequence of the lock; without it
+     they would each be a small window onto their own content inside a page
+     that is already scrolling. */
+  .orc-stream,
+  .orc-stream.is-live .orc-log,
+  .orc-rail {
+    overflow: visible;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
   .orc-rail {
     border-left: none;
     border-top: 1px solid var(--nav-rule);

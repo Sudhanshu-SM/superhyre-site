@@ -1,13 +1,13 @@
 import {
   ArrowCounterClockwise, CaretRight, Check, HandPalm, Pause, Plugs, WarningCircle, X,
 } from "@phosphor-icons/react";
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type {
-  CampaignKey, CampaignRoster, PipelineRole, RunState, Scope, TimelineEvent,
+  CampaignKey, CampaignRoster, FleetAgent, PipelineRole, RunState, Scope, TimelineEvent,
 } from "./orchestrator";
 import {
-  AGENT_ROLES, ROLE_HUE, activeCampaigns, campaignName, deployPrompt, feedAgents,
+  AGENT_ROLES, ROLE_HUE, activeCampaigns, campaignName, deployPrompt,
   leadOf, seen, timelineFor, wordFor,
 } from "./orchestrator";
 
@@ -129,28 +129,123 @@ function useElapsed(): number {
   return Math.floor(mins);
 }
 
+/**
+ * `Date.now()`, refreshed every second while anything deployed this session
+ * is still short of its last step.
+ *
+ * A SEPARATE clock from `useElapsed` on purpose: that one moves in half-minute
+ * jumps because fixture ages render in whole minutes, and a faster tick there
+ * would re-render for a number that cannot have changed. A freshly deployed
+ * agent's own workflow is seconds long, so it needs a clock fine enough to
+ * notice — this one, at one-second resolution.
+ */
+/**
+ * How many columns the band's grid actually laid out.
+ *
+ * Read from `grid-template-columns` rather than recomputed from the width —
+ * the grid has already solved `repeat(auto-fill, minmax(280px, 1fr))` against
+ * the real container, and its answer counts the gaps, the padding and the
+ * rounding correctly. Recomputing that arithmetic in JS would be a second
+ * implementation of the same rule, free to disagree with the first the
+ * moment either changes. The computed value lists every track, including the
+ * empty ones, which is precisely the number of panels that would fit.
+ */
+function useColumns(
+  ref: React.RefObject<HTMLElement>,
+  mounted: boolean,
+): { cols: number; track: number } {
+  const [grid, setGrid] = useState({ cols: 1, track: 0 });
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const read = () => {
+      const tracks = getComputedStyle(el).gridTemplateColumns.split(" ").filter(Boolean);
+      /* The track WIDTH comes back with the count because a departing panel
+         is taken out of the grid to leave — it no longer has a track to be
+         sized by, and a panel that snaps to some other width on its way out
+         is not leaving, it is being replaced by something else that then
+         leaves. */
+      setGrid({
+        cols: Math.max(1, Math.min(FEED_MAX, tracks.length)),
+        track: Math.round(parseFloat(tracks[0] ?? "0")) || 0,
+      });
+    };
+    read();
+    /* The band is a page row, so its width changes with the window and with
+       the sidebar collapsing — neither of which fires a resize on `window`
+       alone in the sidebar's case. */
+    const ro = new ResizeObserver(read);
+    ro.observe(el);
+    return () => ro.disconnect();
+    /* `mounted` is in the deps and `ref` alone is not enough — a ref object
+       is stable for the component's whole life, so with `[ref]` this effect
+       ran exactly once, on the render BEFORE the band existed, found
+       `ref.current === null`, returned, and was never invited back. The band
+       then showed one panel in a four-track grid for the rest of the
+       session. A ref identity says nothing about whether it points at
+       anything; the thing that changes is whether the list is rendered. */
+  }, [ref, mounted]);
+  return grid;
+}
+
+function useNow(active: boolean): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!active) return;
+    /* Read the clock the moment it starts mattering. The stored value is from
+       mount — page load — and waiting a full second for the first interval to
+       correct it is how a just-deployed agent ended up being asked about
+       using a timestamp from before it existed. */
+    setNow(Date.now());
+    const id = setInterval(() => setNow(Date.now()), 1_000);
+    return () => clearInterval(id);
+  }, [active]);
+  return now;
+}
+
 export function Campaigns({
-  scope, onOpenBrief,
+  scope, onOpenBrief, deployed, onDeploy,
 }: {
   scope: Scope;
   /** Seeds the composer. Used by the empty pipeline slot. */
   onOpenBrief: (prompt: string) => void;
+  /**
+   * Agents deployed in this session.
+   *
+   * Lifted out of this component because SENDING A BRIEF deploys one too, and
+   * that happens in the composer two levels up. State owned by the thing that
+   * renders it, with two callers writing to it, would have been two sources
+   * of truth for one list. */
+  deployed: readonly Deployed[];
+  onDeploy: (role: PipelineRole, campaign: string, campaignId: CampaignKey) => void;
 }) {
   const elapsed = useElapsed();
   const [open, setOpen] = useState<CampaignKey | null>(null);
   const [allOpen, setAllOpen] = useState(false);
+  /* Only ticking while a deployed agent could still be short of its last
+     step — a still-life band (nothing deployed, or everything already at the
+     end of its workflow) has nothing this clock would change, so it costs
+     nothing to leave off. */
+  /* The band's own grid, so the cap can be read off the layout it produced
+     rather than guessed from a width. */
+  const listRef = useRef<HTMLUListElement>(null);
+  const { cols, track } = useColumns(listRef, deployed.length > 0);
+  const stillWorking = deployed.some(
+    (d) => Date.now() - d.deployedAt < NEW_STEPS[d.role].length * STEP_SECS * 1000,
+  );
+  const now = useNow(stillWorking);
 
-  /**
-   * Agents deployed in this session, newest first.
-   *
-   * Frontend-only, and that is what makes the entrance animation honest to
-   * build: deploying really does add a row, so the motion is showing a real
-   * state change rather than playing a canned effect. Same prototype posture
-   * as dismissing a fault — the control does the observable thing it claims.
-   */
-  const [deployed, setDeployed] = useState<readonly Deployed[]>([]);
+  /* ── THE BAND STARTS EMPTY ──
+     It used to seat the three busiest fixture agents, so the page opened
+     claiming three campaigns were running before the user had done anything.
+     The band now shows what THIS SESSION deployed and nothing else, which
+     makes it a record of your own actions rather than a permanent decoration
+     — and it is the only version where "a campaign appears when you deploy
+     one" is a visible event rather than a fourth item joining three.
 
-  const live = feedAgents(scope);
+     Everything already running is still reachable: `View all` opens the full
+     roster, and the fleet board has its own route. */
+  const live: readonly FleetAgent[] = [];
   const roster = activeCampaigns(scope);
   const shown = roster.find((c) => c.id === open);
 
@@ -166,7 +261,45 @@ export function Campaigns({
   const band = [
     ...deployed.map((d) => ({ kind: "new" as const, d })),
     ...live.map((a) => ({ kind: "live" as const, a })),
-  ].slice(0, FEED_CAP);
+  ].slice(0, cols);
+
+  /* ── THE DISPLACED CAMPAIGN LEAVES INSTEAD OF BEING DELETED ──
+     Deploying past the cap drops the last entry from the slice above, and a
+     slice is not an exit: React simply stops rendering it, so the oldest
+     campaign blinked out of existence in the same frame the newest one
+     began easing in. Every other departure on this page was given a fade
+     once it was noticed; this was the last one still vanishing.
+
+     The band's own key order is the reason it goes RIGHTWARD. New campaigns
+     are prepended, so the oldest is the rightmost panel, and the whole row
+     shifts right as the entering column opens — leaving to the right is the
+     direction it was already travelling, and leaving any other way would
+     fight the motion around it.
+
+     Keys are compared rather than objects: `band` is rebuilt every render,
+     so identity tells you nothing about whether an entry is the same
+     campaign. */
+  const keys = band.map((e) => (e.kind === "new" ? e.d.key : e.a.id));
+  const cache = useRef(new Map<string, (typeof band)[number]>());
+  band.forEach((e, i) => cache.current.set(keys[i]!, e));
+
+  const [leaving, setLeaving] = useState<readonly string[]>([]);
+  const held = useRef<readonly string[] | null>(null);
+  useLayoutEffect(() => {
+    const before = held.current;
+    held.current = keys;
+    if (!before) return;
+    const gone = before.filter((k) => !keys.includes(k));
+    if (gone.length === 0) return;
+    setLeaving((l) => [...l, ...gone]);
+    const id = window.setTimeout(
+      () => setLeaving((l) => l.filter((k) => !gone.includes(k))),
+      FEED_LEAVE_MS,
+    );
+    return () => window.clearTimeout(id);
+    /* Joined rather than spread: the array is new every render and only its
+       CONTENTS decide whether anything actually left. */
+  }, [keys.join("\u0000")]);
 
   /* The header counts what is still MOVING — a paused agent is in the band
      but is not working, and saying otherwise would make the one number on
@@ -174,7 +307,10 @@ export function Campaigns({
      larger count is how the reader learns the band is a top-N. */
   const working = live.filter((a) => a.state !== "done").length + deployed.length;
 
-  if (live.length === 0 && deployed.length === 0) return null;
+  /* Nothing deployed yet is the resting state, and the honest thing to render
+     for it is nothing at all — a band explaining that it is empty would take
+     the same room as a band with something in it. */
+  if (deployed.length === 0) return null;
 
   return (
     <section className="feed" aria-labelledby="feed-h">
@@ -197,19 +333,22 @@ export function Campaigns({
         </button>
       </header>
 
-      <ul className="feed-list">
+      <ul className="feed-list" ref={listRef}>
         {band.map((e) => (e.kind === "new" ? (
           <li className="feed-item is-new" key={e.d.key}>
             <FeedRow
               role={e.d.role}
               campaign={e.d.campaign}
-              /* A freshly deployed agent has the role's real step list and is
-                 on the first of them — nothing invented, just the beginning
-                 of the same workflow every agent of that role runs. */
+              /* A freshly deployed agent has the role's real step list and
+                 WALKS it — one step every `STEP_SECS`, clamped at the last —
+                 rather than sitting frozen at the first forever. Nothing
+                 invented: it is the same workflow every agent of that role
+                 runs, paced by the clock rather than by a backend that does
+                 not exist. */
               steps={NEW_STEPS[e.d.role]}
-              doing="Reading the brief and planning its first search"
+              doing={NEW_DOING[e.d.role][newPos(e.d, now)]!}
               at={0}
-              pos={0}
+              pos={newPos(e.d, now)}
               state="running"
               onOpen={() => setOpen(e.d.campaignId)}
             />
@@ -229,6 +368,50 @@ export function Campaigns({
             />
           </li>
         )))}
+
+        {/* Out of the grid and pinned to the band's right edge, so it holds
+            neither a track nor a place in the order while it goes — the
+            survivors close up behind it immediately, which is the motion
+            that makes room for the arriving panel on the left. Its width is
+            carried over from the track it just left, because a panel that
+            changes size on the way out is not the same panel leaving. */}
+        {leaving.map((k) => {
+          const e = cache.current.get(k);
+          if (!e) return null;
+          return (
+            <li
+              className="feed-item is-gone"
+              key={`gone:${k}`}
+              style={track ? { width: track } : undefined}
+              aria-hidden="true"
+            >
+              {e.kind === "new" ? (
+                <FeedRow
+                  role={e.d.role}
+                  campaign={e.d.campaign}
+                  steps={NEW_STEPS[e.d.role]}
+                  doing={NEW_DOING[e.d.role][newPos(e.d, now)]!}
+                  at={0}
+                  pos={newPos(e.d, now)}
+                  state="running"
+                  onOpen={() => undefined}
+                />
+              ) : (
+                <FeedRow
+                  role={e.a.role as PipelineRole}
+                  campaign={campaignName(e.a.campaignId)}
+                  steps={e.a.steps}
+                  doing={e.a.doing}
+                  at={e.a.seenAgo + elapsed}
+                  pos={e.a.step}
+                  state={e.a.state}
+                  fault={e.a.fault}
+                  onOpen={() => undefined}
+                />
+              )}
+            </li>
+          );
+        })}
       </ul>
 
       {allOpen && (
@@ -244,9 +427,7 @@ export function Campaigns({
           campaign={shown}
           onClose={() => setOpen(null)}
           onOpenBrief={(p) => { setOpen(null); onOpenBrief(p); }}
-          onDeploy={(role, campaign, campaignId) =>
-            setDeployed((d) => [{ key: `${campaignId}:${role}:${Date.now()}`, role, campaign, campaignId }, ...d])
-          }
+          onDeploy={onDeploy}
         />
       )}
     </section>
@@ -254,14 +435,33 @@ export function Campaigns({
 }
 
 /**
- * How many columns the band holds.
+ * The most the band will ever seat, however wide the window gets.
  *
- * Three, and the number is a LAYOUT fact rather than a preference: at 556px
- * of content a fourth column drops each to 139px, which is under what a
- * campaign name needs and the names collided with the ages. Shared with
- * `feedAgents` so the two cannot disagree about the cap.
+ * This was a flat `FEED_CAP = 3`, and three was a correct number for a
+ * container that no longer exists: the feed used to live inside the 556px
+ * conversation column, where a fourth panel dropped each to 139px and the
+ * campaign names collided with the ages. It then moved to a full-width band
+ * across the foot of the page — roughly 1420px, room for four or five — and
+ * the cap did not move with it, so the band showed three panels and left a
+ * third of itself empty while the header said nine were working.
+ *
+ * Exactly the trap this file has hit before with content-derived floors: a
+ * number measured against one container is not a number, it is a
+ * measurement, and it expires when the container changes. So the real count
+ * is now read from the grid at runtime (`useColumns`) and this is only a
+ * ceiling — past six, panels are readable but the band stops being glanceable
+ * and becomes a list, which is what the `View all` dialog is for.
  */
-const FEED_CAP = 3;
+const FEED_MAX = 6;
+
+/**
+ * How long a displaced campaign stays mounted to fade out.
+ *
+ * Matched to `feed-leave` in access.css, and slightly under the entering
+ * column's own 480ms so the band is never briefly holding both a panel that
+ * has finished arriving and one that has not finished going.
+ */
+const FEED_LEAVE_MS = 440;
 
 /**
  * The step list a newly deployed agent starts on, by role.
@@ -276,13 +476,90 @@ const NEW_STEPS: Record<PipelineRole, readonly string[]> = {
   Screening: ["Reading transcripts", "Scoring", "Summarising"],
 };
 
+/**
+ * What a newly deployed agent says while it is on each of `NEW_STEPS`, in the
+ * same order. One line per step, not a generic "working on it" repeated —
+ * the panel's whole argument is that you can see WHICH step it is on, and a
+ * caption that does not change with the step undoes that.
+ */
+const NEW_DOING: Record<PipelineRole, readonly string[]> = {
+  Sourcing: [
+    "Reading the brief and planning its first search",
+    "Querying the sourcing graph for matches",
+    "Checking each candidate against the brief",
+    "Ordering the shortlist by fit",
+  ],
+  Outreach: [
+    "Drafting an opening message for the shortlist",
+    "Holding for your go-ahead before it sends",
+    "Sending to the approved list",
+    "Watching the thread for replies",
+  ],
+  Screening: [
+    "Reading the call transcript",
+    "Scoring against the brief's must-haves",
+    "Writing up what it found",
+  ],
+};
+
+/**
+ * Seconds a newly deployed agent spends on each step before moving to the
+ * next. Not a promise about how long real work takes — a pace slow enough
+ * that the step you are reading is still on screen a few seconds later, and
+ * fast enough that watching the band for a minute shows it actually moving,
+ * which is the whole point of the panel over a frozen "running" label.
+ */
+const STEP_SECS = 6;
+
+/**
+ * How many workflow steps a feed panel shows at once: the one in flight and
+ * the two before it.
+ *
+ * Three because the panel's job is "where is this agent right now", and the
+ * two prior steps are the context that makes the current one legible — what
+ * it just finished tells you whether the current step is early or nearly
+ * done. A fourth adds height without adding that.
+ */
+const STEP_WINDOW = 3;
+
 /** An agent deployed in this session. */
-type Deployed = {
+export type Deployed = {
   key: string;
   role: PipelineRole;
   campaign: string;
   campaignId: CampaignKey;
+  /** `Date.now()` at deploy — the step clock counts from here. */
+  deployedAt: number;
 };
+
+/**
+ * Which of a deployed agent's steps `now` falls on.
+ *
+ * Exported so the band and any future reader of a deployed agent's state
+ * compute the same number the same way — the class of bug this file's own
+ * history has hit twice already (rungs a `max()` outranked, a tiebreak that
+ * read a different field than the card displayed): one function, not a sum
+ * re-derived at each call site.
+ */
+export function newPos(d: Deployed, now: number): number {
+  const cap = NEW_STEPS[d.role].length - 1;
+  /* ── CLAMPED AT BOTH ENDS, AND THE LOW END IS NOT THEORETICAL ──
+     `now` comes from a clock seeded when the component MOUNTED, which is page
+     load — so for the first tick after a deploy it is EARLIER than
+     `deployedAt` and the elapsed time is negative. `Math.floor` of a small
+     negative is -1, the slice below it came out empty, and a freshly
+     deployed agent rendered with zero steps for up to a second before its
+     first row appeared.
+
+     That was not just a cosmetic delay: the row popping in grew the band by
+     40px a full second after the send, which shrank the page row above it
+     and yanked the composer 40px upward the instant its 1000ms glide
+     finished — a visible hitch at the exact moment the motion was supposed
+     to settle. An agent that has been deployed is on its first step by
+     definition, so the floor is 0. */
+  const elapsed = Math.floor((now - d.deployedAt) / (STEP_SECS * 1000));
+  return Math.min(cap, Math.max(0, elapsed));
+}
 
 /**
  * One agent's workflow, the way a reasoning panel shows its steps.
@@ -334,7 +611,38 @@ function FeedRow({
      against a 161px band, so its own status line was clipped out of sight by
      the band's `overflow: hidden` — the panel's most live element, hidden by
      a row describing work that had not started. */
-  const visible = steps.slice(0, pos + 1);
+  /* ── A WINDOW, NOT THE WHOLE HISTORY ──
+     The list grew a row per completed step, so a panel got taller the longer
+     its agent worked — a supervision surface whose size reports how busy it
+     is, which is the exact fault the 552px Agents block was killed for in
+     rev 42, reappearing at panel scale. Three rows: the step in flight and
+     the two before it. Everything earlier is still reachable by clicking the
+     panel, which is what the Timeline dialog is for, so nothing is lost —
+     it stops being pinned open at the cost of the band's height.
+
+     Height is now bounded by construction rather than by how long a workflow
+     happens to be: a three-step role and a ten-step one both render three
+     rows. */
+  /* ── A FIXED-SIZE WINDOW, NOT A GROWING ONE ──
+     This took `slice(from, pos + 1)`, so a panel showed one row on its first
+     step, two on its second, three from then on. Each row is 18px and the
+     band is the page's BOTTOM row, so the band grew 183 → 201 → 219 over the
+     first fifteen seconds of a run and shoved the composer, the transcript
+     and the rail upward in two visible jumps. A supervision surface that
+     relayouts the page it sits under, on a timer, because an agent it is
+     reporting on took a step.
+
+     The window is now always `STEP_WINDOW` rows: the current step with the
+     two before it when they exist, and when they do not — the first seconds
+     of a run — the two AFTER it instead. Those render dimmed as unreached,
+     which the row styling already distinguishes, so nothing claims progress
+     it has not made; the panel simply shows more of the same workflow at the
+     start and scrolls through it as the agent advances. Constant height from
+     the first frame, and no blank space to fill either, which is the trap the
+     other obvious fix (reserve the tall height, let short panels gap) walks
+     straight into. */
+  const from = Math.max(0, Math.min(pos + 1 - STEP_WINDOW, steps.length - STEP_WINDOW));
+  const visible = steps.slice(from, from + STEP_WINDOW);
 
   return (
     <button
@@ -360,10 +668,34 @@ function FeedRow({
           The agent's own steps, which is what a reasoning dropdown shows and
           what this surface was missing: you can watch it read a brief, plan a
           search and start matching, rather than being told it is "running". */}
-      <span className="feed-flow">
+      {/* ── THE LIST SAYS WHEN IT IS NOT THE WHOLE LIST ──
+          A window that gives no sign it is a window is a panel claiming this
+          agent started at step three. `is-cut` runs the spine off the top
+          edge under a fade instead of stopping it short, so the sequence
+          visibly continues past what is drawn — structure doing the work
+          rather than a "+2 earlier" row, which would cost back the height
+          the window was opened to save.
+
+          The count itself goes to assistive tech, which cannot see a line
+          run off an edge, and the panel is a button onto the full timeline
+          for anyone who wants the rest. */}
+      <span className={`feed-flow${from > 0 ? " is-cut" : ""}`}>
+        {from > 0 && (
+          <span className="sr-only">
+            {from} earlier {from === 1 ? "step" : "steps"} not shown
+          </span>
+        )}
         {visible.map((name, i) => {
-          const done = i < pos || (finished && i <= pos);
-          const here = i === pos && !finished;
+          /* `i` indexes the WINDOW, `at` indexes the workflow. They were the
+             same number only because the slice used to start at 0, and every
+             comparison below is against `pos`, which is a workflow index —
+             so the moment the window slid, `i < pos` would have marked rows
+             done that are not and lit the wrong row as current. Offsetting
+             once here keeps the two index spaces from being confused
+             further down. */
+          const at = from + i;
+          const done = at < pos || (finished && at <= pos);
+          const here = at === pos && !finished;
           return (
             <Fragment key={name}>
               <span className={`feed-line${done ? " is-done" : ""}${here ? " is-here" : ""}`}>

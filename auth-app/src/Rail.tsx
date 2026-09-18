@@ -476,17 +476,25 @@ const EARLIER: Brief[] = [];
 /**
  * What the rail shows inline.
  *
- * Four. The research on space-constrained lists lands on three-to-five recent
- * items plus a clear route to the rest, and four is where this column stops
- * paying: a fifth row costs ~44px of a 340px column to show one more brief
- * that the dialog already shows better.
+ * Three. The research on space-constrained lists lands on three-to-five
+ * recent items plus a clear route to the rest, and this was four — the top
+ * of that band was affordable when the rail could run as tall as it liked.
+ *
+ * It cannot any more. The rail now holds a FIXED position that does not move
+ * when the conversation starts, which means its inset is whatever the window
+ * has left after the rail's own run and the reserved foot band — and at a
+ * 1016px screen that arithmetic came out at 34px, the column pinned against
+ * the page heading with no air above it. The only term in that sum with any
+ * give is the rail's own height, and the cheapest 44px in it is a fourth
+ * history row that the dialog already shows better. Three keeps the pattern
+ * inside its own research band and buys the column its headroom.
  *
  * Sliced off BRIEFS rather than off RECENT, because RECENT is a recency
  * BUCKET — it holds whatever is under a day old, which could be one row or
  * twelve. The inline list needs a fixed count, not a variable one, or the
  * column's height changes with how busy yesterday was.
  */
-export const RECENT_FEW: readonly Brief[] = BRIEFS.slice(0, 4);
+export const RECENT_FEW: readonly Brief[] = BRIEFS.slice(0, 3);
 
 /* One pass, and the recency rule stated once. Two filters would have needed
    the predicate and its negation side by side, which is a rule written twice.

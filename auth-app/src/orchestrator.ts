@@ -886,43 +886,6 @@ export const STEP_NOTE: Record<string, string> = {
   "f6:2": "Summarised 5 screening calls",
 };
 
-/**
- * The agents to show in the live feed, busiest first.
- *
- * ── WHY PER-AGENT AND NOT PER-CAMPAIGN ──────────────────────────────────────
- * The bar this replaces showed one card per campaign, which answered "which
- * campaigns exist" — a question the sidebar already answers. The feed answers
- * "who is working right now", and the thing that works is an AGENT. A campaign
- * does not read a brief; a Sourcing agent does.
- *
- * ── AND WHY FINISHED AND QUEUED AGENTS ARE NOT IN IT ────────────────────────
- * `done` has stopped and `queued` has not started, so neither can produce a
- * new line while you watch. A feed whose rows cannot change is a list.
- *
- * Capped at three because the ask was explicit and the reason is sound: this
- * sits above the composer, and a feed that grows without bound would push the
- * page's hero down every time someone deployed an agent.
- */
-export function feedAgents(scope: Scope, cap = 3): readonly FleetAgent[] {
-  const eligible = fleetFor(scope)
-    /* ── `queued` IS OUT, `done` IS IN, AND THEY ARE NOT THE SAME CASE ──
-       A queued agent has not started: no steps to show, nothing said, and no
-       real last-heard time to order by. A FINISHED agent has a complete
-       workflow and a true age, and "this one is done" is a thing a supervisor
-       needs to see rather than have silently vanish. It renders paused. */
-    .filter((a) => a.state !== "queued")
-    .sort((a, b) => a.seenAgo - b.seenAgo);
-
-  /* ── THE WORKING AGENT IS NEVER CROWDED OUT ──
-     Ordering purely by recency let a running agent fall off the band the
-     moment two others reported more recently — and the one agent actually
-     producing work is the one the feed exists to show. So it is seated first
-     and the remaining slots go to the most recent of the rest. With nothing
-     running the band is simply the latest few, which is the same list. */
-  const working = eligible.find((a) => a.state === "running");
-  const rest = eligible.filter((a) => a.id !== working?.id);
-  return (working ? [working, ...rest] : rest).slice(0, cap);
-}
 
 /**
  * The prompt that seeds the composer for an unstaffed pipeline stage.

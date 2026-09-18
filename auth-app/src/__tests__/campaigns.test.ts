@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   AGENT_ROLES, FLEET, ROLE_HUE, RUN_HUE, SCOPED, STEP_AT,
-  activeCampaigns, deployPrompt, feedAgents, leadOf, rosterFor, timelineFor,
+  activeCampaigns, deployPrompt, leadOf, rosterFor, timelineFor,
 } from "../orchestrator";
 
 /**
@@ -168,37 +168,3 @@ describe("the deploy prompt", () => {
   });
 });
 
-describe("the live feed", () => {
-  /* `queued` and `done` are NOT the same case. A queued agent has not
-     started — no steps to show, nothing said, and no real last-heard time to
-     order it by. A finished one has a complete workflow and a true age, and
-     "this one is done" is something a supervisor should see rather than have
-     silently vanish; it renders paused. */
-  it("shows finished agents but never queued ones", () => {
-    const shown = feedAgents("all", 99);
-    for (const a of shown) expect(a.state).not.toBe("queued");
-    expect(shown.some((a) => a.state === "done")).toBe(true);
-    const eligible = FLEET.filter((a) => a.state !== "queued");
-    expect(shown).toHaveLength(eligible.length);
-  });
-
-  it("orders by most recently heard from", () => {
-    const ages = feedAgents("all", 99).map((a) => a.seenAgo);
-    expect(ages).toEqual([...ages].sort((a, b) => a - b));
-  });
-
-  /* The cap is a layout fact: a fourth column drops each to 139px, under what
-     a campaign name needs. */
-  it("caps the band and keeps the busiest", () => {
-    const capped = feedAgents("all", 2);
-    expect(capped).toHaveLength(2);
-    const all = feedAgents("all", 99);
-    expect(capped.map((a) => a.id)).toEqual(all.slice(0, 2).map((a) => a.id));
-  });
-
-  it("scopes to one campaign when asked", () => {
-    for (const key of SCOPED) {
-      for (const a of feedAgents(key, 99)) expect(a.campaignId).toBe(key);
-    }
-  });
-});

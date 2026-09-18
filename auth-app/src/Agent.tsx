@@ -1,12 +1,13 @@
 import { ArrowUp, Check, MagnifyingGlass, Plus } from "@phosphor-icons/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   FACET_HUE, FACET_LABEL, FACET_ORDER, read, segment,
 } from "./brief";
 import { Campaigns } from "./Campaigns";
+import type { Deployed } from "./Campaigns";
 import { BorderGlow } from "./glow";
-import { BRIEFS, MODES, SOURCING_CONTEXT, STAGES, SUGGESTIONS } from "./orchestrator";
-import type { ModeId } from "./orchestrator";
+import { BRIEFS, MODES, SCOPED, SOURCING_CONTEXT, STAGES, SUGGESTIONS } from "./orchestrator";
+import type { CampaignKey, ModeId, PipelineRole } from "./orchestrator";
 import { Rail } from "./Rail";
 import { REPLIES } from "./replies";
 import { Prompt, Reply } from "./Reply";
@@ -71,6 +72,46 @@ export function Agent({
   const [activeBrief, setActiveBrief] = useState<string | null>(null);
   const nextId = useRef(1);
   const streamRef = useRef<HTMLDivElement>(null);
+  /* The transcript's own scrollport — the composer sits outside it. */
+  const logRef = useRef<HTMLDivElement>(null);
+  /* The composer's outer block, so the send can FLIP it from where it rests
+     to where it docks. */
+  const composerRef = useRef<HTMLDivElement>(null);
+
+  /* ── THE SEND IS A JOURNEY, AND THIS IS WHAT IT NEEDS TO MEASURE ──
+     Sending the first brief moves the composer 601px down the page — measured
+     — and for every revision up to this one that move happened in ONE FRAME.
+     Its height eased over 480ms and its shape morphed underneath it while the
+     whole block teleported to the dock, which is why the interaction kept
+     reading as snappy no matter how the durations were tuned: the largest
+     motion on screen was not being animated at all.
+
+     `flipFrom` is the composer's viewport top read immediately BEFORE the
+     state change, and `exitAt` is where the heading and the suggestion list
+     were sitting at that same instant. Both are refs rather than state: they
+     are written during an event and consumed in the layout effect that runs
+     from it, and a render in between would be a render showing the old
+     layout. */
+  const flipFrom = useRef<number | null>(null);
+  /* The field's own height, and every control's position INSIDE the composer,
+     both read at the same instant as `flipFrom`. The controls are stored
+     relative to the composer rather than to the viewport: the composer is
+     itself being translated, and a child of a translated parent that also
+     carries its own viewport-delta would travel the distance twice. */
+  const flipField = useRef<{ h: number; r: string } | null>(null);
+  const flipKids = useRef<Map<Element, { x: number; y: number }> | null>(null);
+  const exitAt = useRef<{ intro: number; recs: number } | null>(null);
+  /* True while the landing-state blocks are on their way out. They stay
+     mounted for it — an element cannot be animated away after it has already
+     been removed from the tree, which is why they used to vanish between one
+     frame and the next while everything around them eased. */
+  const [exiting, setExiting] = useState(false);
+
+  /* Declared here rather than beside `contextFor` further down: the FLIP and
+     the autosize effect both key on it, and a `const` below them is a
+     use-before-declaration. It is derived, not state — `turns` is the single
+     source of truth for whether a conversation exists. */
+  const started = turns.length > 0;
   const sendRef = useRef<HTMLButtonElement>(null);
   const areaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -104,9 +145,64 @@ export function Agent({
     el.setSelectionRange(n, n);
   }, []);
 
+  /**
+   * Agents deployed in this session, newest first.
+   *
+   * Owned here because two things deploy: the timeline's empty pipeline slot,
+   * and SENDING A BRIEF — which is what the composer does, two levels above
+   * the band that shows the result. Frontend-only, which is what makes the
+   * band's entrance animation honest: deploying really adds a row, so the
+   * motion reports a state change rather than playing an effect.
+   */
+  const [deployed, setDeployed] = useState<readonly Deployed[]>([]);
+
+  const deploy = useCallback(
+    (role: PipelineRole, name: string, id: CampaignKey) => {
+      const deployedAt = Date.now();
+      setDeployed((d) => [
+        { key: `${id}:${role}:${deployedAt}`, role, campaign: name, campaignId: id, deployedAt },
+        ...d,
+      ]);
+    },
+    [],
+  );
+
   const send = useCallback(() => {
     const said = draft.trim();
     if (!said) return;
+
+    /* ── MEASURE THE OLD LAYOUT WHILE IT IS STILL THE LAYOUT ──
+       Only on the FIRST send: that is the one that rearranges the page. Every
+       later send leaves the composer exactly where it is, and running a FLIP
+       with a zero delta would be 480ms of nothing.
+
+       `offsetTop` for the two departing blocks rather than a viewport rect —
+       they are re-anchored against their own offset parent on the way out, so
+       an offset is the number that survives them leaving the flow. */
+    if (turns.length === 0) {
+      const root = composerRef.current;
+      if (root) {
+        const box = root.getBoundingClientRect();
+        flipFrom.current = box.top;
+        const f = root.querySelector(".orc-composer-field");
+        flipField.current = f
+          ? { h: f.getBoundingClientRect().height, r: getComputedStyle(f).borderRadius }
+          : null;
+        /* Every control that ends up somewhere else. The modes and slots
+           travel from under the text to beside it; the send button slides up
+           the field's right edge as the field collapses around it. */
+        const kids = new Map<Element, { x: number; y: number }>();
+        root.querySelectorAll(".orc-mode, .orc-slots .orc-gslot, .orc-send").forEach((kid) => {
+          const r = kid.getBoundingClientRect();
+          kids.set(kid, { x: r.left - box.left, y: r.top - box.top });
+        });
+        flipKids.current = kids;
+      }
+      const intro = streamRef.current?.querySelector<HTMLElement>(".orc-intro");
+      const recs = streamRef.current?.querySelector<HTMLElement>(".orc-recs");
+      exitAt.current = { intro: intro?.offsetTop ?? 0, recs: recs?.offsetTop ?? 0 };
+      setExiting(true);
+    }
     /* Optimistic: the turn is on screen before anything else happens. Standard
        practice for a composer and worth 100-300ms of perceived latency even
        when, as here, there is no request to wait for. */
@@ -123,7 +219,23 @@ export function Agent({
       },
     ]);
     setDraft("");
-  }, [draft, mode]);
+
+    /* ── SENDING A BRIEF DEPLOYS AN AGENT ──
+       This is the link the band was missing: you write a brief, an agent goes
+       to work on it, and it appears at the foot of the page. The role follows
+       the MODE, because that is what the two modes mean — `sourcing` puts a
+       Sourcing agent on the campaign, `agent` puts the orchestrator's own
+       Outreach agent on it. Nothing invented: the role, the campaign and the
+       first step all come from what was already selected. */
+    /* `campaign.id` is a `string` on the workspace type while the orchestrator
+       keys on a union. The two id spaces were unified deliberately, so the
+       value is right and only the TYPE is loose — narrowed against the real
+       key list rather than asserted, so a workspace that ever carries an id
+       the orchestrator does not know simply does not deploy, instead of
+       deploying into a campaign that has no fixtures. */
+    const key = SCOPED.find((k) => k === campaign.id);
+    if (key) deploy(mode === "sourcing" ? "Sourcing" : "Outreach", campaign.name, key);
+  }, [draft, mode, deploy, campaign]);
 
   /* Walks the running turn through its stages, then answers. Intervals rather
      than one long timeout so each stage is legible, and cleared on unmount so
@@ -150,19 +262,174 @@ export function Agent({
     return () => window.clearTimeout(id);
   }, [turns]);
 
-  /* Keep the newest turn in view.
-     The PAGE is the scroller now, not the stream — the stream's own
-     `overflow` was removed because it never actually scrolled (nothing above
-     it constrains its height) and its phantom scrollport was preventing the
-     composer from sticking. So this scrolls the window, and scrolls to the
-     bottom because the composer is the last thing there. */
+  /* ── THE COMPOSER TRAVELS TO ITS DOCK ──
+     A FLIP, and it has to be a LAYOUT effect: the browser must not paint the
+     new position before the inverse transform is on the element, or the
+     block is seen at the dock for one frame and then slides back up to
+     animate down again — the classic FLIP flash.
+
+     `translateY` only. The height is animated separately, by the autosize
+     effect, on the same duration and curve; between them the composer glides
+     down while it collapses into a bar, which is one gesture rather than two
+     because the numbers agree. Transform never triggers layout, so this
+     602px slide costs nothing per frame even while the transcript above it
+     is reflowing into the space. */
+  useLayoutEffect(() => {
+    const from = flipFrom.current;
+    flipFrom.current = null;
+    if (from === null) return;
+
+    const el = composerRef.current;
+    const field = el?.querySelector<HTMLElement>(".orc-composer-field");
+    const kids = flipKids.current;
+    const fieldWas = flipField.current;
+    flipKids.current = null;
+    flipField.current = null;
+    if (!el || !field) return;
+
+    /* ── EVERY MEASUREMENT FIRST, THEN EVERY ANIMATION ──
+       Reading a rect after starting an animation would measure a value the
+       first animation had already moved, so the whole final layout is
+       sampled before anything is allowed to move. */
+    const box = el.getBoundingClientRect();
+    const dy = from - box.top;
+    const fieldNow = field.getBoundingClientRect().height;
+
+    /* ── THE CONTROLS ARE MEASURED AGAINST THE ANIMATION'S FIRST FRAME ──
+       Not its last, and the difference is what put them on top of the
+       field's border mid-collapse.
+
+       A FLIP normally measures the FINAL layout, because the final layout is
+       where the element will be sitting for the whole animation. That is not
+       true here: the field's height is itself animated, and in the live
+       layout the controls are vertically CENTRED in it, so their position
+       drifts continuously as the box shrinks. Measuring the end state and
+       animating to it meant the drift and the FLIP both moved them — the
+       same distance counted twice — and they slid straight out of the box.
+
+       So the field is forced back to its pre-swap height for the duration of
+       one synchronous measurement. That yields where each control sits on
+       the animation's FIRST frame; the FLIP covers only the residual (the
+       genuine rearrangement from a row under the text to a cluster beside
+       it), and the centring drift carries the rest exactly once. No paint
+       happens in between — this is all inside one layout effect. */
+    const hardH = field.style.height;
+    if (fieldWas) field.style.height = `${fieldWas.h}px`;
+    const startBox = el.getBoundingClientRect();
+    const starts = new Map<Element, { x: number; y: number }>();
+    kids?.forEach((_was, kid) => {
+      const r = kid.getBoundingClientRect();
+      starts.set(kid, { x: r.left - startBox.left, y: r.top - startBox.top });
+    });
+    field.style.height = hardH;
+
+    const moves: Array<[Element, number, number]> = [];
+    kids?.forEach((was, kid) => {
+      const at = starts.get(kid);
+      if (!at) return;
+      const kdx = was.x - at.x;
+      const kdy = was.y - at.y;
+      if (Math.abs(kdx) >= 1 || Math.abs(kdy) >= 1) moves.push([kid, kdx, kdy]);
+    });
+
+    if (Math.abs(dy) < 2 && moves.length === 0) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    /* 750ms on `--ease-morph`. The literals are duplicated from access.css
+       because the Web Animations API takes numbers, not custom properties.
+       Every one of these MUST stay equal: they are not four animations that
+       happen to overlap, they are one shape change expressed in four places,
+       and any drift between them shows up as a part arriving early. */
+    const TIMING = {
+      duration: 750,
+      easing: "cubic-bezier(0.6, 0.28, 0.44, 1)",
+      fill: "none" as const,
+    };
+    const anims = [
+      /* The block travels to its dock. */
+      el.animate(
+        [{ transform: `translateY(${dy}px)` }, { transform: "translateY(0)" }],
+        TIMING,
+      ),
+      /* ── THE FIELD'S HEIGHT, NOT THE TEXTAREA'S ──
+         One number that already contains everything the shape change does to
+         the box: the padding coming down, the controls moving from under the
+         text to beside it, and the text itself collapsing to a line.
+         Animating the textarea instead (which is what this did) left the
+         padding and the column-to-row switch snapping around a height that
+         eased, which is the "switches first, then moves" that was
+         reported. */
+      /* ── RADIUS TRAVELS WITH HEIGHT, IN THE SAME KEYFRAMES ──
+         `border-radius` was transitioning to `--r-pill` (100px) on its own
+         clock while the box was still 139px tall, and a 100px radius on a
+         tall box is a CAPSULE — a stadium shape that appears nowhere in this
+         design and was the single ugliest frame in the collapse.
+
+         The end state is a pill only because the box ends up 54px tall and
+         the radius clamps to half of it. So the radius is animated to
+         exactly `fieldNow / 2`: every intermediate frame is a correctly
+         proportioned rounded rectangle, and the last one is a true pill
+         because half the height IS the pill radius. Same keyframes as the
+         height so the two can never disagree. */
+      field.animate(
+        [
+          { height: `${fieldWas?.h ?? fieldNow}px`, borderRadius: fieldWas?.r ?? "" },
+          { height: `${fieldNow}px`, borderRadius: `${fieldNow / 2}px` },
+        ],
+        TIMING,
+      ),
+      /* ── AND EACH CONTROL WALKS ITS OWN PATH ──
+         The modes and the attach slots move from a row UNDER the text to a
+         cluster BESIDE it — the single largest rearrangement in the collapse
+         and, until now, the one thing that still teleported. Because the
+         deltas were taken relative to the composer, these compose correctly
+         with the parent's own translate above instead of doubling it. */
+      ...moves.map(([kid, kdx, kdy]) =>
+        kid.animate(
+          [{ transform: `translate(${kdx}px, ${kdy}px)` }, { transform: "translate(0, 0)" }],
+          TIMING,
+        ),
+      ),
+    ];
+    return () => anims.forEach((a) => a.cancel());
+  }, [started]);
+
+  /* ── ONE FLAG FOR "THE MORPH IS RUNNING" ──
+     It started as "the landing blocks are still fading" and is now also what
+     `.orc-stream.is-morphing` reads to stand the glow ring down, so it runs
+     the length of the MORPH (750ms) rather than of the fade (420ms). The
+     blocks finish early and hold at opacity 0 on their `both` fill until
+     this clears — already inert by then, being `pointer-events: none` and
+     aria-hidden. The extra 30ms keeps a frame of overlap so nothing is
+     removed on the same tick it finishes animating. */
+  useEffect(() => {
+    if (!exiting) return;
+    const id = window.setTimeout(() => setExiting(false), 780);
+    return () => window.clearTimeout(id);
+  }, [exiting]);
+
+  /* ── KEEP THE NEWEST TURN IN VIEW ──
+     This scrolled the WINDOW, on the reasoning that the page was the scroller
+     and the stream's own overflow was a phantom. Both halves stopped being
+     true: the shell is viewport-locked now, so the window does not scroll at
+     all, and the transcript is a real scrollport with the composer docked
+     beneath it. Scrolling the window was therefore a no-op and the newest
+     reply stayed off the bottom of the log.
+
+     `scrollHeight` on the log, not `scrollIntoView` on the turn: the log's
+     top is masked, and scrolling an element into view can land it under that
+     fade. The bottom is unmasked precisely because it is where the newest
+     thing lives. */
   useEffect(() => {
     if (turns.length === 0) return;
-    window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+    const log = logRef.current;
+    if (!log) return;
+    log.scrollTo({ top: log.scrollHeight, behavior: "smooth" });
   }, [turns]);
 
   const contextFor = mode === "sourcing" ? SOURCING_CONTEXT : [];
-  const started = turns.length > 0;
+
+
 
 
   /* Take a prompt handed over from another page, once.
@@ -179,18 +446,29 @@ export function Agent({
     <div className="orc">
       <div className="orc-main">
 
-        <div className="orc-stream" ref={streamRef}>
-          {started
-            ? turns.map((t) => (
-                <TurnView
-                  key={t.id}
-                  turn={t}
-                  flyFrom={flight?.id === t.id ? flight : null}
-                  onFlown={clearFlight}
-                  onAnswer={seed}
-                />
-              ))
-            : (
+        {/* ── TWO STATES, AND THE CLASS SAYS WHICH ──
+            At rest the column is a heading over a composer. Once a brief is
+            sent it becomes a transcript that scrolls with the composer docked
+            beneath it — the shape every chat surface converges on, and the
+            shape the reference asks for. One class drives the whole change so
+            the two states cannot disagree about which one is showing. */}
+        <div
+          className={`orc-stream${started ? " is-live" : ""}${exiting ? " is-morphing" : ""}`}
+          ref={streamRef}
+        >
+          {/* The transcript owns the scroll, not the column: the composer has
+              to stay put while the messages move under it. */}
+          <div className="orc-log" ref={logRef}>
+          {started && turns.map((t) => (
+            <TurnView
+              key={t.id}
+              turn={t}
+              flyFrom={flight?.id === t.id ? flight : null}
+              onFlown={clearFlight}
+              onAnswer={seed}
+            />
+          ))}
+          {(!started || exiting) && (
               /* ── THE PAGE TITLES ITSELF, AND SAYS NOTHING ELSE ──
                  This was "Brief the agent" over a sentence explaining what a
                  brief does and which campaign it would run against. Both are
@@ -204,29 +482,28 @@ export function Agent({
 
                  What is left is the product's name for the surface. It does
                  not instruct, because everything below it already does. */
-              <div className="orc-intro">
+              /* On the way out it is taken OUT OF FLOW and pinned to where
+                 it was standing, so the log can lay out around the incoming
+                 turn immediately — which is what the composer's FLIP has to
+                 measure against — while this still fades from its old place
+                 rather than jumping somewhere else to do it. */
+              <div
+                className={`orc-intro${exiting ? " is-out" : ""}`}
+                style={exiting ? { top: exitAt.current?.intro ?? 0 } : undefined}
+                aria-hidden={exiting || undefined}
+              >
                 <h1 className="orc-intro-h">
                   {/* Two spans because the two words are different KINDS of
                       thing — the product, then the surface within it — and
                       that is the only honest place to put a colour break. */}
                   Superhyre <span className="orc-intro-mark">Agent</span>
                 </h1>
-
-                {/* ── THE FEED LIVES IN THE GAP, AND THE GAP WAS ALREADY THERE ──
-                    This block carries a min-height that keeps the composer's
-                    top on the rail's `Configuration` panel, which left a band
-                    of empty air between the heading and the field that grew
-                    with the window — 56px at an 809px viewport, 302px at 1300.
-                    Empty padding at the top of the page is exactly where a
-                    feed belongs, and putting it here changes no alignment
-                    arithmetic at all: the block's height is unchanged, the
-                    heading keeps its natural size, and the feed takes whatever
-                    is left over and scrolls when that is not much. */}
-                <Campaigns scope="all" onOpenBrief={seed} />
               </div>
             )}
+          </div>
 
           <Composer
+            started={started}
             draft={draft}
             onDraft={setDraft}
             mode={mode}
@@ -239,19 +516,33 @@ export function Agent({
             onSend={send}
             sendRef={sendRef}
             areaRef={areaRef}
+            rootRef={composerRef}
             sending={flight !== null}
           />
 
           {/* Searches worth running, under the field you would run them in.
               Landing state only: a list of starting points is noise once a
               brief is already going. */}
-          {!started && (
-            <section className="orc-recs" aria-label="Recommended searches">
+          {(!started || exiting) && (
+            <section
+              className={`orc-recs${exiting ? " is-out" : ""}`}
+              style={exiting ? { top: exitAt.current?.recs ?? 0 } : undefined}
+              aria-hidden={exiting || undefined}
+              aria-label="Recommended searches"
+            >
               <h2 className="orc-recs-k">Try a search</h2>
               <ul className="orc-recs-list">
                 {SUGGESTIONS[mode].map((sug) => (
                   <li key={sug}>
-                    <button type="button" className="orc-rec" onClick={() => seed(sug)}>
+                    <button
+                      type="button"
+                      className="orc-rec"
+                      /* Unreachable once it is fading away: a control that is
+                         half transparent and mid-flight should not still take
+                         a click. */
+                      tabIndex={exiting ? -1 : undefined}
+                      onClick={() => seed(sug)}
+                    >
                       <MagnifyingGlass size={13} weight="bold" aria-hidden="true" />
                       <span>{sug}</span>
                     </button>
@@ -263,6 +554,24 @@ export function Agent({
 
         </div>
       </div>
+
+      {/* ── THE FEED IS A BAND ACROSS THE FOOT OF THE PAGE ──
+          It sat inside the heading block of the left column, which framed it
+          as a feature of the conversation. It is not: it reports on work
+          running across every campaign, so it belongs under BOTH columns
+          rather than beside one.
+
+          As a row of the page grid it spans the full width and inherits the
+          page's own side margins — which is what "full width with spacing
+          from the ends" means here. The band is not wider than the page; it
+          is exactly as wide as the page, which nothing else on this screen
+          is. */}
+      <Campaigns
+        scope="all"
+        onOpenBrief={seed}
+        deployed={deployed}
+        onDeploy={deploy}
+      />
 
       <Rail
         campaign={campaign}
@@ -442,8 +751,10 @@ const LINE_H = 22;
 
 function Composer({
   draft, onDraft, mode, onMode, context, attached, onAttach, onSend,
-  sendRef, areaRef, sending,
+  sendRef, areaRef, rootRef, sending, started,
 }: {
+  /** True once a brief has been sent; the field then rests at one line. */
+  started: boolean;
   draft: string;
   onDraft: (v: string) => void;
   mode: ModeId;
@@ -460,6 +771,8 @@ function Composer({
   sendRef: React.RefObject<HTMLButtonElement>;
   /* Lifted to Home so a tile or task can hand the caret over after seeding. */
   areaRef: React.RefObject<HTMLTextAreaElement>;
+  /** The outer block, so the page can FLIP it from its rest to its dock. */
+  rootRef: React.RefObject<HTMLDivElement>;
   /* True for the length of the flight. The arrow recedes while the mark is in
      the air, so the two are never both on screen — that is what makes it read
      as a handoff rather than as a copy. */
@@ -495,12 +808,49 @@ function Composer({
      effect writes `style.height` directly: two owners for one dimension is how
      you get a resting height that disagrees with the grown one. `max` of the
      floor and `min` of the cap, so the clamp reads in the order it applies. */
-  useEffect(() => {
+  /* ── A LAYOUT EFFECT, AND THE ORDERING IS THE WHOLE REASON ──
+     This was `useEffect`, which React runs after paint and after every
+     layout effect. The page's morph is a layout effect in the PARENT, so it
+     measured the field's final height while this had not yet resized the
+     textarea — it read 84px (collapsed padding still wrapped around a
+     three-line textarea), animated toward that, and then the textarea
+     shrank a frame later and the field dropped the remaining 30px in one
+     step. A hitch at the very end of the collapse, which is the worst place
+     to put one.
+
+     A child's `useLayoutEffect` runs before its parent's, so the textarea is
+     already at its final height when the morph measures. What this effect
+     depends on is not a value but an order. */
+  useLayoutEffect(() => {
     const el = areaRef.current;
     if (!el) return;
+
     el.style.height = "auto";
-    el.style.height = `${Math.max(REST_LINES * LINE_H, Math.min(el.scrollHeight, 168))}px`;
-  }, [draft, areaRef]);
+    /* ── THE FLOOR MOVES WITH THE STATE, THE CEILING DOES NOT ──
+       Three lines at rest, because a brief is several lines and the field
+       should say so before one is written. One line once a transcript exists:
+       the conversation is the subject then and the field is the instrument,
+       so it gives the room back. Either way the autosize still grows it the
+       moment the draft needs more. */
+    const floor = (started ? 1 : REST_LINES) * LINE_H;
+    const target = Math.max(floor, Math.min(el.scrollHeight, 168));
+    el.style.height = `${target}px`;
+
+    /* ── THE HEIGHT IS SET HERE, BUT NO LONGER ANIMATED HERE ──
+       This used to own the collapse, animating the TEXTAREA from its old
+       height to its new one. That was right when the textarea was the only
+       thing changing and wrong once the whole field was: the field also
+       switches from a column (row of controls UNDER the text) to a row
+       (controls BESIDE it) and drops 8px of padding, so animating the
+       textarea alone left the two halves of one shape changing on different
+       clocks.
+
+       The morph now belongs to the layout effect below, which animates the
+       FIELD's height — one number that already contains the padding, the
+       column-to-row switch and this — and FLIPs each control along its own
+       path inside it. This effect goes back to doing only its job: making
+       the textarea the right size for its text. */
+  }, [draft, areaRef, started]);
 
   const ready = draft.trim().length > 0;
 
@@ -519,7 +869,7 @@ function Composer({
   })();
 
   return (
-    <div className="orc-composer">
+    <div className="orc-composer" ref={rootRef}>
       <div className="orc-composer-field">
         {/* The travelling ring. §4.4: this belongs to the CLASS "a field you
             are about to type into", so quick find, the switcher's search and
@@ -608,7 +958,7 @@ function Composer({
                 onClick={() => onMode(m.id)}
               >
                 <m.Icon size={14} weight={mode === m.id ? "fill" : "regular"} aria-hidden="true" />
-                {m.label}
+                <span className="orc-chip-l">{m.label}</span>
               </button>
             ))}
           </div>
@@ -632,7 +982,7 @@ function Composer({
                     {on
                       ? <Check size={13} weight="bold" aria-hidden="true" />
                       : <Plus size={13} weight="bold" aria-hidden="true" />}
-                    {c.label}
+                    <span className="orc-chip-l">{c.label}</span>
                   </button>
                 );
               })}
