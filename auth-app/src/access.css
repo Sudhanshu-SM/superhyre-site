@@ -149,6 +149,14 @@
   --accent-fill: #cc4d17;  /* primary button. white text 4.52:1 */
   --accent-tint: #fdeae2;  /* soft brand wash. ink 12.14:1 */
   --accent-text: #b24c20;  /* brand as text. 5.32:1 white, 4.57:1 on its tint */
+  /* ── THE MISSING MEMBER OF THE ACCENT FAMILY ──
+     Every `--c-*` family carries a `-line` for exactly this job and the accent
+     never got one, so anything wanting a warm edge had to reach for `-tint`
+     (1.16:1 — a wash, invisible as a line) or `-fill` (4.52:1 — a button).
+     Measured 1.50:1 on white and 1.29:1 on `--page`, which puts it in the same
+     weight band as `--rule` (1.43:1) while carrying 60 points of red-minus-blue
+     against the hairline's 7. A warm edge, not an orange outline. */
+  --accent-line: #f2cbb6;
 
   /* Category + status hues. Seven, each solved for its floor rather than
      picked: every --c-* mark clears 3:1 on white AND on its own tint, every
@@ -293,6 +301,26 @@
   --r-pill: 100px;
   --r-card: 20px;
   --r-field: 10px;
+
+  /* ── LAYER SCALE, AND WHY IT IS NOW WRITTEN DOWN ──
+     Three tiers, because the thing that went wrong was a number nobody could
+     check. The scrim was authored at 70 for the palette's 71; every dialog
+     added afterwards reused `.pal-scrim` but picked `z-index: 60` from the nav
+     popovers, which have no scrim. Result: the scrim rendered ON TOP of both
+     the history popup and the campaign flow — tinting the dialog it was
+     supposed to be behind, and swallowing every click aimed at it. The popups
+     LOOKED right and were entirely inert; `elementFromPoint` at the dialog's
+     own centre returned `.pal-scrim`.
+
+     Named tiers make the relationship checkable instead of remembered:
+       pop    (60)  nav popovers and the skip link — dismissed without a scrim
+       scrim  (70)  the one shared dismissal scrim
+       dialog (71)  anything the scrim MUST sit behind
+     A new dialog now reads `--z-dialog` and cannot land under the scrim it
+     reuses. */
+  --z-pop: 60;
+  --z-scrim: 70;
+  --z-dialog: 71;
 
   /* EASING. The built-in CSS curves are too weak to read as intentional, so
      both of these are the stronger custom variants. `ease-in` appears nowhere
@@ -1692,7 +1720,10 @@ body {
   position: fixed;
   top: 10px;
   left: 10px;
-  z-index: 60;
+  /* Deliberately the POP tier, not the dialog tier: while a modal is open the
+     skip link should be behind the scrim with the rest of the page, because
+     focus belongs to the dialog. */
+  z-index: var(--z-pop);
   padding: 10px 16px;
   border-radius: var(--r-field);
   background: var(--ink);
@@ -2233,6 +2264,18 @@ body {
 
 /* ── rows ── */
 
+/* ── TOP-ALIGNED, AND IT STAYS THAT WAY ──
+   This was briefly centred, on my misreading of a request that was about the
+   RIGHT rail. Centring it was wrong on its own terms and the screenshot showed
+   why: a nav is a list you scan from the top, and the fixed search field
+   directly above it establishes that top edge — so centring opened a ~230px
+   void between the field and `Home` and moved every row away from the anchor
+   it is read against.
+
+   The void below the last row is not a defect to fill. A nav sized to its
+   content, with the footer pinned under it, is a nav that does not move when a
+   group expands; distributing that slack into the list would make every row's
+   position a function of how many children happen to be open. */
 .nav-body {
   flex: 1 1 auto;
   padding: 0 0 14px;
@@ -2633,7 +2676,9 @@ body {
    popovers had been using off-scale. */
 .nav-switch {
   position: fixed;
-  z-index: 60;
+  /* POP tier — this popover dismisses on outside-click without a scrim, so it
+     never needs to out-rank one. */
+  z-index: var(--z-pop);
   display: flex;
   flex-direction: column;
   max-height: min(448px, 70vh);
@@ -4440,10 +4485,19 @@ body {
 .pal-scrim {
   position: fixed;
   inset: 0;
-  z-index: 70;
+  z-index: var(--z-scrim);
   /* Same scrim as the mobile drawer: one dismissal vocabulary for everything
-     that floats over the app. */
-  background: rgba(40, 24, 16, 0.34);
+     that floats over the app.
+
+     ── WHY THIS IS NOT THE WARMER ONE IT WAS ──
+     It measured `rgba(40, 24, 16, 0.34)`, which over white lands on #b6b0ae —
+     a red-minus-blue spread of 8, i.e. a visible sepia. Read as "the whole
+     site is under a colour filter", and correctly: a scrim's job is to make
+     the background INERT, not to tint it a different hue. At 0.30 of
+     (26, 22, 20) the spread is 2 — still a touch warm, because the canvas
+     underneath is warm and a cold grey would read as a different material —
+     and slightly lighter (69 vs 73 points of darkening). */
+  background: rgba(26, 22, 20, 0.30);
   animation: pal-scrim-in 120ms var(--ease-out);
 }
 
@@ -4451,7 +4505,7 @@ body {
 
 .pal {
   position: fixed;
-  z-index: 71;
+  z-index: var(--z-dialog);
   /* Anchored a little above centre. A dialog pinned to the exact middle sits
      lower than it looks, because the eye reads the gap under it as larger. */
   top: 14vh;
@@ -4648,9 +4702,44 @@ body {
      width straight out of the widgets and the composer — which is the
      mechanism asked for: gain the margin BY shrinking the components, not by
      moving them. */
-  padding-right: 64px;
+  /* ── 112px, UP FROM 64 ──
+     Two asks in one number, which is why it is the lever rather than a width
+     on the rail: the rail is the last track, so growing this margin moves it
+     LEFT, and because the content column is the only flexing track the width
+     comes straight out of the composer rather than out of the gutter. Measured
+     at 1568: rail 1164→1116, content column 836→788. */
+  padding-right: 112px;
   column-gap: 72px;
   grid-template-columns: minmax(0, 1fr) 340px;
+
+  /* ── ONE GAP, TWO INSETS, AND THE EQUALITY IS STRUCTURAL ──
+     The chat block should sit the same distance from the sidebar as from the
+     rail. That is awkward to hold by hand because the two sides are not made
+     of the same things: the left gap is purely `.orc-stream`'s padding, while
+     the right gap is that padding PLUS this grid's 72px `column-gap`. Only the
+     rendered result adds them up, which is why the original 64/128 asymmetry
+     was invisible in the source.
+
+     So `--orc-gap` is the ONE number — the space either side of the content —
+     and the two insets are derived from it. Change the gutter and both follow;
+     there is no second value to remember and no way to set one side without
+     the other.
+
+     ── AND IT IS CLAMPED, FROM A MEASURED FLOOR ──
+     The composer's min-content width is 420px (its mode row and context chips
+     cannot wrap), and the column it lives in is `100vw` minus the sidebar
+     (256) minus this padding-right (112) minus the rail (340) minus the gutter
+     (72) = `100vw - 780`. Fitting 420 plus both insets means
+     `gap + (gap - 72) + 420 <= 100vw - 780`, i.e. `gap <= (100vw - 1128) / 2`.
+     That expression IS the middle term below, so the gap takes the largest
+     value that still fits and stops growing at 152px.
+
+     Without it the gap was a constant and the composer overflowed its column
+     below ~1432px — measured at 1280 as a NEGATIVE 137px gap to the rail,
+     i.e. the field crossing into it. */
+  --orc-gap: clamp(40px, (100vw - 1128px) / 2, 152px);
+  --orc-inset-l: var(--orc-gap);
+  --orc-inset-r: calc(var(--orc-gap) - 72px);
   flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
@@ -4664,6 +4753,19 @@ body {
 .orc.is-solo {
   grid-template-columns: minmax(0, 1fr);
   column-gap: 0;
+
+  /* ── AND IT KEEPS ITS OWN INSETS ──
+     `--orc-inset-l` is 128px on a railed layout because that is 56 + the 72px
+     gutter, which makes the content sit evenly between the sidebar and the
+     rail. There is no rail here and no gutter, so the number it is matching
+     does not exist: this page's right-hand space is a 112px PAGE MARGIN, and
+     equalising against that would inset the bento 168px and take 104px out of
+     it to solve a symmetry nobody asked about.
+
+     So this is a deliberate opt-out rather than an oversight. Home's own
+     left/right balance is a separate question from the Agent page's. */
+  --orc-inset-l: 64px;
+  --orc-inset-r: 56px;
 }
 
 .orc-main {
@@ -4701,8 +4803,19 @@ body {
      section is a section boundary like any other. It was 20, which put the
      header closer to the content than the content's own blocks are to each
      other. */
-  row-gap: 32px;
-  grid-template-rows: auto minmax(0, 1fr);
+  /* ── ONE ROW, BECAUSE THERE IS ONE CHILD ──
+     This was `auto minmax(0, 1fr)` with a 32px row-gap: a header track and a
+     stream track. The campaign header is gone from this page — it named ONE
+     campaign above content scoped to all of them, which was a contradiction
+     the page asserted about itself — so the header track had no items, the
+     stream auto-placed into row 1, and the 32px gap it was relying on for its
+     top inset went with it. Measured: the heading sat at y=0, flush against
+     the viewport.
+
+     A single track, and the stream owns its own top inset below. Two tracks
+     for one child is a layout waiting to be mis-read by whatever gets added
+     next. */
+  grid-template-rows: minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
 }
@@ -4752,6 +4865,11 @@ body {
      block on the surface aligns to. Verified identical with the sidebar
      expanded and collapsed.
 
+     It is now `--orc-inset-l`, owned by `.orc`, because the value that makes
+     the content sit evenly between the sidebar and the rail depends on the
+     gutter — which `.orc` owns and this container cannot see. Railed layouts
+     get 128px; `.is-solo` keeps 64 (see its note).
+
      ── AND 56px UNDER THE LAST BLOCK ──
      There was none, so the Sourced banner ended exactly on the viewport's
      bottom edge and the page read as cut off rather than finished. This is
@@ -4760,7 +4878,21 @@ body {
      spacing of their own, the stream owns the gaps between them AND the air
      after the last one. Larger than the 32px section gap on purpose — the
      space that ends a page should out-rank the space inside it. */
-  padding: 0 0 56px 64px;
+  /* ── AND 40px ABOVE THE FIRST BLOCK ──
+     The campaign header used to supply this, via `.orc-main`'s row-gap.
+     Removing the header left the first heading flush against the viewport at
+     y=0. 40px is the console's established page-level top inset — the same
+     value `.orc-page.is-greet` uses for Home's greeting — so the two pages
+     start their content on the same line rather than each picking a number.
+
+     It lives here for the one-rhythm-owner rule: this container already owns
+     the gaps between blocks and the air after the last one, so it owns the air
+     before the first one too. */
+  /* Both horizontal insets are derived from `--orc-gap` (see `.orc`), so the
+     content sits the same distance from the sidebar as from the rail without
+     either side being typed as a number. Fallbacks are the solo values, for
+     any container that sets neither. */
+  padding: 40px var(--orc-inset-r, 56px) 56px var(--orc-inset-l, 64px);
   display: flex;
   flex-direction: column;
 }
@@ -4895,6 +5027,288 @@ body {
 @keyframes orc-dot {
   0%, 100% { opacity: 0.25; }
   50%      { opacity: 0.9; }
+}
+
+/* ═══════════════════ the landing state, and its typography ══════════════════
+
+   THESE RULES DID NOT EXIST. Every class below rendered at a browser default
+   until now, which is the whole of the "typography isn't standardised"
+   complaint and none of it was a design decision:
+
+     .orc-intro-h        32px/700 Fanwood  <- an unstyled <h1> is 2em bold
+     .orc-recs-k         24px/700 Fanwood  <- an unstyled <h2> is 1.5em bold
+     .orc-intro-p        16px/400 Fanwood  <- inherited (class since deleted)
+     .orc-composer-note  16px/400 Fanwood  <- inherited from `body`
+     .orc-rec > span     13.333px Arial    <- a <button> does not inherit `font`
+
+   The page's type hierarchy WAS the UA stylesheet. The 32px serif heading
+   looked deliberate because `h1 { font-size: 2em }` happens to land near a
+   real display size and `body` supplies the serif; it was an accident that
+   read as a decision. The Arial is the tell — no rule in the cascade reaches
+   a `<span>` inside a `<button>`, because buttons are the one element that
+   does not inherit the font shorthand.
+
+   Casualties of the `73fd3c9` line-range splice that cost 2,020 lines.
+   Revision 39 recovered thirteen classes from that incident; these eight were
+   missed because nothing about them throws an error — unstyled text still
+   renders, and it renders *plausibly*.
+
+   ── THE SCALE, AND WHERE EACH SIZE COMES FROM ──
+   Nothing invented. Every value is the page's own existing convention:
+     30px serif  — `.orc-page-h.is-greet`, Home's greeting. The console's one
+                   page-level display size, so this page's heading matches it
+                   rather than introducing a second.
+     15px serif  — `.bp-quote-text`. Prose that is read as a sentence.
+     10px Inter  — `.rail-micro`, the eyebrow: uppercase, 0.09em, --ink-2.
+     11.5px Inter— `.rep-trace-note`, the quiet one-line note.
+     13px Inter  — `.rail-sec-title`'s weight class, for a tappable row.
+   Serif for what is READ, Inter for what is OPERATED. That split already runs
+   through the sheet; it simply had never reached this page.                  */
+
+/* ── the empty state ── */
+
+/* No vertical margin. `.orc-stream` owns every gap between blocks — measured
+   before this, the gaps were 54px and 50px against a declared 32px rhythm,
+   because this block added 22px and `.orc-recs` added 18px on top of it. Two
+   owners is how a rhythm stops being one. */
+/* ── THE HEADING BLOCK IS SIZED TO LAND THE COMPOSER ON `Configuration` ──
+   The composer's top and the rail's second panel share a line, and the RAIL
+   does not move to achieve it — the heading block grows and pushes the
+   composer down. That is the harder direction, because the rail is centred and
+   so its panels are a function of viewport height.
+
+   Derived, not tuned. Measured facts about the rail: it is `100dvh` tall with
+   an 809px floor, its padding is 40 top / 56 bottom, its gap is 22px, its
+   content is 713px, and its first panel is 101px.
+
+     free       = 100dvh - 40 - 56 - 713          = 100dvh - 809
+     statsTop   = 40 + max(0, free / 2)
+     configTop  = statsTop + 101 + 22             = 163 + max(0, free / 2)
+     composerTop= 40 + introH + 32                = 72 + introH
+
+   Equating the last two gives
+
+     introH = 91px + max(0, (100dvh - 809px) / 2)
+
+   which is the expression below, written as `max()` of the floor and the
+   tracking term so the two regimes read in the order they apply: below an
+   809px window the rail is at `flex-start` and the offset is zero, above it
+   the rail centres and the heading grows at half the rate the window does.
+
+   ── THE COUPLINGS THIS INTRODUCES, STATED PLAINLY ──
+   809 and 101 are CONTENT-DRIVEN heights of the rail and its stats panel. CSS
+   cannot read them, so they are measured constants here. Add a rail panel or
+   change the stats type scale and this expression goes stale and the alignment
+   drifts — nothing will error. That is the real cost of aligning across two
+   independent subtrees without `subgrid`, and it is recorded rather than
+   hidden. Verified 0px delta at 760 / 809 / 850 / 900 / 1000 / 1100.
+
+   `min-height`, not `height`: the heading is one line today and must not clip
+   if it ever wraps. */
+.orc-intro {
+  margin: 0;
+  /* The rail's own floor, padding and content height, summed. */
+  --rail-span: 809px;
+  /* Its first panel plus its gap, less the stream's gap. */
+  --head-floor: 91px;
+  /* ── THE ALIGNMENT YIELDS TO THE CONTENT, AND ONLY WHEN IT MUST ──
+     `height` alone made the slot exactly as tall as the Configuration
+     alignment wanted, and the feed lived inside it. That works while the
+     window is tall. It fails below roughly 1120px, where the arithmetic
+     gives the band 61px against a workflow panel's 173px — and what got cut
+     was the status line at the panel's foot, the single most live thing on
+     the surface, clipped by `overflow: hidden` to preserve a line-up.
+
+     So the two are ranked rather than balanced. `height` states the
+     alignment; `min-height` states the floor the content needs, and because
+     `min-height` wins when it is larger, the alignment holds on a tall window
+     and quietly gives way on a short one. **Never clip live content to keep a
+     decorative alignment** — the line-up is a nicety, the status line is the
+     point of the panel.
+
+     The floor is the sum of what is actually in here, re-measured after the
+     feed gained a card of its own: heading 35 + intro gap 12 + the card's
+     12/14 padding and 2px of border + its header 14 + its 10px gap + the
+     tallest panel 173 = 272. The first figure predated the card and was 24px
+     short, which clipped the status bars the moment the surface was added —
+     a floor derived from content has to be re-derived when the content gains
+     a container. */
+  min-height: 272px;
+  height: max(
+    var(--head-floor),
+    calc(var(--head-floor) + (100dvh - var(--rail-span)) / 2)
+  );
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* The heading keeps its natural size; the feed takes the remainder. */
+.orc-intro-h { flex: none; }
+.orc-intro > .feed { flex: 1 1 0; min-height: 0; }
+
+/* ── THE WORDMARK FACE, NOT THE SERIF ──
+   This was 30px Fanwood, which made it the ONLY serif element in a content
+   column that is otherwise entirely Inter — reported as looking weird and
+   inconsistent, and correctly: one serif heading over an all-sans page is not
+   a typographic system, it is an exception.
+
+   `--word` is the right answer rather than plain `--ui`, and it is not a new
+   idea either: it is `"Space Grotesk"`, the face `.nav-word` already sets the
+   wordmark in, and this string is the product's name. Verified the font
+   actually loads (Space Grotesk 600 `loaded`, and its advance width differs
+   from Inter's, so it is not silently falling back).
+
+   Weight and tracking follow `.nav-word`'s 600 / -0.021em, tightened one step
+   to -0.024em because tracking is optical: the same value that looks right at
+   16px reads loose at 30. */
+.orc-intro-h {
+  margin: 0 0 7px;
+  font-family: var(--word);
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.024em;
+  color: var(--ink);
+}
+
+/* ── THE ACCENT, ON A WORD RATHER THAN ON "SOME LETTERS" ──
+   Colouring arbitrary letters is decoration; colouring a word is information.
+   "Superhyre" is the product and "Agent" is the surface you are on, so the
+   break lands where the meaning already breaks — and it makes the accent say
+   which page this is, which is the one thing the heading is for now that the
+   campaign name and the instructions are gone.
+
+   A two-stop gradient rather than a flat fill, which is what "shades" asks
+   for, but between two NEIGHBOURS: `--accent-text` #b24c20 at 5.32:1 and
+   `--accent-deep` #b8400f at 5.56:1 on white. Both clear the 4.5:1 body floor
+   — not merely the 3:1 large-text floor this 30px type would be allowed — and
+   the luminance delta between them is small enough that it reads as ink
+   variation across the word rather than as a gradient effect.
+
+   `--accent` #ea5a1e was rejected: 3.51:1 fails the body floor, and the sheet
+   already labels it a fill hue rather than a text hue.
+
+   `color` is set BEFORE the clip so the word still renders if
+   `background-clip: text` is unsupported — a heading that vanishes is a worse
+   failure than a heading that is flat. */
+.orc-intro-mark {
+  color: var(--accent-text);
+  background: linear-gradient(100deg, var(--accent-text), var(--accent-deep));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* No gradient where the user has asked for less motion and less effect; the
+   flat accent still carries the meaning. */
+@media (prefers-reduced-motion: reduce), (prefers-contrast: more) {
+  .orc-intro-mark {
+    background: none;
+    -webkit-text-fill-color: var(--accent-text);
+  }
+}
+
+/* ── try a search ── */
+
+.orc-recs { margin: 0; }
+
+/* An EYEBROW, not a heading. It was an unstyled <h2> at 24px/700 serif, which
+   made a list of three optional starting points the second-loudest thing on
+   the page — louder than the composer it is subordinate to. `.rail-micro`'s
+   recipe verbatim: the sheet already has one label style for "this names the
+   small group below it". */
+.orc-recs-k {
+  margin: 0 0 9px;
+  font: 500 10px/1 var(--ui);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.orc-recs-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+}
+
+/* ── THE BUTTON MUST DECLARE ITS OWN FONT ──
+   `<button>` is the one element that does not inherit the `font` shorthand, so
+   with no declaration its text fell to the UA default and rendered 13.333px
+   Arial with `letter-spacing: normal` — the only Arial on the page, and the
+   reason these three rows read as unstyled boxes rather than as suggestions.
+   Declared here, and the `span` inherits from the button once the button has
+   something to give it. */
+.orc-rec {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  margin: 0;
+  padding: 5px 9px 5px 8px;
+  border: 0;
+  border-radius: var(--r-field);
+  background: transparent;
+  font: 400 13px/1.45 var(--ui);
+  letter-spacing: -0.011em;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--t-dim), color var(--t-dim);
+}
+
+.orc-rec > svg { flex: none; color: var(--ink-2); transition: color var(--t-dim); }
+
+/* Shade only — nothing translates. */
+.orc-rec:hover { background: var(--sub); }
+.orc-rec:hover > svg { color: var(--accent-deep); }
+.orc-rec:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+.orc-rec > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── the composer's mode note ── */
+
+/* The quiet one-line gloss on the selected mode. `.rep-trace-note`'s recipe,
+   because it is the same kind of thing: a sentence that explains the control
+   above it and must not compete with it. Was 16px serif, which made it read
+   as body copy belonging to the page rather than as a caption belonging to
+   the composer. */
+.orc-composer-note {
+  margin: 8px 0 0;
+  max-width: 62ch;
+  font: 400 11.5px/1.6 var(--ui);
+  letter-spacing: -0.011em;
+  color: var(--ink-2);
+}
+
+/* ── the honesty line ──
+   Shared by any surface that renders against fixtures. Same recipe as the mode
+   note, one step quieter, with the canvas identifier treatment for `code` —
+   monospace and nothing else, because a bordered chip belongs on `--sub`
+   (see `.rep-code`) and this sits on bare canvas. `letter-spacing: normal` on
+   the code, since -0.011em is Inter's optical correction and would otherwise
+   inherit into a face never cut for it. */
+.orc-fixtures {
+  margin: 12px 0 0;
+  max-width: 62ch;
+  font: 400 11px/1.6 var(--ui);
+  letter-spacing: -0.011em;
+  color: var(--ink-2);
+}
+
+.orc-fixtures code {
+  font: 400 10.5px/1 ui-monospace, monospace;
+  letter-spacing: normal;
+  color: var(--ink-2);
 }
 
 /* ── composer ── */
@@ -5105,11 +5519,91 @@ body {
    something is attached, so the state does not depend on reading the glyph. */
 .orc-slot:hover { color: var(--ink); border-color: var(--nav-edge); }
 
+/* `orc-gslot`, not `orc-slot`. The composer's context chips ("Job
+   description", "Set filters") already own `.orc-slot`, and reusing it gave
+   the gauge their styling and them the gauge's — two different controls that
+   happened to look alike, which is how a collision hides.
+
+   RESTORED (fb209c0). Only the `.is-on` modifier survived 73fd3c9's splice,
+   so the gauge had a filled state and no resting state — which is why six
+   named slots rendered as bare text. The version of `.is-on` that survived
+   was also the WRONG one: an older rule hardcoding `#ad3b0c` and two nav
+   tokens, long since superseded because Agent.tsx sets the facet's own
+   tint/line/text inline. Inline wins, so that rule had no visible effect and
+   was pure misdirection for the next reader. Replaced with the real one. */
+.orc-gslot {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 2.5px 9px;
+  /* ── DASHED IS STILL CORRECT HERE, AND THAT IS NOT WHAT IT LOOKED LIKE ──
+     I flattened this to solid when the gauge's empty state was removed, on the
+     reasoning that nothing dashed renders any more. Wrong: `.orc-gslot` is
+     SHARED with the composer's context chips ("Job description", "Set
+     filters"), where dashed-when-off against solid-when-`is-on` is the whole
+     signal for unattached against attached. Flattening it deleted that
+     distinction from a control that still needs it.
+
+     So dashed stays as the base for the off state the chips still have, and
+     the gauge — whose slots are now always `is-on` — takes the solid rule
+     below. The gauge's old empty outline was `--rule` at 1.43:1 on white,
+     below the 3:1 floor, which is why six of them read as noise; the chips
+     are a different case because each is a BUTTON with a `+` glyph and a
+     label, so the border is not the only thing saying it is there. */
+  border: 1px dashed var(--rule);
+  border-radius: var(--r-pill);
+  font: 400 11px/1.45 var(--ui);
+  /* -0.011em, the house optical correction. Was -0.006em — the same drift the
+     rail's stat label carried. */
+  letter-spacing: -0.011em;
+  color: var(--ink-2);
+  /* Only properties that cannot move a neighbour. A width or padding
+     transition here would make the whole row shuffle as you type, which is the
+     one thing a gauge must never do while you are looking at it. */
+  transition: background var(--t-dim), border-color var(--t-dim), color var(--t-dim);
+}
+
+/* Colours come from Agent.tsx inline, off the facet's own hue. */
 .orc-gslot.is-on {
   border-style: solid;
-  border-color: var(--nav-notch);
-  background: var(--nav-active);
-  color: #ad3b0c;
+  font-weight: 400;
+}
+
+/* Inherits the slot's colour in both states — ink-2 when empty, the facet's
+   text token when filled. */
+.orc-gslot b { font-weight: 600; }
+
+/* ── THE CONTEXT CHIPS ARE BUTTONS, SO THEY STOP LOOKING LIKE TAGS ──
+   `Job description` and `Set filters` share `.orc-gslot` with the brief
+   gauge, which meant they inherited a 100px pill radius, a 400 weight and no
+   fill — a control styled as a label. Reported as looking wrong, and it is
+   the pattern the no-slop reference names first: pill buttons as the default
+   shape. 10px is the top of the range that reference allows AND it is already
+   this sheet's `--r-field`, the radius every other interactive control uses —
+   so this is a correction back onto the system, not a new value.
+
+   The dashed edge STAYS, because it is not decoration: dashed means nothing
+   is attached and solid means something is, which is the only thing telling
+   you whether a job description is in play. Weight and padding go up so the
+   thing reads as pressable. */
+.orc-slots .orc-gslot {
+  padding: 4px 10px;
+  border-radius: var(--r-field);
+  background: var(--nav-surface);
+  font-weight: 500;
+}
+
+.orc-slots .orc-gslot:hover {
+  background: var(--sub);
+  border-color: var(--ink-2);
+  color: var(--ink);
+}
+
+/* Attached: solid edge and full ink, so "on" reads without colour. */
+.orc-slots .orc-gslot.is-on {
+  border-style: solid;
+  border-color: var(--ink-2);
+  color: var(--ink);
 }
 
 .orc-slot:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
@@ -5700,17 +6194,1657 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* ── narrow ──
-   One column below 1180px. Two 50% columns of this content stop working before
-   the viewport gets small: the progress rows need 74px of label plus a bar
-   plus two numbers, and the chart needs enough width for fourteen days to read
-   as a shape rather than a spike. The stack's rows go intrinsic here, since
-   there is no longer a task list beside them defining the height. */
-@media (max-width: 1180px) {
-  .ov { grid-template-columns: minmax(0, 1fr); }
-  .ov-stack { grid-template-rows: none; }
-  .ov-card { min-height: 148px; }
+
+/* ═══════════════════════════ the muster board ═══════════════════════════════
+
+   RECOVERED AND REBUILT. A regex intended to delete the 21 rules of the old
+   row-per-campaign roster was written with a greedy `(?:.*\n)*?` bridge to an
+   `@media` block, and it ate 130 rules — the whole `.vz-*` viz stylesheet, the
+   `.tk*` task card, `.ov-conv*`, and this section. The `.vz-*`/`.tk*`/`.ov-conv*`
+   spans were restored VERBATIM from 2caca6f (they predate this session and had
+   comments worth keeping); the `.fl-*` values below were recovered from the
+   last built bundle, which is why they carry their measured numbers exactly.
+
+   Same lesson as the line-range splice that cost 2,020 lines, in a new
+   costume: a pattern whose extent is bounded by something OTHER than the thing
+   you are matching will eventually match more than you meant. Delete rules by
+   exact selector, one regex per selector, never by a span between two
+   landmarks.
+
+   ── WHY A STRIP AND NOT ROWS ──
+   The row-per-campaign version measured 258px, 84.6% empty, with a single
+   65×3px quantitative mark (0.09% of the block) whose traversed segments were
+   `--rule` at 1.43:1 — below the 3:1 floor, so "step 3 of 4" never read as a
+   position. Verdict: "bland, AI slop."
+
+   THE WEDGE: a row's x-axis means ATTRIBUTE (name | mark | pill | age | caret);
+   a pipeline's x-axis means POSITION. They cannot share a line. In a row the
+   three-stage anatomy gets ~11% of the width while five metadata columns take
+   the rest — the surface's most meaningful structure handed its smallest
+   column. As a strip it gets 2.65× the linear extent, the block gets SHORTER,
+   and the drawn footprint rises ~5×.                                          */
+
+/* ── THE BLOCK IS A PLANE, NOT AN OUTLINE ──
+   It had `1px solid var(--hairline)` and nothing else, which measured 1.03:1
+   against `--page` — the card's only edge, 2.9× below the floor for a boundary
+   that means something. And no token can fix it: on white, `--hairline` 1.20,
+   `--rule` 1.43, `--rule-strong` 2.81 all fail, and the only passes are
+   `--ink-2` 7.60 and `--ink` 14.13, which are inks and far too loud as a 1px
+   border. The surface could not carry it either — white on `--page` sand is
+   1.17:1.
+
+   So the arrangement changes instead of the value: the block becomes a filled
+   `--sub` plane with no border at all. Figure/ground at zero height cost, and
+   the tier-2 decision is untouched — the composer keeps the only shadow and
+   the only hero. */
+.fl {
+  padding: 14px 16px 12px;
+  border-radius: var(--r-card);
+  background: var(--sub);
 }
+
+.fl-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+/* 14px, up from 13px. The section's own title had been SMALLER than the
+   campaign names inside it, so the block had no local hierarchy peak — the
+   eye had no entry point and had to start reading to find one. */
+.fl-h {
+  margin: 0;
+  font: 600 14px/1.2 var(--ui);
+  letter-spacing: -0.014em;
+  color: var(--ink);
+}
+
+/* ── TWO COUNTS, ONE ALARM ──
+   Was a single rose `3 need you`, which folded "a human is the blocker" into
+   "something broke". Every campaign in the fixture has one of either, so that
+   number never moved — a constant wearing the loudest colour on the surface.
+   Split, the rose counts only requests actually addressed to the reader. */
+.fl-counts {
+  margin: 0;
+  font: 500 11.5px/1.3 var(--ui);
+  letter-spacing: -0.011em;
+  white-space: nowrap;
+}
+
+.fl-c-loud { color: var(--c-rose-text); }
+.fl-c-quiet { color: var(--ink-2); font-weight: 400; }
+.fl-c-sep { margin: 0 6px; color: var(--ink-2); }
+
+/* ── REGIONS OF ONE PLANE, NEVER THREE CARDS ──
+   `access.css` blames "six boxes inside a box" for revision 27 reading
+   cluttered, and three bordered cards inside a bordered card is that fault
+   exactly. No borders and no separators between regions: on the `--sub` plane
+   every neutral line token is invisible anyway (`--hairline` 1.07:1, `--rule`
+   1.27:1, `--rule-strong` 2.52:1 — all below 3:1), so a rule here would be
+   furniture you cannot see. The gutter and the three headings separate them. */
+.fl-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.fl-camp { min-width: 0; }
+
+/* The heading is the control that opens the flow. The stations below are
+   static, and an EMPTY station is its own button — siblings, never nested. The
+   previous row was a single `<button>`; a control inside it would have been
+   invalid markup and would have broken keyboard order. */
+.fl-camp-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  margin: 0 0 2px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  color: var(--ink);
+  transition: color var(--t-dim);
+}
+
+.fl-camp-head:hover { color: var(--accent-deep); }
+.fl-camp-head:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; border-radius: 4px; }
+
+.fl-camp-name {
+  min-width: 0;
+  font: 600 12.5px/1.3 var(--ui);
+  letter-spacing: -0.012em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fl-camp-go { flex: none; color: var(--ink-2); }
+
+.fl-camp-state {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin: 0 0 9px;
+  min-width: 0;
+}
+
+/* ── THE WORD NAMES WHAT HAPPENED ──
+   `RUN_LABEL` says "Stopped" for both fault kinds, and the `Fault` docstring
+   spends a paragraph forbidding exactly that collapse: a broken mailbox and an
+   unusable brief need different people doing different things, and one red
+   noun on both teaches the reader that the agent is simply unreliable. So the
+   word is selected by `fault.kind` — "Tool broke" / "Stuck" — and `waiting`
+   becomes "Your turn", because the reader is the blocker and a surface that
+   knows that should say so in the second person.
+
+   ── AND THE WORD IS INK, NOT A HUE ──
+   It was hued per state, which put the count at EIGHT coloured marks against
+   the old row version's seven — a fail on the criterion this redesign was
+   accepted under, that the strip must spend LESS colour than what it replaces.
+
+   The redundancy is what made it droppable: the word and the in-flight rung
+   sit 20px apart and encode the same agent's state, so the hue on the word was
+   colour duplicating colour. Rule 9 settles which one keeps it — data takes
+   the hue, labels do not. The rung is the only encoding of which stage is live
+   and in what state; the word is a WORD and reads without help, which is also
+   why it survives greyscale and colour-blindness where a bare dot would not.
+
+   Coloured marks now: four in-flight rungs plus the header's `waiting` count
+   = five, against seven before, with three hues doing real work (blue
+   running, amber waiting, rose stopped) where the old two both just meant
+   "blocked" and appeared on 3 of 3 rows. */
+.fl-word {
+  font: 600 11.5px/1.35 var(--ui);
+  letter-spacing: -0.011em;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.fl-camp-age {
+  color: var(--ink-2);
+  font: 400 10.5px/1.35 var(--ui);
+  letter-spacing: -0.011em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ── the three stages ──
+   Always three, filled or not: the only way to draw a gap is to render the
+   slot. Each campaign in the fixture is missing a DIFFERENT stage, which is
+   what finally makes the three regions structurally distinct — they all
+   rendered `2 agents` before. */
+.fl-track {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+}
+
+.fl-stn { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+
+/* ── THE SPINE IS THE DATA ──
+   The first sketch had furniture connectors between stations to carry a
+   dependency edge. The edge was deferred — one instance in the fixture is not
+   enough to prove a drawing generalises — which left the connector saying
+   nothing the station's position and label did not already say.
+
+   So the span holds the agent's STEP LADDER instead. Rungs are `1fr` inside
+   the cell, so a three-step pipeline gets coarser rungs than a four-step one
+   and the mark's shape is finally a function of its data rather than a
+   constant 65px. */
+.fl-rungs {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 2px;
+  height: 5px;
+}
+
+/* ── THE DENOMINATOR HAS TO BE VISIBLE OR THIS IS A COUNT, NOT A POSITION ──
+   First version left untraversed rungs as bare plane with a `--rule` inset,
+   reasoning that "what has not happened should be absent". Measured, that was
+   wrong in a way the screenshot made obvious: `--rule` is 1.27:1 on `--sub`,
+   so the unreached rungs vanished entirely and a 3-of-4 agent drew three
+   dashes — indistinguishable from a finished 3-of-3. The mark said HOW MANY
+   ARE DONE and left "of how many" to the text beside it, which is exactly the
+   failure the old 65px stepper had.
+
+   So both states are `--ink-2` (6.79:1, the only neutral that clears the
+   boundary floor on this plane) and they are told apart by HEIGHT: 5px of
+   substance against a 1px seat. That is the house rule applied literally —
+   demote with size or weight, never with a third ink — and it means the
+   silhouette alone carries `3/4` without spending a colour. */
+.fl-rung {
+  align-self: center;
+  height: 1px;
+  border-radius: var(--r-pill);
+  background: var(--ink-2);
+}
+
+/* Traversed is SUBSTANCE: `--ink-2` at 6.79:1 on `--sub` is the only neutral
+   that clears the 3:1 boundary floor, and at full height the silhouette alone
+   encodes position — which is the thing the old stepper could not do, because
+   its done segments were `--rule` at 1.43:1 and only the single hued one was
+   visible. */
+.fl-rung.is-done {
+  align-self: stretch;
+  height: auto;
+}
+
+/* The rung in flight takes its STATE's hue, never a default blue. `-fill`
+   variants because the base hues do not clear the boundary floor on this
+   plane. Queued keeps no hue — `RUN_HUE.queued` is null for the reason that
+   giving the absence of activity a colour means every mark is coloured — so it
+   reads as substance without a claim about movement. */
+.fl-rung.is-at { align-self: stretch; height: auto; background: var(--ink); }
+.fl-rung.is-at.is-blue  { background: var(--c-blue-fill); }
+.fl-rung.is-at.is-amber { background: var(--c-amber-fill); }
+.fl-rung.is-at.is-rose  { background: var(--c-rose-fill); }
+.fl-rung.is-at.is-sage  { background: var(--c-sage-fill); }
+
+/* ── THE SECTION'S ONLY MOTION, AND IT NOW ACTUALLY PLAYS ──
+   The old pulse was gated on the campaign's LEAD being `running`, and
+   `waiting` outranks `running`, so the one running agent never reached a row
+   and `getAnimations()` on the section returned zero — a surface about work in
+   progress, motionless. Every agent draws its own station now, so the running
+   one is always on screen. Opacity only: nothing translates. */
+.fl-rungs.is-live .fl-rung.is-at { animation: fl-live 2s var(--ease-in-out) infinite; }
+
+@keyframes fl-live { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .fl-rungs.is-live .fl-rung.is-at { animation: none; }
+}
+
+.fl-stn-role {
+  font: 600 10.5px/1.3 var(--ui);
+  letter-spacing: -0.008em;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The ordinal, in figures, visible at last. The old stepper carried
+   "Step 3 of 4" in its `aria-label` and showed the sighted reader nothing —
+   the position was given to assistive tech and withheld from the eye. */
+.fl-stn-pos {
+  font: 400 10.5px/1.3 var(--ui);
+  letter-spacing: -0.008em;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* `--ink` where the state beside it is `--ink-2`: a result is a fact, and a
+   state is a claim about one. Rendered verbatim and deliberately not parsed —
+   `yielded` is a string, so splitting "24 shortlisted" into a number and a
+   noun would mean regexing prose and then asserting the result is a total. */
+.fl-stn-yield {
+  font: 500 10.5px/1.35 var(--ui);
+  letter-spacing: -0.008em;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The fault kind as FURNITURE, not as a second hue — rule 9, furniture and
+   data want opposite ends of a family. Costs nothing from the colour budget
+   and surfaces the most actionable field the roster used to render zero
+   times. */
+.fl-stn-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  align-self: flex-start;
+  padding: 1px 5px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-pill);
+  background: var(--nav-surface);
+  font: 600 9px/1.5 var(--ui);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+/* ── AN EMPTY STAGE IS A CONTROL ──
+   A gap in the pipeline is actionable — this campaign has nobody doing this
+   work — so the slot offers the action rather than rendering an absence and
+   leaving the reader to notice it. Seeds the composer through the `onBrief`
+   prop already threaded into this component: the section's first affordance
+   that is not "open a dialog". */
+.fl-gap {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.fl-gap-ring {
+  height: 5px;
+  border-radius: var(--r-pill);
+  /* Dashed, and the only dashed edge in the section. Datadog's convention for
+     a series that is not reporting, borrowed for a stage that does not exist:
+     an outline where the other stations have substance. */
+  border: 1px dashed var(--rule);
+}
+
+.fl-stn.is-gap .fl-stn-role { color: var(--ink-2); font-weight: 500; }
+
+.fl-gap-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font: 500 10.5px/1.3 var(--ui);
+  letter-spacing: -0.008em;
+  color: var(--ink-2);
+  transition: color var(--t-dim);
+}
+
+.fl-gap:hover .fl-gap-cta { color: var(--accent-deep); }
+.fl-gap:hover .fl-gap-ring { border-color: var(--accent-fill); }
+.fl-gap:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; border-radius: 4px; }
+
+/* `doing` replaces the stage name, which was the one true redundancy on the
+   surface — the ladder's position already carries the stage. Specific where
+   the stage name was generic: "Stopped after 6 of 19 sends" against
+   "Sending". Two lines, clamped, so a long sentence cannot set the region's
+   height. */
+.fl-camp-doing {
+  margin: 9px 0 0;
+  font: 400 11px/1.5 var(--ui);
+  letter-spacing: -0.011em;
+  color: var(--ink-2);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.fl-foot { margin-top: 12px; }
+
+/* The overflow names its own blocked count. `rosterFor` sorts by urgency so
+   the cap can only truncate unblocked campaigns — until more than three are
+   blocked, at which point a bare "+2 more" would let the header's loudest
+   number contradict the marks beneath it. That is the `needsHuman`-vs-live
+   -state fault this file already fixed once. */
+.fl-tail {
+  margin: 0 0 4px;
+  font: 400 11px/1.4 var(--ui);
+  letter-spacing: -0.011em;
+  color: var(--ink-2);
+}
+
+/* ── narrow ──
+   MEASURED, not guessed. The binding constraint is "Screening" at 10.5px/600,
+   which needs ~62px; below a 1360px viewport the station cell falls under that
+   and all nine role labels truncate. So 3-up ends at 1360, not the 1080 this
+   first shipped with — a station whose label reads "Screeni…" is a station
+   that has stopped naming its stage.
+
+   Stacking rather than going 2-across: a two-column layout leaves one region
+   alone on the second row, which reads as a rendering fault rather than as a
+   layout. Stacked, each region keeps the full three-stage anatomy — the
+   structure survives the breakpoint, only the arrangement changes. */
+/* ── THE YIELD GOES FIRST, AND THE NUMBER IS DERIVED ──
+   "24 shortlisted" needs ~68px at 10.5px/500. A station is `(column - 14) / 3`
+   and a column is `(strip - 32) / 3`, so a 68px station needs a 686px strip,
+   which is a ~1520px viewport. Below that the yield clips — and a clipped
+   count is worse than an absent one, because "24 shortl…" reads as a broken
+   string where nothing reads as "look in the dialog".
+
+   It is the right thing to drop first on two counts: it is the only fact here
+   that also renders in the flow dialog, and it was the last one added. */
+@media (max-width: 1520px) {
+  .fl-stn-yield { display: none; }
+}
+
+@media (max-width: 1360px) {
+  .fl-strip { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .fl-camp + .fl-camp { padding-top: 14px; box-shadow: inset 0 1px 0 var(--rule); }
+
+  /* Stacked, the region has width to spare and height it cannot afford, so the
+     name and the state share a line instead of taking two. Same facts, one
+     fewer row, three times over. */
+  .fl-camp-head { display: inline-flex; width: auto; margin-right: 9px; vertical-align: baseline; }
+  .fl-camp-state { display: inline-flex; margin-bottom: 0; }
+  .fl-camp-top { margin-bottom: 9px; }
+
+  /* Stacking triples the block's height, so the two facts that are ALSO in the
+     flow dialog give way and the ones that are only here stay. `doing` drops
+     to one line rather than vanishing: a clipped sentence still says what the
+     agent is doing, and it is the most specific string on the surface. The
+     station yield goes entirely — it is one click away and it was the last
+     thing added. */
+  .fl-camp-doing { -webkit-line-clamp: 1; line-clamp: 1; margin-top: 7px; }
+}
+
+/* ── the fault block, and the actions on it ──
+   Recovered from the last built bundle with their measured values intact.
+   These were always right; only their home changed — they render inside the
+   flow dialog now rather than under a roster row. */
+.fl-dot-off { width: 7px; height: 7px; border: 1px solid var(--rule); border-radius: 50%; }
+
+.fl-detail {
+  margin: 8px 0 0 20px;
+  padding: 10px 12px;
+  border-radius: var(--r-field);
+  background: var(--sub);
+}
+
+.fl-fault {
+  margin: 0;
+  font: 400 11.5px/1.55 var(--ui);
+  letter-spacing: -0.006em;
+  color: var(--ink);
+}
+
+.fl-fault-k {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 7px;
+  padding: 1.5px 7px;
+  border-radius: var(--r-pill);
+  background: var(--nav-surface);
+  border: 1px solid var(--hairline);
+  font: 600 10px/1.5 var(--ui);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.fl-fix {
+  margin: 6px 0 0;
+  font: 400 11px/1.5 var(--ui);
+  letter-spacing: -0.004em;
+  color: var(--ink-2);
+}
+
+.fl-acts { display: flex; gap: 7px; margin-top: 9px; }
+
+.fl-act {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: 1px solid var(--rule);
+  border-radius: var(--r-field);
+  background: var(--nav-surface);
+  font: 500 11px/1.4 var(--ui);
+  letter-spacing: -0.006em;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background-color var(--t-dim), border-color var(--t-dim);
+}
+
+.fl-act:hover { background: var(--sub); }
+.fl-act:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.fl-act.is-primary { border-color: var(--ink-2); }
+
+.fl-stop {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 6px 0 0 20px;
+  padding: 3px 8px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-field);
+  background: transparent;
+  font: 500 10.5px/1.4 var(--ui);
+  letter-spacing: -0.004em;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background-color var(--t-dim), color var(--t-dim), border-color var(--t-dim);
+}
+
+.fl-stop:hover {
+  background: var(--c-rose-tint);
+  border-color: var(--c-rose-line);
+  color: var(--c-rose-text);
+}
+
+.fl-stop:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+/* ═════════════════════ campaigns: the bar and the timeline ══════════════════
+
+   ── TWO ENCODINGS, ORTHOGONAL ──
+   COLOUR IS WHO: every role owns a hue (Sourcing teal, Outreach violet,
+   Screening brand), so the timeline's spine changes colour at each handoff.
+   Measured ΔE 74.6 / 74.7 / 80.5 between the three and a minimum of 30.7
+   against any STATE hue, so role can never be read as status.
+   SHAPE IS WHAT: done is a filled node, in-flight is a ringed node that
+   breathes, blocked is an outlined node with its fault glyph. Remove every
+   colour and the timeline still reads — the test that separates an encoding
+   from a decoration.                                                        */
+
+
+
+/* The eyebrow recipe the rail's panel headings use, so a small label naming
+   the group below it looks the same everywhere on the surface. */
+
+
+/* Auto-fit rather than a fixed count: the bar drops finished campaigns, so
+   how many cards exist is a fact about the fleet and not a layout constant. */
+
+
+/* Shade and edge only. Nothing translates. */
+
+
+
+
+/* ── the three-stage mark ──
+   Each campaign in the fixture is missing a DIFFERENT stage, so this alone
+   makes the cards structurally distinguishable — which a row of names never
+   did. Equal thirds, because the stages are a sequence and not a quantity. */
+
+
+/* The filled part takes the ROLE's hue, at the width of that agent's own
+   progress through its own steps. */
+
+/* An unstaffed stage is an outline, never a fill — the one dashed edge in the
+   card, borrowed from the convention for a slot waiting to be filled. */
+
+
+
+/* Only a campaign that has actually halted takes colour here; the rest read
+   in ink, so the coloured ones are the ones worth looking at. */
+
+
+/* ═══════════════════════════ the live feed ══════════════════════════════════
+
+   Three agents at most, busiest first, showing what each is DOING in its own
+   words rather than a state adjective — "Matching the role against 61
+   contacted profiles", not "Running". That is the transparency this surface
+   exists for: you watch it fetch, plan and draft.
+
+   ── THE RESTRAINT RULE ──
+   Exactly ONE thing moves at rest: the live dot, and only on an agent that is
+   genuinely running. Everything else is still until its own data changes.
+   Three rows each animating something would be a slot machine, and a
+   supervision surface that demands attention constantly gets ignored
+   permanently — which is the opposite of transparency.                      */
+
+/* ── A SURFACE, BECAUSE EVERY NEIGHBOUR HAS ONE ──
+   Measured, this block was `background: transparent`, `border: 0`,
+   `radius: 0`, `padding: 0` — the ONLY element on the page without a surface,
+   floating between a bordered composer and a column of bordered rail panels.
+   That is why it read as not belonging to the site: not a styling deficit but
+   a missing MATERIAL. It now takes the rail panels' exact construction —
+   white on the sand page, 1px `--accent-line`, `--r-card` — so it is made of
+   the same stuff as everything around it. */
+.feed {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: 10px;
+  padding: 12px 14px 14px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-card);
+  background: var(--nav-surface);
+}
+
+.feed-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex: none;
+}
+
+.feed-h {
+  margin: 0;
+  font: 600 10.5px/1.3 var(--ui);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+/* Text, not a button-looking button: the band's own panels are the primary
+   controls, and a second emphatic control for "show me the rest" would
+   out-rank the thing it is a footnote to. */
+.feed-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: 500 10.5px/1.3 var(--ui);
+  letter-spacing: -0.011em;
+  color: var(--accent-text);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: color var(--t-dim);
+}
+
+.feed-all:hover { color: var(--accent-deep); }
+.feed-all:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+
+/* The header's dot. Sage rather than the accent, because "working" is a
+   healthy state and the accent is reserved for what needs a person. */
+
+/* ── WIDER, AND THE WIDTH COMES OFF THE RIGHT ONLY ──
+   Three workflow panels in 556px gave each 185px, under what a campaign name
+   plus a step label wants. The band reclaims part of the stream's right inset
+   to get to 604px and ~201px panels.
+
+   ── AND NOT OFF BOTH SIDES, WHICH IS WHAT I TRIED FIRST ──
+   Pulling 48px off each side gave a better 652px and kept the band
+   equidistant from sidebar and rail — measured 104 and 104, symmetric by the
+   same arithmetic the composer uses. It was still wrong, and the measurement
+   is what hid it: this page has ONE left edge. The heading, the composer, the
+   mode note and the suggestions all begin at 152px, and that edge is the
+   thing every block on the surface aligns to. A band starting at 104 is
+   symmetric about its own column and ragged against the page, and the ragged
+   edge is what a reader actually sees.
+
+   So the left edge holds and the right gives. The gap to the rail becomes
+   104 against the composer's 152, which is the lesser inconsistency: one is a
+   shared vertical line running the height of the page, the other is a margin
+   against a gutter that already varies.
+
+   Clamped against the inset it is reclaiming, so a narrow window — where
+   `--orc-inset-r` has already shrunk — cannot leave the band hanging outside
+   its own column. */
+.feed {
+  margin-right: calc(-1 * min(48px, max(0px, var(--orc-inset-r, 56px) - 32px)));
+}
+
+/* ── THREE ACROSS, NOT THREE DOWN ──
+   Side by side, which also settles the height problem stacking had: three
+   rows needed 150px and the slot is 137px at a 900px window, so the third was
+   always below the fold. Across, the band is one row tall at every viewport
+   and all three are visible at once — which is what a feed you keep half an
+   eye on has to be.
+
+   `auto-fit` rather than a hard `repeat(3, …)`: the cap is three but the fleet
+   can have fewer, and two agents should fill the band rather than leave a
+   third of it empty. */
+.feed-list {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  /* Stretch, not start. Each column sizing to its own content left the status
+     lines at three different heights — the running panel has a step more than
+     the halted ones, so its bar sat 25px lower and the row of them read as
+     ragged. Equal-height columns let each `.feed-bar`'s `margin-top: auto`
+     settle on the same baseline, and it gives the separators their full
+     run. */
+  align-items: stretch;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ── THE ENTRANCE ──
+   A new agent's column opens the band and settles into it. Three things at
+   once, each doing a different job:
+     · the GRID COLUMN goes 0fr → 1fr, which is how you animate to an unknown
+       width without measuring it — the band genuinely makes room and the
+       others slide aside, rather than the new one appearing on top;
+     · the CARD rises and fades, so it arrives from somewhere;
+     · the SURFACE flashes its role colour and recedes, which is the beat that
+       reads as "this is new" and is gone inside a second.
+   440ms on the open, 900ms on the flash. Long enough to be a moment, short
+   enough that deploying three in a row does not become a queue. */
+/* ── THE SEPARATOR, AND WHY A SUB-THRESHOLD LINE IS FINE HERE ──
+   `--rule` measures 1.43:1 on white, under the 3:1 floor this sheet holds
+   boundaries to — and the stats panel's dividers were DELETED for exactly
+   that reading. The difference is what else separates the things. There, three
+   bare numbers sat in one box and the rule was the only thing dividing them,
+   so a rule you cannot see divided nothing. Here each column already carries
+   its own coloured dot, its own role label and its own campaign name, and the
+   grid puts real space between them. The line is reinforcement, not the
+   mechanism, so it is allowed to be quiet — which is what "subtle" asks for.
+
+   Inset top and bottom so it reads as a divider between columns rather than
+   as a border around a cell. */
+.feed-item {
+  display: grid;
+  grid-template-columns: 1fr;
+  min-height: 0;
+}
+
+.feed-item + .feed-item {
+  border-left: 1px solid var(--hairline);
+}
+
+.feed-item.is-new {
+  animation: feed-open 440ms var(--ease-out) both;
+}
+
+.feed-item.is-new > .feed-row {
+  animation: feed-rise 440ms var(--ease-out) both,
+             feed-flash 900ms var(--ease-out) 120ms both;
+}
+
+@keyframes feed-open {
+  from { grid-template-columns: 0fr; }
+  to   { grid-template-columns: 1fr; }
+}
+
+@keyframes feed-rise {
+  from { opacity: 0; transform: translateY(6px) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* The role's own colour, arriving and receding. `color-mix` keeps it a wash
+   rather than a fill — the row is being introduced, not alarmed about. */
+@keyframes feed-flash {
+  0%   { border-color: var(--accent-fill); background: var(--accent-tint); }
+  100% { border-color: transparent; background: transparent; }
+}
+
+@keyframes feed-breathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+/* ── the row ──
+   Borderless at rest. Three of these stacked with hairlines would be a table,
+   and the point is a feed you glance at — the role colour and the gap do the
+   separating. */
+.feed-row {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  width: 100%;
+  height: 100%;
+  /* ── 20px, AND THE SAME ON EVERY COLUMN ──
+     The first column carried `padding-left: 2px` while the others had 14px,
+     so its content sat flush with the band's edge and theirs cleared their
+     separators — three panels that did not start in the same place relative
+     to their own cell. That inconsistency is what read as "weird"; each
+     column now has identical breathing room, which is also the space the
+     separators needed. */
+  padding: 2px 20px;
+  border: 1px solid transparent;
+  border-radius: var(--r-field);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--t-dim), border-color var(--t-dim);
+}
+
+/* The first column starts at the band's own left edge; the rest clear their
+   separator. */
+.feed-row:hover { background: var(--sub); }
+.feed-row:focus-visible { outline: 2px solid var(--focus); outline-offset: -1px; }
+
+/* ── the dot: role in colour, state in shape ──
+   Filled while running, hollow once it has halted. The hue says WHO, the fill
+   says WHETHER — so the feed still reads with no colour at all. */
+
+/* The only motion at rest, and only on an agent that is actually moving. */
+
+@media (prefers-reduced-motion: reduce) {
+  .feed-item.is-new,
+  .feed-item.is-new > .feed-row { animation: none; }
+  .feed-line.is-here .feed-mark::before { animation: none; }
+}
+
+.feed-top {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* The campaign leads now, so it takes the row's flexible width and the
+   panel's only strong weight. */
+.feed-camp { flex: 1 1 auto; }
+
+/* ── THE AGENT, NAMED RATHER THAN COLOURED ──
+   Role was an uppercase label in its own hue at the top of the panel. Two
+   faults, both reported: the CAMPAIGN belongs on top, and teal/violet/brand
+   appear nowhere else on this page — measured, they were the only hues in the
+   feed the rest of the surface never uses, which is exactly why the block
+   read as foreign to the site.
+
+   So role stops being a colour and becomes a sentence: "Sourcing agent".
+   Colour can afford to stop encoding WHO now that the campaign is the heading
+   and the agent is written out in words, and every mark left in this panel
+   moves to the accent family the site already runs on. */
+.feed-role {
+  font: 400 11px/1.4 var(--ui);
+  letter-spacing: -0.011em;
+  color: var(--ink-2);
+}
+
+.feed-camp {
+  max-width: 100%;
+  font: 600 12.5px/1.35 var(--ui);
+  letter-spacing: -0.012em;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.feed-age {
+  flex: none;
+  margin-left: auto;
+  font: 400 10.5px/1.4 var(--ui);
+  letter-spacing: -0.011em;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── THE WORKFLOW ──
+   The agent's own steps, the way a reasoning panel lists them. This is what
+   replaced the status dot: structure rather than another mark, and it says
+   what the dot never could — which step, of which sequence, and where it
+   stopped. */
+/* ── CENTRED AS A BLOCK, LEFT-ALIGNED INSIDE IT ──
+   The header and the campaign name centre as text; the step list must not.
+   `text-align: center` on a checklist scatters the marks — each row's glyph
+   lands at a different x and the column stops reading as one sequence. So the
+   list is sized to its content and centred as a whole, which puts it in the
+   middle of the panel while every step still starts on the same line. */
+.feed-flow {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1px;
+  min-width: 0;
+  max-width: 100%;
+  margin-top: 3px;
+  text-align: left;
+}
+
+/* ── ONE RULE DOWN THE LIST, NOT A MARK PER ROW ──
+   The reference draws a pipe beside every line and it is the right instinct:
+   the steps are one sequence, and a continuous rule says so where N separate
+   marks say "here are N things". It also removes the per-row ornament the
+   dots were — the glyphs that remain are only on rows that have earned one.
+
+   Drawn on the list rather than per line, so it is a single 1px element for
+   the whole column instead of one pseudo-element per step. */
+.feed-flow { position: relative; }
+
+.feed-flow::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 4px;
+  bottom: 4px;
+  width: 1px;
+  background: var(--rule);
+}
+
+.feed-line {
+  position: relative;
+  display: grid;
+  grid-template-columns: 13px minmax(0, 1fr);
+  align-items: baseline;
+  column-gap: 7px;
+  min-width: 0;
+}
+
+/* The marks sit ON the rule, so they read as stations rather than as bullets
+   floating beside text. The surface behind them breaks the line. */
+.feed-mark { position: relative; background: var(--nav-surface); }
+
+.feed-mark {
+  display: grid;
+  place-items: center;
+  height: 15px;
+  color: var(--ink-2);
+}
+
+.feed-line-t {
+  font: 400 11px/1.5 var(--ui);
+  letter-spacing: -0.011em;
+  /* Every line rendered here has been reached — the list stops at the current
+     step — so the base is a completed step's weight rather than a faded
+     future one's. */
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── THE STEP IN FLIGHT ──
+   Weight and a role-coloured bar, never a dot. The bar is a 2px rule in the
+   mark column, which puts the emphasis exactly where the check marks sit, so
+   the column reads as one sequence rather than as text with an ornament. */
+.feed-line.is-here .feed-line-t {
+  color: var(--ink);
+  font-weight: 600;
+  opacity: 1;
+}
+
+/* Inside the MARK cell, not as a sibling of it. As a direct `::before` on the
+   line it became the grid's first item, took column 1 row 1, and pushed the
+   mark and the label onto their own rows — the active step rendered as a bar
+   above the single letter "M". The bar and the check marks belong in the same
+   cell because they are the same thing: the column that says where you are. */
+.feed-line.is-here .feed-mark::before {
+  content: "";
+  width: 2px;
+  height: 12px;
+  border-radius: var(--r-pill);
+  background: var(--accent-fill);
+  animation: feed-work 1.8s var(--ease-in-out) infinite;
+}
+
+/* The blocked states carry their own glyph, so the bar would be a second mark
+   in the same cell. */
+.feed-row.is-blocked .feed-line.is-here .feed-mark::before { display: none; }
+
+/* A bar that grows and recedes: the same "something is happening" signal the
+   dot carried, expressed as the step's own emphasis rather than as a floating
+   ornament. Opacity and scale only — nothing that can move a neighbour. */
+@keyframes feed-work {
+  0%, 100% { opacity: 1; transform: scaleY(1); }
+  50%      { opacity: 0.4; transform: scaleY(0.62); }
+}
+
+/* What the agent says about the step it is on. Indented to the text column so
+   it reads as that step's detail rather than as a new item, and sitting
+   directly beneath that step rather than after the whole list. */
+.feed-say {
+  margin: 1px 0 4px 18px;
+  text-align: left;
+  font: 400 11px/1.45 var(--ui);
+  letter-spacing: -0.011em;
+  color: var(--ink-2);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+/* ── THE STATUS LINE ──
+   Machine voice at the foot of the panel. Monospace because it is output — a
+   line a program wrote, not a label a designer wrote — and that is the one
+   place this sheet already licenses a second face (`--mono`, used for `code`
+   in the fixtures note). `letter-spacing: normal`, since -0.011em is Inter's
+   optical correction and would inherit into a face never cut for it. */
+.feed-bar {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: auto;
+  padding: 5px 8px;
+  border-radius: var(--r-field);
+  background: var(--sub);
+  font: 400 10px/1.5 ui-monospace, monospace;
+  letter-spacing: normal;
+  color: var(--ink-2);
+  min-width: 0;
+}
+
+.feed-bar-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Running takes the role's own hue, so the foot of the panel agrees with the
+   step marked above it. The three halted kinds take the state palette,
+   because what stopped a run is a fact about the run rather than about who
+   was doing it. */
+/* ── ORANGE FOR GOING, THE ALARM HUES FOR STOPPED ──
+   Running takes the accent, the site's own colour. The two halted states keep
+   amber and rose because those are the surface's ALARM palette — an orange
+   blocked agent would be indistinguishable from a working one, and telling
+   those apart at a glance is this line's entire job. One family for identity,
+   one for exception. */
+.feed-bar.is-run { background: var(--accent-tint); color: var(--accent-text); }
+.feed-bar.is-you { background: var(--c-amber-tint); color: var(--c-amber-text); }
+.feed-bar.is-broke { background: var(--c-rose-tint); color: var(--c-rose-text); }
+
+/* ── THE CARET ──
+   A block cursor, blinking only while the agent is running. Steady-state
+   opacity flip on a 1.1s step, which is how a terminal cursor behaves — not
+   a fade, which would read as a pulse and put the ornament back. */
+.feed-caret {
+  flex: none;
+  width: 5px;
+  height: 11px;
+  background: currentColor;
+  animation: feed-caret 1.1s steps(1, end) infinite;
+}
+
+@keyframes feed-caret { 0%, 50% { opacity: 1; } 50.01%, 100% { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .feed-caret { animation: none; }
+}
+
+/* Superseded by `.feed-bar`, which says the same thing in the panel's own
+   machine voice and does not need a second chip to say it twice. Kept only
+   because the timeline's gap row still uses the class. */
+.feed-end {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  align-self: flex-start;
+  margin-top: 6px;
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  background: var(--sub);
+  font: 600 10px/1.5 var(--ui);
+  letter-spacing: 0.01em;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.feed-end.is-you {
+  background: var(--c-amber-tint);
+  color: var(--c-amber-text);
+}
+
+.feed-end.is-broke {
+  background: var(--c-rose-tint);
+  color: var(--c-rose-text);
+}
+
+/* On the top line, between the campaign and the age. `auto` columns so a
+   three-step agent's ladder is not the same width as a four-step one — the
+   mark's shape is a function of its data. */
+
+/* Unreached is a seat, traversed is substance, the current one takes the role
+   hue — distinguished by HEIGHT as well as value, so the silhouette carries
+   the position without spending a second colour. */
+
+
+/* ── every running campaign ───────────────────────────────────────────────
+   One scannable line each. This dialog answers "what else is running", which
+   is a question about COVERAGE — and a coverage answer wants a list, not
+   three columns of workflow the reader would scroll through to count.
+
+   Fixed columns for the three right-hand facts, so the states and ages form
+   edges rather than landing wherever each name happens to end. Each row is
+   its own button, so `auto` columns would size to their own row and align
+   nothing — the same fault the fleet board's pills had.                    */
+
+.all-list {
+  list-style: none;
+  margin: 0;
+  padding: 8px 10px 14px;
+  overflow-y: auto;
+}
+
+.all-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 62px 84px 62px 12px;
+  align-items: baseline;
+  column-gap: 12px;
+  width: 100%;
+  padding: 10px;
+  border: 0;
+  border-radius: var(--r-field);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--t-dim);
+}
+
+.all-row:hover { background: var(--sub); }
+.all-row:focus-visible { outline: 2px solid var(--focus); outline-offset: -1px; }
+
+.all-name {
+  min-width: 0;
+  font: 600 12.5px/1.35 var(--ui);
+  letter-spacing: -0.012em;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.all-agents,
+.all-age {
+  font: 400 10.5px/1.35 var(--ui);
+  letter-spacing: -0.011em;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.all-age { text-align: right; }
+
+/* Only a campaign genuinely halted takes colour, so the coloured rows are the
+   ones worth opening first. */
+.all-state {
+  font: 500 11px/1.35 var(--ui);
+  letter-spacing: -0.011em;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.all-state.is-you { color: var(--c-amber-text); }
+.all-state.is-broke { color: var(--c-rose-text); }
+
+.all-go { align-self: center; color: var(--ink-2); }
+
+/* ── the timeline dialog ──────────────────────────────────────────────────*/
+
+.tl {
+  position: fixed;
+  z-index: var(--z-dialog);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(640px, calc(100vw - 48px));
+  max-height: min(80vh, 760px);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-card);
+  background: var(--nav-surface);
+  box-shadow: var(--e3);
+  overflow: hidden;
+}
+
+.tl-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex: none;
+  padding: 15px 18px 12px;
+}
+
+.tl-titles { flex: 1 1 auto; min-width: 0; }
+
+.tl-title {
+  margin: 0;
+  font: 600 15px/1.25 var(--ui);
+  letter-spacing: -0.015em;
+  color: var(--ink);
+}
+
+.tl-meta {
+  margin: 3px 0 0;
+  font: 400 11.5px/1.3 var(--ui);
+  letter-spacing: -0.011em;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── the legend ──
+   A colour system the reader has to infer from context is one that only works
+   for whoever built it. Three roles, three hues, stated once. */
+.tl-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  flex: none;
+  padding: 0 18px 13px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.tl-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 500 10.5px/1 var(--ui);
+  letter-spacing: 0.02em;
+  color: var(--ink-2);
+}
+
+.tl-key-dot { width: 7px; height: 7px; border-radius: var(--r-pill); }
+
+.tl-body {
+  list-style: none;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 0;
+  padding: 14px 18px 16px;
+}
+
+/* ── one moment ──
+   Three columns: the node and its spine, the time, and what happened. The
+   time is its own column rather than inline, so the events form a readable
+   left-to-right rhythm instead of each row starting at a different x. */
+.tl-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 11px 46px minmax(0, 1fr);
+  column-gap: 11px;
+  padding-bottom: 16px;
+}
+
+.tl-row:last-child { padding-bottom: 0; }
+
+/* The spine, drawn by the row rather than as its own element — one span per
+   event instead of three. Dropped on the last row, or the line would run past
+   the final node into the padding. */
+.tl-row::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 15px;
+  bottom: -1px;
+  width: 1px;
+  background: var(--rule);
+}
+
+.tl-row:last-child::before { display: none; }
+
+/* ── THE NODE: ROLE IN COLOUR, STATE IN SHAPE ── */
+.tl-node {
+  grid-column: 1;
+  width: 11px;
+  height: 11px;
+  margin-top: 3px;
+  border-radius: var(--r-pill);
+  box-sizing: border-box;
+  /* `--role` is set inline from ROLE_HUE — it is data about which agent acted,
+     so it travels with the event rather than living in a class. */
+  background: var(--role);
+}
+
+/* In flight: a ring with a halo, so the live step is findable in a long
+   sequence without giving it a second colour. */
+.tl-row.is-doing .tl-node {
+  background: var(--nav-surface);
+  border: 3px solid var(--role);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--role) 22%, transparent);
+  animation: tl-live 2.4s var(--ease-in-out) infinite;
+}
+
+/* Blocked: hollow. It stopped here, and an outline is the shape of something
+   that has not closed. */
+.tl-row.is-blocked .tl-node {
+  background: var(--nav-surface);
+  border: 2px solid var(--role);
+}
+
+/* Not staffed at all: dashed and grey — no role has claimed it. */
+.tl-row.is-gap .tl-node {
+  background: transparent;
+  border: 1px dashed var(--rule);
+}
+
+@keyframes tl-live { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .tl-row.is-doing .tl-node { animation: none; }
+}
+
+.tl-when {
+  grid-column: 2;
+  padding-top: 2px;
+  font: 400 10.5px/1.5 var(--ui);
+  letter-spacing: -0.011em;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.tl-what { grid-column: 3; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+
+/* The role, in its own hue — the second place the handoff is visible, for
+   anyone who reads the words before the marks. */
+.tl-role {
+  font: 600 9.5px/1.4 var(--ui);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--role);
+}
+
+.tl-step {
+  font: 600 12.5px/1.4 var(--ui);
+  letter-spacing: -0.012em;
+  color: var(--ink);
+}
+
+.tl-row.is-gap .tl-step { color: var(--ink-2); font-weight: 400; }
+
+.tl-note {
+  font: 400 11.5px/1.5 var(--ui);
+  letter-spacing: -0.011em;
+  color: var(--ink-2);
+}
+
+/* The fault and its fix, together — a failure with no next step is a dead end,
+   and dead ends are what break trust in an agent. */
+.tl-fault {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 5px;
+  padding: 7px 9px;
+  border-radius: var(--r-field);
+  background: var(--sub);
+  font: 400 11px/1.5 var(--ui);
+  letter-spacing: -0.011em;
+  color: var(--ink-2);
+}
+
+.tl-fault-k {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-pill);
+  background: var(--nav-surface);
+  font: 600 9px/1.5 var(--ui);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+/* A result is a fact, so it takes ink where the state around it is --ink-2. */
+.tl-yield {
+  align-self: flex-start;
+  margin-top: 5px;
+  padding: 2px 8px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-pill);
+  font: 500 11px/1.4 var(--ui);
+  letter-spacing: -0.011em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.tl-deploy {
+  align-self: flex-start;
+  margin-top: 5px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: 500 11px/1.4 var(--ui);
+  letter-spacing: -0.011em;
+  color: var(--accent-text);
+  cursor: pointer;
+  transition: color var(--t-dim);
+}
+
+.tl-deploy:hover { color: var(--accent-deep); }
+.tl-deploy:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* ── who is working right now ──
+   Pinned to the bottom rather than left to be found in the list, because "what
+   is the fleet doing at this second" is the question this dialog gets opened
+   for, and reading downward makes it the last thing you reach. */
+.tl-now {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  flex: none;
+  padding: 11px 18px;
+  border-top: 1px solid var(--hairline);
+  background: var(--sub);
+  min-width: 0;
+}
+
+.tl-now-k {
+  font: 600 9.5px/1.5 var(--ui);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.tl-now-dot {
+  align-self: center;
+  width: 7px;
+  height: 7px;
+  border-radius: var(--r-pill);
+  background: var(--role);
+  animation: tl-live 2.4s var(--ease-in-out) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tl-now-dot { animation: none; }
+}
+
+.tl-now-role {
+  font: 600 11px/1.4 var(--ui);
+  letter-spacing: -0.011em;
+  color: var(--role);
+  white-space: nowrap;
+}
+
+.tl-now-doing {
+  flex: 1 1 auto;
+  min-width: 0;
+  font: 400 11.5px/1.4 var(--ui);
+  letter-spacing: -0.011em;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tl-now-age {
+  flex: none;
+  font: 400 10.5px/1.4 var(--ui);
+  letter-spacing: -0.011em;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── the campaign flow ────────────────────────────────────────────────────
+
+   Per-agent step tracks for one campaign. A dialog for the reason the history
+   popup is one: this grows with the campaign, and a block that can push its
+   own neighbours down the page is not a block.                              */
+
+.flow {
+  position: fixed;
+  /* ABOVE the scrim it reuses. At 60 this sat under `.pal-scrim`'s 70, so the
+     flow was tinted by its own backdrop and every click inside it — Dismiss,
+     Ask the agent, Stop — hit the scrim and closed the dialog instead. */
+  z-index: var(--z-dialog);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(620px, calc(100vw - 48px));
+  max-height: min(78vh, 720px);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+  background: var(--nav-surface);
+  box-shadow: var(--e3);
+  overflow: hidden;
+}
+
+.flow-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex: none;
+  padding: 15px 16px 13px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.flow-titles { flex: 1 1 auto; min-width: 0; }
+
+.flow-title {
+  margin: 0;
+  font: 600 14.5px/1.25 var(--ui);
+  letter-spacing: -0.015em;
+  color: var(--ink);
+}
+
+.flow-meta {
+  margin: 3px 0 0;
+  color: var(--ink-2);
+  font: 400 11.5px/1.3 var(--ui);
+  letter-spacing: -0.011em;
+}
+
+.flow-meta-loud { color: var(--c-rose-text); font-weight: 500; }
+
+.flow-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 16px 16px;
+}
+
+/* One agent's track. The rule between tracks is what keeps two agents on the
+   same campaign from reading as one long sequence of steps. */
+.flow-agent { padding: 14px 0; }
+.flow-agent + .flow-agent { border-top: 1px solid var(--hairline); }
+
+.flow-agent-head {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) 76px 62px;
+  align-items: center;
+  column-gap: 11px;
+  margin-bottom: 9px;
+}
+
+.flow-agent-dot { display: grid; place-items: center; }
+
+.flow-agent-role {
+  margin: 0;
+  font: 600 12.5px/1.3 var(--ui);
+  letter-spacing: -0.012em;
+  color: var(--ink);
+}
+
+/* ── the step track ──
+   The connector is drawn by the LIST ITEM rather than as its own element, so
+   the markup is one span per step instead of three. `:last-child` drops the
+   tail, or the line would run past the final mark into the padding. */
+.flow-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 1px;
+}
+
+.flow-step {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  padding: 0 0 11px 21px;
+}
+
+.flow-step:last-child { padding-bottom: 0; }
+
+.flow-step::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 14px;
+  bottom: -1px;
+  width: 1px;
+  background: var(--rule);
+}
+
+.flow-step:last-child::before { display: none; }
+
+/* ── THREE STATES, THREE SHAPES — not three colours ──
+   Done is a filled ring, in flight is a filled dot with a halo, not started is
+   a hollow ring. Colour is carried on top of that for the one state that is
+   moving, so the track still reads in greyscale and still reads for anyone who
+   cannot rely on hue. A screen reader gets the state in words (see the sr-only
+   span), because four identical list rows is what this looks like without. */
+.flow-step-mark {
+  position: absolute;
+  left: 0;
+  top: 4px;
+  width: 9px;
+  height: 9px;
+  border-radius: var(--r-pill);
+  box-sizing: border-box;
+}
+
+.flow-step.is-done .flow-step-mark { background: var(--ink-2); }
+
+/* ── THE IN-FLIGHT MARK TAKES THE AGENT'S STATE, NOT ALWAYS BLUE ──
+   Blue is `running`. Defaulting every current step to it made a stopped
+   agent's step wear a running halo under its own Stopped pill. The halo is
+   what makes the current step findable in a track of nine; the hue is what
+   makes it honest about whether anything is moving. */
+.flow-step.is-at .flow-step-mark {
+  background: var(--c-blue);
+  box-shadow: 0 0 0 3px var(--c-blue-tint);
+}
+
+.flow-steps.is-waiting .flow-step.is-at .flow-step-mark {
+  background: var(--c-amber);
+  box-shadow: 0 0 0 3px var(--c-amber-tint);
+}
+
+.flow-steps.is-error .flow-step.is-at .flow-step-mark {
+  background: var(--c-rose);
+  box-shadow: 0 0 0 3px var(--c-rose-tint);
+}
+
+/* No hue and no halo. A queued agent has not begun, and `RUN_HUE.queued` is
+   deliberately null for the same reason — giving the absence of activity a
+   colour means every row is coloured. It keeps the hollow ring of a step not
+   yet reached, because that is what it is. */
+.flow-steps.is-queued .flow-step.is-at .flow-step-mark {
+  background: var(--nav-surface);
+  border: 1.5px solid var(--ink-2);
+  box-shadow: none;
+}
+
+/* Its name still gets the weight — it is the step the agent will run next,
+   which is the useful fact about a queued agent. */
+.flow-steps.is-queued .flow-step.is-at .flow-step-name { color: var(--ink); }
+
+.flow-step.is-ahead .flow-step-mark {
+  background: var(--nav-surface);
+  border: 1.5px solid var(--rule);
+}
+
+.flow-step-name {
+  font: 500 12px/1.35 var(--ui);
+  letter-spacing: -0.011em;
+  color: var(--ink);
+}
+
+/* A step not reached says only its own name, and says it quietly — it has not
+   happened, so it should not read with the same weight as one that has. */
+.flow-step.is-ahead .flow-step-name { color: var(--ink-2); font-weight: 400; }
+
+.flow-step.is-at .flow-step-name { font-weight: 600; }
+
+.flow-step-note {
+  margin-top: 2px;
+  color: var(--ink-2);
+  font: 400 11.5px/1.5 var(--ui);
+  letter-spacing: -0.011em;
+}
+
+/* What the step produced, inside the step that produced it. A box rather than
+   another line of prose: it is a COUNT, and the two notes above it are
+   sentences — the border is what stops it being read as a third sentence. */
+.flow-step-yield {
+  justify-self: start;
+  margin-top: 5px;
+  padding: 2px 7px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-pill);
+  color: var(--ink);
+  font: 500 11px/1.4 var(--ui);
+  letter-spacing: -0.011em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The fault block and the actions keep the rules they had in the flat list —
+   they were the right treatment in the wrong place, so only the place
+   changed. Re-inset to sit under the track rather than under a row. */
+.flow-agent .fl-detail { margin: 11px 0 0 21px; }
+.flow-agent .fl-stop { margin: 10px 0 0 21px; }
 
 /* ── conversion: three rates in a row ──
    Replaces the placeholder that used to sit here. Centred stat blocks rather
@@ -6699,6 +8833,7 @@ body {
   .tk-ask,
   .tk-row,
   .tk-sel,
+  .orc-gslot,
   .tk-search { transition: none; }
 }
 
@@ -6711,7 +8846,7 @@ body {
    restores them by halves: `.rail-table` and `.rail-table code` (three `Reads
    <table>` footers), `.rail-people-head` / `.rail-people` / `.rail-person*` /
    `.rail-faces` (the Collaborators panel and its avatar stack, now three
-   Configuration rows), `.rail-chan-badge` (a sage check on every connected
+   Configuration rows), a sage check that used to sit on every connected
    channel), and `.rail-brief > .vz-chip` (a hashed-hue chip on every brief).
    No `.vz-*` selector is left in this file: the rail used three of viz.tsx's
    primitives and now uses none.
@@ -6769,8 +8904,12 @@ body {
      width as one surface with things floating on it. */
   /* No horizontal padding: the 56px `column-gap` on `.orc` is the gutter, and
      the 34px `padding-right` is the page margin. Padding here as well would
-     double-count both and shrink the panels for no reason. */
-  padding: 22px 0;
+     double-count both and shrink the panels for no reason.
+
+     Vertically it matches `.orc-stream` exactly — 40px above, 56px below — so
+     the two columns start and end on the same lines. It was 22px on both,
+     which was its own number rather than the page's. */
+  padding: 40px 0 56px;
 }
 
 /* ── CENTRED ON THE HORIZONTAL MID-LINE ──
@@ -6784,8 +8923,36 @@ body {
    ends of the scrollport, so the top of the list becomes unreachable, while an
    auto margin collapses to zero and the content simply starts at the top. The
    same distinction cost a bug once already in `.orc-stream`. */
-.orc-rail > :first-child { margin-top: auto; }
-.orc-rail > :last-child { margin-bottom: auto; }
+/* ── CENTRED BY THE CONTAINER, NOT BY A PAIR OF POSITIONAL SELECTORS ──
+   This was `> :first-child { margin-top: auto }` and `> :last-child
+   { margin-bottom: auto }`, which centre the column by splitting its free
+   space between two auto margins. It worked only while the last child was the
+   last SECTION — and the history dialog mounted into this same container, so
+   opening it made `.hist` the last child. The bottom auto margin moved onto a
+   fixed-position element where it does nothing, the top one absorbed the
+   whole 242px instead of half, and every panel in the rail dropped 121px the
+   moment the popup appeared. Measured: first section at 143px closed, 264px
+   open, and `margin-top` computing 121.188px then 242.359px — exactly double.
+
+   `justify-content: center` states the intent directly and cannot care what
+   the children are. Same result at rest (22px padding + 121px of half-free
+   space = 143px), and no future sibling can break it. The dialog is also
+   portalled out of here now — either fix alone would do, and the pair is
+   deliberate: one removes the dependency, the other removes the fragility. */
+/* ── CENTRED, AND THE LEFT COLUMN TRACKS IT ──
+   The rail stays balanced in its column; the composer is what moves to meet
+   it. That is the harder direction, because a centred column's panel positions
+   are a function of VIEWPORT HEIGHT — measured, `Configuration` sat at 163px
+   in an 800px window, 209px at 900 and 259px at 1000 — so the left column
+   cannot meet it with a constant. It meets it with an expression instead; see
+   `.orc-intro`.
+
+   `safe center` so a window shorter than the panels does not clip the first
+   one with no way to scroll up to it. */
+.orc-rail {
+  justify-content: center;
+  justify-content: safe center;
+}
 
 /* ── section shell ───────────────────────────────────────────────────────── */
 
@@ -6805,28 +8972,38 @@ body {
   min-height: 25px;
 }
 
-.rail-sec-id { min-width: 0; }
 
 /* Plain text. No tinted glyph in front of it — those were six coloured squares
    whose only job was to mark a card as a card, and a card already looks like
    one. If a header needs a glyph to be findable, the header is in the wrong
    place. */
-.rail-sec-title {
+/* ── ONE RECIPE FOR EVERY PANEL HEADING ──
+   There were two, for three headings of identical rank. `Last 7 days` was
+   13px/600 sentence case in --ink; `Configuration` and `History` were
+   12.5px/400 in --ink-2 — the SAME size and weight as the row labels beneath
+   them, so a panel's title and its contents were typographically
+   indistinguishable and the panel read as one undifferentiated block.
+
+   The uppercase micro-label is not a new idea here: the note above
+   `.rail-stat-label` already states that "the uppercase micro-label device
+   belongs on the panel headings above, where there is a full column to
+   spend", and explains that the STAT labels stay sentence case only because
+   67px cannot hold "SHORTLISTED". The design had decided; the CSS never did
+   it. This is that decision, implemented.
+
+   10.5px/600 with +0.06em: "CONFIGURATION" is the longest at ~104px against a
+   312px column, so the fit objection that rules out uppercase inside the stat
+   cells does not apply one level up. --ink-2 because a label naming its own
+   panel is furniture, and the content it names should out-rank it. */
+.rail-sec-title,
+.rail-panel-label {
   margin: 0;
-  font: 600 13px/1.25 var(--ui);
-  letter-spacing: -0.011em;
-  color: var(--ink);
+  font: 600 10.5px/1.3 var(--ui);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-2);
 }
 
-.rail-sec-sub {
-  margin: 1px 0 0;
-  font: 400 11.5px/1.3 var(--ui);
-  letter-spacing: -0.011em;
-  color: var(--ink-2);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
 /* THE CARD, and the only container in the rail. White so it is a plane on the
    ground without help, `--hairline` so the edge is a whisper, and no shadow at
@@ -6835,7 +9012,11 @@ body {
   /* 14px. A rail panel is narrower than a bento tile, so it takes one step
      less than the 16px the wide cards use rather than the same value. */
   padding: 14px;
-  border: 1px solid var(--hairline);
+  /* Warm, not neutral. These are white cards on a sand page and a neutral
+     hairline made them read as pasted-on rectangles; the accent edge ties them
+     to the brand ground they sit on. Deliberately NOT a shadow — the rail is
+     tier 2 and the composer keeps the only resting elevation. */
+  border: 1px solid var(--accent-line);
   border-radius: var(--r-card);
   background: var(--nav-surface);
 }
@@ -6843,8 +9024,23 @@ body {
 /* The reference's compositional device: an uppercase micro-label over a run of
    rows. Positive tracking, because uppercase at 10px sets too tight otherwise
    — one of the two rules in this file that does not go negative. */
+/* ── WHY THESE LABELS HAVE A PADDING AND NOT A MARGIN GUESS ──
+   A section label has to start where the rows it labels start, and the rows
+   here are BUTTONS with their own horizontal padding — so the label's inset is
+   not a free choice, it is a consequence of the row's.
+
+   Measured before this rule existed: the dialog's `RECENT` sat at 17px and the
+   row icon beneath it at 25px, 8px out; the rail panel's `History` sat at 2px
+   over rows insetting 8px, 6px out. Both looked deliberate and neither was —
+   each number had been picked against the PANEL edge while the rows were being
+   placed against something else.
+
+   `--row-inset` is declared by whichever container owns the list, so the label
+   reads the row's padding instead of restating it. Change a row's padding and
+   the label follows; there is no second number to remember. */
 .rail-micro {
   margin: 0 0 8px;
+  padding-left: var(--row-inset, 0px);
   font: 500 10px/1 var(--ui);
   letter-spacing: 0.09em;
   text-transform: uppercase;
@@ -6881,22 +9077,6 @@ body {
 
 /* Deliberately not accent. Two orange things in a 312px column and neither is
    the primary action any more. */
-.rail-manage {
-  display: inline-flex;
-  align-items: center;
-  gap: 1px;
-  flex: none;
-  padding: 4px 5px 4px 7px;
-  border-radius: var(--r-pill);
-  font: 500 11.5px/1 var(--ui);
-  letter-spacing: -0.011em;
-  color: var(--ink-2);
-  text-decoration: none;
-  transition: color var(--t), background var(--t-dim);
-}
-
-.rail-manage:hover { color: var(--ink); background: var(--sub); }
-.rail-manage:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 
 /* ── last 7 days ─────────────────────────────────────────────────────────────
    One card, three columns, two rules. Three separate mini-cards would each
@@ -6944,17 +9124,35 @@ body {
      should say why; uniform is the default. */
 }
 
+/* No horizontal padding: the panel's column gap is the separator now that the
+   sub-threshold divider is gone, and padding on top of it would double-count
+   the same space. Was `0 4px`, which existed only to hold the rule off the
+   figures. */
 .rail-stat {
   min-width: 0;
-  padding: 0 4px;
+  padding: 0;
 }
 
-.rail-stat:first-child { padding-left: 0; }
-.rail-stat:last-child { padding-right: 0; }
 
-/* The rule, not a gap. A gap alone leaves three numbers floating in one box
-   and the eye has to guess where one stat ends. */
-.rail-stat + .rail-stat { border-left: 1px solid var(--hairline); }
+
+/* ── THE RULE IS GONE, AND IT IS A MEASUREMENT THAT REMOVED IT ──
+   It read "the rule, not a gap: a gap alone leaves three numbers floating in
+   one box". The reasoning was sound and the execution could not deliver it:
+   `--hairline` on white measures **1.20:1**, against a 3:1 floor for a
+   boundary that carries meaning. So the divider was not separating the stats,
+   it was leaving two faint grey marks that read as rendering artifacts — which
+   is exactly how it was reported.
+
+   No token can fix it either. On white `--rule` is 1.43:1 and `--rule-strong`
+   2.81:1; the only values that clear 3:1 are `--ink-2` and `--ink`, and a
+   1px ink hairline between three small figures is a heavier structure than the
+   thing it structures.
+
+   So the separation becomes what the rail already learned it should be: SPACE.
+   Each cell is a label stacked on its figure, which is a vertical pair the eye
+   groups on its own; the three pairs only needed room between them. 18px of
+   column gap, against the 8px of padding the rule needed. */
+.rail-stats { column-gap: 18px; }
 
 /* Sentence case, not uppercase, and that is a FIT decision.
    "SHORTLISTED" in uppercase with +0.03em tracking needs ~78px; the column is
@@ -6964,10 +9162,16 @@ body {
 
    The reference sets these in sentence case for the same reason, and it reads
    as a quieter label anyway — the uppercase micro-label device belongs on the
-   panel headings above, where there is a full column to spend. */
+   panel headings above, where there is a full column to spend, and as of this
+   revision that is where it lives.
+
+   -0.011em, not the -0.006em this carried: that was the only Inter run in the
+   rail off the house optical correction, and since the correction is TIGHTER
+   it buys fit rather than costing it — which was this label's whole
+   constraint. */
 .rail-stat-label {
   font: 500 11px/1.2 var(--ui);
-  letter-spacing: -0.006em;
+  letter-spacing: -0.011em;
   color: var(--ink-2);
   overflow: hidden;
   white-space: nowrap;
@@ -7024,27 +9228,6 @@ body {
    means neither is primary. So it is --ink with a --rule underline, which is
    the quietest treatment that still reads as a link, and the underline firms up
    to --ink on hover. Zero saturated spots spent. */
-.rail-ask {
-  display: block;
-  width: 100%;
-  margin: 0;
-  padding: 3px 2px 0;
-  border: none;
-  border-radius: var(--r-field);
-  background: none;
-  font: 400 11.5px/1.35 var(--ui);
-  letter-spacing: -0.011em;
-  color: var(--ink);
-  text-align: left;
-  text-decoration: underline;
-  text-decoration-color: var(--rule);
-  text-underline-offset: 2px;
-  cursor: pointer;
-  transition: text-decoration-color var(--t);
-}
-
-.rail-ask:hover { text-decoration-color: var(--ink); }
-.rail-ask:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 
 /* ── configuration ───────────────────────────────────────────────────────────
    Label left in --ink-2, value right in --ink, one row each, a --hairline rule
@@ -7056,25 +9239,56 @@ body {
    the card edge. A rule that stops 12px short of both sides reads as a floating
    dash rather than a division.                                               */
 
+/* ── `padding: 0` HERE WAS THE BUG, AND IT LOOKED LIKE A DESIGN FAILURE ──
+   This element carries BOTH `.rail-panel` and `.rail-config`. `.rail-panel`
+   sets `padding: 14px`; this rule set `padding: 0` at equal specificity and
+   later in the file, so it won — the card had no inner padding at all and
+   every value sat 3px from its own border. Measured: 3px.
+
+   It was invisible while the rows carried `8px 12px` of their own, which
+   happened to stand in for the padding the panel had lost. Tightening the rows
+   to `11px 2px` for the reference's spacing removed that accidental
+   compensation and the override became what it always was.
+
+   The lesson is about the shape of the mistake, not the number: a rule that
+   only works because a DIFFERENT rule is compensating for it is not working.
+   The panel owns its padding; rows own their rhythm. */
 .rail-config {
   margin: 0;
-  padding: 0;
+  /* Config rows are plain flex rows with no horizontal padding of their own —
+     the panel supplies the inset — so the label aligns at zero. */
+  --row-inset: 0px;
 }
 
+/* ── LEARNED FROM THE REFERENCE: THE DIVIDERS GO ──
+   These rows had a hairline between each pair, and the reference has none —
+   just air. The rule was doing work the spacing already did, and eight of them
+   stacked in a 340px column is what read as busy rather than dense.
+
+   Taller too: 11px vertical against the old 8px, which is the trade the
+   dividers paid for. A rule lets you crowd rows together and still tell them
+   apart; without one, the gap IS the separation, so it has to be big enough to
+   be the separation. */
 .rail-config-row {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 10px;
   min-width: 0;
-  padding: 8px 12px;
+  /* Vertical only. Horizontal inset is the panel's job — see the note above
+     for what happened the last time these two disagreed about whose it was. */
+  padding: 9px 0;
 }
 
-.rail-config-row + .rail-config-row { border-top: 1px solid var(--hairline); }
+/* No top padding on the first row: the panel's own 14px plus the label's 6px
+   margin already places it, and a third contribution stacked the gap to 29px
+   against the 18px between rows. */
+.rail-config-row:first-of-type { padding-top: 2px; }
+.rail-config-row:last-of-type { padding-bottom: 2px; }
 
 .rail-config-label {
   flex: none;
-  font: 400 11.5px/1.35 var(--ui);
+  font: 400 12.5px/1.35 var(--ui);
   letter-spacing: -0.011em;
   color: var(--ink-2);
 }
@@ -7085,11 +9299,240 @@ body {
 .rail-config-value {
   margin: 0;
   min-width: 0;
-  font: 500 11.5px/1.35 var(--ui);
+  font: 500 12.5px/1.35 var(--ui);
   letter-spacing: -0.011em;
   color: var(--ink);
   text-align: right;
 }
+
+/* ── the panel's own quiet label ──
+   "Configuration" is a 12px --ink-2 label inside the card, not a 13px semibold
+   heading above it with the campaign name underneath and a Manage link
+   opposite. The reference greys it almost to the point of disappearing, and it
+   is right to: a section label only has to be FINDABLE. Emphasis on it
+   competes with the values, which are the thing being read. */
+/* The two differences from a section title: it sits INSIDE its panel, so it
+   needs the row inset (see the note on `--row-inset`), and it needs air under
+   it before the rows start. */
+.rail-panel-label {
+  margin: 0 0 9px;
+  padding-left: var(--row-inset, 0px);
+}
+
+/* ── an unset field ──
+   The reference's best idea, and the reason these rows are worth having at
+   all: an unconfigured field puts the ACTION that would configure it in the
+   value position, rather than a blank, a dash, or the word "None".
+
+   --ink-2 at 7.60:1, so it is quieter than a set value without being a third
+   ink or a disabled grey. Underlined only on hover: at rest a column with
+   three underlined values reads as a list of links, which is louder than the
+   facts beside them deserve. */
+.rail-config-act {
+  color: var(--ink-2);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: color var(--t-dim), border-color var(--t-dim);
+}
+
+.rail-config-act:hover { color: var(--ink); border-bottom-color: var(--rule); }
+.rail-config-act:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* ── brand marks ──
+   Sits before the `2 of 4`, inside the value cell, so the whole thing stays
+   one right-aligned unit and the row keeps its label/value shape.
+
+   -1px of letter-spacing pulls the marks a hair tighter than their own
+   bounding boxes: Phosphor's logo glyphs carry side bearing meant for inline
+   text, and at 13px in a group of two that bearing reads as a gap. */
+.rail-config-marks {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-right: 7px;
+  vertical-align: -2px;
+}
+
+/* 14px against the value's 12.5px type. A brand mark is identified by its
+   SILHOUETTE, so it needs a little more than the text beside it to stay
+   recognisable — 13px measured cramped, and anything past 15px starts
+   out-ranking the figure it annotates. */
+.rail-config-mark svg { width: 14px; height: 14px; }
+
+.rail-config-mark { display: inline-grid; place-items: center; }
+
+/* ── history, inline ── */
+.rail-hist {
+  display: flex;
+  flex-direction: column;
+  /* Matches `.rail-briefs.is-inline .rail-brief`'s 8px. */
+  --row-inset: 8px;
+}
+
+/* Tighter than the dialog's copy of the same list. The rail is showing four
+   rows as a summary; the dialog is showing every row as the subject, and the
+   subject gets more room. */
+.rail-briefs.is-inline { gap: 1px; }
+
+.rail-briefs.is-inline .rail-brief {
+  padding: 7px 8px;
+  /* The campaign line is the first thing to go when the column is narrow. The
+     title and the age are what identify a brief; which campaign it belonged to
+     is recoverable from the title in almost every case, and the dialog shows
+     it in full. */
+  row-gap: 1px;
+}
+
+/* ── view all ──
+   Rendered only when rows are actually hidden. Text, not a button-looking
+   button: the rail's one filled control is `+ New`, and a second emphatic
+   control for "show me the rest" would out-rank the thing it is a footnote
+   to. */
+.rail-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  align-self: flex-start;
+  margin: 8px 0 0 8px;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  font: 500 11.5px/1.35 var(--ui);
+  letter-spacing: -0.011em;
+  color: var(--accent-text);
+  cursor: pointer;
+  transition: color var(--t-dim);
+}
+
+.rail-more:hover { color: var(--accent-deep); }
+.rail-more:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* ── the history dialog ──
+   Reuses `.pal-scrim`, so the app has ONE way to dismiss a floating thing
+   rather than a second scrim that looks almost the same. Sized for the list
+   rather than the viewport: the rail could never show every brief, and this
+   exists to be the place that can. */
+.hist {
+  position: fixed;
+  /* ABOVE the scrim it reuses — see `--z-dialog`. At 60 this sat under
+     `.pal-scrim`'s 70: the popup was tinted by its own backdrop, and picking a
+     brief or typing in the search was impossible by mouse because the scrim
+     was the top element at every point inside the dialog. */
+  z-index: var(--z-dialog);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(560px, calc(100vw - 48px));
+  max-height: min(70vh, 640px);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+  background: var(--nav-surface);
+  box-shadow: var(--e3);
+  overflow: hidden;
+}
+
+.hist-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.hist-title {
+  margin: 0;
+  flex: 1 1 auto;
+  font: 600 14px/1.2 var(--ui);
+  letter-spacing: -0.014em;
+  color: var(--ink);
+}
+
+.hist-x {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: color var(--t-dim), background-color var(--t-dim);
+}
+
+.hist-x:hover { color: var(--ink); background: var(--sub); }
+.hist-x:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* ── search ──
+   Its own strip between the header and the list, not squeezed into the header
+   beside the title and the two buttons. A field sharing a 14px row with a
+   filled `+ New` and a close button would be the fourth thing in a row that
+   already has three, and the one you are most likely to want first.
+
+   No border and no resting fill: the strip's own bottom hairline already
+   separates it from the list, and a bordered input inside a bordered dialog
+   inside a scrim is the third nested box in 20px. */
+.hist-find {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: none;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.hist-find-ico { flex: none; color: var(--ink-2); }
+
+.hist-find-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  font: 400 13.5px/1 var(--ui);
+  letter-spacing: -0.011em;
+}
+
+.hist-find-input::placeholder { color: var(--ink-2); }
+
+/* No ring. The dialog opens with this focused, so a ring would be the first
+   thing drawn every single time it appears — see .pal-input, same call. */
+.hist-find-input:focus { outline: none; }
+
+.hist-find-count {
+  flex: none;
+  color: var(--ink-2);
+  font: 500 11px/1 var(--ui);
+  letter-spacing: -0.011em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Scrolls, because history grows without bound — which is the whole reason it
+   left the rail. */
+.hist-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 16px 16px;
+  /* Matches `.rail-brief`'s 8px. */
+  --row-inset: 8px;
+}
+
+/* Matches .pal-empty's call: centred, quiet, and it names the query back so a
+   typo is visible as a typo. */
+.hist-empty {
+  margin: 0;
+  padding: 26px 8px 30px;
+  color: var(--ink-2);
+  font: 400 13px/1.55 var(--ui);
+  letter-spacing: -0.011em;
+  text-align: center;
+}
+
+.hist-empty strong { color: var(--ink); font-weight: 600; }
 
 /* ── briefs ──────────────────────────────────────────────────────────────── */
 
@@ -7214,44 +9657,17 @@ body {
 /* padding-bottom is 12 + 32: the panel reserves the hover slot rather than
    letting it push the logos around, and the slot's contents are absolute
    against this box. The two numbers are coupled — change one, change both. */
-.rail-chan-panel {
-  position: relative;
-  padding-bottom: 44px;
-}
-
-.rail-chans {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
 
 /* Left static on purpose: the readout inside it must resolve against the
    PANEL, so this must not become a containing block. */
-.rail-chan { display: flex; }
 
-/* No `position: relative` any more. It was here to anchor `.rail-chan-badge`,
+/* No `position: relative` any more. It anchored a per-channel badge,
    the sage check that sat on every connected mark; the badge is gone (it was
    on both connected rows, so it marked nothing) and the anchor went with it.
 
    The fill is transparent for every state, which on a white panel means every
    brand mark is measured against white — the surface each --c-* was solved for
    at 3:1. Do not put a --sub wash behind these: teal lands at 2.95:1 there. */
-.rail-chan-mark {
-  display: grid;
-  place-items: center;
-  box-sizing: border-box;
-  width: 34px;
-  height: 34px;
-  border: 1px dashed var(--rule);
-  border-radius: var(--r-pill);
-  background: transparent;
-  color: var(--ink-2);
-  text-decoration: none;
-  transition: border-color var(--t);
-}
 
 /* Connected is the edge going solid, and nothing else. Dashes read as
    provisional, which is the conventional meaning and the right one here. It is
@@ -7259,7 +9675,6 @@ body {
    sorted connected-first, `2 of 4 connected` sits under it, the Configuration
    row above says the same, and the readout spells out "Connected" for anyone
    hovering or using a screen reader. Four carriers, none of them a colour. */
-.rail-chan.is-on .rail-chan-mark { border-style: solid; }
 
 /* `.is-add` gets no rule of its own. It used to be accent-tinted, which made
    three accent spots in one column (the + New fill, the selection wash, this)
@@ -7270,13 +9685,8 @@ body {
 
 /* Border, not shadow. Warming the edge to --ink-2 (7.60:1 on white) is a
    firmer answer than a lift and costs no shadow at rest or on hover; the
-   selectors carry three classes so they out-specify `.rail-chan.is-on
-   .rail-chan-mark` above and fire on keyboard focus as well, which the old
+   selectors carry three classes so they out-specify the channel-row
    `:hover`-only shadow did not. */
-.rail-chan:hover .rail-chan-mark,
-.rail-chan:focus-within .rail-chan-mark { border-color: var(--ink-2); }
-
-.rail-chan-mark:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
 /* THE HOVER LABEL.
    The references float a black tooltip above the hovered logo. That cannot
@@ -7293,74 +9703,22 @@ body {
 
    Opacity and not display/visibility: the slot's height is already reserved by
    the panel's padding-bottom, so nothing reflows when a label appears. */
-.rail-chan-read {
-  position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--t);
-}
-
-.rail-chan:hover .rail-chan-read,
-.rail-chan:focus-within .rail-chan-read { opacity: 1; }
-
-.rail-chan-nm {
-  font: 600 11.5px/1.3 var(--ui);
-  letter-spacing: -0.011em;
-  color: var(--ink);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.rail-chan-de {
-  font: 400 10.5px/1.3 var(--ui);
-  letter-spacing: -0.011em;
-  color: var(--ink-2);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
 /* Promoted by weight and ink, not by a status colour. On the white panel
    --c-sage-text would now clear the body floor where it missed at 4.47:1 on
    --sub, so this is a choice rather than a constraint: "Connected" appears on
    every connected row, so tinting it would be colour that never differs. The
    word was always the carrier. */
-.rail-chan-st { font-weight: 500; color: var(--ink); }
 
 /* The slot at rest. :has is already the codebase's vocabulary (.con:has, and
    .con-main:has(.orc)); it is used here so the count survives the pointer
-   crossing the gaps BETWEEN marks, which plain .rail-chans:hover would not. */
-.rail-chan-rest {
-  position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: 12px;
-  margin: 0;
-  font: 400 10.5px/1.3 var(--ui);
-  letter-spacing: -0.011em;
-  color: var(--ink-2);
-  transition: opacity var(--t);
-}
-
-.rail-chans:has(.rail-chan:hover, .rail-chan:focus-within) + .rail-chan-rest { opacity: 0; }
+   crossing the gaps BETWEEN marks, which a plain list hover would not. */
 
 /* Two cross-fades and two shade swaps are all that animate in here. With
    motion reduced they become instant — suppressed, not removed, which is the
    call the rest of the surface makes. */
 @media (prefers-reduced-motion: reduce) {
-  .rail-ask,
   .rail-brief,
-  .rail-manage,
-  .rail-chan-mark,
-  .rail-chan-read,
-  .rail-chan-rest,
   .rail-new { transition: none; }
 }
 

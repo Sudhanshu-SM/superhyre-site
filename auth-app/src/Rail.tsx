@@ -1,8 +1,12 @@
-import { CaretRight, Plus } from "@phosphor-icons/react";
+import { CaretRight, MagnifyingGlass, Plus, X } from "@phosphor-icons/react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import {
+  BRIEFS, CAMPAIGN_CONFIG, CAMPAIGN_STATS, CHANNELS, COLLABORATORS, MODES,
+} from "./orchestrator";
 import { ROUTES } from "./nav";
-import { BRIEFS, CAMPAIGN_STATS, CHANNELS, COLLABORATORS, MODES } from "./orchestrator";
 import { Counter } from "./viz";
-import type { Brief, Hue, ModeId, Stat } from "./orchestrator";
+import type { Brief, Channel, ModeId } from "./orchestrator";
 import type { Campaign } from "./workspaces";
 
 /**
@@ -66,16 +70,15 @@ import type { Campaign } from "./workspaces";
  * BriefGroup). Remove all remaining colour and the rail still reads.
  */
 export function Rail({
-  campaign, activeBriefId, onNewBrief, onPickBrief, onOpen,
+  campaign, activeBriefId, onNewBrief, onPickBrief,
 }: {
   campaign: Campaign;
   activeBriefId: string | null;
   onNewBrief: () => void;
   onPickBrief: (id: string) => void;
-  /** Seeds the composer. Used by the derived decline question below, which
-      moved here from `CampaignHead` along with the stats it is derived from. */
-  onOpen: (prompt: string) => void;
 }) {
+  const [historyOpen, setHistoryOpen] = useState(false);
+
   return (
     /* Root is `orc-rail`, not `rail`: App.tsx already renders
        `<aside className="rail">` for the sign-in brand panel, whose rule
@@ -142,146 +145,234 @@ export function Rail({
             The label is the sentence rather than a verb like "Investigate": you
             can tell what you will get before clicking, and the agent gets a
             brief worth answering. */}
-        {DECLINE && (
-          <button type="button" className="rail-ask" onClick={() => onOpen(ASK)}>
-            {ASK}
-          </button>
-        )}
       </section>
 
       {/* ── 2. configuration ───────────────────────────────────────────────── */}
-      <section className="rail-sec">
-        <div className="rail-sec-head">
-          <div className="rail-sec-id">
-            <h2 className="rail-sec-title">Configuration</h2>
-            {/* Which campaign these rows configure. Owner, collaborators and
-                channels are all per-campaign, and without the name this block
-                silently claims to be workspace-wide settings. */}
-            <p className="rail-sec-sub">{campaign.name}</p>
-          </div>
-          {/* Manage is the only affordance this block has earned, and it is a
-              real one: Settings is a route the hash router honours and the page
-              that genuinely edits these three rows. */}
-          <a className="rail-manage" href={`#${ROUTES.settings.path}`}>
-            Manage
-            <CaretRight size={11} weight="bold" aria-hidden="true" />
-          </a>
-        </div>
+      {/* ── LEARNED FROM THE REFERENCE, AND THE LESSON IS SUBTRACTION ──
+          The reference's config card has no rule between its rows, no heading
+          weight on the word "Configuration", and no action beside it. Ours had
+          all three: hairline dividers, a 13px semibold heading with the
+          campaign name under it, and a Manage link.
 
-        {/* Label left in --ink-2, value right in --ink, one row each. This is
-            the reference's entire mechanism and it is what replaced most of the
-            chips on this surface: two inks on one line carry "which field" and
-            "what value" without a container, a hue or a border. */}
+          Every one of those was defensible on its own and the stack of them is
+          what made the column feel busy. A dividing line between two rows that
+          are already 40px apart is ink spent on a separation the spacing has
+          already made; the section label only has to be findable, not
+          emphatic; and Manage was a second route to a page the nav already
+          reaches. What is left is the pairing that carries the information —
+          label left, value right — which is what the reference is actually
+          made of. */}
+      <section className="rail-sec">
         <dl className="rail-panel rail-config">
+          <p className="rail-panel-label">Configuration</p>
           {CONFIG.map((r) => (
             <div className="rail-config-row" key={r.label}>
               <dt className="rail-config-label">{r.label}</dt>
-              <dd className="rail-config-value">{r.value}</dd>
+              <dd className="rail-config-value">
+                {/* Two renderings, because these are two different things. A
+                    set field is text; an unset one is a link phrased as the
+                    action that would set it. Styling a blank would have been
+                    the third option and the worst — it tells the reader the
+                    row exists without telling them it is theirs to fill. */}
+                {r.marks && (
+                  <span className="rail-config-marks">
+                    {r.marks.map((c) => (
+                      /* The brand colour is inline because it is DATA — it
+                         lives on the channel fixture beside the mark it
+                         belongs to, the way the campaign facet colours do.
+                         Four brand hexes in the stylesheet would be four
+                         tokens that mean nothing to the design system. */
+                      <span
+                        className="rail-config-mark"
+                        key={c.id}
+                        style={{ color: c.brand }}
+                        role="img"
+                        aria-label={c.name}
+                        title={`${c.name} \u2014 ${c.detail}`}
+                      >
+                        <c.Icon size={13} weight="fill" aria-hidden="true" />
+                      </span>
+                    ))}
+                  </span>
+                )}
+                {r.value !== undefined
+                  ? r.value
+                  : r.action && (
+                      <a className="rail-config-act" href={r.action.href}>{r.action.label}</a>
+                    )}
+              </dd>
             </div>
           ))}
         </dl>
       </section>
 
-      {/* ── 3. briefs ──────────────────────────────────────────────────────── */}
+      {/* ── 3. history, behind one row ──────────────────────────────────────── */}
+      {/* The four briefs used to sit inline, grouped Recent and Earlier, which
+          cost ~180px of the column to show four rows of something a recruiter
+          consults occasionally. As a single row it costs 48px and says the one
+          fact worth knowing at rest — how many there are — with the list one
+          click away.
+
+          A dialog rather than an expanding panel: the full history grows
+          without bound, and a column that can push its own neighbours off the
+          fold is not a column. The popup gets the room to show every brief,
+          which the rail never could. */}
       <section className="rail-sec">
-        <div className="rail-sec-head">
-          <h2 className="rail-sec-title">Briefs</h2>
-          {/* The rail's one primary action, so it is the one solid fill in the
-              column. Everything else here is text, a mark or a quiet link. */}
+        <div className="rail-panel rail-hist">
+          <p className="rail-panel-label">History</p>
+
+          {/* FOUR, not all seven, and not one summary row either.
+              The pattern the research names for a space-constrained column is
+              three-to-five recent items plus a clear route to the rest — and
+              both extremes fail differently. All seven is the ~180px list this
+              replaced. A single "History 7 ›" row, which the previous pass
+              shipped, tells you a count and nothing you can act on: the useful
+              content of a history is WHAT the recent briefs were, and that is
+              exactly what a count omits.
+
+              An ordered list, because the order is the meaning — reverse
+              chronological — and a screen reader should convey it. */}
+          <ol className="rail-briefs is-inline">
+            {RECENT_FEW.map((b) => (
+              <BriefRow key={b.id} brief={b} activeBriefId={activeBriefId} onPickBrief={onPickBrief} />
+            ))}
+          </ol>
+
+          {/* Only when something is actually hidden. With four of four shown
+              this control would open a dialog containing the same four rows,
+              which is a lie about there being more. */}
+          {BRIEFS.length > RECENT_FEW.length && (
+            <button
+              type="button"
+              className="rail-more"
+              onClick={() => setHistoryOpen(true)}
+              aria-haspopup="dialog"
+            >
+              View all {BRIEFS.length}
+              <CaretRight size={11} weight="bold" aria-hidden="true" />
+            </button>
+          )}
+        </div>
+      </section>
+
+      {historyOpen && (
+        <HistoryDialog
+          activeBriefId={activeBriefId}
+          onClose={() => setHistoryOpen(false)}
+          onNewBrief={() => { setHistoryOpen(false); onNewBrief(); }}
+          onPickBrief={(id) => { setHistoryOpen(false); onPickBrief(id); }}
+        />
+      )}
+    </aside>
+  );
+}
+
+/* ── the history dialog ─────────────────────────────────────────────────────
+   Every brief, grouped as the rail used to group them. Reuses the scrim and
+   the role="dialog" vocabulary the command palette established, so the app has
+   one way to dismiss a floating thing rather than two.                       */
+
+function HistoryDialog({
+  activeBriefId, onClose, onNewBrief, onPickBrief,
+}: {
+  activeBriefId: string | null;
+  onClose: () => void;
+  onNewBrief: () => void;
+  onPickBrief: (id: string) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const input = useRef<HTMLInputElement>(null);
+
+  /* Escape closes it. Bound on the document rather than the dialog, so it
+     works before anything inside has taken focus. */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  /* Focus the field on open, so the dialog is typeable the instant it appears
+     — the same contract the palette has. Without this the first keystroke goes
+     nowhere and the search reads as decoration. */
+  useEffect(() => { input.current?.focus(); }, []);
+
+  /* One pass over BRIEFS, then the same recency split the rail uses.
+     Re-grouping the FILTERED set rather than filtering the two prebuilt groups
+     matters when a query matches nothing recent: the group header has to
+     disappear with its rows, not sit above an empty space. */
+  const { recent, earlier, total } = useMemo(() => searchBriefs(BRIEFS, query), [query]);
+
+  return createPortal(
+    <>
+      {/* ── MOUNTED AT THE DOCUMENT ROOT, NOT WHERE THE STATE LIVES ──
+          A modal is not a sibling of the content it floats over. Rendering it
+          inline put it inside a flex column whose vertical centring was built
+          on `> :last-child`, so opening this dialog changed which element was
+          last and shoved every panel in that column down 121px.
+
+          The portal makes that class of bug impossible rather than fixed: no
+          layout outside this component can depend on whether the dialog is
+          open, because the dialog is no longer inside any of it. Matches the
+          convention `Nav.tsx` already established for its switcher popover. */}
+      <div className="pal-scrim" onClick={onClose} aria-hidden="true" />
+
+      <div className="hist" role="dialog" aria-modal="true" aria-label="Brief history">
+        <header className="hist-head">
+          <h2 className="hist-title">History</h2>
           <button type="button" className="rail-new" onClick={onNewBrief}>
             <Plus size={12} weight="bold" aria-hidden="true" />
             New
           </button>
-        </div>
+          <button type="button" className="hist-x" onClick={onClose} aria-label="Close history">
+            <X size={15} weight="bold" aria-hidden="true" />
+          </button>
+        </header>
 
-        <div className="rail-panel">
-          {/* Two groups, and each renders only when it has rows — an EARLIER
-              label over nothing is the kind of empty structure that made the
-              old rail feel padded. */}
-          {RECENT.length > 0 && (
-            <BriefGroup label="Recent" briefs={RECENT} activeBriefId={activeBriefId} onPickBrief={onPickBrief} />
+        {/* Mirrors the palette's search head — same magnifier, same borderless
+            input, same autoComplete/spellCheck posture — because the app should
+            have ONE way a floating thing is searched, not two that look
+            almost alike. */}
+        <div className="hist-find">
+          <MagnifyingGlass className="hist-find-ico" size={15} weight="regular" aria-hidden="true" />
+          <input
+            ref={input}
+            className="hist-find-input"
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search briefs"
+            aria-label="Search briefs"
+            autoComplete="off"
+            spellCheck={false}
+          />
+          {/* Only while filtering. At rest the count is already on the control
+              that opened this dialog, and repeating it here would be the
+              header stating what the list plainly shows. */}
+          {query.trim().length > 0 && (
+            <span className="hist-find-count" aria-live="polite">
+              {total} of {BRIEFS.length}
+            </span>
           )}
-          {EARLIER.length > 0 && (
-            <BriefGroup label="Earlier" briefs={EARLIER} activeBriefId={activeBriefId} onPickBrief={onPickBrief} />
+        </div>
+
+        <div className="hist-body">
+          {recent.length > 0 && (
+            <BriefGroup label="Recent" briefs={recent} activeBriefId={activeBriefId} onPickBrief={onPickBrief} />
+          )}
+          {earlier.length > 0 && (
+            <BriefGroup label="Earlier" briefs={earlier} activeBriefId={activeBriefId} onPickBrief={onPickBrief} />
+          )}
+          {/* Names the query back, so the reader can see they typed what they
+              meant before they conclude the brief is gone. */}
+          {total === 0 && (
+            <p className="hist-empty">
+              No brief matches <strong>{query.trim()}</strong>
+            </p>
           )}
         </div>
-      </section>
-
-      {/* ── 4. channels ────────────────────────────────────────────────────── */}
-      <section className="rail-sec">
-        <div className="rail-sec-head">
-          <h2 className="rail-sec-title">Channels</h2>
-        </div>
-
-        <div className="rail-panel rail-chan-panel">
-          <ul className="rail-chans">
-            {ORDERED.map((c) => {
-              /* Inline style rather than a per-channel class: the hue is data,
-                 and it resolves through the same --c-<hue> contract viz.tsx
-                 uses, so there is no second copy of the token names to drift.
-
-                 The hue identifies the PLATFORM, not the state — Teams is teal
-                 and not connected. State is the edge, the order and the count
-                 line, which is why removing the check badge cost nothing. */
-              const hue = CHANNEL_HUE[c.id];
-              return (
-                <li key={c.id} className={`rail-chan${c.connected ? " is-on" : ""}`}>
-                  <span className="rail-chan-mark" style={hue ? { color: `var(--c-${hue})` } : undefined}>
-                    <c.Icon size={17} weight="fill" aria-hidden="true" />
-                  </span>
-
-                  {/* Always in the DOM, so a screen reader gets the whole list
-                      — name, state and destination — even though sighted users
-                      see one at a time in the slot below. */}
-                  <span className="rail-chan-read">
-                    <span className="rail-chan-nm">{c.name}</span>
-                    <span className="rail-chan-de">
-                      <span className="rail-chan-st">{c.connected ? "Connected" : "Not connected"}</span>
-                      {" · "}
-                      {c.detail}
-                    </span>
-                  </span>
-                </li>
-              );
-            })}
-
-            {/* The + is a real navigation, not a promise. Nothing in this app
-                can connect Slack today, and a control that opens a dead modal
-                is exactly what the honesty rule forbids — so it goes to the
-                Integrations route, which the hash router genuinely honours,
-                and its label says so rather than saying "Connect".
-
-                It used to be accent-tinted. That made three accent spots in one
-                312px column (the fill on + New, the selection wash on a brief,
-                this) and the budget allows one primary action per rail. It is
-                also not a primary action, so it lost the tint and reads as what
-                it is: another dashed slot, told apart by a + instead of a
-                logo. */}
-            <li className="rail-chan is-add">
-              <a
-                className="rail-chan-mark"
-                href={`#${ROUTES.integrations.path}`}
-                aria-label="Connect a channel, opens Integrations"
-              >
-                <Plus size={15} weight="bold" aria-hidden="true" />
-              </a>
-              <span className="rail-chan-read" aria-hidden="true">
-                <span className="rail-chan-nm">Connect a channel</span>
-                <span className="rail-chan-de">Opens Integrations</span>
-              </span>
-            </li>
-          </ul>
-
-          {/* The resting state of the hover slot, and deliberately the same
-              sentence as the Configuration `Channels` row above — same constant,
-              so the two can never disagree. It is not redundant: this one is a
-              live slot that a pointer replaces with a channel's detail, and the
-              slot has to say something at rest or the panel opens with a 32px
-              band of nothing in it. */}
-          <p className="rail-chan-rest">{CHANNEL_LINE}</p>
-        </div>
-      </section>
-    </aside>
+      </div>
+    </>,
+    document.body,
   );
 }
 
@@ -299,64 +390,61 @@ function BriefGroup({
   return (
     <>
       <p className="rail-micro">{label}</p>
-      <ul className="rail-briefs">
-        {briefs.map((b) => {
-          const mode = MODE_BY_ID[b.mode];
-          const on = b.id === activeBriefId;
-          return (
-            <li key={b.id}>
-              <button
-                type="button"
-                className={`rail-brief${on ? " is-on" : ""}`}
-                aria-current={on ? "true" : undefined}
-                onClick={() => onPickBrief(b.id)}
-              >
-                {/* NO HUE, and no container. This was a `Glyph` — a tinted
-                    24px box with a --c-*-line border and a sage-or-violet icon
-                    — on all four rows.
-
-                    The case for keeping it was that mode genuinely varies
-                    between siblings (two sourcing, two agent), which is what
-                    the colour budget permits. The case that won is narrower and
-                    better: MODES has exactly two values and they already carry
-                    two different SHAPES, Target and Sparkle. The hue was a
-                    second encoding of what the silhouette says on its own, and
-                    colour that duplicates shape is decoration by definition.
-
-                    It also dissolves a contrast trap instead of working around
-                    it. A --c-* mark is solved against white and against its own
-                    tint; the selected row is washed --accent-tint, where
-                    --c-sage measures 2.87:1 against a 3:1 icon floor. The
-                    earlier draft kept `Glyph`'s tint box precisely because that
-                    box was the substrate the hue had been measured on — i.e. a
-                    container retained to rescue a colour that was not carrying
-                    information. --ink-2 is 7.60:1 on white and 6.53:1 on the
-                    wash, so the floor stops being a constraint at all.
-
-                    16px bold, matching the only other bare icons in this rail
-                    (`Plus`, `CaretRight`). Not duotone: its secondary path is
-                    currentColor at 0.2 alpha, which existed to give the hue a
-                    filled area inside the tint box and, uncoloured, only
-                    softens the outline that is now doing all the work.
-
-                    role="img" + aria-label rather than a caption: the mode is
-                    worth a glance and not worth a column of repeated words. */}
-                <span className="rail-brief-mode" role="img" aria-label={mode.label} title={mode.label}>
-                  <mode.Icon size={16} weight="bold" aria-hidden="true" />
-                </span>
-                <span className="rail-brief-title">{b.title}</span>
-                {/* Was a `Chip` in a hashed hue. Plain text now: the chip's own
-                    label was already carrying the campaign, and the border and
-                    tint around it were four coloured spots telling the reader
-                    nothing they could compare. */}
-                <span className="rail-brief-camp">{b.campaign}</span>
-                <span className="rail-brief-when">{b.when}</span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+      <ol className="rail-briefs">
+        {briefs.map((b) => (
+          <BriefRow key={b.id} brief={b} activeBriefId={activeBriefId} onPickBrief={onPickBrief} />
+        ))}
+      </ol>
     </>
+  );
+}
+
+/**
+ * One brief.
+ *
+ * Extracted so the rail's inline list and the dialog's grouped list render the
+ * SAME row rather than two copies that drift. The previous shape had the row
+ * inlined inside BriefGroup, which was fine while the dialog was the only
+ * caller and became a duplication the moment the rail showed briefs too.
+ */
+function BriefRow({
+  brief: b, activeBriefId, onPickBrief,
+}: {
+  brief: Brief;
+  activeBriefId: string | null;
+  onPickBrief: (id: string) => void;
+}) {
+  const mode = MODE_BY_ID[b.mode];
+  const on = b.id === activeBriefId;
+  return (
+    <li>
+      <button
+        type="button"
+        className={`rail-brief${on ? " is-on" : ""}`}
+        aria-current={on ? "true" : undefined}
+        onClick={() => onPickBrief(b.id)}
+      >
+        {/* NO HUE, and no container. MODES has exactly two values and they
+            already carry two different SHAPES, Target and Sparkle — a hue here
+            would be a second encoding of what the silhouette says on its own,
+            which is decoration by definition.
+
+            It also dissolves a contrast trap rather than working around it: a
+            --c-* mark is solved against white and its own tint, and the
+            selected row is washed --accent-tint where --c-sage measures
+            2.87:1 against a 3:1 icon floor. --ink-2 is 7.60:1 on white and
+            6.53:1 on the wash, so the floor stops being a constraint. */}
+        <span className="rail-brief-mode" role="img" aria-label={mode.label} title={mode.label}>
+          <mode.Icon size={16} weight="bold" aria-hidden="true" />
+        </span>
+        <span className="rail-brief-title">{b.title}</span>
+        {/* Was a `Chip` in a hashed hue. Plain text: the chip's own label was
+            already carrying the campaign, and the border and tint around it
+            were coloured spots telling the reader nothing comparable. */}
+        <span className="rail-brief-camp">{b.campaign}</span>
+        <span className="rail-brief-when">{b.when}</span>
+      </button>
+    </li>
   );
 }
 
@@ -374,30 +462,6 @@ function signed(n: number): string {
   return `${n > 0 ? "+" : "\u2212"}${Math.abs(n)}`;
 }
 
-/**
- * Channel → hue.
- *
- * The references render brand logos in brand colours, and Slack aubergine is
- * not a token — every colour in this file has to be one. So each mark borrows
- * the nearest category hue: Outlook blue, Slack violet for its aubergine.
- * Teams is violet-blue in reality and takes teal here for the same reason the
- * token table moved amber off h38: two adjacent marks that read as the same
- * colour defeat the point of a logo row, and identity is already carried by
- * the logo's shape.
- *
- * Notion's mark has no hue at all, so it gets none — `undefined` leaves it in
- * ink. Inventing a colour for a black logo would be the one dishonest row in
- * the map.
- *
- * Every mark sits on the panel's white fill, which is what makes these legal:
- * a --c-* mark is solved for 3:1 on white, and on --sub alone teal lands at
- * 2.95:1. The panel went white in this pass, so the marks got safer, not
- * riskier — but do not put a --sub wash behind them.
- */
-const CHANNEL_HUE: Partial<Record<string, Hue>> = {
-  slack: "violet", outlook: "blue", teams: "teal",
-};
-
 /* ── derived once, at module load ───────────────────────────────────────────
    BRIEFS, CHANNELS, COLLABORATORS and CAMPAIGN_STATS are frozen fixtures, so
    every derivation below is a constant. Doing it here rather than in the body
@@ -409,6 +473,21 @@ const CHANNEL_HUE: Partial<Record<string, Hue>> = {
 const RECENT: Brief[] = [];
 const EARLIER: Brief[] = [];
 
+/**
+ * What the rail shows inline.
+ *
+ * Four. The research on space-constrained lists lands on three-to-five recent
+ * items plus a clear route to the rest, and four is where this column stops
+ * paying: a fifth row costs ~44px of a 340px column to show one more brief
+ * that the dialog already shows better.
+ *
+ * Sliced off BRIEFS rather than off RECENT, because RECENT is a recency
+ * BUCKET — it holds whatever is under a day old, which could be one row or
+ * twelve. The inline list needs a fixed count, not a variable one, or the
+ * column's height changes with how busy yesterday was.
+ */
+export const RECENT_FEW: readonly Brief[] = BRIEFS.slice(0, 4);
+
 /* One pass, and the recency rule stated once. Two filters would have needed
    the predicate and its negation side by side, which is a rule written twice.
 
@@ -417,27 +496,63 @@ const EARLIER: Brief[] = [];
    timestamp: "2h" ends in h, "Yesterday" is spelled out, "2d" and "4d" are
    earlier. */
 for (const b of BRIEFS) {
-  (b.when.endsWith("h") || b.when === "Yesterday" ? RECENT : EARLIER).push(b);
+  (isRecent(b) ? RECENT : EARLIER).push(b);
+}
+
+/**
+ * Under a day old.
+ *
+ * Extracted because the dialog's search has to re-group whatever survives the
+ * filter, and a predicate written twice is a predicate that will disagree with
+ * itself. Stated once, here.
+ *
+ * `when` is pre-rendered relative age — there is no server clock to diff
+ * against — so this reads the string it was given rather than inventing a
+ * timestamp: "2h" ends in h, "Yesterday" is spelled out, "2d" and "1w" are
+ * earlier.
+ */
+function isRecent(b: Brief): boolean {
+  return b.when.endsWith("h") || b.when === "Yesterday";
+}
+
+/**
+ * Filter briefs by a query, then split the SURVIVORS by recency.
+ *
+ * Exported and pure so the suite can pin it — there is no DOM harness in this
+ * project, so logic that can break has to be reachable without rendering.
+ *
+ * Re-grouping what survives, rather than filtering two prebuilt groups, is the
+ * part worth stating: when a query matches nothing recent, the `Recent` header
+ * has to disappear WITH its rows rather than sit above an empty space.
+ */
+export function searchBriefs(
+  briefs: readonly Brief[],
+  query: string,
+): { recent: Brief[]; earlier: Brief[]; total: number } {
+  const q = query.trim().toLowerCase();
+  /* Title and campaign both, because "iOS" is how you would look for a brief
+     whose title never says iOS. Nothing fuzzy: at this list's size a substring
+     match is predictable, and predictable beats clever when the reader is
+     checking whether the thing they remember is here. */
+  const hit = q.length === 0
+    ? briefs
+    : briefs.filter((b) =>
+        b.title.toLowerCase().includes(q) || b.campaign.toLowerCase().includes(q));
+  return {
+    recent: hit.filter(isRecent),
+    earlier: hit.filter((b) => !isRecent(b)),
+    total: hit.length,
+  };
 }
 
 /* id → mode, mirroring TILE_KIND_INFO in orchestrator.ts, so a row resolves
    its mode by lookup instead of scanning MODES. */
 const MODE_BY_ID = Object.fromEntries(MODES.map((m) => [m.id, m])) as Record<ModeId, (typeof MODES)[number]>;
 
-const CONNECTED = CHANNELS.filter((c) => c.connected).length;
+const CONNECTED_CHANNELS = CHANNELS.filter((c) => c.connected);
 
-const CHANNEL_LINE = `${CONNECTED} of ${CHANNELS.length} connected`;
+const CONNECTED = CONNECTED_CHANNELS.length;
 
-/* Connected first, stable within each half (Array#sort has been required to be
-   stable since ES2019, and `Number(boolean)` is the cheapest total ordering
-   over a two-state key).
-
-   The order is load-bearing now that the check badge is gone: `2 of 4
-   connected` is only parseable at a glance if the two it counts are the two at
-   the front, otherwise the reader has to compare four 1.53:1 dashed edges to
-   find them. The shipped fixture already happens to be in this order — the
-   sort is here so that stays true when CHANNELS becomes a query. */
-const ORDERED = [...CHANNELS].sort((a, b) => Number(b.connected) - Number(a.connected));
 
 /* The owner, and everyone else. Split by id rather than by filtering role
    twice, so a second "Owner" row — a mistake, but a possible one once this is
@@ -458,37 +573,64 @@ const OTHERS = COLLABORATORS.filter((p) => p.id !== OWNER?.id);
  * reading "Unassigned" is honest where a row reading the second collaborator's
  * name would be a quiet lie.
  */
-const CONFIG: readonly { label: string; value: string }[] = [
+export type ConfigRow = {
+  label: string;
+  /** Configured. A fact, in --ink. */
+  value?: string;
+  /**
+   * Not configured. The reference's best idea: the value position holds the
+   * ACTION that would fill it, in --ink-2, rather than a blank or a dash.
+   *
+   * `href` is mandatory and that is the honesty constraint — an affordance
+   * that reads as a control has to go somewhere. Both of these point at real
+   * routes the hash router honours, so the row takes you to the page where the
+   * field would be set even though nothing here can set it inline.
+   */
+  action?: { label: string; href: string };
+  /**
+   * Brand marks rendered before the value.
+   *
+   * Only the CONNECTED channels appear, which is what makes the marks need no
+   * on/off encoding of their own — every logo present is a logo that works.
+   * Dimming the two disconnected ones instead would have put the state in an
+   * opacity, and an opacity low enough to read as "off" is an opacity below
+   * the contrast floor for a glyph that still means something.
+   *
+   * The `2 of 4` stays beside them, because the marks can only say what IS
+   * connected and the row's real question is whether anything is missing.
+   */
+  marks?: readonly Channel[];
+};
+
+export const CONFIG: readonly ConfigRow[] = [
   { label: "Owner", value: OWNER?.name ?? "Unassigned" },
-  { label: "Collaborators", value: OTHERS.length > 0 ? OTHERS.map((p) => p.name).join(", ") : "Nobody else" },
-  { label: "Channels", value: CHANNEL_LINE },
+  {
+    label: "Collaborators",
+    /* Undefined rather than "Nobody else" when the team is one person: an
+       empty collaborator list is a thing you would want to fix, so it reads as
+       the invitation to fix it. */
+    ...(OTHERS.length > 0
+      ? { value: OTHERS.map((p) => p.name).join(", ") }
+      : { action: { label: "Add collaborators", href: `#${ROUTES.settings.path}` } }),
+  },
+  { label: "Visibility", value: CAMPAIGN_CONFIG.visibility },
+  { label: "Department", value: CAMPAIGN_CONFIG.department },
+  {
+    label: "Channels",
+    ...(CONNECTED > 0
+      ? { marks: CONNECTED_CHANNELS, value: `${CONNECTED} of ${CHANNELS.length}` }
+      : { action: { label: "Connect a channel", href: `#${ROUTES.integrations.path}` } }),
+  },
+  {
+    label: "ATS job",
+    ...(CAMPAIGN_CONFIG.atsJob
+      ? { value: CAMPAIGN_CONFIG.atsJob }
+      : { action: { label: "Link ATS job", href: `#${ROUTES.integrations.path}` } }),
+  },
+  {
+    label: "Intake",
+    ...(CAMPAIGN_CONFIG.intake
+      ? { value: CAMPAIGN_CONFIG.intake }
+      : { action: { label: "Create intake", href: `#${ROUTES.settings.path}` } }),
+  },
 ];
-
-/**
- * The weakest stat by signed change, and the question it raises.
- *
- * Hard-coding "Why did interested drop this week?" would outlive the decline
- * it describes — the day the fixture turns positive the control is asking about
- * a fall that is not there, which is the same class of lie as an uninverted
- * delta. So it picks the weakest stat and the copy follows the data.
- *
- * `reduce` with a strict `<` keeps the FIRST of a tie, which is all the
- * stability the copy needs; there is no meaningful ordering between two equal
- * declines. No seed value, so an empty CAMPAIGN_STATS would throw rather than
- * render a question about nothing — that is the correct failure for a fixture
- * the module is built around.
- *
- * Checked `invert` for all three, as the header did before it: none of them
- * take it. Shortlisted, contacted and interested are all counts you want to go
- * up, so a fall is bad news in every case and inverting any of them would be
- * the surface lying without anyone editing a number.
- */
-const WEAKEST = CAMPAIGN_STATS.reduce((a, b) => (b.delta < a.delta ? b : a));
-
-/* Null unless something is genuinely falling. The header always rendered a
-   question — "What moved the numbers this week?" when nothing had dropped —
-   which is a control that exists in order to be a control. No decline, no
-   line, and therefore no coloured figure either. */
-const DECLINE: Stat | null = WEAKEST.delta < 0 ? WEAKEST : null;
-
-const ASK = DECLINE ? `Why did ${DECLINE.label.toLowerCase()} drop this week?` : "";

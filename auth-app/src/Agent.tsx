@@ -1,12 +1,12 @@
 import { ArrowUp, Check, MagnifyingGlass, Plus } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  FACET_HUE, FACET_LABEL, FACET_ORDER, FACET_PROMPT, read, segment,
+  FACET_HUE, FACET_LABEL, FACET_ORDER, read, segment,
 } from "./brief";
+import { Campaigns } from "./Campaigns";
 import { BorderGlow } from "./glow";
 import { BRIEFS, MODES, SOURCING_CONTEXT, STAGES, SUGGESTIONS } from "./orchestrator";
 import type { ModeId } from "./orchestrator";
-import { CampaignHead } from "./CampaignHead";
 import { Rail } from "./Rail";
 import { REPLIES } from "./replies";
 import { Prompt, Reply } from "./Reply";
@@ -178,7 +178,6 @@ export function Agent({
   return (
     <div className="orc">
       <div className="orc-main">
-        <CampaignHead campaign={campaign} />
 
         <div className="orc-stream" ref={streamRef}>
           {started
@@ -192,18 +191,38 @@ export function Agent({
                 />
               ))
             : (
-              /* The empty state names what this page is for. Not a greeting —
-                 one line saying what a brief does here, because someone who
-                 arrived from the sidebar rather than from a tile has no
-                 context yet and the composer's placeholder is too small to
-                 carry it. */
+              /* ── THE PAGE TITLES ITSELF, AND SAYS NOTHING ELSE ──
+                 This was "Brief the agent" over a sentence explaining what a
+                 brief does and which campaign it would run against. Both are
+                 gone: the explanation restated what the composer's own
+                 placeholder and its mode note already say, and naming the
+                 campaign here contradicted the rail, which states owner,
+                 visibility and department for the same campaign two columns
+                 over — two places asserting the same scope is one place too
+                 many, and it is the same fault that took the Agents block off
+                 this page.
+
+                 What is left is the product's name for the surface. It does
+                 not instruct, because everything below it already does. */
               <div className="orc-intro">
-                <h1 className="orc-intro-h">Brief the agent</h1>
-                <p className="orc-intro-p">
-                  Describe who you are looking for, or what you want run, and
-                  the agent works it against{" "}
-                  <strong>{campaign.name}</strong>.
-                </p>
+                <h1 className="orc-intro-h">
+                  {/* Two spans because the two words are different KINDS of
+                      thing — the product, then the surface within it — and
+                      that is the only honest place to put a colour break. */}
+                  Superhyre <span className="orc-intro-mark">Agent</span>
+                </h1>
+
+                {/* ── THE FEED LIVES IN THE GAP, AND THE GAP WAS ALREADY THERE ──
+                    This block carries a min-height that keeps the composer's
+                    top on the rail's `Configuration` panel, which left a band
+                    of empty air between the heading and the field that grew
+                    with the window — 56px at an 809px viewport, 302px at 1300.
+                    Empty padding at the top of the page is exactly where a
+                    feed belongs, and putting it here changes no alignment
+                    arithmetic at all: the block's height is unchanged, the
+                    heading keeps its natural size, and the feed takes whatever
+                    is left over and scrolls when that is not much. */}
+                <Campaigns scope="all" onOpenBrief={seed} />
               </div>
             )}
 
@@ -241,12 +260,12 @@ export function Agent({
               </ul>
             </section>
           )}
+
         </div>
       </div>
 
       <Rail
         campaign={campaign}
-        onOpen={seed}
         activeBriefId={activeBrief}
         onNewBrief={() => {
           setActiveBrief(null);
@@ -411,6 +430,16 @@ function Mark() {
 
 /* ── composer ────────────────────────────────────────────────────────────── */
 
+/**
+ * The field's resting height, in lines of its own leading.
+ *
+ * `LINE_H` mirrors `.orc-input`'s computed `line-height` (14.5px type at 1.5).
+ * Stated as two numbers rather than one so the intent — THREE LINES — survives
+ * a change to the type size, and so the mismatch is visible if the CSS moves.
+ */
+const REST_LINES = 3;
+const LINE_H = 22;
+
 function Composer({
   draft, onDraft, mode, onMode, context, attached, onAttach, onSend,
   sendRef, areaRef, sending,
@@ -454,12 +483,23 @@ function Composer({
   /* Grows upward with its content, capped so a long brief scrolls instead of
      pushing the transcript off screen. Height is set from scrollHeight rather
      than animated — animating a layout-driving property is what animate.md
-     warns against, and there is nothing to communicate here anyway. */
+     warns against, and there is nothing to communicate here anyway.
+
+     ── AND IT HAS A FLOOR, SET HERE RATHER THAN IN CSS ──
+     `rows={1}` left the field 22px tall at rest, which made the composer read
+     as a search box rather than as somewhere you write a brief — and a brief
+     is several lines, so the resting size should say so. The floor is three
+     lines of the field's own 21.75px leading, rounded up.
+
+     It lives in this expression and not as a CSS `min-height` because this
+     effect writes `style.height` directly: two owners for one dimension is how
+     you get a resting height that disagrees with the grown one. `max` of the
+     floor and `min` of the cap, so the clamp reads in the order it applies. */
   useEffect(() => {
     const el = areaRef.current;
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 168)}px`;
+    el.style.height = `${Math.max(REST_LINES * LINE_H, Math.min(el.scrollHeight, 168))}px`;
   }, [draft, areaRef]);
 
   const ready = draft.trim().length > 0;
@@ -618,53 +658,66 @@ function Composer({
           stages already announce themselves inside a running turn, where they
           are actually information rather than a caption. */}
       {/* ── THE BRIEF GAUGE ──
-          The signature element of this surface, and rendered ALWAYS rather
-          than only once something matches.
+          Six facets of an intake brief. As prose lands in one, that slot takes
+          its facet's colour and shows the words it caught, so you can see what
+          was UNDERSTOOD rather than guessing — the research measures 30-60s per
+          message in conversational input, most of it spent re-reading and
+          re-typing because nothing confirms what landed.
 
-          A composer that is a blank rounded box with a placeholder is the same
-          composer every other product ships, and the research has a name for
-          that class of interface: one that "carries no point of view, no
-          personality". The parsing underneath was real but invisible until you
-          typed, so the state a user meets FIRST — empty — was generic. A
-          design is judged on its resting state.
+          ── AND IT NO LONGER RENDERS EMPTY ──
+          It used to render always, on the argument that "a design is judged on
+          its resting state" and that six outlines naming a brief's parts
+          "teaches what to say without a form". Reported as cluttered, and the
+          argument does not survive checking:
 
-          The point of view: a recruiter does not chat, they write a BRIEF, and
-          an intake brief has known parts. So the field declares them. At rest
-          the gauge is six quiet outlines naming what a brief consists of,
-          which teaches what to say without a form and without a tooltip. As
-          prose lands in a part, that slot takes its facet's colour and shows
-          the words it caught.
+          • It did not teach. The resting labels came from `FACET_PROMPT` —
+            Level / Skills / Scale / Location / Background / Experience — which
+            was not a set of prompts but a second list of the same six category
+            nouns. "Scale" does not tell you to write "Series B", and
+            "Background" does not tell you to write "came from infra".
+          • It RENAMED itself on fill. `FACET_PROMPT` and `FACET_LABEL` are
+            different words for the same facets, so "Level" became "Seniority"
+            and "Background" became "Company" the moment they filled — the slot
+            that asked for something changed its name once you answered it, and
+            the reader loses the mapping.
+          • It was below the visibility floor anyway. The empty outline is
+            `1px dashed var(--rule)`, measured 1.43:1 on white against a 3:1
+            floor for a meaningful boundary. Six near-invisible dashes is not
+            structure, it is the visual noise it was reported as.
+          • It was redundant. `TRY A SEARCH` sits directly beneath it in the
+            same state and teaches the same thing properly — three complete,
+            clickable briefs instead of six nouns.
 
-          It doubles as a completeness reading: six outlines means the brief is
-          thin, six filled means it is specific. That is a far more useful
-          indicator than a spinner, because it is about the user's input rather
-          than the system's state — and it is the one thing on screen that
-          could not be lifted from another product. */}
-      <ul className="orc-gauge" aria-label="What this brief specifies">
-        {FACET_ORDER.map((facet) => {
-          const hits = caught.get(facet);
-          const on = hits !== undefined;
-          return (
+          So the mechanism stays and the empty state goes. The resting surface
+          still has a point of view; it is carried by the suggestions, which
+          earn it. */}
+      {caught.size > 0 && (
+        <ul className="orc-gauge" aria-label="What this brief specifies">
+          {/* FILTERED to what was actually caught, not mapped over all six.
+              Mapping all six and rendering `hits!.join()` threw a TypeError on
+              the first un-caught facet — a non-null assertion standing in for a
+              guarantee the data does not make. Filtering first means every slot
+              that exists is filled, so `on` is not a state any more and the
+              conditional styling and the assertion both go with it. */}
+          {FACET_ORDER.filter((f) => caught.has(f)).map((facet) => (
             <li
               key={facet}
-              className={`orc-gslot${on ? " is-on" : ""}`}
-              style={on
-                ? {
-                    background: `var(--c-${FACET_HUE[facet]}-tint)`,
-                    borderColor: `var(--c-${FACET_HUE[facet]}-line)`,
-                    color: `var(--c-${FACET_HUE[facet]}-text)`,
-                  }
-                : undefined}
+              className="orc-gslot is-on"
+              style={{
+                background: `var(--c-${FACET_HUE[facet]}-tint)`,
+                borderColor: `var(--c-${FACET_HUE[facet]}-line)`,
+                color: `var(--c-${FACET_HUE[facet]}-text)`,
+              }}
             >
-              {/* The name is present either way, so the slot reads the same
-                  whether it is empty or filled and the colour is never the
-                  only thing that changed. */}
-              <b>{on ? FACET_LABEL[facet] : FACET_PROMPT[facet]}</b>
-              {on && <span className="orc-gslot-v">{hits.join(", ")}</span>}
+              {/* One name per facet, from `FACET_LABEL`. The slot cannot rename
+                  itself between states because there is only one state in which
+                  it exists. */}
+              <b>{FACET_LABEL[facet]}</b>
+              <span className="orc-gslot-v">{caught.get(facet)!.join(", ")}</span>
             </li>
-          );
-        })}
-      </ul>
+          ))}
+        </ul>
+      )}
 
       <p className="orc-composer-note">{MODES.find((m) => m.id === mode)?.blurb}</p>
     </div>

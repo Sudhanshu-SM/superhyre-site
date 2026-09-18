@@ -80,15 +80,6 @@ export const FACET_ORDER: readonly Facet[] = [
  * "Add a seniority". The gauge is a reading of the brief, and a reading does
  * not give orders.
  */
-export const FACET_PROMPT: Record<Facet, string> = {
-  seniority: "Level",
-  skill: "Skills",
-  scale: "Scale",
-  location: "Location",
-  company: "Background",
-  tenure: "Experience",
-};
-
 export const FACET_LABEL: Record<Facet, string> = {
   seniority: "Seniority",
   skill: "Skill",

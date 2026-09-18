@@ -4,6 +4,7 @@ import { DialerPage } from "./DialerPage";
 import { ExtensionPage } from "./ExtensionPage";
 import { Nav } from "./Nav";
 import { Agent } from "./Agent";
+import { Fleet } from "./Fleet";
 import { Home } from "./Home";
 import { Palette } from "./Palette";
 import { CURRENT_CAMPAIGN } from "./workspaces";
@@ -294,6 +295,18 @@ export function Console({ bootstrap, onSignOut, signingOut }: Props) {
             <ExtensionPage />
           ) : route === "campaign-calls" ? (
             <DialerPage section="calls" />
+          ) : route === "analytics-agent" ? (
+            /* ── THE FLEET'S OWN ROUTE ──
+               It used to sit at the top of the Agent page's stream, where it
+               was wrong twice: it competed with the composer for the one hero
+               slot on a page whose job is briefing, and it ran at
+               `scope="all"` directly beneath a header naming ONE campaign, so
+               the page asserted a scope its own content contradicted.
+
+               "Agent activity" is what this view is. Moving it here settles
+               the contradiction by deleting one side of it rather than
+               reconciling the two. */
+            <Fleet scope="all" onBrief={brief} />
           ) : (
             <Placeholder route={current} />
           )}

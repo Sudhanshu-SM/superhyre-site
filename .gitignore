@@ -15,3 +15,9 @@ auth-app/node_modules/.vite/
 # supported entry point.
 auth-app/harness.html
 auth-app/src/__harness__/
+
+# Prompt-engineering workbench. Anthropic's metaprompt notebook plus the
+# prompts generated from it. Working material for designing surfaces, not
+# part of the app and never served — deliberately uncommitted so nobody
+# mistakes a draft prompt for a spec. DESIGN.md is the committed spec.
+.prompts/
