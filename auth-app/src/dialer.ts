@@ -43,6 +43,11 @@ const callRowSchema = z.object({
    *  so 25 of them would be hundreds of KB to draw two glyphs; the text comes
    *  from fetchCallDetail() when a row is opened. */
   has_transcript: z.boolean().default(false),
+  /** The recording is still in Google's Phone app on the caller's phone,
+   *  waiting to be shared into the dialer. The SQL raises it only while that
+   *  can still happen: connected, nothing attached, inside the phone's 14-day
+   *  share window. Defaults false where the dialer's migration has not run. */
+  awaiting_share: z.boolean().default(false),
   caller: z.string().nullable().default(null),
   mine: z.boolean().default(true),
 });
@@ -75,6 +80,8 @@ const statsSchema = z.object({
   longest_seconds: z.number().default(0),
   people: z.number().default(0),
   no_candidate: z.number().default(0),
+  /** How many rows in the window carry `awaiting_share`. */
+  awaiting_share: z.number().default(0),
 });
 
 const queueSchema = z.union([

@@ -2733,6 +2733,33 @@ body {
 .dl-media svg { flex: none; }
 .dl-media svg.is-open { transform: rotate(180deg); }
 
+/* A connected call whose recording is still in Google Phone on the caller's
+   phone. Warm like a missed call, not red like a failure: nothing broke, a
+   step is outstanding, and it is the recruiter's to take. No border, unlike
+   .dl-media, because this is a state and that is a control. #8a4a12 on
+   #fbead9 is 5.8:1.
+
+   Its own line under the outcome, and allowed to wrap: at 1280px the Call
+   column is ~145px, narrower than the label on one line, and a nowrap pill
+   would spill into When the way a long phone number once did. */
+.dl-share {
+  display: flex;
+  width: fit-content;
+  max-width: 100%;
+  align-items: center;
+  gap: 4px;
+  margin-top: 5px;
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: #fbead9;
+  color: #8a4a12;
+  font: 500 11.5px/1.35 var(--ui);
+}
+
+.dl-share svg { flex: none; }
+
+.dl-share-note { margin-bottom: 14px; }
+
 /* The open row and its detail read as one block: the row loses its bottom rule
    so the pair is not cut in half by a hairline. */
 .ex-table tbody tr.is-open > td { border-bottom-color: transparent; background: #fdf9f5; }

@@ -165,6 +165,7 @@ function CallsSection({ d, onPage, group }: {
   d: Dialer; onPage: (n: number) => void; group: CallGroup | "";
 }) {
   const rate = connectRate(d.stats);
+  const waiting = shareNotice(d, group);
   const avg = d.stats.connected > 0
     ? Math.round(d.stats.talk_seconds / d.stats.connected)
     : 0;
@@ -221,6 +222,14 @@ function CallsSection({ d, onPage, group }: {
             {d.calls.total > 0 && <span className="ex-sec-count">{fmt(d.calls.total)}</span>}
           </h2>
         </div>
+
+        {/* Above the table, not in a tile: the count alone would not say what
+            to do, and the fix happens on a phone, not on this page. */}
+        {waiting && (
+          <div className="ex-note dl-share-note">
+            <p className="ex-note-body">{waiting}</p>
+          </div>
+        )}
 
         {d.calls.rows.length === 0 ? (
           <div className="ex-note">
@@ -323,6 +332,14 @@ function CallRowView({ c, team, cols }: { c: CallRow; team: boolean; cols: numbe
               {c.has_transcript && <FileText size={13} weight="bold" aria-label="Transcript" />}
               <CaretDown size={11} weight="bold" className={open ? "is-open" : undefined} aria-hidden="true" />
             </button>
+          )}
+          {/* A state, not a control: the recording can only be added from the
+              phone that holds it, so there is nothing here to click. */}
+          {c.awaiting_share && (
+            <span className="dl-share" title={shareHint(c)}>
+              <WarningCircle size={12} weight="bold" aria-hidden="true" />
+              Recording not shared
+            </span>
           )}
         </td>
         {team && <td className="ex-cell-owner" title={c.caller ?? ""}>{c.mine ? "You" : c.caller ?? <span className="ex-dim">Unknown</span>}</td>}
@@ -755,6 +772,34 @@ export function emptyCalls(d: Dialer, group: CallGroup | ""): string {
     return `No calls of your own in the last ${d.days} days. This page shows only calls you made, so a colleague's calls and their recordings will not appear here.`;
   }
   return `No calls in the last ${d.days} days. Try a wider window.`;
+}
+
+/**
+ * Calls whose recording is still in Google's Phone app, and how they get here.
+ *
+ * On a phone whose dialer is Google's Phone app, the recording stays inside
+ * that app until the recruiter shares it into Superhyre Dialer, and one that
+ * is never shared leaves a connected call silent here with no hint why. The
+ * dialer reports those calls (`awaiting_share`), and this says what to do.
+ *
+ * Null when there are none, or when the filter shows only calls that never
+ * connected: every flagged call is a connected one, so the count would
+ * describe rows that are not on screen.
+ */
+export function shareNotice(d: Dialer, group: CallGroup | ""): string | null {
+  const n = d.stats.awaiting_share;
+  if (n <= 0 || (group !== "" && group !== "connected")) return null;
+  const calls = n === 1 ? "1 connected call is" : `${fmt(n)} connected calls are`;
+  if (d.view === "team") {
+    return `${calls} still missing a recording. Google Phone keeps each recording on the recruiter's phone until they share it into Superhyre Dialer.`;
+  }
+  return `${calls} still missing a recording. Google Phone keeps each recording on your phone until you share it: in Superhyre Dialer, tap the flagged call, then Add recording.`;
+}
+
+/** Where a flagged call's recording is, and who can add it. */
+function shareHint(c: CallRow): string {
+  if (c.mine) return "Still in Google Phone on your phone. In Superhyre Dialer, tap this call, then Add recording.";
+  return `Still in Google Phone on ${c.caller ?? "the recruiter"}'s phone, waiting to be shared into Superhyre Dialer.`;
 }
 
 function fmt(n: number): string {
