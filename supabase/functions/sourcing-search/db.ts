@@ -10,6 +10,16 @@ const SUPABASE_URL = "https://npqajviolhoufuggfobg.supabase.co";
 // only (anon explicitly revoked — see migration lock_down_sourcing_rpc_grants).
 const PUBLISHABLE_KEY = "sb_publishable_GNHiZtlyWPLQQhySPd7Vhg_aTcqYWex";
 
+/** A failed RPC. `status` is PostgREST's, so errors.ts can tell "not allowed" from "broken". */
+export class DbError extends Error {
+  status: number;
+  constructor(fn: string, status: number, detail: string) {
+    super(`${fn} returned ${status} ${detail}`.trim().slice(0, 500));
+    this.name = "DbError";
+    this.status = status;
+  }
+}
+
 async function rpc<T>(fn: string, args: Record<string, unknown>, jwt: string): Promise<T> {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
     method: "POST",
@@ -22,7 +32,7 @@ async function rpc<T>(fn: string, args: Record<string, unknown>, jwt: string): P
   });
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
-    throw new Error(`${fn} returned ${res.status} ${detail}`.trim().slice(0, 500));
+    throw new DbError(fn, res.status, detail);
   }
   // The void-returning RPCs (attachPlan, saveCandidates, finish) come back as
   // 204 No Content with an empty body — correct PostgREST behaviour for a SQL

@@ -1,5 +1,5 @@
-// Client for the sourcing-search Edge Function: JD in, ranked ContactOut
-// candidates out. The function itself ports sourcing/lib/* (see
+// Client for the sourcing-search Edge Function: JD in, ranked candidates
+// out. The function itself ports sourcing/lib/* (see
 // supabase/functions/sourcing-search/); this file is the browser side that
 // used to be sourcing/public/app.js, rewritten against fetch + a Supabase
 // session instead of a same-origin local server.

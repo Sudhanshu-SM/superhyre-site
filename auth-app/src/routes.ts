@@ -64,7 +64,7 @@ export const ROUTES: Record<RouteId, Route> = {
   sourcing: {
     id: "sourcing", path: "/sourcing", title: "Sourcing",
     backing: "core.sourcing_runs, core.sourcing_candidates",
-    blurb: "Paste a JD, get ContactOut candidates. Claude turns it into search filters, and anything already delivered for that JD is never shown again.",
+    blurb: "Paste a JD, get matching candidates. We turn it into search filters, and anything already delivered for that JD is never shown again.",
   },
   "dialer-queue": {
     id: "dialer-queue", path: "/dialer/queue", title: "Call queue",

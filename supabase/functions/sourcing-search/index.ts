@@ -20,6 +20,7 @@
 import * as db from "./db.ts";
 import { runSearch } from "./search.ts";
 import { DATA_TYPES, canonical } from "./enums.ts";
+import { report } from "./errors.ts";
 
 const MODEL = Deno.env.get("SOURCING_MODEL") || "claude-sonnet";
 const MAX_PAGES = Number(Deno.env.get("SOURCING_MAX_PAGES") || 12);
@@ -148,6 +149,11 @@ Deno.serve(async (req: Request) => {
               model: MODEL,
               maxPages: MAX_PAGES,
             }, jwt, emit);
+          } catch (err) {
+            // runSearch reports its own failures once its run row exists. This
+            // is the one before that (db.start — e.g. a caller outside the
+            // team), which used to end the stream with nothing on screen.
+            emit({ type: "error", message: report("run did not start", err), partial: 0 });
           } finally {
             controller.close();
           }
@@ -162,7 +168,6 @@ Deno.serve(async (req: Request) => {
 
     return json({ error: "not found" }, origin, 404);
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return json({ error: message }, origin, 500);
+    return json({ error: report(`${req.method} ${path}`, err) }, origin, 500);
   }
 });

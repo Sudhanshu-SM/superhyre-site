@@ -7,10 +7,14 @@ import {
   SENIORITY, JOB_FUNCTION, COMPANY_SIZE, YEARS_OF_EXPERIENCE,
   canonical,
 } from "./enums.ts";
+import { ShownError } from "./errors.ts";
 
-const SYSTEM = `You are a technical sourcer. You turn a job description into ContactOut People Search filters.
+// The prompt never names the provider: what the model writes back (the role
+// summary, the "unmapped" notes) is rendered on the Sourcing page as-is, and a
+// name in the prompt is a name the model can repeat there.
+const SYSTEM = `You are a technical sourcer. You turn a job description into people-search filters.
 
-ContactOut searches LinkedIn profiles. Filters are ANDed together, so every extra
+The search runs over LinkedIn profiles. Filters are ANDed together, so every extra
 constraint shrinks the pool. Your job is a query that returns real, relevant people
 — not a restatement of the JD.
 
@@ -159,7 +163,7 @@ export async function extractFilters({ jd, comments, model }: {
   if (!(filters.job_title as string[] | undefined)?.length
       && !(filters.skills as string[] | undefined)?.length
       && !filters.keyword) {
-    throw new Error("Model produced no usable filters — check the JD text.");
+    throw new ShownError("Couldn't build search filters from this JD — check the text and try again.");
   }
 
   // Location, company and years_of_experience are locked unless the caller

@@ -13,12 +13,12 @@ import type { Candidate, HistoryRun, Plan, SearchEvent } from "./sourcing";
 const MAX_RESULTS_HINT = 100;
 
 /**
- * Sourcing: paste a JD, get ContactOut candidates.
+ * Sourcing: paste a JD, get matching candidates.
  *
  * This is the browser half of the local `sourcing/` tool, rebuilt against the
  * `sourcing-search` Edge Function instead of a same-origin local server — see
- * that function's index.ts for why (it holds the ContactOut and AI-gateway
- * keys, which a static bundle like this one never can). The pipeline, the
+ * that function's index.ts for why (it holds the contact-data provider and AI
+ * model keys, which a static bundle like this one never can). The pipeline, the
  * progress events and the candidate cards are otherwise the same tool: same
  * JD run twice never returns the same person twice, now shared across
  * whoever on the team runs it rather than one laptop's SQLite file.

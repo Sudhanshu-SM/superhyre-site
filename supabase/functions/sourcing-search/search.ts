@@ -11,6 +11,7 @@ import type { Candidate } from "./contactout.ts";
 import { scoreCandidates } from "./score.ts";
 import type { Scored } from "./score.ts";
 import * as db from "./db.ts";
+import { report } from "./errors.ts";
 
 export type Emit = (event: Record<string, unknown>) => void;
 
@@ -123,7 +124,10 @@ export async function runSearch(opts: {
       exhausted: collected.length < count,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    // The recruiter gets a plain sentence; the cause, which can quote a
+    // provider, goes to the function log (errors.ts). The run row stores the
+    // sentence too, because /history hands it back to the browser.
+    const message = report("run failed", err);
     // Whatever we did collect is still worth keeping — it also stays out of the
     // next run's results, which is exactly what the caller already paid for.
     if (collected.length) {

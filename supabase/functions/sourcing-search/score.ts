@@ -8,6 +8,7 @@
 
 import { chat, parseJsonBlock } from "./gateway.ts";
 import type { Candidate } from "./contactout.ts";
+import { report } from "./errors.ts";
 
 const BATCH = 25;
 
@@ -114,8 +115,10 @@ export async function scoreCandidates(
       });
     } catch (err) {
       // A scoring failure must not cost you the candidates you already paid for.
-      const message = err instanceof Error ? err.message : String(err);
-      batch.forEach((c) => { c.score = null; c.reason = `not scored: ${message}`; });
+      // The cause goes to the log, not onto the card: it can quote a provider,
+      // and the card is shown, stored with the run and exported to CSV.
+      report("scoring failed", err);
+      batch.forEach((c) => { c.score = null; c.reason = "not scored"; });
     }
   }
 
