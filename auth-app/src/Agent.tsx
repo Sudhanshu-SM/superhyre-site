@@ -11,6 +11,11 @@ import type { CampaignKey, ModeId, PipelineRole } from "./orchestrator";
 import { Rail } from "./Rail";
 import { REPLIES } from "./replies";
 import { Prompt, Reply } from "./Reply";
+import { ProfileSidebar } from "./ProfileSidebar";
+import { RankedMatches } from "./RankedMatches";
+import { SourcingRun } from "./Sourcing";
+import { CANDIDATES, isSourcingBrief } from "./sourcing";
+import type { Verdict } from "./sourcing";
 import type { Campaign } from "./workspaces";
 
 /**
@@ -51,6 +56,11 @@ type Turn = {
    * answer lands and the cycling is the only thing that goes.
    */
   replyIndex: number;
+  /**
+   * A sourcing brief gets the full run — phases, a search to confirm, and
+   * profiles — instead of a canned reply. Decided at send, like `replyIndex`.
+   */
+  sourcing: boolean;
 };
 
 export function Agent({
@@ -70,7 +80,26 @@ export function Agent({
   const [attached, setAttached] = useState<string[]>([]);
   const [turns, setTurns] = useState<Turn[]>([]);
   const [activeBrief, setActiveBrief] = useState<string | null>(null);
+  /* Shortlist and reject, shared by the transcript's cards, the ranked list
+     and every profile, so a verdict made in one place shows in all three. */
+  const [verdicts, setVerdicts] = useState<Record<string, Verdict>>({});
+  /* The ranked list (a dialog in the middle) and the profile (a sidebar) are
+     separate surfaces with separate state. The profile remembers which list
+     its arrows walk: every match from the transcript, or whatever the
+     dialog's current filter shows. */
+  const [matchesOpen, setMatchesOpen] = useState(false);
+  const [profile, setProfile] = useState<{ id: string; ids: readonly string[] } | null>(null);
+  const onVerdict = useCallback((id: string, v: Verdict | null) => {
+    setVerdicts((all) => {
+      const next = { ...all };
+      if (v) next[id] = v;
+      else delete next[id];
+      return next;
+    });
+  }, []);
   const nextId = useRef(1);
+  /* Whether the transcript should follow new content. See `nudge`. */
+  const pinned = useRef(true);
   const streamRef = useRef<HTMLDivElement>(null);
   /* The transcript's own scrollport — the composer sits outside it. */
   const logRef = useRef<HTMLDivElement>(null);
@@ -211,11 +240,14 @@ export function Agent({
        and the button can shift as the field collapses back to one row. */
     const r = sendRef.current?.getBoundingClientRect();
     if (r) setFlight({ id, x: r.left + r.width / 2, y: r.top + r.height / 2 });
+    const sourcing = isSourcingBrief(said);
+    pinned.current = true;
     setTurns((t) => [
       ...t,
       {
-        id, said, mode, stage: 0, startedAt: Date.now(), thoughtMs: null,
+        id, said, mode, stage: sourcing ? -1 : 0, startedAt: Date.now(), thoughtMs: null,
         replyIndex: (id - 1) % REPLIES[mode].length,
+        sourcing,
       },
     ]);
     setDraft("");
@@ -233,9 +265,93 @@ export function Agent({
        key list rather than asserted, so a workspace that ever carries an id
        the orchestrator does not know simply does not deploy, instead of
        deploying into a campaign that has no fixtures. */
+    /* A sourcing run deploys its agent itself, once its plan is ready — see
+       `deploySourcing` — so the band reports the agent when it actually has
+       a search to run rather than the instant the brief was typed. */
     const key = SCOPED.find((k) => k === campaign.id);
-    if (key) deploy(mode === "sourcing" ? "Sourcing" : "Outreach", campaign.name, key);
+    if (key && !sourcing) deploy(mode === "sourcing" ? "Sourcing" : "Outreach", campaign.name, key);
   }, [draft, mode, deploy, campaign]);
+
+  const deploySourcing = useCallback(() => {
+    const key = SCOPED.find((k) => k === campaign.id);
+    if (key) deploy("Sourcing", campaign.name, key);
+  }, [deploy, campaign]);
+
+  /* A sourcing run grows long after its turn was added, so it asks for the
+     newest content to be brought into view. Only when the reader is already
+     near the bottom: someone who scrolled up to reread is not yanked back. */
+  /* `pinned` is cleared only by the reader's own intent — a wheel or touch
+     upward — never by a scroll event, because a smooth programmatic scroll
+     passes through positions far from the bottom on its way there. */
+  /* ── WHICHEVER THING SCROLLS ──
+     At full height the log is its own scrollport. Below 1000px tall the
+     viewport lock comes off and the PAGE scrolls instead, with the composer
+     stuck to the foot of the window — so "follow" means bringing the end of
+     the transcript to just above the composer, by scrolling the page. */
+  const overflow = useCallback((): number => {
+    const log = logRef.current;
+    const comp = composerRef.current;
+    const last = log?.lastElementChild;
+    if (!log || !comp || !last) return 0;
+    if (getComputedStyle(log).overflowY !== "visible") {
+      return log.scrollHeight - log.scrollTop - log.clientHeight;
+    }
+    /* The composer is sticky at the foot of the window, so the end of the
+       transcript should sit just above where the composer RESTS on screen —
+       the window's bottom minus its height — not above where it sits in flow. */
+    return last.getBoundingClientRect().bottom - (window.innerHeight - comp.offsetHeight) + 16;
+  }, []);
+
+  const nudge = useCallback(() => {
+    if (!pinned.current) return;
+    requestAnimationFrame(() => {
+      const log = logRef.current;
+      if (!log) return;
+      if (getComputedStyle(log).overflowY !== "visible") {
+        log.scrollTo({ top: log.scrollHeight, behavior: "smooth" });
+        return;
+      }
+      const d = overflow();
+      if (d > 4) window.scrollBy({ top: d, behavior: "smooth" });
+    });
+  }, [overflow]);
+
+  /* ── STAY AT THE BOTTOM WHILE THE PAGE MOVES UNDER THE LOG ──
+     Two things change the log's geometry without a new turn: a run growing
+     inside its turn, and the live band arriving at the foot of the page,
+     which takes ~180px off the log's height in one step. Either one used to
+     leave the newest block — the Run search button, typically — under the
+     composer. One observer on the log's box and on its content covers both. */
+  useEffect(() => {
+    const log = logRef.current;
+    if (!log) return;
+    const unpin = (e: WheelEvent | TouchEvent) => {
+      if (e instanceof WheelEvent && e.deltaY >= 0) return;
+      pinned.current = false;
+    };
+    const repin = () => {
+      if (overflow() < 60) pinned.current = true;
+    };
+    const stream = streamRef.current ?? log;
+    stream.addEventListener("wheel", unpin, { passive: true });
+    stream.addEventListener("touchmove", unpin, { passive: true });
+    log.addEventListener("scroll", repin, { passive: true });
+    window.addEventListener("scroll", repin, { passive: true });
+    const ro = new ResizeObserver(() => nudge());
+    ro.observe(log);
+    const watchKids = () => Array.from(log.children).forEach((k) => ro.observe(k));
+    watchKids();
+    const mo = new MutationObserver(watchKids);
+    mo.observe(log, { childList: true });
+    return () => {
+      stream.removeEventListener("wheel", unpin);
+      stream.removeEventListener("touchmove", unpin);
+      log.removeEventListener("scroll", repin);
+      window.removeEventListener("scroll", repin);
+      ro.disconnect();
+      mo.disconnect();
+    };
+  }, [nudge, overflow]);
 
   /* Walks the running turn through its stages, then answers. Intervals rather
      than one long timeout so each stage is legible, and cleared on unmount so
@@ -425,7 +541,8 @@ export function Agent({
     const log = logRef.current;
     if (!log) return;
     log.scrollTo({ top: log.scrollHeight, behavior: "smooth" });
-  }, [turns]);
+    nudge();
+  }, [turns, nudge]);
 
   const contextFor = mode === "sourcing" ? SOURCING_CONTEXT : [];
 
@@ -466,6 +583,14 @@ export function Agent({
               flyFrom={flight?.id === t.id ? flight : null}
               onFlown={clearFlight}
               onAnswer={seed}
+              sourcingProps={{
+                verdicts,
+                onVerdict,
+                onOpenProfile: (cid: string) => setProfile({ id: cid, ids: CANDIDATES.map((c) => c.id) }),
+                onOpenList: () => { setProfile(null); setMatchesOpen(true); },
+                onPlanned: deploySourcing,
+                onGrow: nudge,
+              }}
             />
           ))}
           {(!started || exiting) && (
@@ -571,6 +696,7 @@ export function Agent({
         onOpenBrief={seed}
         deployed={deployed}
         onDeploy={deploy}
+        reserve={started}
       />
 
       <Rail
@@ -579,6 +705,8 @@ export function Agent({
         onNewBrief={() => {
           setActiveBrief(null);
           setTurns([]);
+          setMatchesOpen(false);
+          setProfile(null);
           areaRef.current?.focus();
         }}
         onPickBrief={(id) => {
@@ -592,6 +720,32 @@ export function Agent({
           }
         }}
       />
+
+      <RankedMatches
+        open={matchesOpen}
+        onClose={() => { setProfile(null); setMatchesOpen(false); }}
+        verdicts={verdicts}
+        onVerdict={onVerdict}
+        activeId={profile?.id ?? null}
+        onOpen={(id, ids) => setProfile({ id, ids })}
+      />
+
+      <ProfileSidebar
+        candidate={profile ? CANDIDATES.find((c) => c.id === profile.id) ?? null : null}
+        onClose={() => setProfile(null)}
+        {...(() => {
+          if (!profile) return {};
+          const i = profile.ids.indexOf(profile.id);
+          const go = (d: number) => {
+            const next = profile.ids[i + d];
+            return next ? () => setProfile({ ...profile, id: next }) : undefined;
+          };
+          return { onPrev: go(-1), onNext: go(1), position: { index: i, total: profile.ids.length } };
+        })()}
+        verdict={profile ? verdicts[profile.id] : undefined}
+        onVerdict={onVerdict}
+        scrim={!matchesOpen}
+      />
     </div>
   );
 }
@@ -599,16 +753,20 @@ export function Agent({
 /* ── a turn ──────────────────────────────────────────────────────────────── */
 
 function TurnView({
-  turn, flyFrom, onFlown, onAnswer,
+  turn, flyFrom, onFlown, onAnswer, sourcingProps,
 }: {
   turn: Turn;
   flyFrom: { x: number; y: number } | null;
   onFlown: () => void;
   /** A clarifying question's options seed the composer; they never act. */
   onAnswer: (text: string) => void;
+  sourcingProps: Omit<React.ComponentProps<typeof SourcingRun>, "onBusy">;
 }) {
   const stages = STAGES[turn.mode];
-  const running = turn.stage >= 0;
+  /* A sourcing run reports its own busy state: it is working through its
+     phases, idle while it waits for Run search, then working again. */
+  const [busy, setBusy] = useState(turn.sourcing);
+  const running = turn.sourcing ? busy : turn.stage >= 0;
   const mark = useRef<HTMLSpanElement>(null);
 
   /* ── THE FOCAL MOMENT, as a FLIP ──
@@ -698,7 +856,9 @@ function TurnView({
         </span>
 
         <div className="orc-answer-body">
-          {running ? (
+          {turn.sourcing ? (
+            <SourcingRun {...sourcingProps} onBusy={setBusy} />
+          ) : running ? (
             <p className="orc-stage" aria-live="polite">
               {stages[turn.stage]}
               <span className="orc-stage-dots" aria-hidden="true">

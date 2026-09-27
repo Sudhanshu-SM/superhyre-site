@@ -7324,12 +7324,27 @@ body {
 /* Spans both columns and sits on the page's own margins: the left inset the
    conversation uses, and the right margin the rail ends on. It is the one
    element on the screen exactly as wide as the page. */
-.orc > .feed {
+.orc > .feed,
+.orc > .feed-reserve {
   grid-row: 2;
   grid-column: 1 / -1;
   margin-left: var(--orc-inset-l);
   margin-bottom: 28px;
 }
+
+/* ── ONE HEIGHT FOR THE BAND AND THE ROOM HELD FOR IT ──
+   The slot that holds the band's place before an agent is deployed, and the
+   band itself, share this floor so swapping one for the other moves nothing.
+   224px is the band's measured height with one agent in it; its content also
+   drifted 219-224px as steps completed, nudging the composer 5px each time,
+   and the floor absorbs that too. The band can still grow past it. */
+.orc > .feed,
+.orc > .feed-reserve { min-height: 224px; }
+
+/* When the band arrives INTO held room, nothing else is moving — the send's
+   choreography finished seconds ago — so the 520ms delay that sequenced it
+   behind the composer is only lag here. */
+.feed.is-late { animation-delay: 0ms; }
 
 /* ── A SURFACE, BECAUSE EVERY NEIGHBOUR HAS ONE ──
    Measured, this block was `background: transparent`, `border: 0`,
@@ -11508,6 +11523,28 @@ body {
     -webkit-mask-image: none;
     mask-image: none;
   }
+
+  /* ── AND THE LOG HAS TO GROW, OR IT SPILLS UNDER THE COMPOSER ──
+     Unclipped, the log kept its `flex: 1 1 0` height, so a transcript taller
+     than that box drew straight through the composer below it — measured
+     with a sourcing run: log box 558px, content 689px, the Run search button
+     rendered beneath the field. Sized to its content instead, the page takes
+     the overflow, and the composer sticks to the foot of the viewport so it
+     stays where a chat composer is expected while the page scrolls. */
+  .orc-stream.is-live .orc-log { flex: none; min-height: 0; }
+
+  /* (0,2,0), to beat `.orc-stream.is-live { overflow: hidden }` — the
+     `.orc-stream` override above is (0,1,0) and lost to it, and a clipping
+     ancestor is exactly what stops `position: sticky` from sticking. */
+  .orc-stream.is-live { overflow: visible; }
+
+  .orc-stream.is-live .orc-composer {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    padding-bottom: 14px;
+    background: linear-gradient(to bottom, transparent 0, var(--orc-ground) 14px);
+  }
 }
 
 @media (max-width: 1100px) {
@@ -11535,7 +11572,8 @@ body {
 
   .orc > .orc-main { grid-row: 1; grid-column: 1; }
   .orc > .orc-rail { grid-row: 2; grid-column: 1; padding-top: 0; }
-  .orc > .feed { grid-row: 3; grid-column: 1; margin-left: 0; }
+  .orc > .feed,
+  .orc > .feed-reserve { grid-row: 3; grid-column: 1; margin-left: 0; }
 
   .con-body { height: auto; min-height: 100dvh; overflow: visible; }
 
@@ -11553,5 +11591,21 @@ body {
   .orc-rail {
     border-left: none;
     border-top: 1px solid var(--nav-rule);
+  }
+}
+
+/* ── PHONE WIDTH: GIVE THE COLUMN BACK ──
+   Stacked below 1100px, the page still carried the desktop insets — 112px of
+   right padding on `.orc` (sized for the rail beside the content) and a 40px
+   left inset on the stream. At 400px that left the conversation 210px wide,
+   narrower than the composer's own controls: the placeholder broke mid-word
+   and every card in a sourcing run stacked one word per line. With nothing
+   beside the column there is nothing to leave room for, so both drop to the
+   16px side gutter. */
+@media (max-width: 640px) {
+  .orc {
+    padding-right: 16px;
+    --orc-inset-l: 16px;
+    --orc-inset-r: 0px;
   }
 }

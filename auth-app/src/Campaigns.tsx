@@ -204,7 +204,7 @@ function useNow(active: boolean): number {
 }
 
 export function Campaigns({
-  scope, onOpenBrief, deployed, onDeploy,
+  scope, onOpenBrief, deployed, onDeploy, reserve = false,
 }: {
   scope: Scope;
   /** Seeds the composer. Used by the empty pipeline slot. */
@@ -218,6 +218,9 @@ export function Campaigns({
    * of truth for one list. */
   deployed: readonly Deployed[];
   onDeploy: (role: PipelineRole, campaign: string, campaignId: CampaignKey) => void;
+  /** Hold the band's room while nothing is deployed. True once a
+      conversation exists, so the composer docks once. */
+  reserve?: boolean;
 }) {
   const elapsed = useElapsed();
   const [open, setOpen] = useState<CampaignKey | null>(null);
@@ -284,6 +287,8 @@ export function Campaigns({
   band.forEach((e, i) => cache.current.set(keys[i]!, e));
 
   const [leaving, setLeaving] = useState<readonly string[]>([]);
+  /* Whether the band is arriving into room that was held for it. */
+  const heldRoom = useRef(false);
   const held = useRef<readonly string[] | null>(null);
   useLayoutEffect(() => {
     const before = held.current;
@@ -310,10 +315,21 @@ export function Campaigns({
   /* Nothing deployed yet is the resting state, and the honest thing to render
      for it is nothing at all — a band explaining that it is empty would take
      the same room as a band with something in it. */
-  if (deployed.length === 0) return null;
+  /* ── BUT ONCE A CONVERSATION EXISTS, THE ROOM IS HELD ──
+     A sourcing run deploys its agent only when its plan is ready, seconds
+     after the send. With nothing rendered until then, the composer docked
+     against the bottom of the window, and when the band finally mounted the
+     log lost 250px and the composer jumped up to meet it — two moves for one
+     send. So from the first send an empty slot of the band's height holds
+     the space: the composer docks once, at its final position, and the band
+     later fades into room that was already its own. */
+  if (deployed.length === 0) {
+    if (reserve) heldRoom.current = true;
+    return reserve ? <div className="feed-reserve" aria-hidden="true" /> : null;
+  }
 
   return (
-    <section className="feed" aria-labelledby="feed-h">
+    <section className={`feed${heldRoom.current ? " is-late" : ""}`} aria-labelledby="feed-h">
       <header className="feed-head">
         <h2 className="feed-h" id="feed-h">Live</h2>
         {/* A count that can move, next to a dot that breathes. The dot is the

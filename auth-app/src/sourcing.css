@@ -1,0 +1,526 @@
+/* ══════════════════════════════ sourcing run ═════════════════════════════════
+
+   The in-transcript run (`.src-*`). The ranked list, the profile sidebar and
+   the candidate pieces they share live in candidates.css.
+
+   Everything here reads the tokens in access.css: --ink / --ink-2 for type,
+   --accent-fill as the one action colour, the --c-* hues for identity only
+   (avatars, logos), never for status. Controls are pills, containers are
+   --r-card, anything nested in a container is --r-field. Motion is transform
+   and opacity only, on --ease-out, and every entrance has a reduced-motion
+   path at the bottom of this file.                                          */
+
+/* ── the run ─────────────────────────────────────────────────────────────── */
+
+.src {
+  display: grid;
+  /* minmax(0, …): a nowrap headline in a card must truncate, not widen the
+     column — as `auto` it pushed the whole transcript 90px past its measure. */
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  container-type: inline-size;
+  gap: 14px;
+  padding-top: 1px;
+}
+
+.src > * { animation: src-in 360ms var(--ease-out) both; }
+
+@keyframes src-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.src-block { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+
+/* The phase line. Live and done share one box so the swap from one to the
+   other moves nothing: the icon slot is the same 20px either way. */
+.src-phase {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-self: start;
+  min-height: 24px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: 500 14px/1.3 var(--ui);
+  letter-spacing: -0.011em;
+  color: var(--ink);
+  text-align: left;
+}
+
+.src-phase.is-done { cursor: pointer; color: var(--ink-2); transition: color var(--t); }
+.src-phase.is-done:hover { color: var(--ink); }
+.src-phase.is-done:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; border-radius: 4px; }
+.src-phase.is-done > svg { color: var(--ink-2); flex: none; }
+
+.src-phase-icon {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  flex: none;
+  color: var(--c-sage-text);
+}
+
+.src-phase-icon svg { animation: src-pop 260ms var(--ease-out); }
+
+@keyframes src-pop {
+  from { opacity: 0; transform: scale(0.6); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.src-spin {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.75px solid var(--hairline);
+  border-top-color: var(--accent);
+  animation: spin 0.8s linear infinite;
+}
+
+/* The live label shimmers left to right. A gradient CLIPPED to the text, so
+   the words carry the sweep rather than a box behind them — and the base
+   colour is --ink-2 so the text stays legible at every point of the sweep. */
+.src-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--ink-2) 0%, var(--ink-2) 40%, var(--ink) 50%, var(--ink-2) 60%, var(--ink-2) 100%
+  );
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: src-shimmer 1.8s linear infinite;
+}
+
+@keyframes src-shimmer {
+  from { background-position: 100% 0; }
+  to   { background-position: -150% 0; }
+}
+
+.src-tick {
+  font: 400 12.5px/1 var(--ui);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+  opacity: 0.8;
+}
+
+/* What the phase turned up. Indented to the label's first letter (20px icon
+   plus 8px gap), with a hairline spine so the list reads as belonging to the
+   line above it. */
+.src-steps {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 2px 9px;
+  padding: 2px 0 2px 19px;
+  border-left: 1px solid var(--hairline);
+  list-style: none;
+  font: 400 13px/1.5 var(--ui);
+  color: var(--ink-2);
+  animation: src-in 240ms var(--ease-out);
+}
+
+.src-para {
+  margin: 0;
+  max-width: 64ch;
+  font: 400 15px/1.65 var(--ui);
+  letter-spacing: -0.011em;
+  color: var(--ink);
+}
+
+.src-word { animation: src-word 280ms var(--ease-out) both; }
+
+@keyframes src-word {
+  from { opacity: 0; filter: blur(2px); }
+  to   { opacity: 1; filter: blur(0); }
+}
+
+/* ── the proposed search ─────────────────────────────────────────────────── */
+
+.src-search { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin-top: 2px; }
+
+.src-panel {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  background: var(--page-2);
+}
+
+.src-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.src-panel-lede {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  font: 400 13.5px/1.4 var(--ui);
+  color: var(--ink);
+}
+
+.src-kw {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+  color: var(--accent-text);
+}
+
+.src-count { color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.src-link {
+  flex: none;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  font: 500 13px/1.3 var(--ui);
+  color: var(--accent-text);
+  cursor: pointer;
+  transition: color var(--t);
+}
+
+.src-link:hover { color: var(--accent-deep); text-decoration: underline; text-underline-offset: 3px; }
+.src-link:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+
+.src-sentence {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 7px;
+  margin: 0;
+  font: 400 13.5px/1.3 var(--ui);
+  color: var(--ink-2);
+}
+
+.src-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 11px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-pill);
+  background: #fff;
+  font: 500 13px/1 var(--ui);
+  letter-spacing: -0.011em;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.src-chip.is-any { color: var(--ink-2); border-style: dashed; border-color: var(--rule); font-weight: 400; }
+
+.src-chip.is-more {
+  cursor: pointer;
+  border-color: var(--hairline);
+  color: var(--ink-2);
+  transition: border-color var(--t), color var(--t);
+}
+
+.src-chip.is-more:hover:not(:disabled) { border-color: var(--accent-line); color: var(--ink); }
+.src-chip.is-more:disabled { cursor: default; }
+.src-chip.is-more:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.src-chip.is-crit { border-color: var(--hairline); padding-right: 6px; }
+.src-search.is-locked .src-chip.is-crit { padding-right: 11px; }
+
+.src-x {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background-color var(--t), color var(--t);
+}
+
+.src-x:hover { background: var(--sub); color: var(--ink); }
+.src-x:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+.src-filter-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  animation: src-in 240ms var(--ease-out);
+}
+
+.src-filter-list li { display: flex; align-items: center; gap: 10px; }
+
+.src-filter-k {
+  width: 108px;
+  flex: none;
+  font: 400 12.5px/1 var(--ui);
+  color: var(--ink-2);
+}
+
+.src-empty { font: 400 13px/1.4 var(--ui); color: var(--ink-2); }
+
+.src-criteria {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.src-add {
+  height: 28px;
+  width: 190px;
+  padding: 0 11px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-pill);
+  background: #fff;
+  font: 400 13px/1 var(--ui);
+  color: var(--ink);
+  outline: none;
+  animation: src-in 200ms var(--ease-out);
+}
+
+.src-add:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-tint); }
+
+.src-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+  padding-top: 6px;
+}
+
+.src-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--r-pill);
+  font: 500 13.5px/1 var(--ui);
+  letter-spacing: -0.011em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--t), color var(--t), opacity var(--t);
+}
+
+.src-btn:active:not(:disabled) { transform: scale(0.97); transition: transform 60ms var(--ease-out); }
+.src-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.src-btn.is-quiet { background: transparent; color: var(--ink); }
+.src-btn.is-quiet:hover:not(:disabled) { background: var(--sub); }
+.src-btn.is-quiet:disabled { color: var(--ink-2); opacity: 0.55; cursor: default; }
+
+.src-btn.is-primary { background: var(--accent-fill); color: #fff; padding: 0 20px; }
+.src-btn.is-primary:hover { background: var(--accent-text); }
+
+.src-ran {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0 0 2px;
+  font: 400 12.5px/1.3 var(--ui);
+  color: var(--ink-2);
+  animation: src-in 280ms var(--ease-out);
+}
+
+.src-ran svg { color: var(--c-sage-text); }
+
+/* Once it has run, the card is a record of what ran rather than a form. */
+.src-search.is-locked .src-panel { background: transparent; }
+
+/* ── results ─────────────────────────────────────────────────────────────── */
+
+.src-results { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; margin-top: 6px; }
+
+.src-results-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.src-results-head h3 {
+  margin: 0;
+  font: 600 15px/1.3 var(--ui);
+  letter-spacing: -0.014em;
+  color: var(--ink);
+}
+
+.src-results-head span {
+  font: 400 12.5px/1 var(--ui);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+}
+
+.src-results-sub { margin: 0 0 8px; font: 400 14px/1.55 var(--ui); color: var(--ink-2); }
+
+.src-cards { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; margin: 0; padding: 0; list-style: none; }
+.src-cards > li { animation: src-in 420ms var(--ease-out) both; }
+
+.src-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  padding: 14px 16px 14px;
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(26, 22, 20, 0.04);
+  transition: border-color var(--t-dim), box-shadow var(--t-dim), opacity var(--t-dim);
+}
+
+.src-card:hover { border-color: var(--rule); box-shadow: 0 2px 8px rgba(26, 22, 20, 0.06); }
+.src-card.is-shortlisted { border-color: var(--accent-line); }
+.src-card.is-rejected { opacity: 0.55; }
+.src-card.is-rejected:hover { opacity: 0.8; }
+
+/* The whole card opens the profile. A stretched button under everything,
+   with the real controls lifted above it, so the card is one target without
+   nesting buttons inside a button. */
+.src-card-hit {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.src-card-hit:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.src-card > :not(.src-card-hit) { position: relative; z-index: 1; pointer-events: none; }
+.src-card .cb-verdicts, .src-card .cb-verdicts * { pointer-events: auto; }
+
+.src-card {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "top acts" "why why" "foot foot";
+}
+
+.src-card-top { grid-area: top; display: flex; align-items: flex-start; gap: 12px; min-width: 0; }
+.src-card-acts { grid-area: acts; }
+.src-card-reason {
+  grid-area: why;
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  font: 400 13.5px/1.5 var(--ui);
+  color: var(--ink);
+}
+
+.src-card-reason svg { flex: none; margin-top: 3px; color: var(--accent); }
+
+/* Career on the left, fit on the right, separated from the identity by a
+   hairline so the card reads as "who" above "how they compare". */
+.src-card-foot {
+  grid-area: foot;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 20px;
+  padding-top: 12px;
+  border-top: 1px solid var(--nav-rule);
+}
+
+.src-card-career { display: flex; align-items: center; gap: 10px; flex: 1 1 140px; min-width: 120px; max-width: 220px; }
+.src-card-career .cb-career { flex: 1 1 auto; }
+.src-card-k { flex: none; font: 500 12px/1 var(--ui); font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.src-card-id { min-width: 0; flex: 1 1 auto; }
+
+.src-card-name {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  font: 600 14.5px/1.3 var(--ui);
+  letter-spacing: -0.014em;
+  color: var(--ink);
+}
+
+.src-otw {
+  font: 500 11px/1 var(--ui);
+  padding: 4px 7px;
+  border-radius: var(--r-pill);
+  background: var(--c-sage-tint);
+  color: var(--c-sage-text);
+}
+
+.src-card-line {
+  margin: 2px 0 0;
+  font: 400 13.5px/1.4 var(--ui);
+  color: var(--ink);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.src-card-meta { margin: 2px 0 0; font: 400 12.5px/1.4 var(--ui); color: var(--ink-2); }
+
+.src-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-self: start;
+  height: 34px;
+  margin-top: 6px;
+  padding: 0 14px;
+  border: 1px solid var(--rule);
+  border-radius: var(--r-pill);
+  background: #fff;
+  font: 500 13px/1 var(--ui);
+  color: var(--ink);
+  cursor: pointer;
+  animation: src-in 420ms var(--ease-out) both;
+  transition: background-color var(--t), border-color var(--t);
+}
+
+.src-more:hover { background: var(--page-2); border-color: var(--rule-strong); }
+.src-more:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.src-more svg { transition: transform var(--t); }
+.src-more:hover svg { transform: translateX(2px); }
+
+/* ── a narrow transcript ──
+   Keyed to the run's own width rather than the viewport: the column can be
+   narrow on a wide screen too (rail open, sidebar expanded). Under 380px the
+   verdicts move under the identity instead of squeezing the name. */
+@container (max-width: 380px) {
+  .src-card-career { max-width: none; flex-basis: 100%; }
+  .src-panel { padding: 12px; }
+  .src-panel-head { flex-wrap: wrap; }
+  .src-actions { justify-content: stretch; }
+  .src-actions .src-btn { flex: 1 1 0; justify-content: center; }
+}
+
+/* ── reduced motion ──
+   The global rule clamps animations to 0.01ms, which would make every block
+   simply BE there. Arrival is the signal that the agent moved on, so the
+   entrances keep a short fade and drop only their travel. */
+@media (prefers-reduced-motion: reduce) {
+  .src > *, .src-cards > li, .src-more, .src-steps, .src-filter-list, .src-ran {
+    animation-name: cb-fade !important;
+    animation-duration: 180ms !important;
+  }
+  .src-word { animation: none !important; }
+  .src-shimmer { animation: none !important; color: var(--ink-2); background: none; }
+  .src-spin { animation: spin 1.6s linear infinite !important; animation-duration: 1.6s !important; }
+  .src-more:hover svg { transform: none; }
+}

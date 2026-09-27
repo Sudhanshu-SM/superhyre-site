@@ -1,0 +1,423 @@
+import {
+  ArrowUpRight, CaretLeft, CaretRight, GithubLogo, LinkedinLogo, MapPin, X,
+} from "@phosphor-icons/react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { Avatar, Career, FitRow, Logo, Summary, Verdicts } from "./CandidateBits";
+import type { Candidate, Job, Verdict } from "./sourcing";
+
+/**
+ * ProfileSidebar — one candidate's full profile, in a sheet on the right.
+ *
+ * Standalone on purpose: it knows nothing about where it was opened from.
+ * The transcript opens it over a scrim; the ranked list opens it BESIDE
+ * itself with no scrim of its own, so both stay usable; any other page that
+ * has a candidate can open it the same way. Whoever opens it owns the list
+ * the arrows walk, by passing `onPrev` / `onNext` and a `position`.
+ */
+
+export type ProfileSidebarProps = {
+  /** The candidate to show, or null for closed. */
+  candidate: Candidate | null;
+  onClose: () => void;
+  onPrev?: () => void;
+  onNext?: () => void;
+  /** "3 of 12" beside the arrows. Omitted when there is no list to walk. */
+  position?: { index: number; total: number };
+  verdict?: Verdict;
+  onVerdict: (id: string, v: Verdict | null) => void;
+  /** Dim and block the page behind. Off when the opener stays interactive. */
+  scrim?: boolean;
+};
+
+const EXIT_MS = 240;
+
+export function ProfileSidebar({
+  candidate, onClose, onPrev, onNext, position, verdict, onVerdict, scrim = true,
+}: ProfileSidebarProps): JSX.Element | null {
+  /* The last candidate stays rendered through the exit animation. */
+  const [shown, setShown] = useState<Candidate | null>(candidate);
+  const [leaving, setLeaving] = useState(false);
+  const [dir, setDir] = useState<"fwd" | "back" | "none">("none");
+  const lastIndex = useRef<number | null>(position?.index ?? null);
+  const panelRef = useRef<HTMLElement>(null);
+  const returnTo = useRef<Element | null>(null);
+
+  useEffect(() => {
+    if (candidate) {
+      if (!shown) {
+        returnTo.current = document.activeElement;
+        setDir("none");
+      } else if (candidate.id !== shown.id) {
+        const was = lastIndex.current;
+        const now = position?.index ?? null;
+        setDir(was !== null && now !== null && now < was ? "back" : "fwd");
+      }
+      lastIndex.current = position?.index ?? null;
+      setShown(candidate);
+      setLeaving(false);
+      return;
+    }
+    if (!shown) return;
+    setLeaving(true);
+    const id = window.setTimeout(() => {
+      setShown(null);
+      setLeaving(false);
+      (returnTo.current as HTMLElement | null)?.focus?.({ preventScroll: true });
+    }, EXIT_MS);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [candidate]);
+
+  const open = shown !== null;
+  useEffect(() => {
+    if (open) panelRef.current?.focus({ preventScroll: true });
+  }, [open]);
+
+  useEffect(() => {
+    if (!candidate) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === "Escape") { e.preventDefault(); e.stopImmediatePropagation(); onClose(); }
+      if (e.key === "ArrowRight" && onNext) { e.preventDefault(); e.stopImmediatePropagation(); onNext(); }
+      if (e.key === "ArrowLeft" && onPrev) { e.preventDefault(); e.stopImmediatePropagation(); onPrev(); }
+    };
+    /* Capture phase: a list open behind this sheet listens for the same keys,
+       and the sheet in front must get them first. */
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [candidate, onClose, onNext, onPrev]);
+
+  if (!shown) return null;
+
+  return createPortal(
+    <div className={`ps${leaving ? " is-leaving" : ""}${scrim ? " has-scrim" : ""}`}>
+      {scrim && <div className="ps-scrim" onClick={onClose} aria-hidden="true" />}
+      <aside
+        ref={panelRef}
+        className="ps-panel"
+        role="dialog"
+        aria-modal={scrim}
+        aria-label={`${shown.name}, profile`}
+        tabIndex={-1}
+      >
+        <div className="ps-bar">
+          <div className="ps-bar-nav">
+            {(onPrev || onNext || position) && (
+              <>
+                <IconBtn label="Previous profile (←)" onClick={onPrev} disabled={!onPrev}><CaretLeft size={16} weight="bold" /></IconBtn>
+                <IconBtn label="Next profile (→)" onClick={onNext} disabled={!onNext}><CaretRight size={16} weight="bold" /></IconBtn>
+                {position && <span className="ps-bar-pos">{position.index + 1} of {position.total}</span>}
+              </>
+            )}
+          </div>
+          <IconBtn label="Close (Esc)" onClick={onClose}><X size={16} weight="bold" /></IconBtn>
+        </div>
+
+        <Profile
+          key={shown.id}
+          c={shown}
+          dir={dir}
+          verdict={shown.id === candidate?.id ? verdict : undefined}
+          onVerdict={(v) => onVerdict(shown.id, v)}
+        />
+      </aside>
+    </div>,
+    document.body,
+  );
+}
+
+/* ── the profile ─────────────────────────────────────────────────────────── */
+
+const SECTIONS = [
+  { id: "overview", label: "Overview" },
+  { id: "experience", label: "Experience" },
+  { id: "education", label: "Education" },
+  { id: "skills", label: "Skills" },
+] as const;
+
+type SectionId = (typeof SECTIONS)[number]["id"];
+
+function Profile({
+  c, dir, verdict, onVerdict,
+}: {
+  c: Candidate;
+  dir: string;
+  verdict?: Verdict;
+  onVerdict: (v: Verdict | null) => void;
+}) {
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const actsRef = useRef<HTMLDivElement>(null);
+  const [active, setActive] = useState<SectionId>("overview");
+  const [dock, setDock] = useState(false);
+  /* Set while a tab press is scrolling, so the spy does not flicker through
+     every section the scroll passes on its way. */
+  const jumping = useRef<number | null>(null);
+
+  /* The active tab is the last section whose top has passed the tab bar; the
+     last section wins at the end of the scroll, or a short one never could. */
+  const spy = useCallback(() => {
+    const body = bodyRef.current;
+    if (!body || jumping.current !== null) return;
+    const line = body.getBoundingClientRect().top + 72;
+    let hit: SectionId = "overview";
+    for (const s of SECTIONS) {
+      const el = body.querySelector<HTMLElement>(`[data-sec="${s.id}"]`);
+      if (el && el.getBoundingClientRect().top <= line) hit = s.id;
+    }
+    if (body.scrollTop + body.clientHeight >= body.scrollHeight - 4) hit = "skills";
+    setActive(hit);
+  }, []);
+
+  /* Once the header's actions scroll away, the same two buttons dock at the
+     foot of the sheet. */
+  useEffect(() => {
+    const body = bodyRef.current;
+    const acts = actsRef.current;
+    if (!body || !acts) return;
+    const io = new IntersectionObserver(([e]) => setDock(!e!.isIntersecting), { root: body, threshold: 0 });
+    io.observe(acts);
+    return () => io.disconnect();
+  }, []);
+
+  const jump = (id: SectionId) => {
+    const body = bodyRef.current;
+    const el = body?.querySelector<HTMLElement>(`[data-sec="${id}"]`);
+    if (!body || !el) return;
+    setActive(id);
+    if (jumping.current) window.clearTimeout(jumping.current);
+    body.scrollTo({ top: id === "overview" ? 0 : el.offsetTop - 52, behavior: "smooth" });
+    jumping.current = window.setTimeout(() => { jumping.current = null; }, 600);
+  };
+
+  useEffect(() => () => { if (jumping.current) window.clearTimeout(jumping.current); }, []);
+
+  return (
+    <div className={`ps-view is-${dir}`}>
+      <div className="ps-body" ref={bodyRef} onScroll={spy}>
+        <header className="ps-who">
+          <div className="ps-who-top">
+            <Avatar name={c.name} hue={c.hue} size={52} />
+            <div className="ps-who-id">
+              <h2 className="ps-name">{c.name}</h2>
+              <p className="ps-headline">{c.headline}</p>
+            </div>
+            <div className="ps-socials">
+              <span className="ps-social is-li" title="LinkedIn"><LinkedinLogo size={18} weight="fill" aria-label="LinkedIn" /></span>
+              {c.github && <span className="ps-social" title="GitHub"><GithubLogo size={18} weight="fill" aria-label="GitHub" /></span>}
+            </div>
+          </div>
+          <p className="ps-meta">
+            <span><MapPin size={14} aria-hidden="true" />{c.location}</span>
+            {c.openToWork && <span className="ps-otw">Open to work</span>}
+          </p>
+          <p className="ps-orgs">
+            <span><Logo name={c.current.name} hue={c.current.hue} />{c.current.name}</span>
+            <span><Logo name={c.school.name} hue={c.school.hue} />{c.school.name}</span>
+          </p>
+          <div ref={actsRef} className="ps-acts">
+            <Verdicts verdict={verdict} onVerdict={onVerdict} name={c.name} />
+          </div>
+        </header>
+
+        <div className="ps-tabs-wrap">
+          <Tabs tabs={SECTIONS} active={active} onPick={jump} label="Profile sections" />
+        </div>
+
+        <section data-sec="overview" className="ps-sec">
+          <Summary text={c.summary} marks={c.highlights} />
+          <div className="ps-glance">
+            <div>
+              <p className="ps-k">Fit</p>
+              <FitRow meets={c.meets} />
+            </div>
+            <div>
+              <p className="ps-k">Career <span>· {c.totalYears} yrs, {c.avgTenure} avg tenure</span></p>
+              <Career c={c} labels />
+            </div>
+          </div>
+          <dl className="ps-facts">
+            <div><dt>Status</dt><dd><span className="ps-status">Not contacted</span></dd></div>
+            <div><dt>Current</dt><dd>{c.headline}</dd></div>
+            <div><dt>Open to work</dt><dd>{c.openToWork ? "Yes, says so on the profile" : "Not stated"}</dd></div>
+          </dl>
+          <h3 className="ps-h">About</h3>
+          <p className="ps-about">{c.about}</p>
+        </section>
+
+        <section data-sec="experience" className="ps-sec">
+          <h3 className="ps-h">Experience <span>· {c.totalYears} years total</span></h3>
+          <ol className="ps-jobs">
+            {c.jobs.map((j) => <JobBlock key={j.org.name} job={j} />)}
+          </ol>
+        </section>
+
+        <section data-sec="education" className="ps-sec">
+          <h3 className="ps-h">Education</h3>
+          <ul className="ps-schools">
+            {c.schools.map((s) => (
+              <li key={s.org.name}>
+                <Logo name={s.org.name} hue={s.org.hue} size={40} />
+                <div>
+                  <p className="ps-job-org">{s.org.name}</p>
+                  <p className="ps-job-role">{s.degree}</p>
+                  <p className="ps-job-d">{s.years}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section data-sec="skills" className="ps-sec is-last">
+          {c.github && (
+            <div className="ps-gh-card">
+              <GithubLogo size={18} weight="fill" aria-hidden="true" />
+              <span><b>{c.github.handle}</b> · {c.github.repos} public repos · since {c.github.since}</span>
+              <ArrowUpRight size={15} aria-hidden="true" className="ps-gh-go" />
+            </div>
+          )}
+          <h3 className="ps-h">Skill map</h3>
+          {Object.entries(c.skills).map(([group, list]) => (
+            <div key={group} className="ps-skill-group">
+              <p className="ps-k">{group}</p>
+              <ul className="ps-skills">
+                {list.map((s) => <li key={s} className={ASKED.test(s) ? "is-asked" : undefined}>{s}</li>)}
+              </ul>
+            </div>
+          ))}
+        </section>
+      </div>
+
+      <div className={`ps-dock${dock ? " is-on" : ""}`}>
+        <span className="ps-dock-who">
+          <Avatar name={c.name} hue={c.hue} size={28} />
+          <b>{c.name}</b>
+        </span>
+        <Verdicts verdict={verdict} onVerdict={onVerdict} name={c.name} />
+      </div>
+    </div>
+  );
+}
+
+/** Skills the brief asked for, so they can be marked in the map. */
+const ASKED = /postgres|^go$|rust|citus|patroni|pg_|logical replication|postgis|pgbouncer/i;
+
+/**
+ * One employer. A single role reads as a flat entry; several roles at the same
+ * place hang off a spine, the way a promotion history actually reads.
+ */
+function JobBlock({ job }: { job: Job }) {
+  const multi = job.roles.length > 1;
+  const one = job.roles[0]!;
+  return (
+    <li className="ps-job">
+      <Logo name={job.org.name} hue={job.org.hue} size={40} />
+      <div className="ps-job-main">
+        {multi ? (
+          <>
+            <p className="ps-job-org">{job.org.name}</p>
+            <p className="ps-job-d">{job.span}</p>
+            <ol className="ps-roles">
+              {job.roles.map((r) => <li key={r.start} className="ps-role"><RoleBody role={r} /></li>)}
+            </ol>
+          </>
+        ) : (
+          <>
+            <p className="ps-job-org">{one.title}</p>
+            <p className="ps-job-role">{job.org.name}</p>
+            <RoleBody role={one} bare />
+          </>
+        )}
+      </div>
+    </li>
+  );
+}
+
+function RoleBody({ role, bare = false }: { role: Job["roles"][number]; bare?: boolean }) {
+  const [more, setMore] = useState(false);
+  /* Measured, not guessed from a character count: "Read more" appears only
+     when the two-line clamp is actually hiding something at this width. */
+  const bodyRef = useRef<HTMLParagraphElement>(null);
+  const [long, setLong] = useState(false);
+  useLayoutEffect(() => {
+    const el = bodyRef.current;
+    if (el && !more) setLong(el.scrollHeight > el.clientHeight + 1);
+  }, [role.body, more]);
+
+  return (
+    <>
+      {!bare && (
+        <p className="ps-role-t">
+          {role.title}
+          {role.promotion && <span className="ps-promo">Promotion</span>}
+        </p>
+      )}
+      <p className="ps-job-d">{role.start} – {role.end} · {role.span}</p>
+      {role.body && (
+        <>
+          <p ref={bodyRef} className={`ps-role-body${more ? "" : " is-clamped"}`}>{role.body}</p>
+          {long && (
+            <button type="button" className="ps-more" onClick={() => setMore((m) => !m)}>
+              {more ? "Show less" : "Read more"}
+            </button>
+          )}
+        </>
+      )}
+      {role.skills && <p className="ps-role-skills"><b>Skills</b> {role.skills.join(" · ")}</p>}
+    </>
+  );
+}
+
+/* ── shared controls ─────────────────────────────────────────────────────── */
+
+export function IconBtn({
+  label, onClick, disabled, children,
+}: { label: string; onClick?: () => void; disabled?: boolean; children: React.ReactNode }) {
+  return (
+    <button type="button" className="ps-icon" aria-label={label} title={label} onClick={onClick} disabled={disabled}>
+      {children}
+    </button>
+  );
+}
+
+/**
+ * Tabs with one underline that slides to the active tab, measured from the
+ * active button so tab widths can be anything.
+ */
+function Tabs<T extends string>({
+  tabs, active, onPick, label,
+}: {
+  tabs: ReadonlyArray<{ id: T; label: string }>;
+  active: T;
+  onPick: (id: T) => void;
+  label: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [bar, setBar] = useState<{ x: number; w: number } | null>(null);
+
+  useLayoutEffect(() => {
+    const el = ref.current?.querySelector<HTMLElement>(`[data-tab="${active}"]`);
+    if (el) setBar({ x: el.offsetLeft, w: el.offsetWidth });
+  }, [active]);
+
+  return (
+    <div className="ps-tabs" role="tablist" aria-label={label} ref={ref}>
+      {tabs.map((t) => (
+        <button
+          key={t.id}
+          type="button"
+          role="tab"
+          data-tab={t.id}
+          aria-selected={t.id === active}
+          className={`ps-tab${t.id === active ? " is-on" : ""}`}
+          onClick={() => onPick(t.id)}
+        >
+          {t.label}
+        </button>
+      ))}
+      {bar && (
+        <span className="ps-tab-bar" style={{ transform: `translateX(${bar.x}px)`, width: bar.w }} aria-hidden="true" />
+      )}
+    </div>
+  );
+}

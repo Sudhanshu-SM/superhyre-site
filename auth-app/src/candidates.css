@@ -1,0 +1,885 @@
+/* ═════════════════════════════ candidates ═══════════════════════════════════
+
+   Shared candidate pieces (`.cb-*`), the ranked-matches dialog (`.rm-*`) and
+   the profile sidebar (`.ps-*`).
+
+   Tokens only: --ink / --ink-2 for type, --accent-fill as the one action
+   colour, --c-sage for "meets", the --c-* hues for identity (avatars, logos)
+   and nothing else. Motion is transform/translate/opacity on --ease-out, and
+   --ease-in-out only where something moves between two resting positions
+   (the dialog making room for the sidebar).                                 */
+
+:root { --ps-w: 520px; }
+
+/* ── shared pieces ───────────────────────────────────────────────────────── */
+
+.cb-avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  border: 1px solid;
+  border-radius: 50%;
+  font-family: var(--ui);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.cb-logo {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  color: #fff;
+  font-family: var(--ui);
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* The career strip. A recessed track the length of the shared axis; each
+   employer is a bar placed by its real dates. Past is a quiet warm grey, the
+   current employer is ink, and nothing else is coloured. */
+.cb-career { display: grid; gap: 5px; min-width: 0; }
+
+.cb-career-track {
+  position: relative;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--sub);
+}
+
+.cb-seg {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  min-width: 3px;
+  border-radius: 3px;
+  background: #cbc4bd;
+}
+
+.cb-seg.is-now { background: var(--ink); }
+
+.cb-career-axis {
+  display: flex;
+  justify-content: space-between;
+  font: 400 11px/1 var(--ui);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+}
+
+/* A fit mark: a filled sage disc with a check when the criterion is met, an
+   empty ring when it is not. Shape carries it as well as colour. */
+.cb-fit {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border-radius: 50%;
+  border: 1.5px dashed var(--rule);
+  color: #fff;
+}
+
+/* Tinted, not solid: thirty-six solid green discs in one grid outweigh the
+   names beside them. The check stays at full sage so "met" still reads at a
+   glance; the empty ring is the absence of it. */
+.cb-fit.is-met { border-style: solid; border-color: var(--c-sage-line); background: var(--c-sage-tint); color: var(--c-sage-text); }
+
+.cb-fitrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font: 400 12.5px/1 var(--ui);
+  color: var(--ink-2);
+}
+
+.cb-fitrow li { display: inline-flex; align-items: center; gap: 6px; }
+.cb-fitrow li.is-met { color: var(--ink); }
+.cb-fitrow .cb-fit { width: 16px; height: 16px; }
+
+.cb-summary {
+  display: flex;
+  gap: 9px;
+  margin: 0;
+  font: 400 14px/1.65 var(--ui);
+  color: var(--ink);
+}
+
+.cb-summary-mark { flex: none; margin-top: 5px; color: var(--accent); }
+
+/* A highlighter stroke across the lower half of the phrase, not a filled
+   pill: the sentence still reads as one sentence. */
+.cb-summary mark {
+  padding: 0 1px;
+  background: linear-gradient(to bottom, transparent 58%, var(--accent-tint) 58%);
+  color: inherit;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+/* ── verdicts ── */
+
+.cb-verdicts { display: flex; align-items: center; gap: 6px; flex: none; }
+
+.cb-v {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--rule);
+  border-radius: var(--r-pill);
+  background: #fff;
+  font: 500 13px/1 var(--ui);
+  letter-spacing: -0.011em;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background-color var(--t), border-color var(--t), color var(--t);
+}
+
+.cb-v:hover { background: var(--page-2); }
+.cb-v:active { transform: scale(0.95); transition: transform 60ms var(--ease-out); }
+.cb-v:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.cb-v svg { flex: none; }
+.cb-v.is-on svg { animation: cb-pop 260ms var(--ease-out); }
+
+@keyframes cb-pop {
+  from { opacity: 0; transform: scale(0.6); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.cb-v.is-short:not(.is-on) { background: var(--accent-fill); border-color: var(--accent-fill); color: #fff; }
+.cb-v.is-short:not(.is-on):hover { background: var(--accent-text); border-color: var(--accent-text); }
+.cb-v.is-short.is-on { background: var(--accent-tint); border-color: var(--accent-line); color: var(--accent-text); }
+.cb-v.is-reject.is-on { background: var(--c-rose-tint); border-color: var(--c-rose-line); color: var(--c-rose-text); }
+
+/* Icon-only, for dense rows: quiet at rest, so a column of twelve pairs does
+   not read as twenty-four orange buttons. The action colour arrives on hover
+   and on the chosen verdict only. */
+.cb-verdicts.is-icons { gap: 2px; }
+
+.cb-verdicts.is-icons .cb-v {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink-2);
+}
+
+.cb-verdicts.is-icons .cb-v:hover { background: var(--sub); color: var(--ink); }
+.cb-verdicts.is-icons .cb-v.is-short:hover { color: var(--accent-text); }
+.cb-verdicts.is-icons .cb-v.is-short.is-on { background: var(--accent-tint); border-color: transparent; color: var(--accent-text); }
+.cb-verdicts.is-icons .cb-v.is-reject.is-on { background: var(--c-rose-tint); border-color: transparent; color: var(--c-rose-text); }
+
+/* ══════════════════════════ ranked matches dialog ═══════════════════════════ */
+
+.rm {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-dialog);
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+}
+
+.rm-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(26, 22, 20, 0.30);
+  animation: cb-fade 240ms var(--ease-out) both;
+}
+
+.rm-panel {
+  --rm-grid: 26px minmax(0, 1fr) 148px repeat(3, 58px) 70px;
+  position: relative;
+  width: min(860px, 100%);
+  height: min(780px, 100%);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 12px 40px rgba(26, 22, 20, 0.16), 0 1px 3px rgba(26, 22, 20, 0.06);
+  outline: none;
+  animation: rm-in 320ms var(--ease-out) both;
+  transition: translate 480ms var(--ease-in-out), opacity 240ms var(--ease-out);
+}
+
+/* Making room: the dialog slides left by half the sidebar, so the pair sits
+   centred together. `translate`, not `transform`, so the entrance keyframes
+   (which own `transform`) and this move never overwrite each other. */
+.rm.is-docked .rm-panel { translate: calc(-1 * var(--rm-shift)) 0; }
+
+/* Too narrow for both: the sidebar covers the dialog, which recedes. */
+.rm.is-covered .rm-panel { opacity: 0.6; }
+
+.rm.is-leaving .rm-scrim { animation: cb-fade-out 220ms var(--ease-out) both; }
+.rm.is-leaving .rm-panel { animation: rm-out 220ms var(--ease-out) both; }
+
+@keyframes cb-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes cb-fade-out { from { opacity: 1; } to { opacity: 0; } }
+
+@keyframes rm-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes rm-out {
+  from { opacity: 1; transform: none; }
+  to   { opacity: 0; transform: translateY(6px) scale(0.99); }
+}
+
+.rm-head {
+  flex: none;
+  display: grid;
+  gap: 14px;
+  padding: 20px 22px 14px;
+}
+
+.rm-head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+
+.rm-title { margin: 0; font: 600 18px/1.25 var(--ui); letter-spacing: -0.02em; color: var(--ink); }
+.rm-sub { margin: 4px 0 0; font: 400 13px/1.3 var(--ui); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+.rm-close {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin: -4px -6px 0 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background-color var(--t);
+}
+
+.rm-close:hover { background: var(--sub); }
+.rm-close:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+/* ── the triage strip ── */
+
+.rm-triage { display: grid; gap: 8px; }
+
+.rm-triage-strip { display: flex; gap: 3px; }
+
+.rm-seg {
+  flex: 1 1 0;
+  height: 6px;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: var(--hairline);
+  cursor: pointer;
+  transition: background-color 280ms var(--ease-out);
+}
+
+.rm-seg:hover { background: var(--rule); }
+.rm-seg.is-shortlisted { background: var(--accent-fill); }
+.rm-seg.is-rejected { background: var(--rule-strong); }
+.rm-seg:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.rm-triage-l { margin: 0; font: 400 12.5px/1 var(--ui); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.rm-triage-l b { font-weight: 600; color: var(--ink); }
+.rm-triage-short { color: var(--accent-text); }
+
+/* ── filters: a segmented control ── */
+
+.rm-filters {
+  display: inline-flex;
+  justify-self: start;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--r-pill);
+  background: var(--sub);
+}
+
+.rm-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: transparent;
+  font: 500 12.5px/1 var(--ui);
+  color: var(--ink-2);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--t), color var(--t), box-shadow var(--t);
+}
+
+.rm-filter:hover { color: var(--ink); }
+.rm-filter.is-on { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgba(26, 22, 20, 0.08); }
+.rm-filter:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+.rm-filter-n { font-weight: 400; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+
+/* ── columns ── */
+
+.rm-cols, .rm-row {
+  display: grid;
+  grid-template-columns: var(--rm-grid);
+  column-gap: 12px;
+  align-items: center;
+}
+
+.rm-cols {
+  flex: none;
+  padding: 8px 30px;
+  border-top: 1px solid var(--nav-rule);
+  border-bottom: 1px solid var(--nav-rule);
+  background: var(--page-2);
+  font: 500 12px/1 var(--ui);
+  color: var(--ink-2);
+}
+
+.rm-cols i { font-style: normal; font-weight: 400; opacity: 0.8; margin-left: 4px; }
+.rm-col-fit { text-align: center; white-space: nowrap; }
+.rm-col-rank { text-align: right; }
+
+.rm-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.rm-empty { margin: 64px auto; max-width: 36ch; text-align: center; font: 400 13.5px/1.55 var(--ui); color: var(--ink-2); }
+
+.rm-rows { display: grid; gap: 2px; margin: 0; padding: 8px; list-style: none; }
+.rm-rows > li { animation: rm-row-in 320ms var(--ease-out) both; }
+
+@keyframes rm-row-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* A row is a rounded tile with no rules between tiles: the grid gap and the
+   hover wash separate them, which is two fewer lines per row than borders. */
+.rm-row {
+  position: relative;
+  row-gap: 4px;
+  padding: 12px 14px 12px 22px;
+  border-radius: 12px;
+  transition: background-color var(--t-dim), opacity var(--t-dim), box-shadow var(--t);
+}
+
+.rm-row:hover { background: var(--page-2); }
+.rm-row.is-cursor { box-shadow: inset 0 0 0 1.5px var(--accent-line); }
+.rm-row.is-active { background: color-mix(in srgb, var(--accent-tint) 60%, #fff); }
+.rm-row.is-rejected { opacity: 0.45; }
+.rm-row.is-rejected:hover { opacity: 0.75; }
+
+.rm-row-hit {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.rm-row-hit:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.rm-row > :not(.rm-row-hit) { position: relative; z-index: 1; pointer-events: none; }
+.rm-row .cb-verdicts, .rm-row .cb-verdicts * { pointer-events: auto; }
+
+.rm-rank {
+  text-align: right;
+  font: 500 12.5px/1 var(--ui);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+}
+
+.rm-row.is-shortlisted .rm-rank { color: var(--accent-text); font-weight: 600; }
+
+.rm-who { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.rm-who-id { min-width: 0; }
+
+.rm-name {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  font: 600 14px/1.3 var(--ui);
+  letter-spacing: -0.012em;
+  color: var(--ink);
+}
+
+.rm-otw {
+  padding: 3px 6px;
+  border-radius: var(--r-pill);
+  background: var(--c-sage-tint);
+  font: 500 10.5px/1 var(--ui);
+  color: var(--c-sage-text);
+}
+
+.rm-role {
+  margin: 2px 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 400 13px/1.35 var(--ui);
+  color: var(--ink-2);
+}
+
+.rm-fit { display: grid; place-items: center; }
+.rm-acts { display: flex; justify-content: flex-end; }
+
+/* The reason sits under the name and runs the width of the data columns, so
+   it lines up with the name rather than with the avatar. */
+.rm-reason {
+  grid-column: 2 / -1;
+  margin: 0 0 0 46px;
+  font: 400 13px/1.45 var(--ui);
+  color: var(--ink);
+}
+
+.rm-foot {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
+  padding: 10px 22px;
+  border-top: 1px solid var(--nav-rule);
+  font: 400 12px/1 var(--ui);
+  color: var(--ink-2);
+}
+
+.rm-foot > span { display: inline-flex; align-items: center; gap: 4px; }
+.rm-foot-right { margin-left: auto; }
+
+.rm-foot kbd {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--hairline);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: #fff;
+  font: 500 11px/1 var(--ui);
+  color: var(--ink);
+}
+
+/* ══════════════════════════════ profile sidebar ═════════════════════════════ */
+
+.ps {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-dialog) + 2);
+  pointer-events: none;
+}
+
+.ps-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(26, 22, 20, 0.26);
+  pointer-events: auto;
+  animation: cb-fade 240ms var(--ease-out) both;
+}
+
+.ps-panel {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  bottom: 8px;
+  width: min(var(--ps-w), calc(100vw - 16px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 12px 40px rgba(26, 22, 20, 0.16), 0 1px 3px rgba(26, 22, 20, 0.06);
+  outline: none;
+  pointer-events: auto;
+  animation: ps-in 380ms var(--ease-out) both;
+}
+
+.ps.is-leaving .ps-scrim { animation: cb-fade-out 220ms var(--ease-out) both; }
+.ps.is-leaving .ps-panel { animation: ps-out 240ms var(--ease-out) both; }
+
+@keyframes ps-in {
+  from { opacity: 0; transform: translateX(40px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes ps-out {
+  from { opacity: 1; transform: none; }
+  to   { opacity: 0; transform: translateX(28px); }
+}
+
+.ps-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px 6px;
+}
+
+.ps-bar-nav { display: flex; align-items: center; gap: 2px; min-height: 32px; }
+.ps-bar-pos { margin-left: 8px; font: 400 12.5px/1 var(--ui); font-variant-numeric: tabular-nums; color: var(--ink-2); }
+
+.ps-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background-color var(--t), color var(--t);
+}
+
+.ps-icon:hover:not(:disabled) { background: var(--sub); }
+.ps-icon:disabled { color: var(--rule); cursor: default; }
+.ps-icon:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+/* A profile arriving: from the right going forward, from the left going
+   back, a plain fade on first open. Same distance either way. */
+.ps-view { position: relative; display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+.ps-view.is-fwd  { animation: ps-view-fwd 300ms var(--ease-out) both; }
+.ps-view.is-back { animation: ps-view-back 300ms var(--ease-out) both; }
+
+@keyframes ps-view-fwd  { from { opacity: 0; transform: translateX(14px); }  to { opacity: 1; transform: none; } }
+@keyframes ps-view-back { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
+
+.ps-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  padding: 0 24px 96px;
+}
+
+.ps-who { display: grid; gap: 8px; padding: 4px 0 18px; }
+.ps-who-top { display: flex; align-items: center; gap: 14px; }
+.ps-who-id { flex: 1 1 auto; min-width: 0; }
+
+.ps-name { margin: 0; font: 600 21px/1.2 var(--ui); letter-spacing: -0.022em; color: var(--ink); }
+.ps-headline { margin: 3px 0 0; font: 400 14px/1.4 var(--ui); color: var(--ink); }
+
+.ps-socials { display: flex; gap: 4px; align-self: flex-start; padding-top: 2px; }
+.ps-social { display: grid; place-items: center; width: 28px; height: 28px; color: var(--ink); }
+.ps-social.is-li { color: #0a66c2; }
+
+.ps-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin: 6px 0 0;
+  font: 400 13.5px/1.3 var(--ui);
+  color: var(--ink-2);
+}
+
+.ps-meta > span:first-child { display: inline-flex; align-items: center; gap: 5px; }
+
+.ps-otw {
+  padding: 4px 8px;
+  border-radius: var(--r-pill);
+  background: var(--c-sage-tint);
+  font: 500 11.5px/1 var(--ui);
+  color: var(--c-sage-text);
+}
+
+.ps-orgs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 2px 0 0;
+  font: 500 13.5px/1.3 var(--ui);
+  color: var(--ink);
+}
+
+.ps-orgs > span { display: inline-flex; align-items: center; gap: 7px; }
+
+.ps-acts { padding-top: 8px; }
+.ps-acts .cb-v, .ps-dock .cb-v { height: 36px; padding: 0 16px; font-size: 13.5px; }
+
+.ps-tabs-wrap {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin: 0 -24px;
+  padding: 0 24px;
+  background: #fff;
+  border-bottom: 1px solid var(--nav-rule);
+}
+
+.ps-tabs { position: relative; display: flex; gap: 4px; }
+
+.ps-tab {
+  padding: 10px 10px 12px;
+  border: 0;
+  background: transparent;
+  font: 500 13.5px/1 var(--ui);
+  letter-spacing: -0.011em;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: color var(--t);
+}
+
+.ps-tab:first-child { padding-left: 2px; }
+.ps-tab:hover, .ps-tab.is-on { color: var(--ink); }
+.ps-tab:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; border-radius: 6px; }
+
+.ps-tab-bar {
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent-fill);
+  transition: transform 320ms var(--ease-out), width 320ms var(--ease-out);
+}
+
+.ps-sec { display: grid; gap: 12px; padding: 22px 0 24px; border-bottom: 1px solid var(--nav-rule); }
+.ps-sec.is-last { border-bottom: 0; }
+
+.ps-h { margin: 4px 0 0; font: 600 15px/1.3 var(--ui); letter-spacing: -0.014em; color: var(--ink); }
+.ps-h span { font-weight: 400; font-size: 13px; color: var(--ink-2); }
+
+.ps-k { margin: 0; font: 500 12.5px/1.3 var(--ui); color: var(--ink-2); }
+.ps-k span { font-weight: 400; }
+
+/* Fit and career, side by side: the two facts the ranked list compares on,
+   restated for this one person. */
+.ps-glance {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px 24px;
+  padding: 14px 16px;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+}
+
+.ps-glance > div { display: grid; gap: 10px; align-content: start; }
+.ps-glance .cb-fitrow { flex-direction: column; gap: 8px; }
+
+.ps-facts { display: grid; margin: 0; }
+
+.ps-facts > div {
+  display: grid;
+  grid-template-columns: 112px 1fr;
+  gap: 12px;
+  padding: 8px 0;
+  font: 400 13.5px/1.45 var(--ui);
+}
+
+.ps-facts dt { color: var(--ink-2); }
+.ps-facts dd { margin: 0; color: var(--ink); }
+
+.ps-status { display: inline-flex; align-items: center; gap: 7px; }
+
+.ps-status::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--c-blue);
+}
+
+.ps-about { margin: 0; font: 400 14px/1.65 var(--ui); color: var(--ink); }
+
+.ps-jobs, .ps-schools { display: grid; gap: 22px; margin: 4px 0 0; padding: 0; list-style: none; }
+.ps-job, .ps-schools li { display: grid; grid-template-columns: 40px 1fr; gap: 14px; }
+.ps-job-main { min-width: 0; display: grid; gap: 2px; align-content: start; }
+
+.ps-job-org { margin: 0; font: 600 14.5px/1.35 var(--ui); letter-spacing: -0.011em; color: var(--ink); }
+.ps-job-role { margin: 0; font: 400 13.5px/1.4 var(--ui); color: var(--ink); }
+.ps-job-d { margin: 0; font: 400 13px/1.45 var(--ui); color: var(--ink-2); }
+
+.ps-roles { display: grid; gap: 18px; margin: 12px 0 0; padding: 0; list-style: none; }
+
+/* Several roles at one employer hang off a spine. */
+.ps-role { position: relative; display: grid; gap: 2px; padding-left: 20px; }
+
+.ps-role::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 6px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--rule);
+}
+
+.ps-role:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 17px;
+  bottom: -14px;
+  width: 1px;
+  background: var(--rule);
+}
+
+.ps-role-t {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  font: 500 14px/1.35 var(--ui);
+  color: var(--ink);
+}
+
+.ps-promo {
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: var(--c-sage-tint);
+  font: 500 11.5px/1 var(--ui);
+  color: var(--c-sage-text);
+}
+
+.ps-role-body { margin: 6px 0 0; font: 400 13.5px/1.6 var(--ui); color: var(--ink); }
+
+.ps-role-body.is-clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ps-more {
+  justify-self: start;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  font: 500 13px/1.3 var(--ui);
+  color: var(--accent-text);
+  cursor: pointer;
+}
+
+.ps-more:hover { text-decoration: underline; text-underline-offset: 3px; }
+.ps-more:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+
+.ps-role-skills { margin: 6px 0 0; font: 400 13px/1.5 var(--ui); color: var(--ink-2); }
+.ps-role-skills b { font-weight: 500; color: var(--ink); margin-right: 4px; }
+
+.ps-gh-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  font: 400 13.5px/1.4 var(--ui);
+  color: var(--ink-2);
+}
+
+.ps-gh-card b { font-weight: 500; color: var(--ink); }
+.ps-gh-card > svg:first-child { color: var(--ink); flex: none; }
+.ps-gh-go { margin-left: auto; flex: none; color: var(--ink-2); }
+
+.ps-skill-group { display: grid; gap: 8px; }
+.ps-skills { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+
+.ps-skills li {
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 11px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-pill);
+  font: 400 13px/1 var(--ui);
+  color: var(--ink);
+}
+
+.ps-skills li.is-asked { border-color: var(--accent-line); background: var(--accent-tint); color: var(--accent-text); font-weight: 500; }
+
+/* The profile's two actions, pinned to the foot once the header carrying
+   them scrolls away. `visibility` flips after the fade so the hidden dock's
+   buttons leave the tab order. */
+.ps-dock {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 10px 10px 14px;
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 4px 16px rgba(26, 22, 20, 0.10);
+  opacity: 0;
+  transform: translateY(12px);
+  pointer-events: none;
+  visibility: hidden;
+  transition: opacity 220ms var(--ease-out), transform 260ms var(--ease-out), visibility 0s linear 260ms;
+}
+
+.ps-dock.is-on { opacity: 1; transform: none; pointer-events: auto; visibility: visible; transition-delay: 0s; }
+
+.ps-dock-who {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  font: 600 13.5px/1 var(--ui);
+  color: var(--ink);
+}
+
+.ps-dock-who b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── narrow ── */
+
+@media (max-width: 760px) {
+  .rm { padding: 0; }
+  .rm-panel { width: 100%; height: 100%; border-radius: 0; border: 0; }
+  .rm-panel { --rm-grid: 0 minmax(0, 1fr) repeat(3, 20px) 66px; }
+  .rm-cols, .rm-row { column-gap: 8px; }
+  .rm-cols { padding: 8px 20px; }
+  .rm-row { padding: 12px 10px 12px 12px; }
+  .rm-rank, .rm-col-rank { visibility: hidden; }
+  .rm-who .cb-avatar { display: none; }
+  .rm-head { padding: 16px 16px 12px; }
+  .rm-filters { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+  .rm-cols .rm-col-career, .rm-row .rm-career { display: none; }
+  .rm-col-fit { visibility: hidden; }
+  .rm-reason { margin-left: 0; }
+  .rm-foot { display: none; }
+}
+
+@media (max-width: 560px) {
+  .ps-panel { top: 0; right: 0; bottom: 0; width: 100vw; border-radius: 0; border: 0; }
+  .ps-body { padding: 0 16px 96px; }
+  .ps-tabs-wrap { margin: 0 -16px; padding: 0 16px; }
+  .ps-glance { grid-template-columns: minmax(0, 1fr); }
+  .ps-dock-who { display: none; }
+  .ps-dock { justify-content: flex-end; }
+}
+
+/* ── reduced motion: fades only ── */
+
+@media (prefers-reduced-motion: reduce) {
+  .rm-panel, .rm-rows > li, .ps-panel, .ps-view.is-fwd, .ps-view.is-back {
+    animation-name: cb-fade !important;
+    animation-duration: 180ms !important;
+  }
+  .rm.is-leaving .rm-panel, .ps.is-leaving .ps-panel { animation-name: cb-fade-out !important; }
+  .rm-panel { transition: opacity 180ms var(--ease-out); }
+  .ps-dock { transform: none; }
+}
