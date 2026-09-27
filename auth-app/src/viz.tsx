@@ -223,7 +223,7 @@ export function Spark({
         ref={line}
         d={d} fill="none" stroke={tok(hue)} strokeWidth={1.75}
         strokeLinecap="round" strokeLinejoin="round"
-        vector-effect="non-scaling-stroke"
+        vectorEffect="non-scaling-stroke"
         pathLength={1}
       />
     </svg>

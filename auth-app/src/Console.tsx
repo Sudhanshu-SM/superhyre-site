@@ -1,9 +1,10 @@
 import { List } from "@phosphor-icons/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { DialerPage } from "./DialerPage";
 import { ExtensionPage } from "./ExtensionPage";
 import { Nav } from "./Nav";
 import { Agent } from "./Agent";
+import { CampaignBoard } from "./CampaignBoard";
 import { Fleet } from "./Fleet";
 import { Home } from "./Home";
 import { Palette } from "./Palette";
@@ -153,6 +154,37 @@ export function Console({ bootstrap, onSignOut, signingOut }: Props) {
 
   const effectiveRailed = railed && !isNarrow;
 
+  /* ── THE CONTENT SLIDES, IT DOES NOT REFLOW ──
+     The page's grid column used to animate its width, so everything in the
+     content column (headings, idea tiles, charts, the composer) re-laid out
+     and re-wrapped on every frame of the collapse: measured, the heading was
+     clipped mid-word partway through. Now the column snaps to its final
+     width once, and the content is moved back to where it was and glided
+     into place with a transform, which the compositor runs without layout.
+     The sidebar animates its own width over the top (see .nav in
+     access.css), on the same duration and curve, so the two edges travel
+     together. */
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const bodyWas = useRef<number | null>(null);
+  const toggleRail = useCallback(() => {
+    bodyWas.current = bodyRef.current?.getBoundingClientRect().left ?? null;
+    setRailed((r) => !r);
+  }, []);
+  useLayoutEffect(() => {
+    const el = bodyRef.current;
+    const was = bodyWas.current;
+    bodyWas.current = null;
+    if (!el || was === null) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const dx = was - el.getBoundingClientRect().left;
+    if (Math.abs(dx) < 1) return;
+    const anim = el.animate(
+      [{ transform: `translateX(${dx}px)` }, { transform: "translateX(0)" }],
+      { duration: 300, easing: "cubic-bezier(0.65, 0, 0.35, 1)" },
+    );
+    return () => anim.cancel();
+  }, [effectiveRailed]);
+
   /* The palette's open state lives here, not in Nav, so ⌘K works wherever
      focus is — including inside the content area, which is where it will be
      most of the time. A binding that only fires while the sidebar has focus is
@@ -243,7 +275,7 @@ export function Console({ bootstrap, onSignOut, signingOut }: Props) {
         openGroups={openGroups}
         onToggleGroup={toggleGroup}
         railed={effectiveRailed}
-        onToggleRail={() => setRailed((r) => !r)}
+        onToggleRail={toggleRail}
         drawerOpen={drawerOpen}
         onCloseDrawer={closeDrawer}
         name={displayName(bootstrap)}
@@ -262,7 +294,7 @@ export function Console({ bootstrap, onSignOut, signingOut }: Props) {
 
       <Palette open={paletteOpen} onClose={closePalette} onNavigate={navigate} campaignName={campaign.name} />
 
-      <div className="con-body">
+      <div className="con-body" ref={bodyRef}>
         {/* Mobile-only, and hidden above the breakpoint by CSS: with the account
             now in the nav's profile block, the hamburger is the only thing this
             bar ever holds, and an empty 62px strip is not worth keeping on
@@ -306,7 +338,10 @@ export function Console({ bootstrap, onSignOut, signingOut }: Props) {
                "Agent activity" is what this view is. Moving it here settles
                the contradiction by deleting one side of it rather than
                reconciling the two. */
-            <Fleet scope="all" onBrief={brief} />
+            <>
+              <CampaignBoard onBrief={brief} />
+              <Fleet scope="all" onBrief={brief} />
+            </>
           ) : (
             <Placeholder route={current} />
           )}

@@ -48,7 +48,7 @@ const SEQUENCE: readonly Step[] = [
 const WORD_MS = 14;
 const WRITE_CAP = 900;
 
-const writeMs = (text: string): number =>
+export const writeMs = (text: string): number =>
   Math.min(text.split(/\s+/).length * WORD_MS, WRITE_CAP);
 
 /** "{n}" in a phase's copy is the live match count, so the copy tracks the filters. */
@@ -166,7 +166,7 @@ export function SourcingRun({
  * spinner becomes a check in the same box, the label goes past tense, and the
  * line becomes the trigger for what the phase turned up.
  */
-function PhaseBlock({ phase, tookMs, n }: { phase: Phase; tookMs?: number; n: number }) {
+export function PhaseBlock({ phase, tookMs, n }: { phase: Phase; tookMs?: number; n: number }) {
   const done = tookMs !== undefined;
   const [open, setOpen] = useState(false);
   const panel = useId();
@@ -204,7 +204,7 @@ function PhaseBlock({ phase, tookMs, n }: { phase: Phase; tookMs?: number; n: nu
           {phase.steps.map((s) => <li key={s}>{fill(s, n)}</li>)}
         </ul>
       )}
-      <Written text={fill(phase.says, n)} />
+      {phase.says && <Written text={fill(phase.says, n)} />}
     </div>
   );
 }
@@ -227,7 +227,7 @@ function Ticker() {
  * the paragraph's height is final immediately and nothing below it reflows
  * while it is written. CSS only: no state, no re-render per word.
  */
-function Written({ text, className = "src-para" }: { text: string; className?: string }) {
+export function Written({ text, className = "src-para" }: { text: string; className?: string }) {
   const words = text.split(" ");
   return (
     <p className={className} aria-label={text}>

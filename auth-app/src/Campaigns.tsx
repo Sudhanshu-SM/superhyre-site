@@ -1,7 +1,9 @@
 import {
-  ArrowCounterClockwise, CaretRight, Check, HandPalm, Pause, Plugs, WarningCircle, X,
+  ArrowCounterClockwise, CaretRight, Check, HandPalm, Plugs, WarningCircle, X,
 } from "@phosphor-icons/react";
-import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import "./agents.css";
+import "./live.css";
 import { createPortal } from "react-dom";
 import type {
   CampaignKey, CampaignRoster, FleetAgent, PipelineRole, RunState, Scope, TimelineEvent,
@@ -234,7 +236,7 @@ export function Campaigns({
   const listRef = useRef<HTMLUListElement>(null);
   const { cols, track } = useColumns(listRef, deployed.length > 0);
   const stillWorking = deployed.some(
-    (d) => Date.now() - d.deployedAt < NEW_STEPS[d.role].length * STEP_SECS * 1000,
+    (d) => Date.now() - d.deployedAt < (NEW_STEPS[d.role].length * STEP_SECS + 2) * 1000,
   );
   const now = useNow(stillWorking);
 
@@ -311,6 +313,7 @@ export function Campaigns({
      this surface disagree with the panel under it. Three shown against a
      larger count is how the reader learns the band is a top-N. */
   const working = live.filter((a) => a.state !== "done").length + deployed.length;
+  const doneCount = deployed.filter((d) => isDone(d, now)).length;
 
   /* Nothing deployed yet is the resting state, and the honest thing to render
      for it is nothing at all — a band explaining that it is empty would take
@@ -331,7 +334,14 @@ export function Campaigns({
   return (
     <section className={`feed${heldRoom.current ? " is-late" : ""}`} aria-labelledby="feed-h">
       <header className="feed-head">
-        <h2 className="feed-h" id="feed-h">Live</h2>
+        <h2 className="feed-h lv-h" id="feed-h">
+          <span className={`lv-pulse${working - doneCount > 0 ? " is-on" : ""}`} aria-hidden="true" />
+          Live
+          <span className="lv-h-n">
+            {working - doneCount > 0 ? `${working - doneCount} working` : "All done"}
+            {doneCount > 0 && working - doneCount > 0 ? ` · ${doneCount} done` : ""}
+          </span>
+        </h2>
         {/* A count that can move, next to a dot that breathes. The dot is the
             only always-on motion here; everything else is still until its own
             data changes. */}
@@ -344,7 +354,7 @@ export function Campaigns({
           onClick={() => setAllOpen(true)}
           aria-haspopup="dialog"
         >
-          {working} working
+          View all
           <CaretRight size={11} weight="bold" aria-hidden="true" />
         </button>
       </header>
@@ -352,39 +362,13 @@ export function Campaigns({
       <ul className="feed-list" ref={listRef}>
         {band.map((e) => (e.kind === "new" ? (
           <li className="feed-item is-new" key={e.d.key}>
-            <FeedRow
-              role={e.d.role}
-              campaign={e.d.campaign}
-              /* A freshly deployed agent has the role's real step list and
-                 WALKS it — one step every `STEP_SECS`, clamped at the last —
-                 rather than sitting frozen at the first forever. Nothing
-                 invented: it is the same workflow every agent of that role
-                 runs, paced by the clock rather than by a backend that does
-                 not exist. */
-              steps={NEW_STEPS[e.d.role]}
-              doing={NEW_DOING[e.d.role][newPos(e.d, now)]!}
-              at={0}
-              pos={newPos(e.d, now)}
-              state="running"
-              onOpen={() => setOpen(e.d.campaignId)}
-            />
+            <LiveCard d={e.d} now={now} onOpen={() => setOpen(e.d.campaignId)} />
           </li>
         ) : (
           <li className="feed-item" key={e.a.id}>
-            <FeedRow
-              role={e.a.role as PipelineRole}
-              campaign={campaignName(e.a.campaignId)}
-              steps={e.a.steps}
-              doing={e.a.doing}
-              at={e.a.seenAgo + elapsed}
-              pos={e.a.step}
-              state={e.a.state}
-              fault={e.a.fault}
-              onOpen={() => setOpen(e.a.campaignId)}
-            />
+            <LiveCard fleet={e.a} now={now} elapsed={elapsed} onOpen={() => setOpen(e.a.campaignId)} />
           </li>
         )))}
-
         {/* Out of the grid and pinned to the band's right edge, so it holds
             neither a track nor a place in the order while it goes — the
             survivors close up behind it immediately, which is the motion
@@ -401,30 +385,9 @@ export function Campaigns({
               style={track ? { width: track } : undefined}
               aria-hidden="true"
             >
-              {e.kind === "new" ? (
-                <FeedRow
-                  role={e.d.role}
-                  campaign={e.d.campaign}
-                  steps={NEW_STEPS[e.d.role]}
-                  doing={NEW_DOING[e.d.role][newPos(e.d, now)]!}
-                  at={0}
-                  pos={newPos(e.d, now)}
-                  state="running"
-                  onOpen={() => undefined}
-                />
-              ) : (
-                <FeedRow
-                  role={e.a.role as PipelineRole}
-                  campaign={campaignName(e.a.campaignId)}
-                  steps={e.a.steps}
-                  doing={e.a.doing}
-                  at={e.a.seenAgo + elapsed}
-                  pos={e.a.step}
-                  state={e.a.state}
-                  fault={e.a.fault}
-                  onOpen={() => undefined}
-                />
-              )}
+              {e.kind === "new"
+                ? <LiveCard d={e.d} now={now} onOpen={() => undefined} />
+                : <LiveCard fleet={e.a} now={now} elapsed={elapsed} onOpen={() => undefined} />}
             </li>
           );
         })}
@@ -527,16 +490,6 @@ const NEW_DOING: Record<PipelineRole, readonly string[]> = {
  */
 const STEP_SECS = 6;
 
-/**
- * How many workflow steps a feed panel shows at once: the one in flight and
- * the two before it.
- *
- * Three because the panel's job is "where is this agent right now", and the
- * two prior steps are the context that makes the current one legible — what
- * it just finished tells you whether the current step is early or nearly
- * done. A fourth adds height without adding that.
- */
-const STEP_WINDOW = 3;
 
 /** An agent deployed in this session. */
 export type Deployed = {
@@ -600,175 +553,150 @@ export function newPos(d: Deployed, now: number): number {
  * that is not coming. A finished agent shows `Paused` for the same reason:
  * the work is done, nothing follows.
  */
-function FeedRow({
-  role, campaign, steps, at, pos, state, doing, fault, onOpen,
+/* ── the live card ─────────────────────────────────────────────────────────
+   One agent at work. Read top to bottom it answers, in order: who is this
+   and how far along (ring, role, campaign, a clock that counts up), where in
+   its workflow (a track with the current step filling in real time), what
+   it is doing this second, and what it has produced so far (two counters
+   that tick as it works). When the last step lands the card settles: the
+   ring closes, the edge turns sage, and the result replaces the counters.
+
+   A deployed agent is paced by the clock (`STEP_SECS` per step) because
+   there is no backend yet; the counters are derived from the same clock, so
+   they never run ahead of the steps they belong to. */
+
+const OUTPUT: Record<PipelineRole, {
+  counters: (sec: number) => readonly { label: string; n: number }[];
+  result: string;
+}> = {
+  Sourcing: {
+    counters: (t) => [
+      { label: "profiles read", n: Math.min(1398, Math.round(t * 58)) },
+      { label: "matches", n: t < 12 ? 0 : Math.min(61, Math.round((t - 12) * 6)) },
+    ],
+    result: "24 shortlisted from 1,398 profiles",
+  },
+  Outreach: {
+    counters: (t) => [
+      { label: "drafted", n: Math.min(4, Math.round(t / 1.5)) },
+      { label: "sent", n: t < 12 ? 0 : Math.min(4, Math.round((t - 12) / 1.5)) },
+    ],
+    result: "4 sent · watching for replies",
+  },
+  Screening: {
+    counters: (t) => [
+      { label: "transcripts", n: Math.min(5, Math.round(t / 2.5)) },
+      { label: "scored", n: t < 6 ? 0 : Math.min(5, Math.round((t - 6) / 2)) },
+    ],
+    result: "3 screens booked for Thursday",
+  },
+};
+
+function isDone(d: Deployed, now: number): boolean {
+  return now - d.deployedAt >= NEW_STEPS[d.role].length * STEP_SECS * 1000;
+}
+
+const clock = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, "0")}`;
+
+function LiveCard({
+  d, fleet, now, elapsed = 0, onOpen,
 }: {
-  role: PipelineRole;
-  campaign: string;
-  steps: readonly string[];
-  at: number;
-  pos: number;
-  state: RunState;
-  doing: string;
-  fault?: { kind: "tool" | "agent"; fix: string };
+  d?: Deployed;
+  fleet?: FleetAgent;
+  now: number;
+  elapsed?: number;
   onOpen: () => void;
 }) {
+  const role = (d?.role ?? fleet!.role) as PipelineRole;
+  const campaign = d?.campaign ?? campaignName(fleet!.campaignId);
+  const steps = d ? NEW_STEPS[role] : fleet!.steps;
+  const sec = d ? Math.max(0, (now - d.deployedAt) / 1000) : 0;
+  const done = d ? isDone(d, now) : fleet!.state === "done";
+  const pos = d ? newPos(d, now) : fleet!.step;
+  const state: RunState = d ? (done ? "done" : "running") : fleet!.state;
   const blocked = state === "waiting" || state === "error";
-  const finished = state === "done";
-
-  /* ── NOTHING PAST THE CURRENT STEP, FOR ANY STATE ──
-     Running agents used to show one step ahead. Two reasons it is gone, and
-     the first is the principle: a feed records what HAS happened and what is
-     happening, not what is planned — the same rule `timelineFor` follows when
-     it omits unreached steps. A greyed-out future step is a promise the panel
-     cannot keep.
-
-     The second is measured. That extra line made the running column 194px
-     against a 161px band, so its own status line was clipped out of sight by
-     the band's `overflow: hidden` — the panel's most live element, hidden by
-     a row describing work that had not started. */
-  /* ── A WINDOW, NOT THE WHOLE HISTORY ──
-     The list grew a row per completed step, so a panel got taller the longer
-     its agent worked — a supervision surface whose size reports how busy it
-     is, which is the exact fault the 552px Agents block was killed for in
-     rev 42, reappearing at panel scale. Three rows: the step in flight and
-     the two before it. Everything earlier is still reachable by clicking the
-     panel, which is what the Timeline dialog is for, so nothing is lost —
-     it stops being pinned open at the cost of the band's height.
-
-     Height is now bounded by construction rather than by how long a workflow
-     happens to be: a three-step role and a ten-step one both render three
-     rows. */
-  /* ── A FIXED-SIZE WINDOW, NOT A GROWING ONE ──
-     This took `slice(from, pos + 1)`, so a panel showed one row on its first
-     step, two on its second, three from then on. Each row is 18px and the
-     band is the page's BOTTOM row, so the band grew 183 → 201 → 219 over the
-     first fifteen seconds of a run and shoved the composer, the transcript
-     and the rail upward in two visible jumps. A supervision surface that
-     relayouts the page it sits under, on a timer, because an agent it is
-     reporting on took a step.
-
-     The window is now always `STEP_WINDOW` rows: the current step with the
-     two before it when they exist, and when they do not — the first seconds
-     of a run — the two AFTER it instead. Those render dimmed as unreached,
-     which the row styling already distinguishes, so nothing claims progress
-     it has not made; the panel simply shows more of the same workflow at the
-     start and scrolls through it as the agent advances. Constant height from
-     the first frame, and no blank space to fill either, which is the trap the
-     other obvious fix (reserve the tall height, let short panels gap) walks
-     straight into. */
-  const from = Math.max(0, Math.min(pos + 1 - STEP_WINDOW, steps.length - STEP_WINDOW));
-  const visible = steps.slice(from, from + STEP_WINDOW);
+  const doing = d ? NEW_DOING[role][pos]! : blocked && fleet!.fault ? fleet!.fault.fix : fleet!.doing;
+  const frac = done ? 1 : (pos + (d ? Math.min(1, (sec - pos * STEP_SECS) / STEP_SECS) : 0.5)) / steps.length;
+  const out = OUTPUT[role];
+  const counters = d ? out.counters(sec) : [];
+  const age = d ? clock(sec) : seen(fleet!.seenAgo + elapsed);
 
   return (
-    <button
-      type="button"
-      className={`feed-row${blocked ? " is-blocked" : ""}`}
-      onClick={onOpen}
-      aria-haspopup="dialog"
-    >
-      {/* ── THE CAMPAIGN LEADS ──
-          It was the role on top with the campaign beneath, which put the
-          WORKER above the WORK. A recruiter supervises campaigns; the role is
-          how one is being progressed, not what is being progressed. Inverted,
-          the three panels are told apart by the thing that actually differs
-          between them. */}
-      <span className="feed-top">
-        <span className="feed-camp">{campaign}</span>
-        <span className="feed-age">{at === 0 ? "now" : seen(at)}</span>
+    <button type="button" className={`lv${done ? " is-done" : ""}${blocked ? ` is-${state}` : ""}`} onClick={onOpen} aria-haspopup="dialog">
+      <span className="lv-top">
+        <LiveRing frac={frac} state={state} letter={role[0]!} />
+        <span className="lv-id">
+          <b>{role} agent</b>
+          <span>{campaign}</span>
+        </span>
+        <span className="lv-age">
+          {done ? <><Check size={11} weight="bold" aria-hidden="true" />Done</> : age}
+        </span>
       </span>
 
-      <span className="feed-role">{role} agent</span>
-
-      {/* ── THE WORKFLOW ──
-          The agent's own steps, which is what a reasoning dropdown shows and
-          what this surface was missing: you can watch it read a brief, plan a
-          search and start matching, rather than being told it is "running". */}
-      {/* ── THE LIST SAYS WHEN IT IS NOT THE WHOLE LIST ──
-          A window that gives no sign it is a window is a panel claiming this
-          agent started at step three. `is-cut` runs the spine off the top
-          edge under a fade instead of stopping it short, so the sequence
-          visibly continues past what is drawn — structure doing the work
-          rather than a "+2 earlier" row, which would cost back the height
-          the window was opened to save.
-
-          The count itself goes to assistive tech, which cannot see a line
-          run off an edge, and the panel is a button onto the full timeline
-          for anyone who wants the rest. */}
-      <span className={`feed-flow${from > 0 ? " is-cut" : ""}`}>
-        {from > 0 && (
-          <span className="sr-only">
-            {from} earlier {from === 1 ? "step" : "steps"} not shown
-          </span>
-        )}
-        {visible.map((name, i) => {
-          /* `i` indexes the WINDOW, `at` indexes the workflow. They were the
-             same number only because the slice used to start at 0, and every
-             comparison below is against `pos`, which is a workflow index —
-             so the moment the window slid, `i < pos` would have marked rows
-             done that are not and lit the wrong row as current. Offsetting
-             once here keeps the two index spaces from being confused
-             further down. */
-          const at = from + i;
-          const done = at < pos || (finished && at <= pos);
-          const here = at === pos && !finished;
+      <span className="lv-track" aria-label={`Step ${Math.min(pos + 1, steps.length)} of ${steps.length}: ${steps[pos]}`}>
+        {steps.map((s, i) => {
+          const st = done || i < pos ? "done" : i === pos ? "now" : "todo";
           return (
-            <Fragment key={name}>
-              <span className={`feed-line${done ? " is-done" : ""}${here ? " is-here" : ""}`}>
-                <span className="feed-mark" aria-hidden="true">
-                  {done && <Check size={10} weight="bold" />}
-                  {here && blocked && (state === "waiting"
-                    ? <HandPalm size={11} weight="bold" />
-                    : <WarningCircle size={11} weight="bold" />)}
-                </span>
-                <span className="feed-line-t">{name}</span>
-              </span>
-
-              {/* Directly under the step it describes, not after the whole
-                  list. It first rendered at the end, which put the sentence
-                  about the CURRENT step below the one that has not started —
-                  so the panel read as if the agent were explaining its next
-                  move rather than its present one. */}
-              {here && (
-                <span className="feed-say">{blocked && fault ? fault.fix : doing}</span>
+            <span key={s} className={`lv-seg is-${st}`} title={s}>
+              {st === "now" && d && (
+                /* The current step fills over its own duration, driven by
+                   CSS from where it already is, so it moves every frame
+                   without a re-render per frame. Keyed by step so each step
+                   starts its own fill. */
+                <i key={pos} style={{ animationDuration: `${STEP_SECS}s`, animationDelay: `-${Math.max(0, sec - pos * STEP_SECS).toFixed(2)}s` }} />
               )}
-            </Fragment>
+              {st === "now" && !d && <i className={`is-${state}`} />}
+            </span>
           );
         })}
-
       </span>
 
-      {/* ── THE STATUS LINE ──
-          Borrowed from the reference, and the one idea there worth taking
-          whole: a strip at the foot of the panel saying what is happening at
-          this instant, in machine voice. It reads as output because it IS
-          output — monospace, because that is the convention for a thing a
-          program wrote rather than a person.
-
-          The caret only blinks while the agent is running. A caret on a
-          halted run would be the surface claiming activity it does not have,
-          which is the exact dishonesty the live dot was removed for. */}
-      <span className={`feed-bar is-${barKind(state)}`}>
-        {finished && <Pause size={10} weight="fill" aria-hidden="true" />}
-        {state === "waiting" && <HandPalm size={10} weight="bold" aria-hidden="true" />}
-        {state === "error" && <WarningCircle size={10} weight="bold" aria-hidden="true" />}
-        <span className="feed-bar-t">{barText(state, steps[pos], fault)}</span>
-        {state === "running" && <span className="feed-caret" aria-hidden="true" />}
+      <span className="lv-step">
+        <b>{done ? "Finished" : steps[pos]}</b>
+        <span>{done ? `${steps.length} of ${steps.length}` : `${pos + 1} of ${steps.length}`}</span>
       </span>
+
+      {done ? (
+        <span className="lv-result"><span className="lv-result-mark" aria-hidden="true"><Check size={11} weight="bold" /></span>{out.result}</span>
+      ) : (
+        <>
+          <span className="lv-now" key={doing}>
+            {blocked
+              ? (state === "waiting" ? <HandPalm size={12} weight="bold" aria-hidden="true" /> : <WarningCircle size={12} weight="bold" aria-hidden="true" />)
+              : <span className="lv-dot" aria-hidden="true" />}
+            <span className="lv-now-t">{doing}</span>
+          </span>
+          {counters.length > 0 && (
+            <span className="lv-counts">
+              {counters.map((c) => (
+                <span key={c.label} className="lv-count">
+                  <b key={c.n}>{c.n.toLocaleString("en-IN")}</b>
+                  <span>{c.label}</span>
+                </span>
+              ))}
+            </span>
+          )}
+        </>
+      )}
     </button>
   );
 }
 
-/* ── the timeline ───────────────────────────────────────────────────────────*/
+function LiveRing({ frac, state, letter }: { frac: number; state: RunState; letter: string }) {
+  const r = 15;
+  const c = 2 * Math.PI * r;
+  return (
+    <span className={`ag-ring is-${state}`} style={{ width: 34, height: 34 }} aria-hidden="true">
+      <svg viewBox="0 0 36 36">
+        <circle cx="18" cy="18" r={r} className="ag-ring-track" />
+        <circle cx="18" cy="18" r={r} className="ag-ring-arc" strokeDasharray={c} strokeDashoffset={c * (1 - frac)} />
+      </svg>
+      <b>{letter}</b>
+    </span>
+  );
+}
 
-/**
- * Everything that has happened on one campaign, in the order it happened.
- *
- * Interleaved across agents rather than grouped by them, which `flowFor` could
- * not do: it had only a per-agent `seenAgo` and no per-step times, so merging
- * would have meant inventing the order. `STEP_AT` supplies those times, so
- * this is a real sequence — you can watch Sourcing hand off to Outreach.
- */
 function Timeline({
   campaign: c, onClose, onOpenBrief, onDeploy,
 }: {
@@ -915,32 +843,6 @@ function Event({ event: e }: { event: TimelineEvent }) {
 }
 
 /** Which of the four voices the status line speaks in. */
-function barKind(state: RunState): string {
-  if (state === "done") return "paused";
-  if (state === "waiting") return "you";
-  if (state === "error") return "broke";
-  return "run";
-}
-
-/**
- * What the status line says.
- *
- * The running case names the step in the present participle, because that is
- * what a log line looks like and the panel above already names the step
- * plainly — this is the machine's own voice, not a second label.
- */
-function barText(
-  state: RunState, step: string | undefined, fault?: { kind: "tool" | "agent" },
-): string {
-  if (state === "done") return "Paused";
-  if (state === "waiting") return "Waiting for you";
-  if (state === "error") return fault?.kind === "tool" ? "Connector stopped it" : "Brief stopped it";
-  return step ?? "Working";
-}
-
-/* ── shared reads ───────────────────────────────────────────────────────────*/
-
-/** A finished agent's output belongs to its last completed step. */
 function isLastDone(e: TimelineEvent): boolean {
   return e.agent.state === "done" && e.id === `${e.agent.id}:${e.agent.step}`;
 }

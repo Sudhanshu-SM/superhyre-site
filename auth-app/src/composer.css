@@ -1,0 +1,757 @@
+/* ═══════════════════════════════ composer ═══════════════════════════════════
+   The composer's control row, and the two dialogs its context buttons open.
+
+   Specificity is deliberate: access.css loads AFTER this file and styles the
+   same elements at up to (0,4,0), so every row rule here is scoped under
+   `.orc` to win without !important.
+
+   One height for the row: 32px at rest, 30px docked. Every control centres
+   on the same line, so modes, context buttons and send read as one strip. */
+
+/* ── the row ── */
+
+.orc .orc-composer .orc-composer-row { align-items: center; gap: 8px; }
+
+.orc .orc-composer .orc-modes {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 3px;
+  gap: 2px;
+  border-radius: var(--r-pill);
+  background: var(--sub);
+}
+
+.orc .orc-composer .orc-modes .orc-mode {
+  height: 26px;
+  padding: 0 12px;
+  gap: 6px;
+  font: 500 12.5px/1 var(--ui);
+  color: var(--ink-2);
+}
+.orc .orc-composer .orc-modes .orc-mode.is-on {
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(26, 22, 20, 0.08), 0 0 0 1px rgba(26, 22, 20, 0.03);
+}
+
+.orc .orc-composer .orc-slots { display: inline-flex; align-items: center; gap: 6px; }
+
+/* The context buttons: warm, raised and obviously pressable. */
+.orc .orc-composer .orc-slots .orc-gslot.orc-ctx {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 13px 0 5px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-pill);
+  background: linear-gradient(180deg, #fff8f4 0%, #ffece2 100%);
+  box-shadow: 0 1px 2px rgba(204, 77, 23, 0.10), 0 3px 8px -2px rgba(204, 77, 23, 0.14);
+  font: 500 12.5px/1 var(--ui);
+  letter-spacing: -0.011em;
+  color: var(--accent-text);
+  cursor: pointer;
+  transition: border-color 200ms var(--ease-out), box-shadow 240ms var(--ease-out), background 240ms var(--ease-out);
+}
+.orc .orc-composer .orc-slots .orc-gslot.orc-ctx:hover {
+  border-color: #e9a883;
+  background: linear-gradient(180deg, #fff3ec 0%, #ffe3d4 100%);
+  box-shadow: 0 1px 2px rgba(204, 77, 23, 0.14), 0 6px 16px -4px rgba(204, 77, 23, 0.30);
+}
+.orc .orc-composer .orc-slots .orc-gslot.orc-ctx:active { transform: scale(0.96); transition: transform 60ms var(--ease-out); }
+.orc .orc-composer .orc-slots .orc-gslot.orc-ctx:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.orc-ctx-ico {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--accent);
+  box-shadow: 0 1px 2px rgba(204, 77, 23, 0.18);
+  transition: background-color 240ms var(--ease-out), color 240ms var(--ease-out);
+}
+
+.orc .orc-composer .orc-slots .orc-gslot.orc-ctx.is-on { background: var(--accent-tint); border-color: var(--accent-fill); color: var(--accent-deep); }
+.orc .orc-composer .orc-slots .orc-gslot.orc-ctx.is-on .orc-ctx-ico { background: var(--accent-fill); color: #fff; animation: ab-check 420ms var(--ease-out); }
+
+.orc-ctx-n {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--r-pill);
+  background: var(--accent-fill);
+  font: 600 10.5px/1 var(--ui);
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  animation: cb-pop 320ms var(--ease-out);
+}
+
+.orc .orc-composer .orc-send { width: 32px; height: 32px; }
+
+/* ── docked: one line, icons only ── */
+
+.orc .orc-stream.is-live .orc-composer .orc-composer-row { gap: 6px; }
+.orc .orc-stream.is-live .orc-composer .orc-modes { height: 30px; padding: 2px; }
+.orc .orc-stream.is-live .orc-composer .orc-modes .orc-mode { width: 26px; height: 26px; padding: 0; justify-content: center; }
+
+.orc .orc-stream.is-live .orc-composer .orc-slots .orc-gslot.orc-ctx {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  gap: 0;
+  justify-content: center;
+  border-radius: 50%;
+}
+.orc .orc-stream.is-live .orc-composer .orc-slots .orc-gslot.orc-ctx .orc-ctx-ico { width: 20px; height: 20px; box-shadow: none; background: transparent; }
+.orc .orc-stream.is-live .orc-composer .orc-slots .orc-gslot.orc-ctx.is-on .orc-ctx-ico { background: var(--accent-fill); }
+.orc .orc-stream.is-live .orc-composer .orc-ctx-n {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 16px;
+  height: 16px;
+  font-size: 9.5px;
+  box-shadow: 0 0 0 2px #fff;
+}
+.orc .orc-stream.is-live .orc-composer .orc-send { width: 30px; height: 30px; }
+
+/* ═══════════════════════════════ filters dialog ═════════════════════════════ */
+
+.fd { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+
+.fd-top {
+  display: grid;
+  grid-template-columns: auto 1fr minmax(200px, 280px);
+  align-items: center;
+  gap: 12px 24px;
+  padding: 18px 64px 16px 24px;
+  border-bottom: 1px solid var(--nav-rule);
+}
+.fd-title h2 { margin: 0; font: 600 19px/1.2 var(--ui); letter-spacing: -0.02em; color: var(--ink); }
+.fd-title p { display: flex; align-items: center; gap: 5px; margin: 3px 0 0; font: 400 12.5px/1.3 var(--ui); color: var(--ink-2); }
+.fd-title p svg { color: var(--accent); }
+
+.fd-count { justify-self: center; display: grid; justify-items: center; gap: 2px; margin: 0; padding: 6px 14px; border-radius: 12px; transition: background-color 300ms var(--ease-out); }
+.fd-count b { font: 600 22px/1 var(--ui); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; color: var(--ink); }
+.fd-count span { font: 400 11.5px/1 var(--ui); color: var(--ink-2); }
+.fd-count.is-down { background: var(--accent-tint); }
+.fd-count.is-up { background: var(--c-sage-tint); }
+
+.fd-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-pill);
+  background: var(--page-2);
+  color: var(--ink-2);
+  transition: border-color var(--t), box-shadow var(--t), background-color var(--t);
+}
+.fd-search:focus-within { border-color: var(--accent-line); background: #fff; box-shadow: 0 0 0 3px var(--accent-tint); }
+.fd-search input { flex: 1 1 auto; min-width: 0; border: 0; outline: none; background: transparent; font: 400 13px/1 var(--ui); color: var(--ink); }
+
+.fd-body { display: grid; grid-template-columns: 208px minmax(0, 1fr); flex: 1 1 auto; min-height: 0; }
+
+.fd-nav { display: grid; align-content: start; gap: 2px; padding: 12px 10px; overflow-y: auto; border-right: 1px solid var(--nav-rule); background: var(--page-2); }
+.fd-cat {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 36px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  font: 500 13px/1 var(--ui);
+  color: var(--ink-2);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--t-dim), color var(--t);
+}
+.fd-cat:hover { background: #fff; color: var(--ink); }
+.fd-cat.is-on { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(26, 22, 20, 0.07), inset 0 0 0 1px var(--hairline); }
+.fd-cat.is-on svg { color: var(--accent); }
+.fd-cat:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.fd-cat-n {
+  margin-left: auto;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: var(--r-pill);
+  background: var(--accent-fill);
+  font: 600 10.5px/1 var(--ui);
+  color: #fff;
+  animation: cb-pop 300ms var(--ease-out);
+}
+
+.fd-list { position: relative; overflow-y: auto; overscroll-behavior: contain; padding: 4px 28px 0; scroll-padding-top: 12px; }
+.fd-tail { height: 40vh; }
+.fd-empty { margin: 60px auto; text-align: center; font: 400 13.5px/1.5 var(--ui); color: var(--ink-2); }
+
+.fd-sec { padding: 18px 0 8px; }
+.fd-sec + .fd-sec { border-top: 1px solid var(--nav-rule); }
+.fd-sec-h { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font: 600 15px/1.3 var(--ui); letter-spacing: -0.014em; color: var(--ink); }
+.fd-sec-h svg { color: var(--ink-2); }
+
+.fd-rows { display: grid; }
+.fd-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 200px) minmax(0, 1fr);
+  gap: 8px 24px;
+  align-items: start;
+  padding: 12px 10px;
+  margin: 0 -10px;
+  border-radius: 10px;
+  transition: background-color var(--t-dim);
+}
+.fd-row:hover { background: var(--page-2); }
+.fd-row.is-on .fd-row-l { color: var(--ink); }
+.fd-row.is-on .fd-row-l::before { opacity: 1; transform: scale(1); }
+
+.fd-row-k { display: grid; gap: 3px; padding-top: 5px; }
+.fd-row-l { position: relative; display: inline-flex; align-items: center; gap: 6px; font: 500 13px/1.3 var(--ui); color: var(--ink-2); }
+/* A small dot marks a filter that is set, so a scan down the list finds them. */
+.fd-row-l::before {
+  content: "";
+  position: absolute;
+  left: -9px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent-fill);
+  opacity: 0;
+  transform: scale(0.3);
+  transition: opacity 200ms var(--ease-out), transform 260ms var(--ease-out);
+}
+.fd-row-h { font: 400 11.5px/1.4 var(--ui); color: var(--ink-2); }
+.fd-from { display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; border-radius: var(--r-pill); background: var(--accent-tint); font: 500 10.5px/1 var(--ui); color: var(--accent-text); }
+
+/* chips */
+.fd-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.fd-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-pill);
+  background: #fff;
+  font: 500 12.5px/1 var(--ui);
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color var(--t), background-color var(--t), color var(--t), box-shadow var(--t);
+}
+.fd-chip:hover { border-color: var(--rule); box-shadow: 0 1px 3px rgba(26, 22, 20, 0.06); }
+.fd-chip:active { transform: scale(0.96); transition: transform 60ms var(--ease-out); }
+.fd-chip:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.fd-chip.is-on { border-color: var(--accent-line); background: var(--accent-tint); color: var(--accent-deep); }
+.fd-chip.is-on svg { animation: cb-pop 260ms var(--ease-out); }
+
+/* tags */
+.fd-tags { display: grid; gap: 8px; }
+.fd-tag-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 4px 6px;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  background: #fff;
+  transition: border-color var(--t), box-shadow var(--t);
+}
+.fd-tag-box:focus-within { border-color: var(--accent-line); box-shadow: 0 0 0 3px var(--accent-tint); }
+.fd-tag-box input { flex: 1 1 120px; min-width: 100px; height: 28px; border: 0; outline: none; background: transparent; font: 400 13px/1 var(--ui); color: var(--ink); }
+.fd-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 4px 0 10px;
+  border-radius: var(--r-pill);
+  background: var(--accent-tint);
+  font: 500 12.5px/1 var(--ui);
+  color: var(--accent-deep);
+  animation: cb-pop 260ms var(--ease-out);
+}
+.fd-tag button { display: grid; place-items: center; width: 18px; height: 18px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: inherit; cursor: pointer; }
+.fd-tag button:hover { background: rgba(204, 77, 23, 0.14); }
+.fd-suggest { display: flex; flex-wrap: wrap; gap: 5px; }
+.fd-sugg {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px dashed var(--rule);
+  border-radius: var(--r-pill);
+  background: transparent;
+  font: 500 12px/1 var(--ui);
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: border-color var(--t), color var(--t), background-color var(--t);
+}
+.fd-sugg:hover { border-style: solid; border-color: var(--accent-line); color: var(--accent-text); background: #fffaf7; }
+.fd-sugg:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* range */
+.fd-range { display: grid; gap: 6px; max-width: 460px; padding-top: 2px; }
+.fd-range-v { font: 600 13px/1 var(--ui); color: var(--ink); font-variant-numeric: tabular-nums; }
+.fd-range-v.is-any { font-weight: 400; color: var(--ink-2); }
+.fd-range-track { position: relative; height: 22px; }
+.fd-range-track::before, .fd-range-track::after {
+  content: "";
+  position: absolute;
+  top: 9px;
+  height: 4px;
+  border-radius: 2px;
+}
+.fd-range-track::before { left: 0; right: 0; background: var(--sub); }
+.fd-range-track::after { left: var(--a); right: calc(100% - var(--b)); background: var(--accent-fill); }
+.fd-range-track input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  margin: 0;
+  background: transparent;
+  pointer-events: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.fd-range-track input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--accent-fill);
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(26, 22, 20, 0.18);
+  cursor: grab;
+  pointer-events: auto;
+  position: relative;
+  z-index: 2;
+  transition: transform 120ms var(--ease-out), box-shadow 120ms var(--ease-out);
+}
+.fd-range-track input::-webkit-slider-thumb:hover { box-shadow: 0 0 0 6px rgba(204, 77, 23, 0.12); }
+.fd-range-track input:active::-webkit-slider-thumb { transform: scale(1.12); cursor: grabbing; }
+.fd-range-track input::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--accent-fill); background: #fff; pointer-events: auto; cursor: grab; }
+.fd-range-track input::-webkit-slider-runnable-track { background: transparent; }
+.fd-range-track input:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* segment */
+.fd-seg { position: relative; display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 3px; border-radius: var(--r-pill); background: var(--sub); }
+.fd-seg-pill {
+  position: absolute;
+  top: 3px;
+  left: 0;
+  height: calc(100% - 6px);
+  border-radius: var(--r-pill);
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(26, 22, 20, 0.1);
+  transition: transform 300ms var(--ease-out), width 300ms var(--ease-out);
+}
+.fd-seg-o {
+  position: relative;
+  z-index: 1;
+  height: 28px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: transparent;
+  font: 500 12.5px/1 var(--ui);
+  color: var(--ink-2);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--t);
+}
+.fd-seg-o:hover, .fd-seg-o.is-on { color: var(--ink); }
+.fd-seg-o:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+
+/* toggle */
+.fd-row.is-toggle { align-items: center; }
+.fd-toggle { display: inline-flex; align-items: center; gap: 12px; cursor: pointer; }
+.fd-toggle input { position: absolute; opacity: 0; pointer-events: none; }
+.fd-switch { position: relative; flex: none; width: 36px; height: 21px; border-radius: 11px; background: var(--rule); transition: background-color 220ms var(--ease-out); }
+.fd-switch::after { content: ""; position: absolute; top: 2.5px; left: 2.5px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2); transition: transform 280ms cubic-bezier(0.3, 1.4, 0.5, 1); }
+.fd-toggle input:checked + .fd-switch { background: var(--accent-fill); }
+.fd-toggle input:checked + .fd-switch::after { transform: translateX(15px); }
+.fd-toggle input:focus-visible + .fd-switch { outline: 2px solid var(--focus); outline-offset: 2px; }
+.fd-toggle-h { font: 400 12.5px/1.4 var(--ui); color: var(--ink-2); }
+
+.fd-foot { display: flex; align-items: center; gap: 10px; padding: 12px 20px; border-top: 1px solid var(--nav-rule); background: #fff; }
+.fd-foot .sp { flex: 1 1 auto; }
+.fd-foot-n { font: 400 12.5px/1 var(--ui); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.fd-apply { font-variant-numeric: tabular-nums; }
+
+@media (max-width: 760px) {
+  .fd-top { grid-template-columns: 1fr auto; padding-right: 56px; }
+  .fd-search { grid-column: 1 / -1; }
+  .fd-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .fd-nav { display: flex; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--nav-rule); padding: 8px; }
+  .fd-cat { flex: none; }
+  .fd-row { grid-template-columns: minmax(0, 1fr); }
+  .fd-list { padding: 0 16px; }
+  .fd-foot-n { display: none; }
+}
+
+/* ═══════════════════════════════ jd dialog ══════════════════════════════════ */
+
+.jd { display: grid; gap: 16px; padding: 22px 24px 18px; }
+.jd-top h2 { margin: 0; font: 600 19px/1.2 var(--ui); letter-spacing: -0.02em; color: var(--ink); }
+.jd-top p { margin: 4px 0 0; font: 400 13px/1.4 var(--ui); color: var(--ink-2); }
+
+.jd-current { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: var(--accent-tint); color: var(--accent-text); }
+.jd-current > span { display: grid; gap: 1px; flex: 1 1 auto; min-width: 0; }
+.jd-current b { font: 600 13px/1.3 var(--ui); color: var(--ink); }
+.jd-current small { font: 400 12px/1.3 var(--ui); color: var(--ink-2); }
+
+.jd-tabs { display: inline-flex; justify-self: start; gap: 2px; padding: 3px; border-radius: var(--r-pill); background: var(--sub); }
+.jd-tab { height: 30px; padding: 0 14px; border: 0; border-radius: var(--r-pill); background: transparent; font: 500 12.5px/1 var(--ui); color: var(--ink-2); cursor: pointer; transition: background-color var(--t), color var(--t), box-shadow var(--t); }
+.jd-tab.is-on { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(26, 22, 20, 0.1); }
+.jd-tab:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+.jd-drop {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 32px 20px;
+  border: 1.5px dashed var(--accent-line);
+  border-radius: 16px;
+  background: #fffaf7;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 220ms var(--ease-out), background-color 220ms var(--ease-out), box-shadow 220ms var(--ease-out);
+}
+.jd-drop:hover { border-color: #e9a883; background: #fff5ef; }
+.jd-drop.is-drag { border-style: solid; border-color: var(--accent-fill); background: var(--accent-tint); box-shadow: 0 0 0 5px rgba(204, 77, 23, 0.1); }
+.jd-drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.jd-drop:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; }
+.jd-drop-ico { display: grid; place-items: center; width: 46px; height: 46px; margin-bottom: 4px; border-radius: 50%; background: #fff; color: var(--accent); box-shadow: 0 2px 8px rgba(204, 77, 23, 0.18); transition: transform 260ms var(--ease-out); }
+.jd-drop.is-drag .jd-drop-ico { transform: translateY(-4px) scale(1.06); }
+.jd-drop b { font: 600 14px/1.3 var(--ui); color: var(--ink); }
+.jd-drop small { font: 400 12px/1.3 var(--ui); color: var(--ink-2); }
+
+.jd-file { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--hairline); border-radius: 14px; animation: src-in 280ms var(--ease-out); }
+.jd-file-ico { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; background: var(--accent-tint); color: var(--accent); }
+.jd-file-id { display: grid; gap: 3px; flex: 1 1 auto; min-width: 0; }
+.jd-file-id b { font: 600 13px/1.3 var(--ui); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jd-file-id small { font: 400 12px/1.3 var(--ui); color: var(--ink-2); }
+.jd-bar { height: 4px; border-radius: 2px; background: var(--sub); overflow: hidden; }
+.jd-bar i { display: block; height: 100%; width: 100%; background: var(--accent-fill); transform-origin: left; animation: jd-read 1.3s var(--ease-in-out) both; }
+@keyframes jd-read { from { transform: scaleX(0.05); } to { transform: scaleX(1); } }
+.jd-ok { color: var(--c-sage-fill); animation: ab-check 420ms var(--ease-out); }
+.jd-x { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--ink-2); cursor: pointer; }
+.jd-x:hover { background: var(--sub); color: var(--ink); }
+
+.jd-paste {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  resize: vertical;
+  font: 400 13.5px/1.55 var(--ui);
+  color: var(--ink);
+  outline: none;
+  transition: border-color var(--t), box-shadow var(--t);
+}
+.jd-paste:focus { border-color: var(--accent-line); box-shadow: 0 0 0 3px var(--accent-tint); }
+
+.jd-read { display: grid; gap: 8px; padding: 12px 14px; border-radius: 14px; background: var(--page-2); }
+.jd-read-h { display: flex; align-items: center; gap: 6px; margin: 0; font: 600 12.5px/1 var(--ui); color: var(--ink); }
+.jd-read-h svg { color: var(--accent); }
+.jd-read ul { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.jd-read li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 11px 0 4px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-pill);
+  background: #fff;
+  font: 500 12.5px/1 var(--ui);
+  color: var(--ink);
+  animation: qa-in 300ms var(--ease-out) both;
+}
+.jd-read li span { padding: 4px 7px; border-radius: var(--r-pill); background: var(--sub); font: 500 10.5px/1 var(--ui); color: var(--ink-2); }
+
+.jd-foot { display: flex; align-items: center; gap: 8px; }
+.jd-foot .sp { flex: 1 1 auto; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fd-cat-n, .fd-chip.is-on svg, .fd-tag, .orc-ctx-n, .jd-read li, .jd-file, .jd-ok { animation: none; }
+  .fd-switch::after, .fd-seg-pill { transition-duration: 1ms; }
+  .jd-bar i { animation-duration: 1ms; }
+}
+
+/* ── DOCKED, THE GAUGE FLOATS INSTEAD OF PUSHING ──
+   The chips that show what the brief was understood as appear WHILE typing.
+   In the docked composer they sat under the field, so every new facet grew
+   the composer, shrank the transcript and made it re-lay out and scroll —
+   measured as 150–230ms keystrokes with a chart on screen. Floating them
+   just above the field keeps them visible and takes them out of layout. */
+/* Its containing block. Only where the composer is not already sticky: below
+   1000px tall it is `position: sticky` (access.css), which positions the
+   gauge just as well, and overriding it with `relative` un-stuck the
+   composer and cost 150ms+ per keystroke. */
+@media (min-height: 1001px) and (min-width: 1101px) {
+  .orc .orc-stream.is-live .orc-composer { position: relative; }
+}
+@media (min-height: 1001px) and (min-width: 1101px) {
+.orc .orc-stream.is-live .orc-composer .orc-gauge {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: calc(100% - 6px);
+  z-index: 3;
+  margin: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 6px 18px -6px rgba(26, 22, 20, 0.16);
+  pointer-events: none;
+  animation: src-in 220ms var(--ease-out) both;
+}
+}
+/* Below that the page scrolls under a sticky composer, and a floating chip
+   row over the transcript repaints what is beneath it on every key — so the
+   gauge stays in flow there, as it was. */
+
+/* Finished turns that are scrolled out of view skip layout and paint. The
+   newest turn is always rendered, because it is the one being watched and
+   the one the send flight lands in. */
+/* `article:not(:last-of-type)`, not `:not(:last-child)`: while the landing
+   heading leaves it is still the log's last child, which made the brand-new
+   turn "not last", gave it a 640px placeholder height, and threw the send
+   animation's starting point off by 84px. */
+.orc-log > article.orc-turn:not(:last-of-type) {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 640px;
+}
+
+/* ── A NARROW COMPOSER KEEPS ITS ROW ON ONE LINE ──
+   Beside the rail the resting composer can be ~430px wide, and modes, two
+   labelled context buttons and send need ~470. Under that the context
+   buttons drop their labels and become the same round icons they are when
+   docked; the tooltip still names them. */
+.orc .orc-composer .orc-composer-field { container-type: inline-size; }
+@container (max-width: 480px) {
+  .orc .orc-composer .orc-slots .orc-gslot.orc-ctx { width: 32px; padding: 0; justify-content: center; border-radius: 50%; }
+  .orc .orc-composer .orc-slots .orc-gslot.orc-ctx .orc-chip-l { display: none; }
+  .orc .orc-composer .orc-slots .orc-gslot.orc-ctx .orc-ctx-ico { background: transparent; box-shadow: none; }
+  .orc .orc-composer .orc-slots .orc-gslot.orc-ctx.is-on .orc-ctx-ico { background: var(--accent-fill); }
+  .orc .orc-composer .orc-ctx-n { position: absolute; top: -5px; right: -5px; min-width: 16px; height: 16px; font-size: 9.5px; box-shadow: 0 0 0 2px #fff; }
+}
+
+/* ── docked: field → tune → send ──
+   Two mode icons and two context buttons on the docked bar read as clutter
+   (reported). Docked, they fold into one Tune control whose badge says how
+   much is set, and a small menu above it holds all three. */
+.orc .orc-stream.is-live .orc-composer .orc-modes,
+.orc .orc-stream.is-live .orc-composer .orc-slots { display: none; }
+
+.orc-tune-wrap { position: relative; display: inline-flex; }
+
+.orc-tune {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-pill);
+  background: linear-gradient(180deg, #fff8f4 0%, #ffece2 100%);
+  box-shadow: 0 1px 2px rgba(204, 77, 23, 0.10), 0 3px 8px -2px rgba(204, 77, 23, 0.14);
+  color: var(--accent-text);
+  cursor: pointer;
+  transition: border-color 200ms var(--ease-out), box-shadow 240ms var(--ease-out);
+}
+.orc-tune:hover, .orc-tune.is-open { border-color: #e9a883; box-shadow: 0 1px 2px rgba(204, 77, 23, 0.14), 0 6px 16px -4px rgba(204, 77, 23, 0.30); }
+.orc-tune:active { transform: scale(0.95); transition: transform 60ms var(--ease-out); }
+.orc-tune:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.orc-tune > svg:last-of-type { transition: transform 300ms var(--ease-out); }
+.orc-tune.is-open > svg:last-of-type { transform: rotate(90deg); }
+.orc-tune-n {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-pill);
+  background: var(--accent-fill);
+  box-shadow: 0 0 0 2px #fff;
+  font: 600 9.5px/1 var(--ui);
+  color: #fff;
+  animation: cb-pop 300ms var(--ease-out);
+}
+
+.orc-tune-pop {
+  position: absolute;
+  right: -6px;
+  bottom: calc(100% + 12px);
+  z-index: 20;
+  display: grid;
+  gap: 4px;
+  width: 280px;
+  padding: 8px;
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 12px 32px -8px rgba(26, 22, 20, 0.22), 0 1px 3px rgba(26, 22, 20, 0.06);
+  transform-origin: bottom right;
+  animation: orc-pop 220ms var(--ease-out) both;
+}
+@keyframes orc-pop { from { opacity: 0; transform: translateY(6px) scale(0.96); } to { opacity: 1; transform: none; } }
+
+.orc-tune-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 3px; margin-bottom: 4px; border-radius: 10px; background: var(--sub); }
+.orc-tune-mode { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 30px; border: 0; border-radius: 8px; background: transparent; font: 500 12.5px/1 var(--ui); color: var(--ink-2); cursor: pointer; transition: background-color var(--t), color var(--t), box-shadow var(--t); }
+.orc-tune-mode.is-on { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgba(26, 22, 20, 0.1); }
+.orc-tune-mode:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+
+.orc-tune-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--t-dim);
+}
+.orc-tune-item:hover { background: #fffaf7; }
+.orc-tune-item:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.orc-tune-item .orc-ctx-ico { width: 28px; height: 28px; background: var(--accent-tint); box-shadow: none; }
+.orc-tune-l { display: grid; gap: 2px; flex: 1 1 auto; min-width: 0; }
+.orc-tune-l b { font: 600 13px/1.2 var(--ui); color: var(--ink); }
+.orc-tune-l small { font: 400 12px/1.3 var(--ui); color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+@media (prefers-reduced-motion: reduce) {
+  .orc-tune-pop, .orc-tune-n { animation: none; }
+}
+
+/* ── resting composer: a warmer, layered lift on the landing view ── */
+.orc .orc-stream:not(.is-live) .orc-composer .orc-composer-field {
+  box-shadow:
+    0 1px 2px rgba(26, 22, 20, 0.05),
+    0 8px 20px -10px rgba(26, 22, 20, 0.14),
+    0 24px 48px -24px rgba(204, 77, 23, 0.22);
+  transition: box-shadow 320ms var(--ease-out), border-color var(--t-dim), border-radius var(--t-state);
+}
+.orc .orc-stream:not(.is-live) .orc-composer .orc-composer-field:focus-within {
+  box-shadow:
+    0 0 0 4px rgba(234, 90, 30, 0.06),
+    0 10px 24px -10px rgba(26, 22, 20, 0.16),
+    0 28px 56px -24px rgba(204, 77, 23, 0.32);
+}
+
+/* ── docked: text and controls on one centre line ──
+   The row kept its resting `margin-top: 8px`, which in the centred docked bar
+   pushed the Tune and send buttons 4px below the text. The margin goes, and
+   the field's vertical padding grows by the same 4px a side, so the bar is
+   still 56px and the dock does not move. */
+.orc .orc-stream.is-live .orc-composer .orc-composer-row { margin-top: 0; }
+.orc .orc-stream.is-live .orc-composer .orc-composer-field { padding: 12px 12px 12px 20px; }
+
+/* ── the transcript's scrollbar sits outside the content ──
+   The log's scrollbar was drawn over its own right edge, across the ends of
+   cards and the Run search button. Padding on the right, pulled back out
+   with an equal negative margin, moves the scrollbar into the gutter while
+   the content keeps its width. */
+@media (min-height: 1001px) and (min-width: 1101px) {
+  .orc .orc-stream.is-live .orc-log {
+    margin-right: -22px;
+    padding-right: 22px;
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(26, 22, 20, 0.18) transparent;
+  }
+}
+
+/* ── context buttons: a neutral hover ──
+   The hover used to deepen the orange wash and add an orange glow, which read
+   as the button changing colour rather than responding. Now the button lifts
+   to white on a neutral shadow, and only its small icon circle takes the
+   accent: one point of colour that says "this one", not the whole button. */
+.orc .orc-composer .orc-slots .orc-gslot.orc-ctx:hover,
+.orc-tune:hover, .orc-tune.is-open {
+  background: #fff;
+  border-color: var(--rule);
+  box-shadow: 0 1px 2px rgba(26, 22, 20, 0.06), 0 6px 14px -6px rgba(26, 22, 20, 0.18);
+}
+.orc .orc-composer .orc-slots .orc-gslot.orc-ctx:hover .orc-ctx-ico {
+  background: var(--accent-fill);
+  color: #fff;
+  box-shadow: none;
+}
+.orc .orc-composer .orc-slots .orc-gslot.orc-ctx .orc-ctx-ico { transition: background-color 200ms var(--ease-out), color 200ms var(--ease-out), transform 260ms var(--ease-out); }
+.orc .orc-composer .orc-slots .orc-gslot.orc-ctx:hover .orc-ctx-ico { transform: rotate(-8deg); }
+
+/* ── what the brief covers ──
+   Five plain words under the resting composer: no pill, no dot, no border.
+   Off they are quiet grey; when the brief covers one it turns orange and
+   blooms once with a soft glow, then holds a faint one. Same size in both
+   states, so the row never moves as you type. */
+.orc-slotrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; padding: 0 4px; }
+.orc-slotrow ul { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 0; padding: 0; list-style: none; }
+.orc-slotrow li {
+  font: 500 12.5px/1.4 var(--ui);
+  letter-spacing: -0.006em;
+  color: var(--rule-strong);
+  cursor: default;
+  transition: color 280ms var(--ease-out), text-shadow 400ms var(--ease-out);
+}
+.orc-slotrow li.is-on {
+  color: var(--accent-text);
+  text-shadow: 0 0 10px rgba(234, 90, 30, 0.35);
+  animation: slot-bloom 800ms var(--ease-out);
+}
+@keyframes slot-bloom {
+  0%   { text-shadow: 0 0 0 rgba(234, 90, 30, 0); }
+  35%  { text-shadow: 0 0 14px rgba(234, 90, 30, 0.75); }
+  100% { text-shadow: 0 0 10px rgba(234, 90, 30, 0.35); }
+}
+
+.orc-slotrow-n { flex: none; font: 600 11.5px/1 var(--ui); font-variant-numeric: tabular-nums; color: var(--ink-2); transition: color 260ms var(--ease-out); }
+.orc-slotrow-n.is-full { color: var(--c-sage-text); }
+
+@media (prefers-reduced-motion: reduce) {
+  .orc-slotrow li.is-on { animation: none; }
+}
+
+/* ── the brief's key words, in the text itself ──
+   A word that gives a role, experience, skills, location or industry turns
+   orange and bolder as it is typed. No tint, no underline.
+
+   The "bold" is a hairline stroke, not font-weight: the coloured text is a
+   layer behind a transparent textarea, and a heavier weight would make each
+   word wider than the caret beneath it thinks it is, so the caret and any
+   selection would drift off the letters. A stroke thickens the glyph without
+   moving a single one. */
+.orc-mirror .orc-hit {
+  color: var(--accent-text);
+  -webkit-text-stroke: 0.45px currentColor;
+  paint-order: stroke fill;
+  transition: color 200ms var(--ease-out);
+}

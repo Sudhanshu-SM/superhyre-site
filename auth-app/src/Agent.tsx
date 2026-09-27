@@ -1,20 +1,29 @@
-import { ArrowUp, Check, MagnifyingGlass, Plus } from "@phosphor-icons/react";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import {
-  FACET_HUE, FACET_LABEL, FACET_ORDER, read, segment,
-} from "./brief";
+import { ArrowUp, Check, FileText, FunnelSimple, SlidersHorizontal } from "@phosphor-icons/react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Campaigns } from "./Campaigns";
 import type { Deployed } from "./Campaigns";
 import { BorderGlow } from "./glow";
-import { BRIEFS, MODES, SCOPED, SOURCING_CONTEXT, STAGES, SUGGESTIONS } from "./orchestrator";
+import { BRIEFS, MODES, SCOPED, SOURCING_CONTEXT, STAGES } from "./orchestrator";
 import type { CampaignKey, ModeId, PipelineRole } from "./orchestrator";
 import { Rail } from "./Rail";
 import { REPLIES } from "./replies";
 import { Prompt, Reply } from "./Reply";
+import { Recs } from "./Recs";
+import { highlightRuns } from "./slots";
 import { ProfileSidebar } from "./ProfileSidebar";
+import { FiltersDialog } from "./FiltersDialog";
+import { JdDialog } from "./JdDialog";
+import type { Jd } from "./JdDialog";
+import { activeCount, fromBrief } from "./filters";
+import type { Values } from "./filters";
 import { RankedMatches } from "./RankedMatches";
 import { SourcingRun } from "./Sourcing";
-import { CANDIDATES, isSourcingBrief } from "./sourcing";
+import { CANDIDATES } from "./sourcing";
+import { ConnectorsProvider } from "./connectors";
+import { Moment } from "./Moments";
+import { campaignName } from "./orchestrator";
+import { classify } from "./moments";
+import type { MomentCtx, MomentKind } from "./moments";
 import type { Verdict } from "./sourcing";
 import type { Campaign } from "./workspaces";
 
@@ -35,6 +44,8 @@ import type { Campaign } from "./workspaces";
  *
  * Home surveys. This page works.
  */
+
+const EMPTY: Values = {};
 
 type Turn = {
   id: number;
@@ -57,10 +68,11 @@ type Turn = {
    */
   replyIndex: number;
   /**
-   * A sourcing brief gets the full run — phases, a search to confirm, and
-   * profiles — instead of a canned reply. Decided at send, like `replyIndex`.
+   * Which moment this turn is: `sourcing` gets the full run (phases, a
+   * search to confirm, profiles); `reply` gets a canned reply; everything
+   * else is a Moment. Decided at send, like `replyIndex`.
    */
-  sourcing: boolean;
+  kind: MomentKind;
 };
 
 export function Agent({
@@ -76,8 +88,24 @@ export function Agent({
   onHandoffTaken: () => void;
 }) {
   const [mode, setMode] = useState<ModeId>("sourcing");
-  const [draft, setDraft] = useState("");
-  const [attached, setAttached] = useState<string[]>([]);
+  /* ── THE DRAFT LIVES IN THE COMPOSER, NOT HERE ──
+     It was state on this component, so every keystroke re-rendered the whole
+     page — the transcript with every moment in it, the rail, the live band —
+     to change one textarea. Measured: 24ms per key on an empty page, 32ms
+     with a conversation, spikes to 296ms. The composer now owns its text and
+     exposes it through this handle, which the page reads only when it needs
+     the text (on send) or sets it (seeding a suggestion). */
+  const draftApi = useRef<{ get: () => string; set: (t: string) => void }>({ get: () => "", set: () => {} });
+  /* The job description and the filters the composer carries into a search. */
+  const [jd, setJd] = useState<Jd | null>(null);
+  const [filters, setFilters] = useState<Values>({});
+  const [jdOpen, setJdOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState<{ initial: Values; prefilled: readonly string[] } | null>(null);
+  const openFilters = useCallback((text: string) => {
+    const brief = fromBrief(text);
+    const fresh = Object.keys(brief).filter((k) => !(k in filters));
+    setFiltersOpen({ initial: { ...brief, ...filters }, prefilled: fresh });
+  }, [filters]);
   const [turns, setTurns] = useState<Turn[]>([]);
   const [activeBrief, setActiveBrief] = useState<string | null>(null);
   /* Shortlist and reject, shared by the transcript's cards, the ranked list
@@ -87,6 +115,16 @@ export function Agent({
      separate surfaces with separate state. The profile remembers which list
      its arrows walk: every match from the transcript, or whatever the
      dialog's current filter shows. */
+  /* Answers the recruiter asked the agent to remember, for this session. */
+  const [prefs, setPrefs] = useState<Record<string, string>>({});
+  const setPref = useCallback((key: string, value: string) => {
+    setPrefs((p) => {
+      const next = { ...p };
+      if (value) next[key] = value;
+      else delete next[key];
+      return next;
+    });
+  }, []);
   const [matchesOpen, setMatchesOpen] = useState(false);
   const [profile, setProfile] = useState<{ id: string; ids: readonly string[] } | null>(null);
   const onVerdict = useCallback((id: string, v: Verdict | null) => {
@@ -163,16 +201,44 @@ export function Agent({
    * moment the recruiter knows something the suggestion does not.
    */
   const seed = useCallback((prompt: string) => {
-    setDraft(prompt);
+    draftApi.current.set(prompt);
     const el = areaRef.current;
     if (!el) return;
     el.focus();
     /* Caret to the end rather than selecting the text: a selection means the
        next keystroke destroys the suggestion, which is the opposite of handing
-       someone a draft. */
-    const n = prompt.length;
-    el.setSelectionRange(n, n);
+       someone a draft. After a frame, because the composer commits the new
+       text on its own render. */
+    requestAnimationFrame(() => {
+      const n = el.value.length;
+      el.setSelectionRange(n, n);
+    });
   }, []);
+
+  /* Hovering an idea previews it in the empty composer as ghost text. */
+  const [preview, setPreview] = useState<string | null>(null);
+
+  /* ── PICKING AN IDEA TYPES IT IN ──
+     Rather than the whole sentence appearing at once, it writes itself into
+     the composer over a fraction of a second, so the hand-off from card to
+     field is something you watch happen. Only the composer re-renders per
+     frame. Reduced motion gets the plain seed. */
+  const typing = useRef(0);
+  const seedTyped = useCallback((prompt: string) => {
+    cancelAnimationFrame(typing.current);
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { seed(prompt); return; }
+    const el = areaRef.current;
+    el?.focus();
+    const t0 = performance.now();
+    const dur = Math.min(650, prompt.length * 12);
+    const step = (t: number) => {
+      const k = Math.min(1, (t - t0) / dur);
+      draftApi.current.set(prompt.slice(0, Math.round(prompt.length * k)));
+      if (k < 1) typing.current = requestAnimationFrame(step);
+      else requestAnimationFrame(() => { const n = el?.value.length ?? 0; el?.setSelectionRange(n, n); });
+    };
+    typing.current = requestAnimationFrame(step);
+  }, [seed]);
 
   /**
    * Agents deployed in this session, newest first.
@@ -186,18 +252,25 @@ export function Agent({
   const [deployed, setDeployed] = useState<readonly Deployed[]>([]);
 
   const deploy = useCallback(
-    (role: PipelineRole, name: string, id: CampaignKey) => {
+    (role: PipelineRole, name: string, id: CampaignKey): string => {
       const deployedAt = Date.now();
+      const key = `${id}:${role}:${deployedAt}`;
       setDeployed((d) => [
-        { key: `${id}:${role}:${deployedAt}`, role, campaign: name, campaignId: id, deployedAt },
+        { key, role, campaign: name, campaignId: id, deployedAt },
         ...d,
       ]);
+      return key;
     },
     [],
   );
 
+  /* Undo for a deploy made from the conversation (the dispatch receipt). */
+  const undeploy = useCallback((key: string) => {
+    setDeployed((d) => d.filter((x) => x.key !== key));
+  }, []);
+
   const send = useCallback(() => {
-    const said = draft.trim();
+    const said = draftApi.current.get().trim();
     if (!said) return;
 
     /* ── MEASURE THE OLD LAYOUT WHILE IT IS STILL THE LAYOUT ──
@@ -240,17 +313,17 @@ export function Agent({
        and the button can shift as the field collapses back to one row. */
     const r = sendRef.current?.getBoundingClientRect();
     if (r) setFlight({ id, x: r.left + r.width / 2, y: r.top + r.height / 2 });
-    const sourcing = isSourcingBrief(said);
+    const kind = classify(said);
     pinned.current = true;
     setTurns((t) => [
       ...t,
       {
-        id, said, mode, stage: sourcing ? -1 : 0, startedAt: Date.now(), thoughtMs: null,
+        id, said, mode, stage: kind === "reply" ? 0 : -1, startedAt: Date.now(), thoughtMs: null,
         replyIndex: (id - 1) % REPLIES[mode].length,
-        sourcing,
+        kind,
       },
     ]);
-    setDraft("");
+    draftApi.current.set("");
 
     /* ── SENDING A BRIEF DEPLOYS AN AGENT ──
        This is the link the band was missing: you write a brief, an agent goes
@@ -269,8 +342,8 @@ export function Agent({
        `deploySourcing` — so the band reports the agent when it actually has
        a search to run rather than the instant the brief was typed. */
     const key = SCOPED.find((k) => k === campaign.id);
-    if (key && !sourcing) deploy(mode === "sourcing" ? "Sourcing" : "Outreach", campaign.name, key);
-  }, [draft, mode, deploy, campaign]);
+    if (key && kind === "reply") deploy(mode === "sourcing" ? "Sourcing" : "Outreach", campaign.name, key);
+  }, [mode, deploy, campaign]);
 
   const deploySourcing = useCallback(() => {
     const key = SCOPED.find((k) => k === campaign.id);
@@ -407,8 +480,6 @@ export function Agent({
        Reading a rect after starting an animation would measure a value the
        first animation had already moved, so the whole final layout is
        sampled before anything is allowed to move. */
-    const box = el.getBoundingClientRect();
-    const dy = from - box.top;
     const fieldNow = field.getBoundingClientRect().height;
 
     /* ── THE CONTROLS ARE MEASURED AGAINST THE ANIMATION'S FIRST FRAME ──
@@ -432,6 +503,16 @@ export function Agent({
     const hardH = field.style.height;
     if (fieldWas) field.style.height = `${fieldWas.h}px`;
     const startBox = el.getBoundingClientRect();
+    /* ── THE TRAVEL IS MEASURED FROM THE FIRST FRAME'S LAYOUT ──
+       The composer docks against the bottom edge, so while its field is
+       animating from tall to short, the tall field on the first frame pushes
+       the composer's TOP up by the difference (84px at rest-to-dock). The
+       translate was computed against the final, short layout, so the first
+       painted frame showed the composer 84px above where it had been resting
+       — a jump before the glide. Measured with the field forced back to its
+       starting height, the translate and the shrinking height add up to the
+       resting position on frame one and to the dock on the last. */
+    const dy = from - startBox.top;
     const starts = new Map<Element, { x: number; y: number }>();
     kids?.forEach((_was, kid) => {
       const r = kid.getBoundingClientRect();
@@ -510,6 +591,59 @@ export function Agent({
     return () => anims.forEach((a) => a.cancel());
   }, [started]);
 
+  /* ── THE LANDING COMPOSER SITS ON THE CONFIGURATION PANEL'S BASELINE ──
+     Measured, not derived: the rail's panels change height with their
+     content and the window, so the gap under the heading and the ideas is
+     sized so the composer field's bottom edge lands exactly on the bottom
+     edge of the rail's Configuration panel. Landing only, and only when the
+     rail is beside the column (not stacked under it on narrow screens). The
+     send animation measures its start after this, so the dock is unchanged. */
+  const [landPush, setLandPush] = useState(0);
+  useLayoutEffect(() => {
+    if (started) return;
+    /* ── WHERE THINGS WILL REST, NOT WHERE THEY ARE MID-ENTRANCE ──
+       The rail's panels rise into place when the page mounts. A rect taken
+       during that rise includes the animation's translate, so arriving from
+       another page seated the composer too low and a later re-measure moved
+       it up in front of the user. Offsets would ignore the transform but the
+       rail is sticky, and offsets report its un-stuck position. So: take the
+       rect, and subtract the vertical translate currently applied by any
+       ancestor of the panel, which is exactly what the entrance adds. */
+    const restingBottom = (el: HTMLElement) => {
+      let ty = 0;
+      for (let n: HTMLElement | null = el; n && n !== document.body; n = n.parentElement) {
+        const t = getComputedStyle(n).transform;
+        if (t && t !== "none") ty += new DOMMatrixReadOnly(t).m42;
+      }
+      return el.getBoundingClientRect().bottom - ty;
+    };
+    const measure = () => {
+      const cfg = document.querySelector<HTMLElement>(".rail-config");
+      const field = composerRef.current?.querySelector<HTMLElement>(".orc-composer-field");
+      if (!cfg || !field) return;
+      if (cfg.getBoundingClientRect().left < field.getBoundingClientRect().right) { setLandPush(0); return; }
+      /* Idempotent: the push currently IN THE DOM is subtracted to get the
+         field's unpushed position, and the push is set to the exact target.
+         Adding a delta to the state instead double-counted whenever two
+         measurements ran before a re-render (the observer's first callback
+         and this effect), and the composer overshot by the whole gap. */
+      const applied = parseFloat(getComputedStyle(logRef.current ?? field).getPropertyValue("--land-push")) || 0;
+      const target = Math.max(0, Math.round(restingBottom(cfg) - (restingBottom(field) - applied)));
+      setLandPush((cur) => (Math.abs(target - cur) > 1 ? target : cur));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    const cfg = document.querySelector(".rail-config");
+    if (cfg) ro.observe(cfg);
+    if (streamRef.current) ro.observe(streamRef.current);
+    window.addEventListener("resize", measure);
+    document.fonts?.ready.then(measure).catch(() => {});
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [started, mode]);
+
   /* ── ONE FLAG FOR "THE MORPH IS RUNNING" ──
      It started as "the landing blocks are still fading" and is now also what
      `.orc-stream.is-morphing` reads to stand the glow ring down, so it runs
@@ -560,6 +694,7 @@ export function Agent({
   }, [handoff, onHandoffTaken, seed]);
 
   return (
+    <ConnectorsProvider>
     <div className="orc">
       <div className="orc-main">
 
@@ -575,7 +710,13 @@ export function Agent({
         >
           {/* The transcript owns the scroll, not the column: the composer has
               to stay put while the messages move under it. */}
-          <div className="orc-log" ref={logRef}>
+          {/* The mark, very faint, behind the landing view. It is the brand
+              saying whose surface this is before anything is typed, and it
+              fades out with the heading when a conversation starts. */}
+          {(!started || exiting) && (
+            <span className={`orc-bgmark${exiting ? " is-out" : ""}`} aria-hidden="true"><Mark /></span>
+          )}
+          <div className="orc-log" ref={logRef} style={!started ? { ["--land-push" as string]: `${landPush}px`, minHeight: 0 } : undefined}>
           {started && turns.map((t) => (
             <TurnView
               key={t.id}
@@ -590,6 +731,20 @@ export function Agent({
                 onOpenList: () => { setProfile(null); setMatchesOpen(true); },
                 onPlanned: deploySourcing,
                 onGrow: nudge,
+              }}
+              momentCtx={{
+                said: t.said,
+                verdicts,
+                onVerdict,
+                openProfile: (cid: string, ids?: readonly string[]) =>
+                  setProfile({ id: cid, ids: ids ?? CANDIDATES.map((c) => c.id) }),
+                openList: () => { setProfile(null); setMatchesOpen(true); },
+                deploy: (role, cid) => deploy(role, campaignName(cid), cid),
+                undeploy,
+                seed,
+                onGrow: nudge,
+                prefs,
+                setPref,
               }}
             />
           ))}
@@ -623,59 +778,38 @@ export function Agent({
                       that is the only honest place to put a colour break. */}
                   Superhyre <span className="orc-intro-mark">Agent</span>
                 </h1>
+                {/* Ideas to start from, ABOVE the composer: they are what you
+                    read before you write, and placing them here also rests
+                    the composer lower on the landing page. They leave with
+                    the heading when a brief is sent. */}
+                <Recs
+                  mode={mode}
+                  onPick={seedTyped}
+                  onPreview={setPreview}
+                  disabled={exiting}
+                />
               </div>
             )}
           </div>
 
           <Composer
             started={started}
-            draft={draft}
-            onDraft={setDraft}
+            api={draftApi}
             mode={mode}
             onMode={setMode}
             context={contextFor}
-            attached={attached}
-            onAttach={(id) =>
-              setAttached((a) => (a.includes(id) ? a.filter((x) => x !== id) : [...a, id]))
-            }
+            jd={jd}
+            filterCount={activeCount(filters)}
+            onOpenJd={() => setJdOpen(true)}
+            onOpenFilters={openFilters}
             onSend={send}
             sendRef={sendRef}
             areaRef={areaRef}
             rootRef={composerRef}
             sending={flight !== null}
+            preview={preview}
           />
 
-          {/* Searches worth running, under the field you would run them in.
-              Landing state only: a list of starting points is noise once a
-              brief is already going. */}
-          {(!started || exiting) && (
-            <section
-              className={`orc-recs${exiting ? " is-out" : ""}`}
-              style={exiting ? { top: exitAt.current?.recs ?? 0 } : undefined}
-              aria-hidden={exiting || undefined}
-              aria-label="Recommended searches"
-            >
-              <h2 className="orc-recs-k">Try a search</h2>
-              <ul className="orc-recs-list">
-                {SUGGESTIONS[mode].map((sug) => (
-                  <li key={sug}>
-                    <button
-                      type="button"
-                      className="orc-rec"
-                      /* Unreachable once it is fading away: a control that is
-                         half transparent and mid-flight should not still take
-                         a click. */
-                      tabIndex={exiting ? -1 : undefined}
-                      onClick={() => seed(sug)}
-                    >
-                      <MagnifyingGlass size={13} weight="bold" aria-hidden="true" />
-                      <span>{sug}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
 
         </div>
       </div>
@@ -721,6 +855,21 @@ export function Agent({
         }}
       />
 
+      <JdDialog
+        open={jdOpen}
+        onClose={() => setJdOpen(false)}
+        current={jd}
+        onApply={setJd}
+        onRemove={() => setJd(null)}
+      />
+      <FiltersDialog
+        open={filtersOpen !== null}
+        onClose={() => setFiltersOpen(null)}
+        initial={filtersOpen?.initial ?? EMPTY}
+        prefilled={filtersOpen?.prefilled ?? []}
+        onApply={setFilters}
+      />
+
       <RankedMatches
         open={matchesOpen}
         onClose={() => { setProfile(null); setMatchesOpen(false); }}
@@ -747,13 +896,14 @@ export function Agent({
         scrim={!matchesOpen}
       />
     </div>
+    </ConnectorsProvider>
   );
 }
 
 /* ── a turn ──────────────────────────────────────────────────────────────── */
 
 function TurnView({
-  turn, flyFrom, onFlown, onAnswer, sourcingProps,
+  turn, flyFrom, onFlown, onAnswer, sourcingProps, momentCtx,
 }: {
   turn: Turn;
   flyFrom: { x: number; y: number } | null;
@@ -761,12 +911,35 @@ function TurnView({
   /** A clarifying question's options seed the composer; they never act. */
   onAnswer: (text: string) => void;
   sourcingProps: Omit<React.ComponentProps<typeof SourcingRun>, "onBusy">;
+  /** Everything a Moment may do, minus its own busy flag. */
+  momentCtx: Omit<MomentCtx, "onBusy">;
 }) {
   const stages = STAGES[turn.mode];
   /* A sourcing run reports its own busy state: it is working through its
      phases, idle while it waits for Run search, then working again. */
-  const [busy, setBusy] = useState(turn.sourcing);
-  const running = turn.sourcing ? busy : turn.stage >= 0;
+  const selfRun = turn.kind !== "reply";
+  const [busy, setBusy] = useState(selfRun);
+  const running = selfRun ? busy : turn.stage >= 0;
+  /* Built once per turn, so the moment's effects that depend on the context
+     do not re-run on every Agent render. The functions inside are stable
+     callbacks; the verdicts read through a ref so shortlisting elsewhere
+     still reaches a moment that is already on screen. */
+  const ctxRef = useRef(momentCtx);
+  ctxRef.current = momentCtx;
+  const ctx = useMemo<MomentCtx>(() => ({
+    get said() { return ctxRef.current.said; },
+    get verdicts() { return ctxRef.current.verdicts; },
+    onVerdict: (id, v) => ctxRef.current.onVerdict(id, v),
+    openProfile: (id, ids) => ctxRef.current.openProfile(id, ids),
+    openList: () => ctxRef.current.openList(),
+    deploy: (role, cid) => ctxRef.current.deploy(role, cid),
+    undeploy: (key) => ctxRef.current.undeploy(key),
+    seed: (text) => ctxRef.current.seed(text),
+    onGrow: () => ctxRef.current.onGrow(),
+    get prefs() { return ctxRef.current.prefs; },
+    setPref: (k, v) => ctxRef.current.setPref(k, v),
+    onBusy: setBusy,
+  }), []);
   const mark = useRef<HTMLSpanElement>(null);
 
   /* ── THE FOCAL MOMENT, as a FLIP ──
@@ -856,8 +1029,10 @@ function TurnView({
         </span>
 
         <div className="orc-answer-body">
-          {turn.sourcing ? (
+          {turn.kind === "sourcing" ? (
             <SourcingRun {...sourcingProps} onBusy={setBusy} />
+          ) : turn.kind !== "reply" ? (
+            <Moment kind={turn.kind} ctx={ctx} />
           ) : running ? (
             <p className="orc-stage" aria-live="polite">
               {stages[turn.stage]}
@@ -910,18 +1085,23 @@ const REST_LINES = 3;
 const LINE_H = 22;
 
 function Composer({
-  draft, onDraft, mode, onMode, context, attached, onAttach, onSend,
-  sendRef, areaRef, rootRef, sending, started,
+  api, mode, onMode, context, jd, filterCount, onOpenJd, onOpenFilters, onSend,
+  sendRef, areaRef, rootRef, sending, started, preview,
 }: {
+  /** An idea being hovered, shown as ghost text while the field is empty. */
+  preview: string | null;
   /** True once a brief has been sent; the field then rests at one line. */
   started: boolean;
-  draft: string;
-  onDraft: (v: string) => void;
+  /** How the page reads and sets the draft without owning it. */
+  api: React.MutableRefObject<{ get: () => string; set: (t: string) => void }>;
   mode: ModeId;
   onMode: (m: ModeId) => void;
   context: readonly { id: string; label: string; Icon: typeof ArrowUp; hint: string }[];
-  attached: string[];
-  onAttach: (id: string) => void;
+  jd: Jd | null;
+  filterCount: number;
+  onOpenJd: () => void;
+  /** Opens the filters, pre-filled from what the draft already says. */
+  onOpenFilters: (draft: string) => void;
   onSend: () => void;
   /* Non-nullable element type: `useRef<HTMLButtonElement>(null)` yields
      `RefObject<HTMLButtonElement>`, and React 18's LegacyRef will not accept
@@ -939,6 +1119,11 @@ function Composer({
   sending: boolean;
 }) {
   const mirrorRef = useRef<HTMLDivElement>(null);
+  const [draft, setDraft] = useState("");
+  /* The page's handle on the draft. `get` reads a ref so it is never stale. */
+  const draftNow = useRef(draft);
+  draftNow.current = draft;
+  api.current = { get: () => draftNow.current, set: setDraft };
 
   /* The mirror does not scroll itself — it sits behind a textarea that does,
      so it has to be moved by the same amount or the underlines drift off the
@@ -1014,20 +1199,6 @@ function Composer({
 
   const ready = draft.trim().length > 0;
 
-  /* What the draft has caught, keyed by facet, so a slot can ask the Map
-     directly rather than filtering the match list once per slot. Grouped so
-     one slot reads "Skill  Postgres, Go" instead of two slots both saying
-     Skill. */
-  const caught = (() => {
-    const by = new Map<ReturnType<typeof read>[number]["facet"], string[]>();
-    for (const m of read(draft)) {
-      const list = by.get(m.facet);
-      if (list) list.push(m.text);
-      else by.set(m.facet, [m.text]);
-    }
-    return by;
-  })();
-
   return (
     <div className="orc-composer" ref={rootRef}>
       <div className="orc-composer-field">
@@ -1068,18 +1239,8 @@ function Composer({
             to keep that number correct. */}
         <div className="orc-field-text">
         <div className="orc-mirror" aria-hidden="true" ref={mirrorRef}>
-          {segment(draft).map((run, i) =>
-            run.match ? (
-              <span
-                key={i}
-                className="orc-mark-span"
-                style={{ ["--f" as string]: `var(--c-${FACET_HUE[run.match.facet]})` }}
-              >
-                {run.text}
-              </span>
-            ) : (
-              <span key={i}>{run.text}</span>
-            ),
+          {highlightRuns(draft).map((run, i) =>
+            run.hit ? <span key={i} className="orc-hit">{run.text}</span> : <span key={i}>{run.text}</span>,
           )}
           {/* A trailing newline keeps the mirror's height in step with the
               textarea's when the text ends in a line break, which a browser
@@ -1088,12 +1249,19 @@ function Composer({
         </div>
         <textarea
           ref={areaRef}
-          className="orc-input"
+          className={`orc-input${preview && !draft ? " is-preview" : ""}`}
+          /* Briefs are jargon ("backend", "Postgres", "SRE") that a spell
+             checker flags in red, right on top of the orange highlights. */
+          spellCheck={false}
           value={draft}
-          onChange={(e) => onDraft(e.target.value)}
-          placeholder={mode === "sourcing"
-            ? "Describe who you are looking for…"
-            : "Tell the agent what to run…"}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder={preview && !draft ? preview : started
+            /* Docked, the field shares its line with five controls; the long
+               prompt wrapped to two lines and made the bar taller. */
+            ? (mode === "sourcing" ? "Brief the agent…" : "Ask the agent…")
+            : mode === "sourcing"
+              ? "Describe who you are looking for…"
+              : "Tell the agent what to run…"}
           rows={1}
           onKeyDown={(e) => {
             /* Enter sends, Shift-Enter breaks the line. The convention every
@@ -1126,27 +1294,47 @@ function Composer({
           {/* Sourcing-only. The slots are not decoration — they are the two
               things that change what a sourcing run returns, so they sit on the
               composer rather than in a settings page nobody opens mid-brief. */}
+          {/* Sourcing-only: the two things that change what a run returns.
+              Each opens its own dialog and, once set, says so in place: the
+              JD by name, the filters by count. Docked, they shrink to their
+              icons with the count as a badge. */}
           {context.length > 0 && (
             <div className="orc-slots">
-              {context.map((c) => {
-                const on = attached.includes(c.id);
-                return (
-                  <button
-                    key={c.id}
-                    type="button"
-                    className={`orc-gslot${on ? " is-on" : ""}`}
-                    aria-pressed={on}
-                    title={c.hint}
-                    onClick={() => onAttach(c.id)}
-                  >
-                    {on
-                      ? <Check size={13} weight="bold" aria-hidden="true" />
-                      : <Plus size={13} weight="bold" aria-hidden="true" />}
-                    <span className="orc-chip-l">{c.label}</span>
-                  </button>
-                );
-              })}
+              <button
+                type="button"
+                className={`orc-gslot orc-ctx${jd ? " is-on" : ""}`}
+                title={jd ? `Job description: ${jd.name}` : "Attach a job description"}
+                onClick={onOpenJd}
+              >
+                <span className="orc-ctx-ico" aria-hidden="true">
+                  {jd ? <Check size={12} weight="bold" /> : <FileText size={14} weight="bold" />}
+                </span>
+                <span className="orc-chip-l">{jd ? "JD attached" : "Job description"}</span>
+              </button>
+              <button
+                type="button"
+                className={`orc-gslot orc-ctx${filterCount ? " is-on" : ""}`}
+                title={filterCount ? `${filterCount} filters set` : "Set filters"}
+                onClick={() => onOpenFilters(draft)}
+              >
+                <span className="orc-ctx-ico" aria-hidden="true"><FunnelSimple size={14} weight="bold" /></span>
+                <span className="orc-chip-l">{filterCount ? "Filters" : "Set filters"}</span>
+                {filterCount > 0 && <b className="orc-ctx-n" key={filterCount}>{filterCount}</b>}
+              </button>
             </div>
+          )}
+
+          {/* Docked, the modes and the two context buttons fold into one
+              control, so the bar reads as field → tune → send. */}
+          {started && (
+            <TuneMenu
+              mode={mode}
+              onMode={onMode}
+              jd={jd}
+              filterCount={filterCount}
+              onOpenJd={onOpenJd}
+              onOpenFilters={() => onOpenFilters(draft)}
+            />
           )}
 
           <button
@@ -1201,35 +1389,77 @@ function Composer({
           So the mechanism stays and the empty state goes. The resting surface
           still has a point of view; it is carried by the suggestions, which
           earn it. */}
-      {caught.size > 0 && (
-        <ul className="orc-gauge" aria-label="What this brief specifies">
-          {/* FILTERED to what was actually caught, not mapped over all six.
-              Mapping all six and rendering `hits!.join()` threw a TypeError on
-              the first un-caught facet — a non-null assertion standing in for a
-              guarantee the data does not make. Filtering first means every slot
-              that exists is filled, so `on` is not a state any more and the
-              conditional styling and the assertion both go with it. */}
-          {FACET_ORDER.filter((f) => caught.has(f)).map((facet) => (
-            <li
-              key={facet}
-              className="orc-gslot is-on"
-              style={{
-                background: `var(--c-${FACET_HUE[facet]}-tint)`,
-                borderColor: `var(--c-${FACET_HUE[facet]}-line)`,
-                color: `var(--c-${FACET_HUE[facet]}-text)`,
-              }}
-            >
-              {/* One name per facet, from `FACET_LABEL`. The slot cannot rename
-                  itself between states because there is only one state in which
-                  it exists. */}
-              <b>{FACET_LABEL[facet]}</b>
-              <span className="orc-gslot-v">{caught.get(facet)!.join(", ")}</span>
-            </li>
-          ))}
-        </ul>
-      )}
+      {/* What the brief covers is shown IN the text now: words that give a
+          role, experience, skills, location or industry turn orange as they
+          are typed (see highlightRuns). The separate chips and labels that
+          used to sit here are gone. */}
 
-      <p className="orc-composer-note">{MODES.find((m) => m.id === mode)?.blurb}</p>
     </div>
   );
 }
+
+/* ── the docked bar's one control ────────────────────────────────────────── */
+
+function TuneMenu({
+  mode, onMode, jd, filterCount, onOpenJd, onOpenFilters,
+}: {
+  mode: ModeId;
+  onMode: (m: ModeId) => void;
+  jd: Jd | null;
+  filterCount: number;
+  onOpenJd: () => void;
+  onOpenFilters: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrap = useRef<HTMLDivElement>(null);
+  const set = (jd ? 1 : 0) + filterCount;
+
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: MouseEvent) => { if (!wrap.current?.contains(e.target as Node)) setOpen(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", away);
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("mousedown", away); document.removeEventListener("keydown", esc); };
+  }, [open]);
+
+  const Current = MODES.find((m) => m.id === mode)!.Icon;
+
+  return (
+    <div className="orc-tune-wrap" ref={wrap}>
+      <button
+        type="button"
+        className={`orc-tune${open ? " is-open" : ""}${set ? " is-set" : ""}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title="Mode, job description and filters"
+        onClick={() => setOpen((o) => !o)}
+      >
+        <Current size={14} weight="bold" aria-hidden="true" />
+        <SlidersHorizontal size={14} weight="bold" aria-hidden="true" />
+        {set > 0 && <b className="orc-tune-n" key={set}>{set}</b>}
+      </button>
+      {open && (
+        <div className="orc-tune-pop" role="menu">
+          <div className="orc-tune-modes" role="radiogroup" aria-label="Mode">
+            {MODES.map((m) => (
+              <button key={m.id} type="button" role="radio" aria-checked={mode === m.id} className={`orc-tune-mode${mode === m.id ? " is-on" : ""}`} onClick={() => onMode(m.id)}>
+                <m.Icon size={14} weight={mode === m.id ? "fill" : "regular"} aria-hidden="true" />{m.label}
+              </button>
+            ))}
+          </div>
+          <button type="button" role="menuitem" className="orc-tune-item" onClick={() => { setOpen(false); onOpenJd(); }}>
+            <span className="orc-ctx-ico" aria-hidden="true">{jd ? <Check size={12} weight="bold" /> : <FileText size={14} weight="bold" />}</span>
+            <span className="orc-tune-l"><b>Job description</b><small>{jd ? jd.name : "Rank against the role as written"}</small></span>
+          </button>
+          <button type="button" role="menuitem" className="orc-tune-item" onClick={() => { setOpen(false); onOpenFilters(); }}>
+            <span className="orc-ctx-ico" aria-hidden="true"><FunnelSimple size={14} weight="bold" /></span>
+            <span className="orc-tune-l"><b>Filters</b><small>{filterCount ? `${filterCount} set` : "Location, seniority, company…"}</small></span>
+            {filterCount > 0 && <b className="orc-ctx-n">{filterCount}</b>}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+

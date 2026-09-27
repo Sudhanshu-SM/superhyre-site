@@ -475,28 +475,83 @@
 
 .src-card-meta { margin: 2px 0 0; font: 400 12.5px/1.4 var(--ui); color: var(--ink-2); }
 
+/* The run's call to action: solid orange, raised, and it answers the pointer.
+   Hover deepens the fill and lifts the shadow while the arrow steps forward;
+   press sinks it back down, so the click is felt before anything opens. */
 .src-more {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   justify-self: start;
-  height: 34px;
-  margin-top: 6px;
-  padding: 0 14px;
-  border: 1px solid var(--rule);
+  height: 38px;
+  margin-top: 8px;
+  padding: 0 16px 0 18px;
+  overflow: hidden;
+  border: 0;
   border-radius: var(--r-pill);
-  background: #fff;
-  font: 500 13px/1 var(--ui);
-  color: var(--ink);
+  background: linear-gradient(180deg, #db5a21 0%, var(--accent-fill) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 1px 2px rgba(204, 77, 23, 0.25),
+    0 6px 16px -6px rgba(204, 77, 23, 0.45);
+  font: 600 13px/1 var(--ui);
+  letter-spacing: -0.011em;
+  color: #fff;
   cursor: pointer;
   animation: src-in 420ms var(--ease-out) both;
-  transition: background-color var(--t), border-color var(--t);
+  transition: background 220ms var(--ease-out), box-shadow 240ms var(--ease-out), transform 160ms var(--ease-out);
 }
 
-.src-more:hover { background: var(--page-2); border-color: var(--rule-strong); }
-.src-more:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-.src-more svg { transition: transform var(--t); }
-.src-more:hover svg { transform: translateX(2px); }
+/* A sheen that sweeps across once on hover. */
+.src-more::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, 0.28) 50%, transparent 80%);
+  transform: translateX(-120%);
+  pointer-events: none;
+}
+.src-more:hover::before { transition: transform 700ms var(--ease-out); transform: translateX(120%); }
+
+.src-more:hover {
+  background: linear-gradient(180deg, #cf5019 0%, var(--accent-text) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 2px 4px rgba(204, 77, 23, 0.25),
+    0 12px 24px -8px rgba(204, 77, 23, 0.55);
+}
+.src-more:active {
+  transform: scale(0.97);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.18), 0 1px 2px rgba(204, 77, 23, 0.3);
+  transition: transform 60ms var(--ease-out), box-shadow 60ms var(--ease-out);
+}
+.src-more:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.src-more svg { position: relative; transition: transform 260ms var(--ease-out); }
+.src-more:hover svg { transform: translateX(3px); }
+
+/* The same treatment for every primary action a moment offers. */
+.src-btn.is-primary {
+  background: linear-gradient(180deg, #db5a21 0%, var(--accent-fill) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 1px 2px rgba(204, 77, 23, 0.25),
+    0 4px 12px -5px rgba(204, 77, 23, 0.45);
+  transition: background 220ms var(--ease-out), box-shadow 240ms var(--ease-out), transform 160ms var(--ease-out);
+}
+.src-btn.is-primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, #cf5019 0%, var(--accent-text) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 2px 4px rgba(204, 77, 23, 0.25),
+    0 10px 20px -8px rgba(204, 77, 23, 0.55);
+}
+.src-btn.is-primary:active:not(:disabled) {
+  transform: scale(0.97);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.18), 0 1px 2px rgba(204, 77, 23, 0.3);
+  transition: transform 60ms var(--ease-out), box-shadow 60ms var(--ease-out);
+}
+.src-btn.is-primary:disabled { box-shadow: none; }
 
 /* ── a narrow transcript ──
    Keyed to the run's own width rather than the viewport: the column can be
@@ -523,4 +578,5 @@
   .src-shimmer { animation: none !important; color: var(--ink-2); background: none; }
   .src-spin { animation: spin 1.6s linear infinite !important; animation-duration: 1.6s !important; }
   .src-more:hover svg { transform: none; }
+  .src-more::before { display: none; }
 }

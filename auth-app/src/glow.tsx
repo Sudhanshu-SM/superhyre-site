@@ -35,41 +35,24 @@
  * border width, since the stroke rides the border's centreline.
  */
 
-const GLOW_LAYERS = Array.from({ length: 16 }, (_, i) => {
-  const t = i / 15; // 0 = outermost and faintest, 1 = the core
-  return {
-    /** Dash length, in the normalised pathLength=100 units. */
-    len: +(26 - 17 * t).toFixed(2),
-    /* Thinned twice on review, both times because it read as thick rather than
-       as light: widths began at 7px and the peak alpha at 0.16. Sixteen layers
-       composite as 1 - product(1 - a), so the visible result is much stronger
-       than any single number here suggests — which is exactly how a ramp like
-       this creeps into looking heavy. */
-    width: +(5 - 4 * t).toFixed(2),
-    /* Quadratic, so brightness collects in the middle few layers instead of
-       spreading evenly and washing the whole streak out. */
-    opacity: +(0.018 + 0.072 * t * t).toFixed(3),
-    blur: +(3 - 2.85 * t).toFixed(2),
-  };
-});
+/* ── WHY THE GLOW IS NO LONGER SIXTEEN BLURRED SVG STROKES ──
+   The previous ring animated `stroke-dashoffset` on sixteen stacked, blurred
+   rects. That property is painted on the main thread, and sixteen blurs per
+   frame is an expensive paint: whenever the page was busy — typing, the live
+   band ticking, a moment animating in — frames were dropped and the light
+   visibly stalled partway round, which is how it was reported.
 
+   Now it is a conic gradient on an oversized square that ROTATES, masked
+   down to a thin ring on the host's border (and a softer, blurred ring just
+   outside it for the bloom). Rotation is a transform, which the compositor
+   runs on its own thread: the light keeps moving at full rate no matter what
+   the page is doing, and it never stops mid-lap. `border-radius: inherit`
+   follows any host shape, so no per-host radius variable is needed. */
 export function BorderGlow() {
   return (
-    <svg className="glow-ring" aria-hidden="true" focusable="false">
-      {GLOW_LAYERS.map((layer, i) => (
-        <rect
-          key={i}
-          pathLength={100}
-          style={{
-            // @ts-expect-error -- custom property, read by the shared
-            // dash/offset rule in access.css.
-            "--len": layer.len,
-            strokeWidth: `${layer.width}px`,
-            strokeOpacity: layer.opacity,
-            filter: `blur(${layer.blur}px)`,
-          }}
-        />
-      ))}
-    </svg>
+    <span className="glow-ring is-conic" aria-hidden="true">
+      <span className="gr-bloom"><i /></span>
+      <span className="gr-band"><i /></span>
+    </span>
   );
 }

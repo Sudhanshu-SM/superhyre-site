@@ -1,0 +1,138 @@
+/* ═══════════════════════════════ ui pieces ══════════════════════════════════ */
+
+/* ── dialog ── */
+
+.dg {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-dialog);
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+}
+
+.dg-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(26, 22, 20, 0.32);
+  animation: cb-fade 240ms var(--ease-out) both;
+}
+
+.dg-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(1080px, 100%);
+  height: min(820px, 100%);
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 12px 40px rgba(26, 22, 20, 0.18), 0 1px 3px rgba(26, 22, 20, 0.06);
+  outline: none;
+  animation: rm-in 340ms var(--ease-out) both;
+}
+.dg-panel.is-md { width: min(720px, 100%); height: auto; max-height: min(760px, 100%); }
+.dg-panel.is-xl { width: min(1240px, 100%); }
+
+.dg.is-leaving .dg-scrim { animation: cb-fade-out 220ms var(--ease-out) both; }
+.dg.is-leaving .dg-panel { animation: rm-out 220ms var(--ease-out) both; }
+
+.dg-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background-color var(--t);
+}
+.dg-close:hover { background: var(--sub); }
+.dg-close:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+@media (max-width: 700px) {
+  .dg { padding: 0; }
+  .dg-panel, .dg-panel.is-md { width: 100%; height: 100%; max-height: none; border-radius: 0; border: 0; }
+}
+
+/* ── action button ── */
+
+.ab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 0 14px;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: var(--r-pill);
+  font: 500 12.5px/1 var(--ui);
+  letter-spacing: -0.011em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 260ms var(--ease-out), color 260ms var(--ease-out), border-color 260ms var(--ease-out);
+}
+.ab:active:not(:disabled) { transform: scale(0.97); transition: transform 60ms var(--ease-out); }
+.ab:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.ab:disabled { cursor: default; }
+
+.ab.is-primary { background: var(--accent-fill); color: #fff; }
+.ab.is-primary:hover:not(:disabled) { background: var(--accent-text); }
+.ab.is-quiet { background: #fff; border-color: var(--rule); color: var(--ink); }
+.ab.is-quiet:hover:not(:disabled) { background: var(--page-2); }
+.ab.is-busy.is-primary { background: var(--accent-text); }
+.ab.is-done { background: var(--c-sage-tint) !important; border-color: var(--c-sage-line) !important; color: var(--c-sage-text) !important; cursor: default; }
+
+.ab-in { display: inline-flex; align-items: center; gap: 7px; animation: ab-in 240ms var(--ease-out); }
+@keyframes ab-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+
+.ab-spin {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1.75px solid rgba(255, 255, 255, 0.35);
+  border-top-color: currentColor;
+  animation: spin 0.7s linear infinite;
+}
+.ab.is-quiet .ab-spin { border-color: var(--hairline); border-top-color: var(--accent); }
+
+.ab-check {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--c-sage-fill);
+  color: #fff;
+  animation: ab-check 420ms var(--ease-out);
+}
+@keyframes ab-check {
+  0%   { transform: scale(0); }
+  55%  { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+
+/* ── collapse ── */
+
+.cl {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 380ms var(--ease-out), opacity 260ms var(--ease-out);
+}
+.cl.is-open { grid-template-rows: 1fr; opacity: 1; }
+.cl-in { min-height: 0; overflow: hidden; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ab-in, .ab-check { animation: none; }
+  .cl { transition-duration: 1ms; }
+  .dg-panel { animation-name: cb-fade !important; animation-duration: 180ms !important; }
+}

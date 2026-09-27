@@ -11609,3 +11609,108 @@ body {
     --orc-inset-r: 0px;
   }
 }
+
+/* ═════════════════ the border glow, compositor edition (see glow.tsx) ═══════ */
+
+.glow-ring.is-conic {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.glow-ring.is-conic > span {
+  position: absolute;
+  border-radius: inherit;
+  overflow: hidden;
+  /* Keep only the ring between the padding box and the border box. */
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+
+/* The line itself: exactly over the 1px border, a touch wider so it reads. */
+.glow-ring.is-conic > .gr-band { inset: -1px; padding: 1.5px; }
+
+/* The bloom: a slightly wider, fainter ring just outside the line. NOT
+   blurred: a blur filter on a rotating layer is re-filtered every frame, and
+   measured, it alone took keystrokes from one frame (16ms) to 24–56ms while
+   the field was focused. The softness comes from the gradient and the
+   field's own static focus shadow instead. */
+.glow-ring.is-conic > .gr-bloom { inset: -3.5px; padding: 3.5px; opacity: 0.32; }
+
+.glow-ring.is-conic i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 160%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg 240deg,
+    rgba(234, 90, 30, 0.12) 280deg,
+    rgba(234, 90, 30, 0.75) 334deg,
+    #ffc3a3 350deg,
+    transparent 360deg
+  );
+  animation: glow-spin var(--nav-sweep-dur) linear infinite;
+  animation-play-state: paused;
+  will-change: transform;
+}
+/* A warm, static halo while the composer is in use. Painted once, not per
+   frame, so it adds depth to the travelling light for free. */
+.orc-composer-field:focus-within {
+  box-shadow: 0 0 0 4px rgba(234, 90, 30, 0.05), 0 10px 28px -12px rgba(234, 90, 30, 0.28);
+}
+
+@keyframes glow-spin { to { transform: rotate(360deg); } }
+
+/* Runs only while its host shows it, so a hidden ring costs nothing. */
+.nav-find:hover .glow-ring.is-conic i,
+.nav-switch-field:hover .glow-ring.is-conic i,
+.nav-switch-field:focus-within .glow-ring.is-conic i,
+.orc-composer-field:hover .glow-ring.is-conic i,
+.orc-composer-field:focus-within .glow-ring.is-conic i { animation-play-state: running; }
+
+@media (prefers-reduced-motion: reduce) {
+  .glow-ring.is-conic i { animation: none; }
+}
+
+
+/* ═════════════ sidebar collapse, rebuilt (see Console.tsx toggleRail) ═════════
+
+   The grid column now SNAPS to its final width; only the sidebar's own width
+   animates, drawn above the content (z-index) so that while it narrows it
+   overlaps the space the content has already slid into, and while it widens
+   it covers the content's edge until the content has slid clear. The curve
+   and the 300ms match the content's transform in Console.tsx. */
+@property --nav-col {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 256px;
+}
+/* Desktop only: below 900px the sidebar is a drawer with its own rules. */
+@media (min-width: 900px) {
+.con { --nav-col: var(--nav-w); grid-template-columns: var(--nav-col) minmax(0, 1fr); }
+.con:has(.nav.is-railed) { --nav-col: var(--nav-w-rail); }
+.con { transition: none; }
+.nav {
+  position: sticky;
+  z-index: 5;
+  transition: width 300ms cubic-bezier(0.65, 0, 0.35, 1);
+}
+.nav.is-railed { width: var(--nav-w-rail); }
+.nav:not(.is-railed) { width: 256px; }
+
+/* The brand mark and the bell fade and scale instead of vanishing. */
+.nav .nav-mark { transition: opacity 180ms var(--ease-out) 90ms, transform 260ms var(--ease-out) 90ms; }
+.nav.is-railed .nav-mark { display: inline-flex; opacity: 0; transform: scale(0.6); pointer-events: none; transition: opacity 110ms var(--ease-out), transform 160ms var(--ease-out); }
+.nav .nav-bell { transition: opacity 160ms var(--ease-out) 110ms; }
+.nav.is-railed .nav-bell { transition: opacity 90ms var(--ease-out); }
+.nav .nav-find { transition: border-color 200ms var(--ease-out), background-color 200ms var(--ease-out), box-shadow 200ms var(--ease-out); }
+
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav { transition: none; }
+}
