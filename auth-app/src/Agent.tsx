@@ -599,6 +599,11 @@ export function Agent({
      rail is beside the column (not stacked under it on narrow screens). The
      send animation measures its start after this, so the dock is unchanged. */
   const [landPush, setLandPush] = useState(0);
+  /* And the heading sits on the line of the rail's first label ("Last 7
+     days"), which moves with the window because the rail centres itself on
+     tall screens. Measured in the same pass so the composer's push can
+     account for the heading moving in the same frame. */
+  const [headDrop, setHeadDrop] = useState(0);
   useLayoutEffect(() => {
     if (started) return;
     /* ── WHERE THINGS WILL REST, NOT WHERE THEY ARE MID-ENTRANCE ──
@@ -609,26 +614,43 @@ export function Agent({
        rail is sticky, and offsets report its un-stuck position. So: take the
        rect, and subtract the vertical translate currently applied by any
        ancestor of the panel, which is exactly what the entrance adds. */
-    const restingBottom = (el: HTMLElement) => {
+    const shift = (el: HTMLElement) => {
       let ty = 0;
       for (let n: HTMLElement | null = el; n && n !== document.body; n = n.parentElement) {
         const t = getComputedStyle(n).transform;
         if (t && t !== "none") ty += new DOMMatrixReadOnly(t).m42;
       }
-      return el.getBoundingClientRect().bottom - ty;
+      return ty;
     };
+    const restingBottom = (el: HTMLElement) => el.getBoundingClientRect().bottom - shift(el);
+    const restingTop = (el: HTMLElement) => el.getBoundingClientRect().top - shift(el);
     const measure = () => {
       const cfg = document.querySelector<HTMLElement>(".rail-config");
       const field = composerRef.current?.querySelector<HTMLElement>(".orc-composer-field");
       if (!cfg || !field) return;
-      if (cfg.getBoundingClientRect().left < field.getBoundingClientRect().right) { setLandPush(0); return; }
+      if (cfg.getBoundingClientRect().left < field.getBoundingClientRect().right) { setLandPush(0); setHeadDrop(0); return; }
+      const style = getComputedStyle(logRef.current ?? field);
+      const appliedDrop = parseFloat(style.getPropertyValue("--head-drop")) || 0;
+      const label = document.querySelector<HTMLElement>(".rail-sec-title");
+      const head = streamRef.current?.querySelector<HTMLElement>(".orc-intro-h");
+      /* Text on text: the heading's glyph box, not its line box, meets the
+         label's, so both are offset by their half-leading. */
+      const glyphTop = (el: HTMLElement) => {
+        const c = getComputedStyle(el);
+        return restingTop(el) + (parseFloat(c.lineHeight) - parseFloat(c.fontSize)) / 2;
+      };
+      const drop = label && head ? Math.round(glyphTop(label) - (glyphTop(head) - appliedDrop)) : 0;
+      /* Never pulled up past the column's own top padding. */
+      const nextDrop = Math.max(-24, drop);
+      setHeadDrop((cur) => (Math.abs(nextDrop - cur) > 1 ? nextDrop : cur));
       /* Idempotent: the push currently IN THE DOM is subtracted to get the
          field's unpushed position, and the push is set to the exact target.
          Adding a delta to the state instead double-counted whenever two
          measurements ran before a re-render (the observer's first callback
          and this effect), and the composer overshot by the whole gap. */
-      const applied = parseFloat(getComputedStyle(logRef.current ?? field).getPropertyValue("--land-push")) || 0;
-      const target = Math.max(0, Math.round(restingBottom(cfg) - (restingBottom(field) - applied)));
+      const applied = parseFloat(style.getPropertyValue("--land-push")) || 0;
+      const fieldRest = restingBottom(field) - applied - appliedDrop + nextDrop;
+      const target = Math.max(0, Math.round(restingBottom(cfg) - fieldRest));
       setLandPush((cur) => (Math.abs(target - cur) > 1 ? target : cur));
     };
     measure();
@@ -716,7 +738,7 @@ export function Agent({
           {(!started || exiting) && (
             <span className={`orc-bgmark${exiting ? " is-out" : ""}`} aria-hidden="true"><Mark /></span>
           )}
-          <div className="orc-log" ref={logRef} style={!started ? { ["--land-push" as string]: `${landPush}px`, minHeight: 0 } : undefined}>
+          <div className="orc-log" ref={logRef} style={!started ? { ["--land-push" as string]: `${landPush}px`, ["--head-drop" as string]: `${headDrop}px`, minHeight: 0 } : undefined}>
           {started && turns.map((t) => (
             <TurnView
               key={t.id}

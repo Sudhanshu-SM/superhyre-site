@@ -1,5 +1,6 @@
 import { List } from "@phosphor-icons/react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { ContactsPage } from "./Contacts";
 import { DialerPage } from "./DialerPage";
 import { ExtensionPage } from "./ExtensionPage";
 import { Nav } from "./Nav";
@@ -60,6 +61,11 @@ function readRailed(): boolean {
     return false;
   }
 }
+
+/* Experiment: a frosted sidebar over a soft warm light. One flag, so it can
+   be judged side by side and removed cleanly (the CSS is the `.con.is-glass`
+   block at the end of access.css). */
+const GLASS = true;
 
 export function Console({ bootstrap, onSignOut, signingOut }: Props) {
   const [route, setRoute] = useState<RouteId>(() => routeFromHash(window.location.hash));
@@ -264,7 +270,7 @@ export function Console({ bootstrap, onSignOut, signingOut }: Props) {
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 
   return (
-    <div className="con">
+    <div className={`con${GLASS ? " is-glass" : ""}`}>
       {/* First tab stop on the page. With a nav this long, a keyboard user
           otherwise tabs through every row to reach the content. */}
       <a className="con-skip" href="#con-main">Skip to content</a>
@@ -323,6 +329,8 @@ export function Console({ bootstrap, onSignOut, signingOut }: Props) {
               handoff={handoff}
               onHandoffTaken={clearHandoff}
             />
+          ) : route === "contacts" ? (
+            <ContactsPage />
           ) : route === "integrations" ? (
             <ExtensionPage />
           ) : route === "campaign-calls" ? (
