@@ -1,0 +1,191 @@
+/* ═══════════════════════════════ sourcing stages ═══════════════════════════════
+   One quiet card at the head of a sourcing run: the goal on the left, the
+   step on the right, and three nodes joined by a line that fills with the
+   work. Colour is spent only on state: orange for done and running, amber
+   for "waiting on you", grey for not yet.                                   */
+
+.stg {
+  position: sticky;
+  top: 6px;
+  z-index: 3;
+  display: grid;
+  gap: 12px;
+  padding: 12px 16px 14px;
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  /* Solid: when it pins, transcript text slides beneath it, and the orc
+     turn's own transform stops a backdrop blur from reaching that text. */
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(58, 35, 23, 0.04), 0 10px 26px -18px rgba(0, 0, 0, 0.22);
+  transition: border-color 400ms var(--ease-out), box-shadow 400ms var(--ease-out);
+}
+
+.stg-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }
+.stg-goal { display: inline-flex; align-items: center; gap: 7px; min-width: 0; font: 400 12.5px/1.2 var(--ui); color: var(--ink-2); }
+.stg-goal svg { flex: none; color: var(--accent); }
+.stg-goal-k { flex: none; }
+.stg-goal-v { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; color: var(--ink); }
+.stg-status { flex: none; font: 500 12px/1 var(--ui); font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.stg-reached {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 9px;
+  border-radius: var(--r-pill);
+  background: #ebf6e6;
+  color: #3f7d2a;
+  animation: stg-pop 460ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* ── the track ── */
+.stg-track {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.stg-stage {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  grid-template-rows: 32px auto;
+  column-gap: 10px;
+  row-gap: 8px;
+  min-width: 0;
+}
+.stg-stage:last-child { grid-template-columns: 32px minmax(0, 1fr); }
+.stg-node { grid-row: 1; grid-column: 1; }
+.stg-rail { grid-row: 1; grid-column: 2; }
+.stg-text { grid-row: 2; }
+
+.stg-text { grid-column: 1 / -1; display: grid; gap: 3px; min-width: 0; padding-right: 12px; }
+.stg-stage:last-child .stg-text { padding-right: 0; }
+.stg-label { font: 600 13px/1.2 var(--ui); letter-spacing: -0.01em; color: var(--ink-2); transition: color 300ms var(--ease-out); }
+.stg-note { font: 400 12px/1.35 var(--ui); color: var(--ink-2); animation: stg-note 360ms var(--ease-out) both; }
+.stg-stage.is-live .stg-label, .stg-stage.is-wait .stg-label, .stg-stage.is-done .stg-label { color: var(--ink); }
+.stg-stage.is-wait .stg-note { color: #8a6a12; }
+.stg-stage.is-todo .stg-note { color: #9a918a; }
+
+/* ── nodes ── */
+.stg-node {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1.5px solid #e2ddd8;
+  border-radius: 50%;
+  background: #fff;
+  color: #a39a93;
+  transition: background-color 360ms var(--ease-out), border-color 360ms var(--ease-out), color 360ms var(--ease-out);
+}
+.stg-node-ico, .stg-node-ok { grid-area: 1 / 1; display: grid; place-items: center; transition: opacity 240ms var(--ease-out), transform 420ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+.stg-node-ok { opacity: 0; transform: scale(0.3) rotate(-30deg); color: #fff; }
+
+.stg-stage.is-live .stg-node { border-color: var(--accent); color: var(--accent); }
+.stg-stage.is-live .stg-node-ico { animation: stg-bob 1.6s ease-in-out infinite; }
+.stg-pulse {
+  position: absolute;
+  inset: -1.5px;
+  border-radius: 50%;
+  border: 1.5px solid var(--accent);
+  animation: stg-ring 1.6s var(--ease-out) infinite;
+  pointer-events: none;
+}
+
+.stg-stage.is-wait .stg-node { border-color: #d9a441; background: #fdf7e7; color: #a57b12; }
+.stg-stage.is-wait .stg-node::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 1px dashed rgba(217, 164, 65, 0.7);
+  animation: stg-spin 9s linear infinite;
+}
+
+.stg-stage.is-done .stg-node { border-color: var(--accent); background: var(--accent); }
+.stg-stage.is-done .stg-node-ico { opacity: 0; transform: scale(0.4); }
+.stg-stage.is-done .stg-node-ok { opacity: 1; transform: none; }
+
+/* ── rails ── */
+.stg-rail {
+  align-self: center;
+  position: relative;
+  height: 2px;
+  margin-right: 10px;
+  border-radius: 2px;
+  background: #ece8e4;
+  overflow: hidden;
+}
+.stg-rail-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #f2884f, var(--accent));
+  transform-origin: left center;
+  transform: scaleX(0);
+  transition: transform 520ms var(--ease-out);
+}
+/* A glint travels the unfilled rail after a running stage, so the line reads
+   as work in motion, not a static gauge. */
+.stg-stage.is-live .stg-rail::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 40px;
+  background: linear-gradient(90deg, transparent, rgba(234, 90, 30, 0.35), transparent);
+  animation: stg-glint 1.4s ease-in-out infinite;
+}
+
+/* ── reached ── */
+.stg.is-reached {
+  border-color: rgba(234, 90, 30, 0.28);
+  box-shadow: 0 1px 2px rgba(58, 35, 23, 0.04), 0 14px 32px -18px rgba(204, 77, 23, 0.4);
+}
+.stg.is-reached .stg-stage .stg-node { animation: stg-pop 520ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.stg.is-reached .stg-stage:nth-child(2) .stg-node { animation-delay: 90ms; }
+.stg.is-reached .stg-stage:nth-child(3) .stg-node { animation-delay: 180ms; }
+
+.stg-burst { position: absolute; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; }
+.stg-burst i {
+  position: absolute;
+  left: -2.5px;
+  top: -2.5px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0;
+  animation: stg-spark 720ms var(--ease-out) 200ms forwards;
+}
+.stg-burst i:nth-child(3n) { background: #f7b58f; }
+.stg-burst i:nth-child(3n + 1) { background: #7fb36a; width: 4px; height: 4px; }
+
+@keyframes stg-ring { 0% { opacity: 0.7; transform: scale(1); } 100% { opacity: 0; transform: scale(1.7); } }
+@keyframes stg-bob { 0%, 100% { transform: none; } 50% { transform: translateY(-1.5px); } }
+@keyframes stg-spin { to { transform: rotate(360deg); } }
+@keyframes stg-glint { from { transform: translateX(-40px); } to { transform: translateX(400px); } }
+@keyframes stg-note { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+@keyframes stg-pop { 0% { transform: scale(0.85); } 60% { transform: scale(1.08); } 100% { transform: none; } }
+@keyframes stg-spark {
+  0% { opacity: 1; transform: rotate(var(--a)) translateX(6px); }
+  100% { opacity: 0; transform: rotate(var(--a)) translateX(30px) scale(0.4); }
+}
+
+/* Narrow column: notes wrap to two lines rather than disappear; the goal
+   drops its "Goal" key to keep its own words. */
+@container (max-width: 460px) {
+  .stg { padding: 12px 14px 13px; }
+  .stg-note { font-size: 11.5px; }
+  .stg-text { padding-right: 8px; }
+  .stg-goal-k { display: none; }
+  .stg-rail { margin-right: 8px; }
+  .stg-stage { column-gap: 8px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stg-pulse, .stg-stage.is-live .stg-node-ico, .stg-stage.is-wait .stg-node::after, .stg-stage.is-live .stg-rail::after,
+  .stg-burst i, .stg.is-reached .stg-node, .stg-reached, .stg-note { animation: none; }
+  .stg-rail-fill { transition-duration: 0ms !important; }
+}

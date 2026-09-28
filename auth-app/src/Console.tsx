@@ -1,5 +1,6 @@
 import { List } from "@phosphor-icons/react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { CampaignsPage } from "./CampaignsPage";
 import { ContactsPage } from "./Contacts";
 import { DialerPage } from "./DialerPage";
 import { ExtensionPage } from "./ExtensionPage";
@@ -329,6 +330,8 @@ export function Console({ bootstrap, onSignOut, signingOut }: Props) {
               handoff={handoff}
               onHandoffTaken={clearHandoff}
             />
+          ) : route === "campaigns" ? (
+            <CampaignsPage onOpen={(c) => { setCampaign({ id: c.id, name: c.name, role: `${c.department} · ${c.location}` }); navigate("agent"); }} />
           ) : route === "contacts" ? (
             <ContactsPage />
           ) : route === "integrations" ? (

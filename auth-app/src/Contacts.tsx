@@ -1,5 +1,5 @@
 import {
-  ArrowsLeftRight, BookmarkSimple, Briefcase, CaretDown, CaretLeft, CaretRight, Check, Copy, EnvelopeSimple,
+  ArrowUpRight, ArrowsLeftRight, BookmarkSimple, Briefcase, GoogleChromeLogo, CaretDown, CaretLeft, CaretRight, Check, Copy, EnvelopeSimple,
   FunnelSimple, GraduationCap, LinkedinLogo, MagnifyingGlass, MapPin, Phone, SealCheck, SortAscending, X,
 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -11,6 +11,7 @@ import {
   CONTACTS, EMPTY_FILTERS, EXP_BANDS, MEMBERS, SEED_SHORTLIST, SENIORITIES, activeFilterCount, capturedLabel,
   matches, optionsFor, sortContacts,
 } from "./contacts";
+import { CHROME_STORE_URL } from "./config";
 import { Dialog } from "./ui";
 import { CAMPAIGNS } from "./workspaces";
 import "./contacts.css";
@@ -90,15 +91,19 @@ export function ContactsPage() {
   const nFilters = activeFilterCount(filters);
   const withEmail = inCamp.filter((c) => c.email).length;
   const withPhone = inCamp.filter((c) => c.phone).length;
-  const trayRef = useRef<HTMLDivElement>(null);
-  const [trayInView, setTrayInView] = useState(true);
-  useEffect(() => {
-    const el = trayRef.current;
-    if (!el) return;
-    const io = new IntersectionObserver(([e]) => setTrayInView(!!e?.isIntersecting), { threshold: 0.6 });
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
+  const shortlistAll = (campaign: string) => {
+    const all = selected.every((id) => (lists[id] ?? []).includes(campaign));
+    setLists((cur) => {
+      const next = { ...cur };
+      for (const id of selected) {
+        const had = next[id] ?? [];
+        next[id] = all ? had.filter((x) => x !== campaign) : had.includes(campaign) ? had : [...had, campaign];
+      }
+      return next;
+    });
+    const n = selected.length;
+    toast(all ? `Removed ${n} from ${campName(campaign)}` : `Shortlisted ${n === 1 ? "1 person" : `all ${n}`} for ${campName(campaign)}`);
+  };
   const onCompare = () => {
     if (selected.length < 2) { toast("Tick 2 or 3 people to compare"); return; }
     setComparing(true);
@@ -108,7 +113,7 @@ export function ContactsPage() {
     <div className="ct">
       <header className="ct-head">
         <div className="ct-head-t">
-          <h1 className="con-h1">Contacts</h1>
+          <h1 className="ct-h1">Contacts</h1>
           <p className="ct-lede">
             <Num n={inCamp.length} /> saved<span className="ct-dot" aria-hidden="true" />
             <Num n={withEmail} /> with email<span className="ct-dot" aria-hidden="true" />
@@ -116,37 +121,31 @@ export function ContactsPage() {
           </p>
         </div>
         <div className="ct-head-act">
-          <div className={`ct-head-sl${selected.length ? " is-on" : ""}`} aria-hidden={!selected.length}>
-            <ShortlistMenuButton
-              label={`Shortlist ${selected.length || ""}`}
-              isOn={(campaign) => selected.length > 0 && selected.every((id) => (lists[id] ?? []).includes(campaign))}
-              onPick={(campaign) => {
-                const all = selected.every((id) => (lists[id] ?? []).includes(campaign));
-                setLists((cur) => {
-                  const next = { ...cur };
-                  for (const id of selected) {
-                    const had = next[id] ?? [];
-                    next[id] = all ? had.filter((x) => x !== campaign) : had.includes(campaign) ? had : [...had, campaign];
-                  }
-                  return next;
-                });
-                toast(all ? `Removed ${selected.length} from ${campName(campaign)}` : `Shortlisted ${selected.length} for ${campName(campaign)}`);
-              }}
-              suggest={people[0]?.campaign}
-              tabIndex={selected.length ? undefined : -1}
-            />
-          </div>
-          <div ref={trayRef}>
-            <CompareTray people={people} onCompare={onCompare} onRemove={(id) => setSelected((cur) => cur.filter((x) => x !== id))} />
-          </div>
+          <a className="ct-ext" href={CHROME_STORE_URL} target="_blank" rel="noreferrer noopener">
+            <span className="ct-ext-ico" aria-hidden="true"><GoogleChromeLogo size={18} weight="duotone" /></span>
+            <span className="ct-ext-t">
+              <span className="ct-ext-l">Save profiles from LinkedIn</span>
+              <span className="ct-ext-v">Add the Chrome extension</span>
+            </span>
+            <ArrowUpRight size={14} weight="bold" className="ct-ext-go" aria-hidden="true" />
+          </a>
+          <CompareTray people={people} onCompare={onCompare} onRemove={(id) => setSelected((cur) => cur.filter((x) => x !== id))} />
         </div>
       </header>
 
-      {/* The same tray, floating at the foot of the window, whenever the
-          header's copy has scrolled away and someone is ticked. */}
-      <div className={`ct-dock${selected.length && !trayInView ? " is-on" : ""}`} aria-hidden={!selected.length || trayInView}>
+      {/* Whenever anyone is ticked, wherever the page is scrolled: shortlist
+          them all for one campaign, or compare them. */}
+      <div className={`ct-dock${selected.length ? " is-on" : ""}`} aria-hidden={!selected.length}>
         <CompareTray people={people} onCompare={onCompare} onRemove={(id) => setSelected((cur) => cur.filter((x) => x !== id))} />
-        <button type="button" className="ct-dock-x" onClick={() => setSelected([])} aria-label="Clear selection" title="Clear selection">
+        <span className="ct-dock-sep" aria-hidden="true" />
+        <ShortlistMenuButton
+          label={selected.length > 1 ? `Shortlist all ${selected.length}` : "Shortlist"}
+          isOn={(campaign) => selected.length > 0 && selected.every((id) => (lists[id] ?? []).includes(campaign))}
+          onPick={shortlistAll}
+          suggest={people[0]?.campaign}
+          tabIndex={selected.length ? undefined : -1}
+        />
+        <button type="button" className="ct-dock-x" onClick={() => setSelected([])} aria-label="Clear selection" title="Clear selection" tabIndex={selected.length ? undefined : -1}>
           <X size={12} weight="bold" />
         </button>
       </div>
@@ -279,7 +278,7 @@ export function ContactsPage() {
 }
 
 /* A number that counts to its new value instead of snapping. */
-function Num({ n }: { n: number }) {
+export function Num({ n }: { n: number }) {
   const [shown, setShown] = useState(n);
   const from = useRef(n);
   useEffect(() => {
@@ -576,7 +575,7 @@ function ShortlistMenuButton({
    Portalled so the table's horizontal scroll cannot clip it; placed under
    its button, or above when there is no room below. */
 
-function Popover({
+export function Popover({
   anchor, open, onClose, align = "start", width, children,
 }: {
   anchor: RefObject<HTMLElement>;
@@ -601,8 +600,15 @@ function Popover({
     place();
     const id = requestAnimationFrame(place);
     window.addEventListener("resize", place);
-    window.addEventListener("scroll", onClose, true);
-    return () => { cancelAnimationFrame(id); window.removeEventListener("resize", place); window.removeEventListener("scroll", onClose, true); };
+    /* Close when the PAGE scrolls (the anchor moves away), but not when the
+       popover's own list scrolls: a capture listener sees both, and closing
+       on every scroll made a long list impossible to scroll. */
+    const onScroll = (e: Event) => {
+      if (panel.current && e.target instanceof Node && panel.current.contains(e.target)) return;
+      onClose();
+    };
+    window.addEventListener("scroll", onScroll, true);
+    return () => { cancelAnimationFrame(id); window.removeEventListener("resize", place); window.removeEventListener("scroll", onScroll, true); };
   }, [open, anchor, align, width, onClose]);
 
   useEffect(() => {
@@ -1022,11 +1028,11 @@ function CompareDialog({
 
 let pushToast: ((m: string) => void) | null = null;
 
-function useToast() {
+export function useToast() {
   return useCallback((m: string) => pushToast?.(m), []);
 }
 
-function Toaster() {
+export function Toaster() {
   const [msg, setMsg] = useState<{ text: string; n: number } | null>(null);
   useEffect(() => {
     let n = 0;

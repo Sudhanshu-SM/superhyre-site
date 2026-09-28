@@ -523,20 +523,6 @@
    Glass is used on the two surfaces that float over content (the toolbar,
    which sticks, and the table); everything inside them stays plain. */
 
-.ct::before {
-  content: "";
-  position: fixed;
-  z-index: -1;
-  top: -180px;
-  right: -140px;
-  width: 620px;
-  height: 520px;
-  border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(248, 150, 96, 0.22), rgba(248, 150, 96, 0));
-  filter: blur(40px);
-  pointer-events: none;
-  animation: ct-light 30s ease-in-out infinite alternate;
-}
 @keyframes ct-light { to { transform: translate3d(-120px, 160px, 0) scale(1.1); } }
 
 /* ── header ── */
@@ -548,10 +534,6 @@
 .ct-head-act { display: flex; align-items: center; gap: 10px; }
 
 /* Bulk shortlist: only there while someone is ticked; slides in beside the tray. */
-.ct-head-sl { display: grid; grid-template-columns: 0fr; opacity: 0; transition: grid-template-columns 320ms var(--ease-out), opacity 200ms var(--ease-out); }
-.ct-head-sl > * { overflow: hidden; min-width: 0; }
-.ct-head-sl.is-on { grid-template-columns: 1fr; opacity: 1; }
-.ct-head-sl .ct-btn { height: 40px; }
 
 /* ── compare tray ── */
 .ct-tray {
@@ -802,7 +784,7 @@
   }
   /* Sticky offsets count from inside the scroller's top padding, so take
      that padding back to pin the toolbar 10px from the window's top. */
-  .con-main:has(> .ct) .ct-bar { top: calc(10px - clamp(26px, 5vh, 58px)); }
+  .con-main:has(> .ct) .ct-bar { top: -12px; }
 }
 /* Below that the shell unlocks (access.css, max-height: 1000px) and the
    document itself scrolls; a scroller here would only trap the wheel. */
@@ -1028,4 +1010,76 @@ body:has(.ct-dock.is-on) .ct-toast-host { bottom: 92px; }
 .ct-foot-next:hover:not(:disabled) svg { transform: translateX(2px); }
 
 /* Room under the table so the floating compare bar never sits on a row. */
-.ct { padding-bottom: 88px; }
+.ct:has(.ct-dock.is-on) { padding-bottom: 72px; }
+
+
+/* ── header, tightened ──
+   Less air above the title, the title in the product's wordmark face (the
+   same treatment as "Superhyre Agent"), and the bottom of the page ends a
+   short step under the table. */
+.con-main:has(> .ct) { padding-top: 22px; padding-bottom: 24px; }
+.ct-head { align-items: center; }
+.ct-h1 {
+  margin: 0 0 4px;
+  font-family: var(--word);
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.024em;
+  color: var(--ink);
+}
+
+/* ── get the extension ──
+   A quiet link card beside the compare tray: the extension is where every
+   contact on this page comes from, so the way to get it lives here. */
+.ct-ext {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 14px 0 6px;
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.62);
+  -webkit-backdrop-filter: blur(16px) saturate(1.5);
+  backdrop-filter: blur(16px) saturate(1.5);
+  box-shadow: 0 0 0 1px rgba(58, 35, 23, 0.07), 0 6px 20px -10px rgba(0, 0, 0, 0.2);
+  text-decoration: none;
+  transition: box-shadow 240ms var(--ease-out), background-color 240ms var(--ease-out);
+}
+.ct-ext:hover { background: rgba(255, 255, 255, 0.9); box-shadow: 0 0 0 1px rgba(58, 35, 23, 0.1), 0 10px 26px -12px rgba(0, 0, 0, 0.28); }
+.ct-ext:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.ct-ext-ico {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(58, 35, 23, 0.08);
+  color: var(--ink);
+  transition: transform 360ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.ct-ext:hover .ct-ext-ico { transform: rotate(-12deg); }
+.ct-ext-t { display: grid; gap: 3px; }
+.ct-ext-l { font: 400 11px/1 var(--ui); color: var(--ink-2); }
+.ct-ext-v { font: 500 13px/1 var(--ui); color: var(--ink); white-space: nowrap; }
+.ct-ext-go { color: var(--ink-2); transition: transform 220ms var(--ease-out), color 220ms; }
+.ct-ext:hover .ct-ext-go { transform: translate(2px, -2px); color: var(--accent-text); }
+
+/* ── the dock, now also for shortlisting ── */
+.ct-dock { padding: 4px 6px 4px 4px; }
+.ct-dock-sep { width: 1px; height: 24px; margin: 0 4px; background: rgba(58, 35, 23, 0.1); }
+.ct-dock .ct-btn { height: 36px; border-color: transparent; background: rgba(255, 255, 255, 0.85); box-shadow: inset 0 0 0 1px rgba(58, 35, 23, 0.08); }
+.ct-dock .ct-btn:hover { background: #fff; }
+
+@media (max-width: 900px) {
+  .ct-ext-l { display: none; }
+}
+@media (max-width: 640px) {
+  .ct-ext { display: none; }
+}
+
+/* A list scrolled to its end must not hand the wheel on to the page: the
+   page scrolling is what closes a popover. */
+.ct-pop, .ct-cp-list, .ct-menu { overscroll-behavior: contain; }

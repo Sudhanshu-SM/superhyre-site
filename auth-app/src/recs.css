@@ -125,44 +125,33 @@
 }
 
 /* ── the background mark ──
-   Behind the landing view only. `isolation` on the stream makes z-index -1
-   sit above the stream's ground but below everything written on it. A slow
-   drift keeps it from reading as a watermark stamped on the page; it is a
-   transform, so the compositor carries it. */
+   Only in the default view: the empty landing, before anything is typed or
+   previewed. It is the brand saying whose surface this is while the page is
+   still a blank invitation; the moment someone starts writing (or hovers an
+   idea) it steps out of the way, and it never shows behind a conversation.
+   Still, not animated: a drifting mark at this opacity read as flickering.
+
+   `isolation` on the stream makes z-index -1 sit above the stream's ground
+   but below everything written on it. */
 .orc-stream { isolation: isolate; }
 .orc-bgmark {
   position: absolute;
   left: 50%;
   top: 44%;
   z-index: -1;
-  width: min(460px, 78%);
+  width: min(440px, 76%);
   aspect-ratio: 34 / 35;
   translate: -50% -50%;
   color: var(--accent);
-  opacity: 0.05;
+  opacity: 0;
   pointer-events: none;
-  animation: bgmark-in 1.1s var(--ease-out) both, bgmark-drift 14s ease-in-out 1.1s infinite alternate;
-  transition: opacity 420ms var(--ease-out);
+  transition: opacity 320ms var(--ease-out);
 }
-.orc-bgmark svg { width: 100%; height: 100%; }
-.orc-bgmark.is-out { opacity: 0; }
-@keyframes bgmark-in { from { opacity: 0; transform: scale(0.94) rotate(-6deg); } to { opacity: 0.05; transform: none; } }
-@keyframes bgmark-drift { from { transform: rotate(0deg) scale(1); } to { transform: rotate(8deg) scale(1.03); } }
+.orc-bgmark svg { width: 100%; height: 100%; display: block; }
+.orc-bgmark[data-idle="1"]:not(.is-out) { opacity: 0.05; transition-duration: 600ms; }
 
 @media (prefers-reduced-motion: reduce) {
-  .orc-bgmark { animation: none; }
-}
-
-/* A faint warm wash under the landing view, centred on the mark. Painted
-   once; it leaves with the mark. */
-.orc-bgmark::before {
-  content: "";
-  position: absolute;
-  inset: -30%;
-  z-index: -1;
-  border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(234, 90, 30, 0.9), transparent);
-  opacity: 0.35;
+  .orc-bgmark { transition: none; }
 }
 
 /* The space that seats the composer on the Configuration panel's baseline

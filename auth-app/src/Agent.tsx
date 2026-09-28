@@ -218,6 +218,15 @@ export function Agent({
   /* Hovering an idea previews it in the empty composer as ghost text. */
   const [preview, setPreview] = useState<string | null>(null);
 
+  /* The background mark shows only in the default view: nothing typed,
+     nothing previewed. Written straight onto the element, because the draft
+     lives in the composer so typing never re-renders this page. */
+  const markRef = useRef<HTMLSpanElement>(null);
+  const onIdle = useCallback((idle: boolean) => {
+    const el = markRef.current;
+    if (el) el.dataset.idle = idle ? "1" : "";
+  }, []);
+
   /* ── PICKING AN IDEA TYPES IT IN ──
      Rather than the whole sentence appearing at once, it writes itself into
      the composer over a fraction of a second, so the hand-off from card to
@@ -736,7 +745,9 @@ export function Agent({
               saying whose surface this is before anything is typed, and it
               fades out with the heading when a conversation starts. */}
           {(!started || exiting) && (
-            <span className={`orc-bgmark${exiting ? " is-out" : ""}`} aria-hidden="true"><Mark /></span>
+            <span ref={markRef} className={`orc-bgmark${exiting ? " is-out" : ""}`} aria-hidden="true" data-idle="1">
+              <Mark />
+            </span>
           )}
           <div className="orc-log" ref={logRef} style={!started ? { ["--land-push" as string]: `${landPush}px`, ["--head-drop" as string]: `${headDrop}px`, minHeight: 0 } : undefined}>
           {started && turns.map((t) => (
@@ -830,6 +841,7 @@ export function Agent({
             rootRef={composerRef}
             sending={flight !== null}
             preview={preview}
+            onIdle={onIdle}
           />
 
 
@@ -1108,8 +1120,10 @@ const LINE_H = 22;
 
 function Composer({
   api, mode, onMode, context, jd, filterCount, onOpenJd, onOpenFilters, onSend,
-  sendRef, areaRef, rootRef, sending, started, preview,
+  sendRef, areaRef, rootRef, sending, started, preview, onIdle,
 }: {
+  /** True while the field is empty and nothing is being previewed. */
+  onIdle?: (idle: boolean) => void;
   /** An idea being hovered, shown as ghost text while the field is empty. */
   preview: string | null;
   /** True once a brief has been sent; the field then rests at one line. */
@@ -1146,6 +1160,9 @@ function Composer({
   const draftNow = useRef(draft);
   draftNow.current = draft;
   api.current = { get: () => draftNow.current, set: setDraft };
+
+  const idle = !draft && !preview;
+  useEffect(() => { onIdle?.(idle); }, [idle, onIdle]);
 
   /* The mirror does not scroll itself — it sits behind a textarea that does,
      so it has to be moved by the same amount or the underlines drift off the

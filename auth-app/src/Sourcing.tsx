@@ -3,6 +3,8 @@ import {
   FunnelSimple, Sparkle, X,
 } from "@phosphor-icons/react";
 import { useEffect, useId, useRef, useState } from "react";
+import type { StageView } from "./Stages";
+import { Stages } from "./Stages";
 import type { Candidate, Filter, Phase, Verdict } from "./sourcing";
 import {
   CANDIDATES, CRITERIA, FILTERS, PLAN_PHASES, PREVIEW_COUNT, REASON, RUN_PHASES, TOTAL_MATCHES,
@@ -119,9 +121,11 @@ export function SourcingRun({
 
   const confirmAt = SEQUENCE.findIndex((s) => s.kind === "confirm");
   const ran = at > confirmAt;
+  const track = stagesFor({ step, took, ran, matches, criteria: criteria.length, verdicts });
 
   return (
     <div className="src">
+      <Stages goal="Shortlist senior backend engineers" {...track} />
       {SEQUENCE.slice(0, at + 1).map((s, i) => {
         if (s.kind === "phase") {
           const ms = took[s.phase.id];
@@ -157,6 +161,66 @@ export function SourcingRun({
       })}
     </div>
   );
+}
+
+/* ── stages ──────────────────────────────────────────────────────────────── */
+
+/** Where the run stands, as the three legs of the goal. Derived, never stored. */
+function stagesFor({ step, took, ran, matches, criteria, verdicts }: {
+  step: Step | undefined;
+  took: Readonly<Record<string, number>>;
+  ran: boolean;
+  matches: number;
+  criteria: number;
+  verdicts: Readonly<Record<string, Verdict>>;
+}): { stages: StageView[]; reached: boolean; summary: string } {
+  const n = matches.toLocaleString("en-IN");
+  const running = step?.kind === "phase" && took[step.phase.id] == null ? step.phase : null;
+
+  /* Searching has four parts: brief, build, the recruiter's Run, the scan. */
+  const searchParts = [took.brief != null, took.build != null, ran, took.search != null];
+  const searchDone = searchParts.filter(Boolean).length;
+  const searching: StageView = {
+    id: "search",
+    progress: searchDone / 4,
+    creep: running && ["brief", "build", "search"].includes(running.id) ? { to: (searchDone + 1) / 4, ms: running.ms } : undefined,
+    state: took.search != null ? "done" : step?.kind === "confirm" ? "wait" : "live",
+    note: took.search != null ? `${n} profiles scanned`
+      : step?.kind === "confirm" ? "Waiting for you to run it"
+      : running?.id === "brief" ? "Reading your brief"
+      : running?.id === "build" || took.build == null ? "Building the search"
+      : `Scanning ${n} profiles`,
+  };
+
+  const matching: StageView = {
+    id: "match",
+    progress: took.calibrate != null ? 1 : 0,
+    creep: running?.id === "calibrate" ? { to: 1, ms: running.ms } : undefined,
+    state: took.calibrate != null ? "done" : took.search != null ? "live" : "todo",
+    note: took.calibrate != null ? `${CANDIDATES.length} ranked · best ${PREVIEW_COUNT} picked`
+      : took.search != null ? `Ranking on ${criteria} criteria`
+      : "Rank on your criteria",
+  };
+
+  const preview = CANDIDATES.slice(0, PREVIEW_COUNT);
+  const called = preview.filter((c) => verdicts[c.id]);
+  const kept = called.filter((c) => verdicts[c.id] === "shortlisted").length;
+  const atResults = step?.kind === "results";
+  const reached = atResults && called.length === preview.length;
+  const deciding: StageView = {
+    id: "decide",
+    progress: called.length / preview.length,
+    state: reached ? "done" : atResults ? "wait" : "todo",
+    note: reached ? `${kept} shortlisted · ${preview.length - kept} passed`
+      : atResults ? `${called.length} of ${preview.length} decided, your call`
+      : "Your call on the best fits",
+  };
+
+  return {
+    stages: [searching, matching, deciding],
+    reached,
+    summary: kept ? `Goal reached · ${kept} shortlisted` : "Goal reached",
+  };
 }
 
 /* ── a phase ─────────────────────────────────────────────────────────────── */
