@@ -1,0 +1,668 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>SuperHyre — WhatsApp hiring assistant</title>
+<link rel="icon" type="image/svg+xml" href="logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fanwood+Text:ital@0;1&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* Matches superhyre.com: white page, near-black ink, orange accent, Fanwood / IBM Plex / PP Mondwest. */
+  @font-face {
+    font-family: 'PP Mondwest';
+    src: url('/assets/mondwest-neuebit-font/ppmondwest-regular.otf') format('opentype');
+    font-weight: 400; font-display: swap;
+  }
+  :root {
+    --accent: #EA5A1E; --accent-soft: #fdefe8; --black: #0a0a0a; --ink2: #1a1a1a; --muted: #555;
+    --rule: #e2e2e2; --rule-strong: #9a9a9a; --bg: #ffffff; --panel: #fafafa;
+    --danger: #b3261e; --danger-bg: #fdecea; --ok: #1e7a3c; --ok-bg: #e8f5ec;
+    --serif: 'Fanwood Text', Georgia, serif;
+    --pixel: 'PP Mondwest', 'Fanwood Text', Georgia, serif;
+    --ui: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    min-height: 100vh; min-height: 100dvh; background: var(--bg); color: var(--black);
+    font: 16px/1.5 var(--ui); -webkit-font-smoothing: antialiased; -webkit-text-size-adjust: 100%;
+    display: flex; align-items: flex-start; justify-content: center;
+    padding: max(20px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  }
+  main { width: 100%; max-width: 440px; margin-top: clamp(0px, 5vh, 48px); }
+  main.wide { max-width: 680px; margin-top: 0; }
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 2px 22px; }
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--black); }
+  .brand img { width: 34px; height: 35px; display: block; }
+  .brand span { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-weight: 500; font-size: 22px; letter-spacing: .02em; }
+  .brand b { font-weight: 500; color: var(--accent); }
+  .card { background: var(--bg); border: 1px solid var(--accent); border-radius: 20px; padding: 28px 22px 24px; box-shadow: 0 24px 70px rgba(0,0,0,.08); }
+  .card + .card, .card + .section, .section + .section { margin-top: 16px; }
+  h1 { font-family: var(--pixel); font-weight: 400; color: var(--accent); font-size: 32px; line-height: 1.05; margin: 0 0 10px; overflow-wrap: anywhere; }
+  h2 { font-family: var(--pixel); font-weight: 400; color: var(--black); font-size: 24px; line-height: 1.1; margin: 0 0 14px; }
+  p.lead { font-family: var(--serif); font-size: 18px; line-height: 1.5; color: var(--ink2); margin: 0 0 22px; }
+  .banner { background: var(--accent-soft); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 18px; font-family: var(--serif); font-size: 17px; }
+  .banner.ok { background: var(--ok-bg); color: var(--ok); }
+  .field { margin-bottom: 16px; }
+  label, .label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 6px; }
+  input[type=text], input[type=tel], select {
+    width: 100%; height: 52px; padding: 0 14px; font: inherit; font-size: 16px; color: var(--black);
+    background: #fff; border: 1px solid var(--rule-strong); border-radius: var(--radius); outline: none; appearance: none; -webkit-appearance: none;
+  }
+  input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(234,90,30,.18); }
+  .phone { display: grid; grid-template-columns: 112px 1fr; gap: 8px; }
+  select { background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 18px) 23px, calc(100% - 13px) 23px; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 30px; }
+  button, a.btn {
+    display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 54px;
+    border: 1px solid var(--accent); border-radius: 100px; background: var(--accent); color: #fff; cursor: pointer; text-decoration: none;
+    font-family: var(--pixel); font-size: 21px; letter-spacing: .3px; box-shadow: 0 8px 22px rgba(234,90,30,.30); transition: filter .15s;
+  }
+  button:hover, a.btn:hover { filter: brightness(1.07); }
+  button:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  a.btn svg { width: 22px; height: 22px; fill: #fff; flex: none; }
+  a.btn.ghost { background: #fff; color: var(--accent); box-shadow: none; }
+  a.btn.ghost svg { fill: var(--accent); }
+  .link { background: none; border: 0; box-shadow: none; color: var(--accent); min-height: 44px; font-family: var(--ui); font-size: 15px; font-weight: 500; width: auto; padding: 0 6px; }
+  .link:hover { text-decoration: underline; filter: none; }
+  .link:disabled { color: var(--rule-strong); text-decoration: none; }
+  .link.muted { color: var(--muted); }
+  .row { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; gap: 8px; }
+  .otp { text-align: center; font-size: 28px !important; letter-spacing: .5em; padding-left: .5em !important; font-variant-numeric: tabular-nums; }
+  .error { display: none; background: var(--danger-bg); color: var(--danger); border-radius: 10px; padding: 10px 12px; margin: 0 0 14px; font-size: 14.5px; }
+  .error.show { display: block; }
+  .hint { color: var(--muted); font-size: 14px; font-weight: 300; margin: 14px 0 0; text-align: center; }
+  .dev { background: #fff7d6; color: #6b5300; border-radius: 10px; padding: 8px 12px; font-size: 14px; margin-bottom: 14px; }
+  .check { width: 64px; height: 64px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; margin: 4px auto 16px; }
+  .center { text-align: center; }
+  [hidden] { display: none !important; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .spin { width: 18px; height: 18px; border: 3px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: r .7s linear infinite; }
+  .spin.small { display: inline-block; width: 12px; height: 12px; border-width: 2px; vertical-align: -1px; margin-right: 4px; }
+  @keyframes r { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spin { animation-duration: 2s; } }
+  .code { font-family: var(--ui); font-size: 34px; font-weight: 600; letter-spacing: .3em; padding: 12px 0 12px .3em; font-variant-numeric: tabular-nums; background: var(--accent-soft); color: var(--black); border-radius: var(--radius); margin: 0 0 18px; }
+  .foot { text-align: center; color: var(--muted); font-size: 13px; font-weight: 300; margin-top: 18px; }
+  .foot a { color: var(--accent); text-decoration: none; font-weight: 400; }
+  .foot a:hover { text-decoration: underline; }
+  .switch { text-align: center; margin: 14px 0 0; font-size: 15px; color: var(--muted); }
+  .switch .link { display: inline; min-height: 0; padding: 0; }
+
+  /* Dashboard */
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media (max-width: 520px) { .two { grid-template-columns: 1fr; gap: 0; } }
+  .section h2 { display: flex; align-items: baseline; gap: 8px; margin: 26px 2px 12px; }
+  .section h2 small { font-family: var(--ui); font-size: 14px; color: var(--muted); }
+  .empty { border: 1px dashed var(--rule-strong); border-radius: 16px; padding: 20px; text-align: center; color: var(--muted); font-size: 15px; }
+  .job { border: 1px solid var(--rule); border-radius: 16px; padding: 18px 16px 12px; background: #fff; }
+  .job + .job { margin-top: 12px; }
+  .job.new { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(234,90,30,.14); }
+  .job.closed { background: var(--panel); }
+  .job-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .job-title { font-family: var(--serif); font-size: 22px; line-height: 1.2; margin: 0; overflow-wrap: anywhere; }
+  .job-co { color: var(--ink2); font-size: 15px; margin: 2px 0 0; overflow-wrap: anywhere; }
+  .job-meta { color: var(--muted); font-size: 13.5px; margin: 6px 0 14px; }
+  .pill { flex: none; font-size: 12.5px; font-weight: 500; padding: 3px 10px; border-radius: 100px; background: var(--ok-bg); color: var(--ok); }
+  .pill.closed { background: #eee; color: var(--muted); }
+  .inv { border: 1px solid var(--rule); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
+  .inv-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .inv-label { font-size: 14px; font-weight: 500; }
+  .inv-url { font-size: 13px; color: var(--muted); word-break: break-all; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .acts { display: flex; gap: 6px; flex: none; }
+  button.sm {
+    width: auto; min-height: 36px; padding: 0 14px; font-family: var(--ui); font-size: 14px; font-weight: 500; letter-spacing: 0;
+    background: #fff; color: var(--accent); border: 1px solid var(--accent); box-shadow: none;
+  }
+  button.sm.fill { background: var(--accent); color: #fff; }
+  .job-foot { display: flex; justify-content: flex-end; }
+  details.closed-list > summary { list-style: none; cursor: pointer; }
+  details.closed-list > summary::-webkit-details-marker { display: none; }
+  details.closed-list > summary h2::after { content: "+"; font-family: var(--ui); color: var(--muted); margin-left: auto; font-size: 20px; }
+  details.closed-list[open] > summary h2::after { content: "−"; }
+  .toast { position: fixed; left: 50%; bottom: max(20px, env(safe-area-inset-bottom)); transform: translateX(-50%); background: var(--black); color: #fff; padding: 10px 16px; border-radius: 100px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<main id="main">
+  <div class="top">
+    <a class="brand" href="https://superhyre.com" aria-label="SuperHyre home"><img src="logo.svg" alt=""><span>SUPER<b>HYRE</b></span></a>
+    <button type="button" class="link muted" id="b-logout" hidden>Sign out</button>
+  </div>
+
+  <section class="card" id="s-details" hidden>
+    <h1 id="title">Get started</h1>
+    <p class="lead" id="lead">Set up your hiring assistant on WhatsApp. Create jobs, share invite links and let it coordinate interviews for you.</p>
+    <div class="banner" id="invited" hidden></div>
+    <div class="error" id="e1" role="alert"></div>
+    <form id="f-details" novalidate>
+      <div class="field" id="name-field">
+        <label for="name">Full name</label>
+        <input id="name" type="text" autocomplete="name" autocapitalize="words" maxlength="80" required>
+      </div>
+      <div class="field" id="company-field">
+        <label for="company">Company name</label>
+        <input id="company" type="text" autocomplete="organization" autocapitalize="words" maxlength="120">
+      </div>
+      <div class="field">
+        <label for="phone">Mobile number (WhatsApp)</label>
+        <div class="phone">
+          <select id="cc" aria-label="Country code">
+            <option value="91" selected>IN +91</option><option value="1">US +1</option><option value="44">UK +44</option>
+            <option value="971">AE +971</option><option value="65">SG +65</option><option value="61">AU +61</option>
+            <option value="49">DE +49</option><option value="33">FR +33</option><option value="966">SA +966</option>
+            <option value="92">PK +92</option><option value="880">BD +880</option><option value="94">LK +94</option>
+            <option value="977">NP +977</option><option value="234">NG +234</option><option value="27">ZA +27</option>
+          </select>
+          <input id="phone" type="tel" inputmode="numeric" autocomplete="tel-national" placeholder="98765 43210" maxlength="16" required>
+        </div>
+      </div>
+      <button type="submit" id="b-send">Continue</button>
+    </form>
+    <p class="hint">Next, you'll confirm your number with one WhatsApp message.</p>
+    <p class="switch" id="switch"></p>
+  </section>
+
+  <section class="card" id="s-otp" hidden>
+    <h1>Enter your code</h1>
+    <p class="lead" id="otp-lead"></p>
+    <div class="dev" id="dev" hidden>Test mode: use code <b>123456</b></div>
+    <div class="error" id="e2" role="alert"></div>
+    <form id="f-otp" novalidate>
+      <div class="field">
+        <label for="otp" class="sr">6-digit code</label>
+        <input id="otp" class="otp" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]*" placeholder="······" required>
+      </div>
+      <button type="submit" id="b-verify">Verify</button>
+    </form>
+    <div class="row">
+      <button type="button" class="link" id="b-back">Change number</button>
+      <button type="button" class="link" id="b-resend" disabled>Resend code</button>
+    </div>
+  </section>
+
+  <section class="card center" id="s-wa" hidden>
+    <h1>Confirm on WhatsApp</h1>
+    <p class="lead" id="wa-lead"></p>
+    <div class="code" id="wa-code" aria-label="Your code"></div>
+    <div class="error" id="e3" role="alert"></div>
+    <a class="btn wa" id="wa-send" href="#" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path id="wa-icon" d="M20.5 3.5A11.4 11.4 0 0 0 12 0C5.7 0 .6 5.1.6 11.4c0 2 .5 4 1.5 5.7L.5 24l7.1-1.9a11.4 11.4 0 0 0 5.4 1.4h.1c6.3 0 11.4-5.1 11.4-11.4 0-3-1.2-5.9-3.3-8.1zM13 21.6a9.5 9.5 0 0 1-4.9-1.3l-.4-.2-4.2 1.1 1.1-4.1-.2-.4a9.5 9.5 0 1 1 8.6 4.9zm5.2-7.1c-.3-.1-1.7-.8-1.9-.9-.3-.1-.5-.1-.7.1l-.9 1.1c-.2.2-.3.2-.6.1a7.8 7.8 0 0 1-3.9-3.4c-.3-.5.3-.5.8-1.5.1-.2 0-.4 0-.5l-.9-2.1c-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.1.2 2.1 3.2 5.1 4.5 1.9.8 2.6.9 3.5.7.6-.1 1.7-.7 2-1.4.2-.7.2-1.3.2-1.4-.1-.2-.3-.3-.6-.4z"/></svg>Send code on WhatsApp</a>
+    <p class="hint" id="wa-wait"><span class="spin small" aria-hidden="true"></span> Waiting for your message…</p>
+    <div class="row">
+      <button type="button" class="link" id="b-back2">Change number</button>
+      <button type="button" class="link" id="b-new" disabled>Get a new code</button>
+    </div>
+  </section>
+
+  <section class="card center" id="s-done" hidden>
+    <div class="check" aria-hidden="true">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+    </div>
+    <h1 id="done-title">You're all set</h1>
+    <p class="lead" id="done-lead"></p>
+    <a class="btn wa" id="wa" href="#" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#wa-icon"/></svg>Chat with Superhyre</a>
+    <p class="hint" id="wa-hint"></p>
+  </section>
+
+  <div id="s-dash" hidden>
+    <section class="card">
+      <h1 id="d-hello">Your jobs</h1>
+      <p class="lead" id="d-lead"></p>
+      <div class="banner ok" id="d-welcome" hidden>You're set up. Your assistant is on WhatsApp: tell it about a new role anytime and it will create the job and send you the invite links. Everything also shows up here.</div>
+      <a class="btn ghost" id="d-wa" href="#" target="_blank" rel="noopener" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#wa-icon"/></svg>Open WhatsApp chat</a>
+    </section>
+
+    <section class="card">
+      <h2>New job</h2>
+      <div class="error" id="e4" role="alert"></div>
+      <form id="f-job" novalidate>
+        <div class="two">
+          <div class="field">
+            <label for="j-company">Company</label>
+            <input id="j-company" type="text" autocapitalize="words" maxlength="120" required>
+          </div>
+          <div class="field">
+            <label for="j-role">Role</label>
+            <input id="j-role" type="text" autocapitalize="words" maxlength="120" placeholder="e.g. Backend Engineer" required>
+          </div>
+        </div>
+        <button type="submit" id="b-job">Create job</button>
+      </form>
+      <p class="hint">You'll get two links: one for candidates, one for hiring managers.</p>
+    </section>
+
+    <section class="section">
+      <h2>Open jobs <small id="n-open"></small></h2>
+      <div id="open-jobs"></div>
+    </section>
+
+    <details class="section closed-list" id="closed-wrap" hidden>
+      <summary><h2>Closed jobs <small id="n-closed"></small></h2></summary>
+      <div id="closed-jobs"></div>
+    </details>
+  </div>
+
+  <div class="card center" id="s-loading" aria-live="polite"><span class="spin" style="display:inline-block;color:var(--accent)" aria-hidden="true"></span><span class="sr">Loading</span></div>
+
+  <p class="foot">By continuing you agree to receive WhatsApp messages from Superhyre. <a href="privacy.html">Privacy policy</a></p>
+</main>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="config.js"></script>
+<script>
+(function () {
+  var API = window.SUPERHYRE_API;
+  var $ = function (id) { return document.getElementById(id); };
+  var params = new URLSearchParams(location.search);
+  var clean = function (v) { return (v || "").toLowerCase().replace(/[^a-z0-9]/g, ""); };
+  var jobCode = clean(params.get("j"));
+  var legacy = clean(params.get("r"));
+  var magic = (params.get("t") || "").toLowerCase().replace(/[^a-f0-9]/g, "");
+  var state = { phone: "", name: "", company: "", mode: "signup", resendAt: 0, timer: null, me: null, newJob: null };
+  var SCREENS = ["s-details", "s-otp", "s-wa", "s-done", "s-dash", "s-loading"];
+
+  // ---------- storage (may be blocked; the page still works, you just sign in again) ----------
+  function getSession() { try { return localStorage.getItem("sh_session") || ""; } catch (x) { return ""; } }
+  function setSession(s) { try { s ? localStorage.setItem("sh_session", s) : localStorage.removeItem("sh_session"); } catch (x) {} state.session = s || ""; }
+  state.session = getSession();
+
+  function call(body) {
+    return fetch(API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json().catch(function () { return { ok: false, message: "Something went wrong. Please try again." }; }); })
+      .catch(function () { return { ok: false, message: "No connection. Please check your internet and try again." }; });
+  }
+  function show(id) {
+    SCREENS.forEach(function (s) { $(s).hidden = s !== id; });
+    $("main").classList.toggle("wide", id === "s-dash");
+    $("b-logout").hidden = id !== "s-dash";
+    window.scrollTo(0, 0);
+  }
+  function err(id, msg) { var e = $(id); e.textContent = msg || ""; e.classList.toggle("show", !!msg); }
+  function busy(btn, on, label) {
+    btn.disabled = on;
+    btn.innerHTML = on ? '<span class="spin" aria-hidden="true"></span>' : label;
+  }
+  function toast(msg) {
+    var t = $("toast"); t.textContent = msg; t.classList.add("show");
+    clearTimeout(toast.h); toast.h = setTimeout(function () { t.classList.remove("show"); }, 1800);
+  }
+  function timeZone() {
+    try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (x) { return undefined; }
+  }
+  function e164() {
+    var digits = $("phone").value.replace(/\D/g, "").replace(/^0+/, "");
+    return digits.length >= 6 && digits.length <= 14 ? "+" + $("cc").value + digits : "";
+  }
+
+  // ---------- entry form: recruiter sign-up, recruiter sign-in, or joining a job ----------
+  function setMode(mode) {
+    state.mode = mode;
+    err("e1", "");
+    $("name-field").hidden = mode === "login";
+    $("company-field").hidden = mode !== "signup";
+    if (mode === "signup") {
+      $("title").textContent = "Get started";
+      $("lead").textContent = "Set up your hiring assistant on WhatsApp. Create jobs, share invite links and let it coordinate interviews for you.";
+      $("switch").innerHTML = 'Already signed up? <button type="button" class="link" data-mode="login">Sign in</button>';
+    } else if (mode === "login") {
+      $("title").textContent = "Welcome back";
+      $("lead").textContent = "Sign in with your WhatsApp number to see your jobs and invite links.";
+      $("switch").innerHTML = 'New to Superhyre? <button type="button" class="link" data-mode="signup">Create an account</button>';
+    } else {
+      $("switch").innerHTML = "";
+    }
+  }
+  $("switch").addEventListener("click", function (e) {
+    var m = e.target.getAttribute && e.target.getAttribute("data-mode");
+    if (m) { setMode(m); (m === "login" ? $("phone") : $("name")).focus(); }
+  });
+
+  function sendBody() {
+    var b = { action: "send", phone: state.phone, tz: timeZone() };
+    if (state.mode === "join") { b.name = state.name; b.job = jobCode; }
+    else if (state.mode === "login") b.login = true;
+    else { b.name = state.name; b.company = state.company; }
+    return b;
+  }
+
+  function sendCode() {
+    err("e1", "");
+    var name = $("name").value.replace(/\s+/g, " ").trim();
+    var company = $("company").value.replace(/\s+/g, " ").trim();
+    var phone = e164();
+    if (state.mode !== "login" && name.length < 2) return err("e1", "Please enter your full name."), $("name").focus();
+    if (state.mode === "signup" && company.length < 2) return err("e1", "Please enter your company name."), $("company").focus();
+    if (!phone) return err("e1", "Please enter a valid mobile number."), $("phone").focus();
+    state.phone = phone; state.name = name; state.company = company;
+    var btn = $("b-send");
+    busy(btn, true);
+    return call(sendBody()).then(function (r) {
+      busy(btn, false, "Continue");
+      if (!r.ok) {
+        if (r.code === "no_account") setMode("signup");
+        return err("e1", r.message);
+      }
+      if (r.mode === "reverse") return startWhatsApp(r);
+      $("otp-lead").textContent = "We sent a 6-digit code to " + phone + " on WhatsApp.";
+      $("dev").hidden = !r.dev;
+      $("otp").value = "";
+      err("e2", "");
+      show("s-otp");
+      startResendTimer();
+      $("otp").focus();
+    });
+  }
+  $("f-details").addEventListener("submit", function (e) { e.preventDefault(); sendCode(); });
+
+  // Reverse OTP: the person sends the shown code from their own WhatsApp, which proves they own the number.
+  function startWhatsApp(r) {
+    state.code = r.code;
+    $("wa-lead").textContent = "Send this code from the WhatsApp account on " + state.phone + ". We'll continue as soon as it arrives.";
+    $("wa-code").textContent = r.code;
+    $("wa-send").href = r.wa_url;
+    $("wa-wait").hidden = false;
+    err("e3", "");
+    show("s-wa");
+    clearTimeout(state.newTimer);
+    $("b-new").disabled = true;
+    state.newTimer = setTimeout(function () { $("b-new").disabled = false; }, 30000);
+    poll();
+  }
+
+  function poll() {
+    clearTimeout(state.poll);
+    var code = state.code;
+    state.poll = setTimeout(function () {
+      if (code !== state.code || $("s-wa").hidden) return;
+      call({ action: "status", phone: state.phone, code: code }).then(function (r) {
+        if (code !== state.code) return;
+        if (r.ok && r.verified) return done(r);
+        if (!r.ok && r.code === "expired") { $("wa-wait").hidden = true; return err("e3", r.message); }
+        poll();
+      });
+    }, document.hidden ? 1500 : 2500);
+  }
+
+  function done(r) {
+    clearTimeout(state.poll); clearInterval(state.timer);
+    state.code = "";
+    if (r.kind === "recruiter" && r.session) {
+      setSession(r.session);
+      return loadDashboard({ welcome: state.mode === "signup" });
+    }
+    $("done-title").textContent = "You're all set, " + r.first_name;
+    $("done-lead").textContent = r.kind === "recruiter"
+      ? "Your Superhyre assistant is ready. Continue in WhatsApp."
+      : "You're connected. Your assistant will message you on WhatsApp when there's something to do, like sharing your availability.";
+    var wa = $("wa");
+    if (r.wa_url) { wa.href = r.wa_url; wa.hidden = false; $("wa-hint").textContent = "Your chat with Superhyre is already open in WhatsApp."; }
+    else { wa.hidden = true; $("wa-hint").textContent = "You can close this page and continue in WhatsApp."; }
+    show("s-done");
+  }
+
+  $("b-back2").addEventListener("click", function () { state.code = ""; clearTimeout(state.poll); show("s-details"); });
+  $("b-new").addEventListener("click", function () {
+    $("b-new").disabled = true;
+    call(sendBody()).then(function (r) {
+      if (!r.ok) { $("b-new").disabled = false; return err("e3", r.message); }
+      startWhatsApp(r);
+    });
+  });
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) return;
+    if (!$("s-wa").hidden) poll();
+    if (!$("s-dash").hidden) refresh();
+  });
+
+  // Typed-code fallback (template / dev modes).
+  function startResendTimer() {
+    clearInterval(state.timer);
+    state.resendAt = Date.now() + 30000;
+    var b = $("b-resend"); b.disabled = true;
+    state.timer = setInterval(function () {
+      var s = Math.ceil((state.resendAt - Date.now()) / 1000);
+      if (s <= 0) { clearInterval(state.timer); b.disabled = false; b.textContent = "Resend code"; }
+      else b.textContent = "Resend in " + s + "s";
+    }, 500);
+  }
+  $("b-back").addEventListener("click", function () { clearInterval(state.timer); show("s-details"); });
+  $("b-resend").addEventListener("click", function () {
+    $("b-resend").disabled = true;
+    call(sendBody()).then(function (r) {
+      if (!r.ok) { err("e2", r.message); return; }
+      err("e2", ""); $("otp").value = ""; startResendTimer(); $("otp").focus();
+    });
+  });
+  $("otp").addEventListener("input", function () {
+    this.value = this.value.replace(/\D/g, "").slice(0, 6);
+    if (this.value.length === 6) verify();
+  });
+  $("f-otp").addEventListener("submit", function (e) { e.preventDefault(); verify(); });
+  var verifying = false;
+  function verify() {
+    if (verifying) return;
+    var code = $("otp").value;
+    if (code.length !== 6) return err("e2", "Please enter the 6-digit code.");
+    verifying = true; err("e2", "");
+    var btn = $("b-verify"); busy(btn, true);
+    call({ action: "verify", phone: state.phone, otp: code, tz: timeZone() }).then(function (r) {
+      verifying = false; busy(btn, false, "Verify");
+      if (!r.ok) { $("otp").select(); return err("e2", r.message); }
+      done(r);
+    });
+  }
+
+  // ---------- dashboard ----------
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function fmtDate(iso) {
+    try { return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }); } catch (x) { return ""; }
+  }
+  function plural(n, w) { return n + " " + w + (n === 1 ? "" : "s"); }
+
+  function inviteText(job, who) {
+    var label = job.role + " at " + job.company;
+    return who === "candidate"
+      ? "You're invited to coordinate your interview for " + label + " over WhatsApp with Superhyre. Join here: " + job.links.candidate
+      : "Join Superhyre to coordinate interviews for " + label + " over WhatsApp: " + job.links.hiring_manager;
+  }
+  function copy(text) {
+    function fallback() {
+      var ta = el("textarea"); ta.value = text; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); toast("Link copied"); } catch (x) { toast("Couldn't copy. Press and hold the link to copy it."); }
+      document.body.removeChild(ta);
+    }
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(function () { toast("Link copied"); }, fallback);
+    else fallback();
+  }
+  function share(job, who) {
+    var text = inviteText(job, who);
+    if (navigator.share) {
+      navigator.share({ text: text }).catch(function () {});
+    } else {
+      window.open("https://wa.me/?text=" + encodeURIComponent(text), "_blank", "noopener");
+    }
+  }
+
+  function inviteRow(job, who) {
+    var box = el("div", "inv");
+    var top = el("div", "inv-top");
+    top.appendChild(el("div", "inv-label", who === "candidate" ? "Candidate link" : "Hiring manager link"));
+    if (job.status === "open") {
+      var acts = el("div", "acts");
+      var c = el("button", "sm", "Copy"); c.type = "button";
+      c.setAttribute("aria-label", "Copy " + (who === "candidate" ? "candidate" : "hiring manager") + " link for " + job.role);
+      c.addEventListener("click", function () { copy(job.links[who]); });
+      var s = el("button", "sm fill", "Share"); s.type = "button";
+      s.setAttribute("aria-label", "Share " + (who === "candidate" ? "candidate" : "hiring manager") + " link for " + job.role);
+      s.addEventListener("click", function () { share(job, who); });
+      acts.appendChild(c); acts.appendChild(s); top.appendChild(acts);
+    }
+    box.appendChild(top);
+    box.appendChild(el("div", "inv-url", job.links[who]));
+    return box;
+  }
+
+  function jobCard(job) {
+    var card = el("article", "job" + (job.status === "closed" ? " closed" : "") + (job.id === state.newJob ? " new" : ""));
+    card.id = "job-" + job.id;
+    var head = el("div", "job-head");
+    var t = el("div");
+    t.appendChild(el("h3", "job-title", job.role));
+    t.appendChild(el("p", "job-co", job.company));
+    head.appendChild(t);
+    head.appendChild(el("span", "pill" + (job.status === "closed" ? " closed" : ""), job.status === "closed" ? "Closed" : "Open"));
+    card.appendChild(head);
+    card.appendChild(el("p", "job-meta", plural(job.candidates, "candidate") + " · " + plural(job.hiring_managers, "hiring manager") + " joined · " +
+      (job.status === "closed" && job.closed_at ? "closed " + fmtDate(job.closed_at) : "created " + fmtDate(job.created_at))));
+    if (job.status === "open") {
+      card.appendChild(inviteRow(job, "candidate"));
+      card.appendChild(inviteRow(job, "hiring_manager"));
+    }
+    var foot = el("div", "job-foot");
+    var b = el("button", "link" + (job.status === "open" ? " muted" : ""), job.status === "open" ? "Close job" : "Reopen job");
+    b.type = "button";
+    b.addEventListener("click", function () {
+      if (job.status === "open" && !confirm("Close " + job.role + " at " + job.company + "? Its invite links will stop accepting sign-ups.")) return;
+      b.disabled = true;
+      call({ action: job.status === "open" ? "close_job" : "reopen_job", session: state.session, job_id: job.id }).then(function (r) {
+        b.disabled = false;
+        if (!r.ok) return handleDashErr(r, toast);
+        state.me.jobs = r.jobs; render();
+        toast(job.status === "open" ? "Job closed" : "Job reopened");
+      });
+    });
+    foot.appendChild(b);
+    card.appendChild(foot);
+    return card;
+  }
+
+  function render() {
+    var me = state.me;
+    $("d-hello").textContent = "Hi " + me.first_name;
+    $("d-lead").textContent = (me.company ? me.company + ". " : "") + "Your jobs and invite links. You can also do all of this by chatting with your assistant on WhatsApp.";
+    if (me.wa_url) { $("d-wa").href = me.wa_url; $("d-wa").hidden = false; }
+    if (!$("j-company").value && me.company) $("j-company").value = me.company;
+    var open = me.jobs.filter(function (j) { return j.status === "open"; });
+    var closed = me.jobs.filter(function (j) { return j.status !== "open"; });
+    var oj = $("open-jobs"), cj = $("closed-jobs");
+    oj.textContent = ""; cj.textContent = "";
+    if (!open.length) oj.appendChild(el("div", "empty", "No open jobs yet. Create one above, or tell your assistant on WhatsApp: “New role: Backend Engineer at Acme”."));
+    open.forEach(function (j) { oj.appendChild(jobCard(j)); });
+    closed.forEach(function (j) { cj.appendChild(jobCard(j)); });
+    $("n-open").textContent = open.length ? "(" + open.length + ")" : "";
+    $("n-closed").textContent = "(" + closed.length + ")";
+    $("closed-wrap").hidden = !closed.length;
+  }
+
+  function handleDashErr(r, report) {
+    if (r.code === "signed_out") { setSession(""); setMode("login"); show("s-details"); return err("e1", "Please sign in again."); }
+    report(r.message);
+  }
+
+  function loadDashboard(opts) {
+    show("s-loading");
+    return call({ action: "me", session: state.session }).then(function (r) {
+      if (!r.ok) {
+        if (r.code === "signed_out") { setSession(""); setMode("login"); return show("s-details"); }
+        setMode("login"); show("s-details"); return err("e1", r.message);
+      }
+      state.me = r;
+      $("d-welcome").hidden = !(opts && opts.welcome);
+      render();
+      show("s-dash");
+    });
+  }
+  function refresh() {
+    if (!state.session || $("s-dash").hidden) return;
+    call({ action: "me", session: state.session }).then(function (r) {
+      if (r.ok) { state.me = r; render(); }
+      else if (r.code === "signed_out") handleDashErr(r, toast);
+    });
+  }
+  setInterval(function () { if (!document.hidden) refresh(); }, 60000);
+
+  $("f-job").addEventListener("submit", function (e) {
+    e.preventDefault();
+    err("e4", "");
+    var company = $("j-company").value.replace(/\s+/g, " ").trim();
+    var role = $("j-role").value.replace(/\s+/g, " ").trim();
+    if (company.length < 2) return err("e4", "Please enter the company name."), $("j-company").focus();
+    if (role.length < 2) return err("e4", "Please enter the role."), $("j-role").focus();
+    var btn = $("b-job"); busy(btn, true);
+    call({ action: "create_job", session: state.session, company: company, role: role }).then(function (r) {
+      busy(btn, false, "Create job");
+      if (!r.ok) return handleDashErr(r, function (m) { err("e4", m); });
+      state.newJob = r.job_id;
+      state.me.jobs = r.jobs; render();
+      $("j-role").value = "";
+      toast(r.existing ? "This job already exists" : "Job created");
+      var card = $("job-" + r.job_id);
+      if (card) card.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  });
+
+  $("b-logout").addEventListener("click", function () {
+    call({ action: "logout", session: state.session });
+    setSession(""); state.me = null;
+    setMode("login"); show("s-details");
+  });
+
+  // ---------- start ----------
+  function stripParam(name) {
+    params.delete(name);
+    var q = params.toString();
+    history.replaceState(null, "", location.pathname + (q ? "?" + q : "") + location.hash);
+  }
+
+  if (jobCode) {
+    // Job invite: the link decides the role, so there is nothing to choose.
+    setMode("join");
+    $("title").textContent = "Join on Superhyre";
+    $("lead").textContent = "Your personal assistant will handle interview scheduling and reminders for you on WhatsApp.";
+    show("s-details");
+    call({ action: "invite", job: jobCode }).then(function (r) {
+      var b = $("invited");
+      if (r.ok && !r.closed) {
+        b.textContent = (r.recruiter ? r.recruiter + " has invited you to join as a " : "You're invited to join as a ") +
+          (r.as === "hiring_manager" ? "hiring manager" : "candidate") + " for " + r.role + " at " + r.company + ".";
+      } else {
+        b.textContent = r.ok ? "This job is closed and no longer taking sign-ups." : (r.message || "This invite link is no longer valid. Please ask for a new one.");
+        $("b-send").disabled = true;
+      }
+      b.hidden = false;
+    });
+  } else if (legacy) {
+    setMode("join");
+    $("title").textContent = "Join on Superhyre";
+    $("lead").textContent = "";
+    $("invited").textContent = "This invite link has been replaced. Please ask your recruiter for the new link for your job.";
+    $("invited").hidden = false;
+    $("b-send").disabled = true;
+    show("s-details");
+  } else if (magic) {
+    stripParam("t");
+    show("s-loading");
+    call({ action: "redeem", token: magic }).then(function (r) {
+      if (r.ok) { setSession(r.session); return loadDashboard(); }
+      if (state.session) return loadDashboard();
+      setMode("login"); show("s-details"); err("e1", r.message);
+    });
+  } else if (state.session) {
+    loadDashboard();
+  } else {
+    setMode("signup");
+    show("s-details");
+  }
+})();
+</script>
+</body>
+</html>
