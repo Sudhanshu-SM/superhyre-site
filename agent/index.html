@@ -222,7 +222,7 @@
     <section class="card">
       <h1 id="d-hello">Your jobs</h1>
       <p class="lead" id="d-lead"></p>
-      <div class="banner ok" id="d-welcome" hidden>You're set up. Your assistant is on WhatsApp: tell it about a new role anytime and it will create the job and send you the invite links. Everything also shows up here.</div>
+      <div class="banner ok" id="d-welcome" hidden>You're set up. Your assistant is on WhatsApp: tell it about a new role anytime and it will create the job and send you the invite links. Everything also shows up here. You can also connect Google Workspace, Notion and Slack below so it can do more for you.</div>
       <a class="btn ghost" id="d-wa" href="#" target="_blank" rel="noopener" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#wa-icon"/></svg>Open WhatsApp chat</a>
     </section>
 
@@ -652,13 +652,17 @@
           state.me.tools = r.tools; renderTools(); toast(t.name + " disconnected");
         });
       }
-      busy(btn, true);
-      call({ action: "tool_start", provider: p, session: state.session }).then(function (r) {
-        if (!r.ok) { busy(btn, false, label); return handleDashErr(r, function (m) { err("e5", m); }); }
-        location.href = r.url;
-      });
+      startTool(p, btn, label);
     });
   });
+  // Sends the browser to the tool's own consent screen (Google, Notion or Slack).
+  function startTool(p, btn, label) {
+    if (btn) busy(btn, true);
+    return call({ action: "tool_start", provider: p, session: state.session }).then(function (r) {
+      if (!r.ok) { if (btn) busy(btn, false, label); show("s-dash"); flashTools(p); return handleDashErr(r, function (m) { err("e5", m); }); }
+      location.href = r.url;
+    });
+  }
   function flashTools(p) {
     var t = $(((TOOLS[p] || TOOLS.google).id) + "-tool"); t.classList.add("flash");
     $("tools").scrollIntoView({ behavior: "smooth", block: "center" });
@@ -680,7 +684,15 @@
       state.me = r;
       $("d-welcome").hidden = !(opts && opts.welcome);
       render();
+      // A "connect <tool>" link from chat goes straight on to that tool's consent screen.
+      var start = state.pendingConnect;
+      state.pendingConnect = "";
+      if (start && r.tools && r.tools[start] && r.tools[start].available) {
+        show("s-loading");
+        return startTool(start);
+      }
       show("s-dash");
+      if (start) flashTools(start);
       if (opts && opts.tools) flashTools(opts.tools);
       if (opts && opts.toolsError) { err("e5", opts.toolsError); flashTools(opts.provider); }
     });
@@ -732,6 +744,7 @@
   var oauthState = params.get("state");
   var oauthCode = params.get("code"), oauthError = params.get("error");
   if (params.has("connect")) stripParam("connect");
+  state.pendingConnect = connect;
 
   if (oauthState && (oauthCode || oauthError)) {
     // Back from Google's, Notion's or Slack's consent screen. The state starts with the tool's name (the server checks
@@ -782,15 +795,18 @@
     stripParam("t");
     show("s-loading");
     call({ action: "redeem", token: magic }).then(function (r) {
-      if (r.ok) { setSession(r.session); return loadDashboard({ tools: connect }); }
-      if (state.session) return loadDashboard({ tools: connect });
-      setMode("login"); show("s-details"); err("e1", r.message);
+      if (r.ok) { setSession(r.session); return loadDashboard(); }
+      if (state.session) return loadDashboard();
+      setMode("login"); show("s-details");
+      err("e1", connect ? "That link has expired. Sign in with your number to connect " + TOOLS[connect].name + ", or ask your assistant on WhatsApp for a new link." : r.message);
     });
   } else if (state.session) {
-    loadDashboard({ tools: connect });
+    loadDashboard();
   } else {
-    setMode("signup");
+    // Signed out with a connect link: sign in first, then it carries on to the tool.
+    setMode(connect ? "login" : "signup");
     show("s-details");
+    if (connect) err("e1", "Sign in with your number to connect " + TOOLS[connect].name + ".");
   }
 })();
 </script>
