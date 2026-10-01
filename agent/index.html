@@ -122,6 +122,17 @@
   details.closed-list > summary::-webkit-details-marker { display: none; }
   details.closed-list > summary h2::after { content: "+"; font-family: var(--ui); color: var(--muted); margin-left: auto; font-size: 20px; }
   details.closed-list[open] > summary h2::after { content: "−"; }
+  .tool { display: flex; align-items: center; gap: 14px; border: 1px solid var(--rule); border-radius: 16px; padding: 14px; }
+  .tool + .tool { margin-top: 10px; }
+  .tool.flash { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(234,90,30,.14); }
+  .tool-icon { flex: none; width: 40px; height: 40px; border-radius: 10px; background: var(--panel); display: grid; place-items: center; }
+  .tool-main { flex: 1; min-width: 0; }
+  .tool-name { font-weight: 500; }
+  .tool-desc { color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
+  .tool-desc.ok { color: var(--ok); }
+  .tool .sm { flex: none; }
+  .more { color: var(--muted); font-size: 14px; margin: 12px 2px 0; }
+  @media (max-width: 420px) { .tool { flex-wrap: wrap; } .tool .sm { width: 100%; } }
   .toast { position: fixed; left: 50%; bottom: max(20px, env(safe-area-inset-bottom)); transform: translateX(-50%); background: var(--black); color: #fff; padding: 10px 16px; border-radius: 100px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; }
   .toast.show { opacity: 1; }
 </style>
@@ -213,6 +224,36 @@
       <p class="lead" id="d-lead"></p>
       <div class="banner ok" id="d-welcome" hidden>You're set up. Your assistant is on WhatsApp: tell it about a new role anytime and it will create the job and send you the invite links. Everything also shows up here.</div>
       <a class="btn ghost" id="d-wa" href="#" target="_blank" rel="noopener" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#wa-icon"/></svg>Open WhatsApp chat</a>
+    </section>
+
+    <section class="card" id="tools">
+      <h2>Connected tools</h2>
+      <p class="lead" style="font-size:16px;margin-bottom:16px">Optional. Connect your work tools so your assistant can do more for you, right from WhatsApp.</p>
+      <div class="error" id="e5" role="alert"></div>
+      <div class="tool" id="g-tool">
+        <div class="tool-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.2l7.9 6.2C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 7l7.2 5.6c4.2-3.9 7.1-9.7 7.1-17.1z"/><path fill="#FBBC05" d="M10.5 28.6A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.8-4.6l-7.9-6.2A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.8l7.9-6.2z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.2-5.6c-2.2 1.5-5.1 2.4-8.7 2.4-6.2 0-11.5-4.2-13.4-9.9l-7.9 6.2C6.6 42.6 14.6 48 24 48z"/></svg></div>
+        <div class="tool-main">
+          <div class="tool-name">Google Workspace</div>
+          <div class="tool-desc" id="g-desc">Gmail, Calendar, Drive, Docs and Sheets: summarise and send emails, schedule Meet calls, find files, update sheets.</div>
+        </div>
+        <button type="button" class="sm fill" id="g-btn" hidden>Connect</button>
+      </div>
+      <div class="tool" id="nt-tool">
+        <div class="tool-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24"><path fill="#000" d="M4.46 4.21c.75.6 1.03.56 2.44.47l13.23-.8c.28 0 .05-.28-.05-.32l-2.2-1.59c-.42-.33-.98-.7-2.06-.6L3.05 2.32c-.47.05-.56.28-.38.47zm.8 3.08v13.92c0 .75.37 1.03 1.21.98l14.54-.84c.84-.05.94-.56.94-1.17V6.35c0-.6-.24-.93-.75-.88l-15.19.88c-.56.05-.75.33-.75.94zm14.36.75c.09.42 0 .84-.42.89l-.7.14v10.27c-.61.33-1.17.52-1.64.52-.75 0-.94-.24-1.5-.94l-4.58-7.19v6.95l1.45.33s0 .84-1.17.84l-3.22.19c-.09-.19 0-.66.33-.75l.84-.23V9.85L7.84 9.75c-.1-.42.14-1.03.79-1.08l3.46-.23 4.77 7.29V9.28l-1.22-.14c-.09-.51.28-.89.75-.93z"/></svg></div>
+        <div class="tool-main">
+          <div class="tool-name">Notion</div>
+          <div class="tool-desc" id="nt-desc"></div>
+        </div>
+        <button type="button" class="sm fill" id="nt-btn" hidden>Connect</button>
+      </div>
+      <div class="tool" id="sl-tool">
+        <div class="tool-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24"><path fill="#E01E5A" d="M5.04 15.17a2.53 2.53 0 1 1-2.52-2.53h2.52zm1.27 0a2.53 2.53 0 0 1 5.05 0v6.31a2.53 2.53 0 1 1-5.05 0z"/><path fill="#36C5F0" d="M8.83 5.04a2.53 2.53 0 1 1 2.53-2.52v2.52zm0 1.27a2.53 2.53 0 0 1 0 5.05H2.52a2.53 2.53 0 0 1 0-5.05z"/><path fill="#2EB67D" d="M18.96 8.83a2.53 2.53 0 1 1 2.52 2.53h-2.52zm-1.27 0a2.53 2.53 0 0 1-5.05 0V2.52a2.53 2.53 0 1 1 5.05 0z"/><path fill="#ECB22E" d="M15.17 18.96a2.53 2.53 0 1 1-2.53 2.52v-2.52zm0-1.27a2.53 2.53 0 0 1 0-5.05h6.31a2.53 2.53 0 0 1 0 5.05z"/></svg></div>
+        <div class="tool-main">
+          <div class="tool-name">Slack</div>
+          <div class="tool-desc" id="sl-desc"></div>
+        </div>
+        <button type="button" class="sm fill" id="sl-btn" hidden>Connect</button>
+      </div>
     </section>
 
     <section class="card">
@@ -561,6 +602,67 @@
     $("n-open").textContent = open.length ? "(" + open.length + ")" : "";
     $("n-closed").textContent = "(" + closed.length + ")";
     $("closed-wrap").hidden = !closed.length;
+    renderTools();
+  }
+
+  // ---------- connected tools ----------
+  var TOOLS = {
+    google: { id: "g", name: "Google Workspace", what: "Gmail, Calendar, Drive, Docs and Sheets", short: "Gmail, Calendar, Drive, Docs and Sheets",
+      pitch: "Gmail, Calendar, Drive, Docs and Sheets: summarise and send emails, schedule Meet calls, find files, update sheets." },
+    notion: { id: "nt", name: "Notion", what: "your Notion pages and databases", short: "Pages, trackers and databases",
+      pitch: "Find pages, read and update your hiring trackers and databases, add notes and comments. You choose which pages to share." },
+    slack: { id: "sl", name: "Slack", what: "your Slack", short: "Channels, threads and messages",
+      pitch: "Search and summarise conversations, read channels and threads, and post messages as you after you approve them." }
+  };
+  function renderTools() {
+    Object.keys(TOOLS).forEach(function (p) {
+      var t = TOOLS[p], s = (state.me.tools && state.me.tools[p]) || {};
+      var desc = $(t.id + "-desc"), btn = $(t.id + "-btn");
+      desc.className = "tool-desc";
+      btn.hidden = !s.available;
+      btn.className = "sm fill";
+      if (!s.available) {
+        desc.textContent = t.short + ". Coming soon.";
+      } else if (s.connected) {
+        desc.className = "tool-desc ok";
+        var acct = s.account || s.email;
+        desc.textContent = "Connected" + (acct ? (p === "google" ? " as " : " to ") + acct : "") +
+          (s.missing && s.missing.length ? ". Not allowed: " + s.missing.join(", ") + "." : "");
+        btn.textContent = "Disconnect"; btn.className = "sm";
+      } else if (s.expired) {
+        desc.textContent = "Connection expired. Reconnect to keep using " + t.what + ".";
+        btn.textContent = "Reconnect";
+      } else {
+        desc.textContent = t.pitch;
+        btn.textContent = "Connect";
+      }
+    });
+  }
+  Object.keys(TOOLS).forEach(function (p) {
+    var t = TOOLS[p];
+    $(t.id + "-btn").addEventListener("click", function () {
+      var s = state.me.tools[p] || {}, btn = $(t.id + "-btn"), label = btn.textContent;
+      err("e5", "");
+      if (s.connected) {
+        if (!confirm("Disconnect " + t.name + "? Your assistant will no longer be able to use " + t.what + ".")) return;
+        busy(btn, true);
+        return call({ action: "tool_disconnect", provider: p, session: state.session }).then(function (r) {
+          busy(btn, false, label);
+          if (!r.ok) return handleDashErr(r, function (m) { err("e5", m); });
+          state.me.tools = r.tools; renderTools(); toast(t.name + " disconnected");
+        });
+      }
+      busy(btn, true);
+      call({ action: "tool_start", provider: p, session: state.session }).then(function (r) {
+        if (!r.ok) { busy(btn, false, label); return handleDashErr(r, function (m) { err("e5", m); }); }
+        location.href = r.url;
+      });
+    });
+  });
+  function flashTools(p) {
+    var t = $(((TOOLS[p] || TOOLS.google).id) + "-tool"); t.classList.add("flash");
+    $("tools").scrollIntoView({ behavior: "smooth", block: "center" });
+    setTimeout(function () { t.classList.remove("flash"); }, 4000);
   }
 
   function handleDashErr(r, report) {
@@ -579,6 +681,8 @@
       $("d-welcome").hidden = !(opts && opts.welcome);
       render();
       show("s-dash");
+      if (opts && opts.tools) flashTools(opts.tools);
+      if (opts && opts.toolsError) { err("e5", opts.toolsError); flashTools(opts.provider); }
     });
   }
   function refresh() {
@@ -623,7 +727,33 @@
     history.replaceState(null, "", location.pathname + (q ? "?" + q : "") + location.hash);
   }
 
-  if (jobCode) {
+  // ?connect=<tool> (from a chat link) opens the page at that tool's connect button.
+  var connect = TOOLS[params.get("connect")] ? params.get("connect") : "";
+  var oauthState = params.get("state");
+  var oauthCode = params.get("code"), oauthError = params.get("error");
+  if (params.has("connect")) stripParam("connect");
+
+  if (oauthState && (oauthCode || oauthError)) {
+    // Back from Google's, Notion's or Slack's consent screen. The state starts with the tool's name (the server checks
+    // its signature); the code is exchanged with the signed-in session that started it.
+    var provider = TOOLS[oauthState.split(".")[0]] ? oauthState.split(".")[0] : "google", tname = TOOLS[provider].name;
+    ["state", "code", "scope", "error", "error_description", "authuser", "hd", "prompt"].forEach(function (p) { params.delete(p); });
+    stripParam("state");
+    if (!state.session) {
+      setMode("login"); show("s-details");
+      err("e1", "Please sign in, then connect " + tname + " again.");
+    } else if (oauthError) {
+      loadDashboard({ provider: provider, toolsError: oauthError === "access_denied" ? tname + " wasn't connected because access wasn't allowed." : tname + " didn't complete the connection. Please try again." });
+    } else {
+      show("s-loading");
+      call({ action: "tool_callback", session: state.session, code: oauthCode, state: oauthState }).then(function (r) {
+        if (!r.ok && r.code === "signed_out") { setSession(""); setMode("login"); show("s-details"); return err("e1", "Please sign in, then connect " + tname + " again."); }
+        loadDashboard(r.ok ? { tools: provider } : { provider: provider, toolsError: r.message }).then(function () {
+          if (r.ok) toast(tname + " connected");
+        });
+      });
+    }
+  } else if (jobCode) {
     // Job invite: the link decides the role, so there is nothing to choose.
     setMode("join");
     $("title").textContent = "Join on Superhyre";
@@ -652,12 +782,12 @@
     stripParam("t");
     show("s-loading");
     call({ action: "redeem", token: magic }).then(function (r) {
-      if (r.ok) { setSession(r.session); return loadDashboard(); }
-      if (state.session) return loadDashboard();
+      if (r.ok) { setSession(r.session); return loadDashboard({ tools: connect }); }
+      if (state.session) return loadDashboard({ tools: connect });
       setMode("login"); show("s-details"); err("e1", r.message);
     });
   } else if (state.session) {
-    loadDashboard();
+    loadDashboard({ tools: connect });
   } else {
     setMode("signup");
     show("s-details");
