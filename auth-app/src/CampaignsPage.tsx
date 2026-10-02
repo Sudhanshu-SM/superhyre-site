@@ -3,7 +3,7 @@ import {
 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CampaignRow, CampaignStatus } from "./campaignsData";
-import { CAMPAIGN_ROWS, DEPARTMENTS, STAGES, STATUS_LABEL, TEAM, newCampaign } from "./campaignsData";
+import { CAMPAIGN_ROWS, DEPARTMENTS, STATUS_LABEL, TEAM, newCampaign } from "./campaignsData";
 import { Avatar } from "./CandidateBits";
 import { Num, Popover, Toaster, useToast } from "./Contacts";
 import { Dialog } from "./ui";
@@ -111,7 +111,21 @@ export function CampaignsPage({ onOpen }: { onOpen: (c: CampaignRow) => void }) 
         <SortMenu sort={sort} onChange={setSort} />
       </div>
 
-      <ul className="cg-list" key={`${filter}-${sort}`}>
+      <ul
+        className="cg-list"
+        key={`${filter}-${sort}`}
+        onKeyDown={(e) => {
+          /* J/K or the arrows step between campaigns; Enter (on the name)
+             opens one. Only when focus is already on a row's name. */
+          const names = [...e.currentTarget.querySelectorAll<HTMLButtonElement>(".cg-name")];
+          const at = names.indexOf(document.activeElement as HTMLButtonElement);
+          if (at < 0) return;
+          const d = e.key === "ArrowDown" || e.key === "j" ? 1 : e.key === "ArrowUp" || e.key === "k" ? -1 : 0;
+          if (!d) return;
+          e.preventDefault();
+          names[Math.max(0, Math.min(names.length - 1, at + d))]?.focus();
+        }}
+      >
         {shown.map((r, i) => (
           <li key={r.id} style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}>
             <Row
@@ -165,10 +179,19 @@ function Row({ r, fresh, onOpen, onStatus, onDuplicate }: {
   onStatus: (s: CampaignStatus) => void;
   onDuplicate: () => void;
 }) {
-  const sourced = r.trend.reduce((a, b) => a + b, 0);
+  const need = r.needs && r.status !== "closed" ? r.needs : null;
+  const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : "–");
+  const recent = r.trend.reduce((x, y) => x + y, 0);
+  /* Each number's label swaps, on hover, for the fact behind it: how much of
+     the step before it made it through, or how recent it is. */
+  const stats: readonly [string, number, string][] = [
+    ["Sourced", r.funnel.sourced, recent ? `+${recent} in 14d` : "None in 14d"],
+    ["Shortlisted", r.funnel.shortlisted, `${pct(r.funnel.shortlisted, r.funnel.sourced)} of sourced`],
+    ["Interviewing", r.funnel.interviews, `${pct(r.funnel.interviews, r.funnel.shortlisted)} of shortlisted`],
+  ];
   return (
     <article
-      className={`cg-row is-${r.status}${r.needs && r.status !== "closed" ? " has-need" : ""}${fresh ? " is-fresh" : ""}`}
+      className={`cg-row is-${r.status}${need ? " has-need" : ""}${fresh ? " is-fresh" : ""}`}
       onClick={(e) => { if (!(e.target as HTMLElement).closest("button, a, [role=menu]")) onOpen(); }}
     >
       <div className="cg-id">
@@ -177,85 +200,35 @@ function Row({ r, fresh, onOpen, onStatus, onDuplicate }: {
             {r.name}
             <ArrowRight size={13} weight="bold" className="cg-name-go" aria-hidden="true" />
           </button>
-          <span className={`cg-status is-${r.status}`}>
-            <svg width="6" height="6" aria-hidden="true"><circle cx="3" cy="3" r="3" /></svg>
-            {STATUS_LABEL[r.status]}
-          </span>
+          {/* Active is the normal state, so it carries no label; only the
+              exceptions (paused, draft, closed) say what they are. */}
+          {r.status !== "active" && (
+            <span className={`cg-status is-${r.status}`}>
+              <svg width="6" height="6" aria-hidden="true"><circle cx="3" cy="3" r="3" /></svg>
+              {STATUS_LABEL[r.status]}
+            </span>
+          )}
           {fresh && <span className="cg-newtag">New</span>}
         </div>
-        <p className="cg-meta">{r.department} · {r.location} · {r.owner} · updated {r.updatedAgo}</p>
-        {r.needs && r.status !== "closed" && <p className="cg-need">{r.needs}</p>}
+        <p className="cg-meta">
+          {r.department} · {r.location} · {r.owner}
+          {need && <span className="cg-need"> · {need}</span>}
+        </p>
       </div>
 
-      <Pipeline r={r} />
-
-      <div className="cg-trend" title={`${sourced} sourced in the last 14 days`}>
-        <Spark data={r.trend} muted={r.status !== "active"} />
-        <span className="cg-trend-k"><strong>{sourced}</strong> sourced · 14d</span>
-      </div>
+      <dl className="cg-stats">
+        {stats.map(([k, v, more]) => (
+          <div key={k} className={`cg-stat${v ? "" : " is-zero"}`}>
+            <dd>{v}</dd>
+            <dt className="cg-swap"><span>{k}</span><span>{more}</span></dt>
+          </div>
+        ))}
+      </dl>
 
       <Goal hired={r.funnel.hired} target={r.target} />
 
-      <div className="cg-people">
-        <span className="cg-faces">
-          {r.team.slice(0, 3).map((m) => <Avatar key={m} name={m} hue="brand" size={24} />)}
-        </span>
-        {r.agents.length ? (
-          <span className="cg-agents" title={`${r.agents.join(" and ")} agent${r.agents.length > 1 ? "s" : ""} working`}>
-            <span className="cg-eq" aria-hidden="true"><i /><i /><i /></span>
-            {r.agents.join(" · ")}
-          </span>
-        ) : (
-          <span className="cg-agents is-idle">No agents</span>
-        )}
-      </div>
-
       <RowMenu status={r.status} onOpen={onOpen} onStatus={onStatus} onDuplicate={onDuplicate} />
     </article>
-  );
-}
-
-/* The pipeline as six numbers, each with a hairline bar sized against the
-   largest stage on a square-root scale, so late stages are visible next to
-   a big sourced count. Bars grow in, left to right, on arrival. */
-function Pipeline({ r }: { r: CampaignRow }) {
-  const max = Math.max(1, ...STAGES.map((s) => r.funnel[s.id]));
-  return (
-    <ol className="cg-pipe" aria-label="Pipeline">
-      {STAGES.map((s, i) => {
-        const v = r.funnel[s.id];
-        const prev = i ? r.funnel[STAGES[i - 1]!.id] : 0;
-        const conv = i > 1 && prev ? Math.round((v / prev) * 100) : null;
-        return (
-          <li key={s.id} className={`cg-stage${v ? "" : " is-zero"}${s.id === "hired" && v ? " is-hired" : ""}`} title={conv !== null ? `${v} ${s.label.toLowerCase()} · ${conv}% of ${STAGES[i - 1]!.label.toLowerCase()}` : `${v} ${s.label.toLowerCase()}`}>
-            <span className="cg-stage-v">{v}</span>
-            <span className="cg-stage-l">{s.label}</span>
-            <span className="cg-stage-bar"><span style={{ ["--w" as string]: Math.sqrt(v / max), animationDelay: `${120 + i * 60}ms` }} /></span>
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
-
-function Spark({ data, muted }: { data: readonly number[]; muted: boolean }) {
-  const w = 104, h = 30, max = Math.max(1, ...data);
-  const pts = data.map((v, i) => [(i / (data.length - 1)) * w, h - 3 - (v / max) * (h - 6)] as const);
-  const line = pts.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
-  const last = pts[pts.length - 1]!;
-  const id = useRef(`sp-${Math.random().toString(36).slice(2, 8)}`).current;
-  return (
-    <svg className={`cg-spark${muted ? " is-muted" : ""}`} viewBox={`0 0 ${w} ${h}`} width={w} height={h} aria-hidden="true">
-      <defs>
-        <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="currentColor" stopOpacity="0.18" />
-          <stop offset="1" stopColor="currentColor" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <path d={`${line} L${w},${h} L0,${h} Z`} fill={`url(#${id})`} />
-      <path className="cg-spark-line" d={line} fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" pathLength={1} />
-      <circle cx={last[0]} cy={last[1]} r="2.5" fill="currentColor" />
-    </svg>
   );
 }
 
@@ -264,15 +237,24 @@ function Spark({ data, muted }: { data: readonly number[]; muted: boolean }) {
 function Goal({ hired, target }: { hired: number; target: number }) {
   const k = Math.min(1, hired / Math.max(1, target));
   const done = hired >= target && target > 0;
-  const R = 17, C = 2 * Math.PI * R;
+  const left = Math.max(0, target - hired);
+  const R = 10, C = 2 * Math.PI * R;
   return (
     <div className={`cg-goal${done ? " is-done" : ""}`} title={done ? `Filled: ${hired} of ${target} hired` : `${hired} of ${target} hired`}>
-      <svg viewBox="0 0 44 44" width="44" height="44" aria-hidden="true">
-        <circle cx="22" cy="22" r={R} className="cg-goal-track" />
-        <circle cx="22" cy="22" r={R} className="cg-goal-fill" style={{ strokeDasharray: C, ["--off" as string]: C * (1 - k), ["--c" as string]: C }} />
-      </svg>
-      <span className="cg-goal-in">{done ? <Check size={14} weight="bold" /> : <>{hired}<small>/{target}</small></>}</span>
-      <span className="cg-goal-l">{done ? "Filled" : "hired"}</span>
+      <span className="cg-goal-ring" aria-hidden="true">
+        <svg viewBox="0 0 26 26" width="26" height="26">
+          <circle cx="13" cy="13" r={R} className="cg-goal-track" />
+          <circle cx="13" cy="13" r={R} className="cg-goal-fill" style={{ strokeDasharray: C, ["--off" as string]: C * (1 - k), ["--c" as string]: C }} />
+        </svg>
+        {done && <Check size={11} weight="bold" className="cg-goal-ok" />}
+      </span>
+      <span className="cg-goal-t">
+        <span className="cg-goal-v">{done ? "Filled" : <>{hired} <small>of</small> {target}</>}</span>
+        <span className="cg-swap">
+          <span>{done ? `${hired} hired` : "hired"}</span>
+          <span>{done ? "Goal met" : `${left} to go`}</span>
+        </span>
+      </span>
     </div>
   );
 }

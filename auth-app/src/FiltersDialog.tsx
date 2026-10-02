@@ -11,8 +11,8 @@ import "./composer.css";
  * Categories on the left, the whole list on the right. Clicking a category
  * scrolls the list to it; scrolling the list moves the highlight, so the
  * left side always says where you are. Each category shows how many of its
- * filters are set, the header counts matches live as you change anything,
- * and search narrows the list to the filters whose name or options match.
+ * filters are set, and search narrows the list to the filters whose name or
+ * options match. The Apply button carries the match estimate.
  */
 export function FiltersDialog({
   open, onClose, initial, prefilled, onApply,
@@ -81,7 +81,6 @@ export function FiltersDialog({
             <h2>Filters</h2>
             <p>{prefilled.length ? <><Sparkle size={12} weight="fill" aria-hidden="true" />{prefilled.length} set from your brief</> : "Narrow the search before it runs"}</p>
           </div>
-          <MatchCount n={matches} />
           <label className="fd-search">
             <MagnifyingGlass size={15} aria-hidden="true" />
             <input id="fd-search" type="search" placeholder="Search filters" value={query} onChange={(e) => setQuery(e.target.value)} />
@@ -122,35 +121,6 @@ export function FiltersDialog({
         </footer>
       </div>
     </Dialog>
-  );
-}
-
-/** The live estimate, which counts between values and flashes on change. */
-function MatchCount({ n }: { n: number }) {
-  const [shown, setShown] = useState(n);
-  const [dir, setDir] = useState<"up" | "down" | null>(null);
-  const from = useRef(n);
-  useEffect(() => {
-    const start = from.current;
-    if (start === n) return;
-    setDir(n > start ? "up" : "down");
-    const t0 = performance.now();
-    let raf = 0;
-    const tick = (t: number) => {
-      const k = Math.min(1, (t - t0) / 420);
-      setShown(Math.round(start + (n - start) * (1 - Math.pow(1 - k, 3))));
-      if (k < 1) raf = requestAnimationFrame(tick);
-      else from.current = n;
-    };
-    raf = requestAnimationFrame(tick);
-    const id = window.setTimeout(() => setDir(null), 700);
-    return () => { cancelAnimationFrame(raf); window.clearTimeout(id); from.current = n; };
-  }, [n]);
-  return (
-    <p className={`fd-count${dir ? ` is-${dir}` : ""}`} aria-live="polite">
-      <b>≈ {shown.toLocaleString("en-IN")}</b>
-      <span>matching profiles</span>
-    </p>
   );
 }
 

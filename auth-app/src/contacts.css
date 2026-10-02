@@ -708,9 +708,8 @@
 }
 .ct-table th { background: rgba(250, 249, 248, 0.7); }
 
-/* Rows arrive in a quick cascade when the page, sort or campaign changes. */
-.ct-row { animation: ct-row-in 360ms var(--ease-out) both; }
-@keyframes ct-row-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+/* Rows appear at once when the shimmer ends: the shimmer already said
+   "loading", so a second cascade would only delay the data. */
 
 /* Hover: a warm edge slides in on the left. The checked row keeps it. */
 .ct-row td:first-child { position: relative; }
@@ -767,7 +766,7 @@
 @keyframes ct-sl-on { 0% { transform: scale(0.94); } 60% { transform: scale(1.03); } 100% { transform: none; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .ct::before, .ct-row, .ct-slot.is-full, .ct-burst, .ct-sl.is-on, .ct-check input:checked + span, .ct-copy-v.is-flash { animation: none; }
+  .ct::before, .ct-slot.is-full, .ct-burst, .ct-sl.is-on, .ct-check input:checked + span, .ct-copy-v.is-flash { animation: none; }
 }
 @media (prefers-reduced-transparency: reduce) {
   .ct-bar, .ct-table-wrap, .ct-tray { background: #fff; -webkit-backdrop-filter: none; backdrop-filter: none; }
@@ -1083,3 +1082,205 @@ body:has(.ct-dock.is-on) .ct-toast-host { bottom: 92px; }
 /* A list scrolled to its end must not hand the wheel on to the page: the
    page scrolling is what closes a popover. */
 .ct-pop, .ct-cp-list, .ct-menu { overscroll-behavior: contain; }
+
+/* ── compare: change who is in it without leaving ── */
+.cc-person { position: relative; animation: cc-col-in 320ms var(--ease-out) both; }
+.cc-cell { animation: cc-col-in 320ms var(--ease-out) both; }
+@keyframes cc-col-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* Remove one person: top right of their column, quiet until wanted. */
+.cc-x {
+  position: absolute;
+  top: 12px;
+  right: 10px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: transparent;
+  color: #a39a93;
+  cursor: pointer;
+  transition: background-color 160ms var(--ease-out), color 160ms var(--ease-out), border-color 160ms var(--ease-out);
+}
+.cc-person:hover .cc-x { color: var(--ink-2); border-color: #e6e1dc; background: #fff; }
+.cc-x:hover { color: #b3261e !important; border-color: rgba(179, 38, 30, 0.25) !important; background: #fdf2f1 !important; }
+.cc-x:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* The open column. */
+.cc-add { justify-items: stretch; }
+.cc-add-btn {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 6px;
+  min-height: 132px;
+  padding: 14px;
+  border: 1.5px dashed #ddd6cf;
+  border-radius: 14px;
+  background: #fcfbfa;
+  cursor: pointer;
+  transition: border-color 200ms var(--ease-out), background-color 200ms var(--ease-out);
+}
+.cc-add-btn:hover, .cc-add-btn[aria-expanded="true"] { border-color: rgba(234, 90, 30, 0.45); background: #fffaf7; }
+.cc-add-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.cc-add-ico {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 1px #e6e1dc;
+  color: var(--ink-2);
+  transition: color 200ms, box-shadow 200ms, transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.cc-add-btn:hover .cc-add-ico { color: var(--accent); box-shadow: 0 0 0 1px rgba(234, 90, 30, 0.4); transform: rotate(90deg); }
+.cc-add-t { font: 500 13px/1.2 var(--ui); color: var(--ink); }
+.cc-add-s { font: 400 11.5px/1.2 var(--ui); color: var(--ink-2); }
+.cc-cell.is-empty { display: flex; align-items: center; }
+.cc-cell.is-empty span { width: 40%; height: 6px; border-radius: 3px; background: #f4f1ee; }
+.cc-add-hint { margin: 4px 10px 6px; font: 500 11px/1 var(--ui); color: var(--ink-2); }
+.cc-add-i { align-items: center; }
+.cc-add-i .cb-avatar { flex: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cc-person, .cc-cell { animation: none; }
+}
+
+/* ── loading shimmer ──
+   Warm-neutral bars with one band of light sweeping across. The gradient is
+   fixed to the viewport (background-attachment: fixed), so every bar in the
+   table shows the SAME band at the same moment and the sweep reads as one
+   pass of light across the whole table, not dozens of bars pulsing apart. */
+.ct-skel-row { animation: ct-skel-in 260ms var(--ease-out) both; }
+.ct-skel-row td { cursor: default; }
+@keyframes ct-skel-in { from { opacity: 0; } to { opacity: 1; } }
+
+.csk {
+  display: block;
+  border-radius: 6px;
+  background-color: #f1eeeb;
+  background-image: linear-gradient(100deg, rgba(255, 255, 255, 0) 30%, rgba(255, 255, 255, 0.85) 50%, rgba(255, 255, 255, 0) 70%);
+  background-size: 60vw 100%;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  animation: ct-shimmer 1.35s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+@keyframes ct-shimmer {
+  from { background-position: -60vw 0; }
+  to { background-position: 120vw 0; }
+}
+.csk-box { width: 18px; height: 18px; border-radius: 5px; }
+.csk-circle { flex: none; width: 34px; height: 34px; border-radius: 50%; }
+.csk-lines { display: grid; gap: 7px; flex: 1; min-width: 0; }
+.csk-line { height: 11px; max-width: 100%; }
+.csk-line.is-sub { height: 9px; background-color: #f5f2ef; }
+.csk-pill { width: 176px; height: 32px; margin-left: auto; border-radius: var(--r-pill); }
+.ct-skel .ct-who { min-width: 220px; }
+/* Same height as a real row, so the table does not jump when rows land. */
+.ct-skel-row, .ct-row { height: 62px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .csk { animation: none; background-image: none; }
+  .ct-skel-row { animation: none; }
+}
+/* The real table narrows its text below 1040px (see the container queries
+   above); the placeholders narrow with it, so columns stay put on arrival. */
+@container (max-width: 1040px) {
+  .ct-skel .csk-line { max-width: 130px; }
+  .ct-skel .ct-c-camp .csk-line { max-width: 110px; }
+  .ct-skel .ct-who { min-width: 200px; }
+}
+
+/* ── fixed columns ──
+   Fixed layout takes widths from the header row alone, so the shimmer, the
+   headers and the data always sit on the same columns. Name takes whatever
+   is left. Read left to right the way a recruiter scans a person: who and
+   where, current company and how long, why they matter, how to reach them,
+   then act. */
+.ct-table { table-layout: fixed; }
+.ct-table .ct-c-check { width: 44px; }
+.ct-table .ct-c-co { width: 20%; }
+.ct-table .ct-c-sum { width: 24%; }
+.ct-table .ct-c-contact { width: 21%; }
+.ct-table .ct-c-act { width: 190px; min-width: 0; }
+
+/* With fixed widths, long text must truncate inside its cell. */
+.ct-main, .ct-sub { overflow: hidden; text-overflow: ellipsis; }
+.ct-copy-v { max-width: 100%; }
+.ct-who { min-width: 0; }
+.ct-title { max-width: 100%; }
+/* The company sits in its own column; it folds back under the title only
+   when that column is dropped (below). */
+.ct-title-co { display: none; }
+
+@container (max-width: 1240px) {
+  /* Narrower: the company folds back under the title, and the summary and
+     contact columns take its room. */
+  .ct-table .ct-c-co { display: none; }
+  .ct-title-co { display: inline; }
+  .ct-table .ct-c-sum { width: 30%; }
+  .ct-table .ct-c-contact { width: 26%; }
+  .ct-table .ct-c-act { width: 182px; }
+  .ct-row .ct-copy-ico { display: none; }
+  .ct-c-act .ct-sl { width: 158px; }
+}
+@container (max-width: 900px) {
+  .ct-table .ct-c-sum { display: none; }
+  .ct-table .ct-c-contact { width: 40%; }
+}
+
+/* ── the new cells ── */
+.ct-who-text { gap: 2px; }
+
+.ct-co { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.ct-co-mark {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  background: #f3f0ed;
+  box-shadow: inset 0 0 0 1px #ebe6e1;
+  font: 600 12px/1 var(--ui);
+  color: var(--ink-2);
+}
+.ct-co-text { display: grid; gap: 1px; min-width: 0; }
+.ct-co .ct-main { font-weight: 500; }
+.ct-co .ct-sub.is-new { color: #8a6a12; }
+
+.ct-sum {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  font: 400 12.5px/1.45 var(--ui);
+  color: var(--ink);
+  text-wrap: pretty;
+}
+.ct-otw {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: #ebf6e6;
+  font: 500 11px/1.5 var(--ui);
+  color: #3f7d2a;
+  vertical-align: 1px;
+}
+
+.ct-contact { display: grid; gap: 5px; min-width: 0; }
+.ct-contact-l { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.ct-contact-l > svg { flex: none; color: #b0a79f; }
+.ct-contact .ct-copy { min-width: 0; flex: 1; }
+.ct-contact .ct-copy-v, .ct-contact .ct-none { font-size: 12px; }
+.ct-contact { gap: 4px; }
+.ct-contact-l > svg { width: 12px; height: 12px; }
+/* Location rides beside the company, quieter than the name. */
+.ct-co-loc { font-weight: 400; color: var(--ink-2); }
+
+.csk-sq { flex: none; width: 28px; height: 28px; border-radius: 7px; }

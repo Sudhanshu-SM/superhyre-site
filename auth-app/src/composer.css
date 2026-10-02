@@ -128,7 +128,7 @@
 
 .fd-top {
   display: grid;
-  grid-template-columns: auto 1fr minmax(200px, 280px);
+  grid-template-columns: 1fr minmax(200px, 280px);
   align-items: center;
   gap: 12px 24px;
   padding: 18px 64px 16px 24px;
@@ -138,11 +138,6 @@
 .fd-title p { display: flex; align-items: center; gap: 5px; margin: 3px 0 0; font: 400 12.5px/1.3 var(--ui); color: var(--ink-2); }
 .fd-title p svg { color: var(--accent); }
 
-.fd-count { justify-self: center; display: grid; justify-items: center; gap: 2px; margin: 0; padding: 6px 14px; border-radius: 12px; transition: background-color 300ms var(--ease-out); }
-.fd-count b { font: 600 22px/1 var(--ui); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; color: var(--ink); }
-.fd-count span { font: 400 11.5px/1 var(--ui); color: var(--ink-2); }
-.fd-count.is-down { background: var(--accent-tint); }
-.fd-count.is-up { background: var(--c-sage-tint); }
 
 .fd-search {
   display: flex;
@@ -398,7 +393,7 @@
 .fd-apply { font-variant-numeric: tabular-nums; }
 
 @media (max-width: 760px) {
-  .fd-top { grid-template-columns: 1fr auto; padding-right: 56px; }
+  .fd-top { grid-template-columns: 1fr; padding-right: 56px; }
   .fd-search { grid-column: 1 / -1; }
   .fd-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
   .fd-nav { display: flex; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--nav-rule); padding: 8px; }

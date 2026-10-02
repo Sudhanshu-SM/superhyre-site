@@ -1,6 +1,6 @@
 import {
   ArrowUpRight, ArrowsLeftRight, BookmarkSimple, Briefcase, GoogleChromeLogo, CaretDown, CaretLeft, CaretRight, Check, Copy, EnvelopeSimple,
-  FunnelSimple, GraduationCap, LinkedinLogo, MagnifyingGlass, MapPin, Phone, SealCheck, SortAscending, X,
+  FunnelSimple, GraduationCap, LinkedinLogo, MagnifyingGlass, MapPin, Phone, Plus, SealCheck, SortAscending, X,
 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode, RefObject } from "react";
@@ -9,7 +9,7 @@ import { Avatar } from "./CandidateBits";
 import type { Contact, ContactNeed, ExpBand, Filters, Seniority, SortKey } from "./contacts";
 import {
   CONTACTS, EMPTY_FILTERS, EXP_BANDS, MEMBERS, SEED_SHORTLIST, SENIORITIES, activeFilterCount, capturedLabel,
-  matches, optionsFor, sortContacts,
+  matches, optionsFor, sortContacts, summaryOf, tenureOf,
 } from "./contacts";
 import { CHROME_STORE_URL } from "./config";
 import { Dialog } from "./ui";
@@ -56,6 +56,26 @@ export function ContactsPage() {
   const shown = rows.slice(at * size, at * size + size);
 
   useEffect(() => { setPage(0); }, [camp, q, filters, sort, size]);
+
+  /* ── LOADING SHIMMER ──
+     The table shows skeleton rows while a view is being fetched: on arrival,
+     and when the campaign, page, sort, page size or filters change. Search
+     is left out on purpose; it narrows what is already loaded, and a shimmer
+     on every keystroke would make typing feel slow. Fixture data returns at
+     once, so the wait is a short stand-in for the real request's. */
+  const viewKey = `${camp}-${page}-${sort}-${size}-${JSON.stringify(filters)}`;
+  const [loading, setLoading] = useState(true);
+  const firstLoad = useRef(true);
+  /* A search jumps back to page one, which changes the key; that is still a
+     search, so it must not shimmer. */
+  const lastQ = useRef(q);
+  useEffect(() => {
+    if (lastQ.current !== q) { lastQ.current = q; setLoading(false); return; }
+    setLoading(true);
+    const id = window.setTimeout(() => setLoading(false), firstLoad.current ? 700 : 420);
+    firstLoad.current = false;
+    return () => window.clearTimeout(id);
+  }, [viewKey]);
 
   const toggleShortlist = useCallback((id: string, campaign: string) => {
     const on = (lists[id] ?? []).includes(campaign);
@@ -193,19 +213,26 @@ export function ContactsPage() {
           <thead>
             <tr>
               <th className="ct-c-check" aria-label="Select to compare" />
-              <th>Name</th>
-              <th>Email</th>
-              <th>Phone</th>
-              <th className="ct-c-where">Location</th>
-              <th className="ct-c-camp">Saved for</th>
+              <th className="ct-c-name">Name</th>
+              <th className="ct-c-co">Current company</th>
+              <th className="ct-c-sum">Summary</th>
+              <th className="ct-c-contact">Contact info</th>
               <th className="ct-c-act"><span className="ct-sr">Shortlist</span></th>
             </tr>
           </thead>
+          {loading ? (
+            <tbody className="ct-skel" aria-busy="true" aria-label="Loading contacts">
+              {/* Exactly as many placeholders as the page is about to show (the
+                  page size, or fewer on a last page), so the table never jumps
+                  from one length to another when the rows land. An empty result
+                  still gets a short shimmer before its message. */}
+              {Array.from({ length: shown.length || 3 }, (_, i) => <SkeletonRow key={i} i={i} />)}
+            </tbody>
+          ) : (
           <tbody key={`${camp}-${at}-${sort}-${size}-${nFilters}`}>
-            {shown.map((c, i) => (
+            {shown.map((c) => (
               <Row
                 key={c.id}
-                i={i}
                 c={c}
                 checked={selected.includes(c.id)}
                 onCheck={() => toggleSelect(c.id)}
@@ -216,8 +243,9 @@ export function ContactsPage() {
               />
             ))}
           </tbody>
+          )}
         </table>
-        {shown.length > 0 && (
+        {!loading && shown.length > 0 && (
           <footer className="ct-foot">
             <span className="ct-foot-t">
               Showing <strong>{at * size + 1}–{Math.min(rows.length, at * size + size)}</strong> of <strong>{rows.length}</strong>
@@ -237,7 +265,7 @@ export function ContactsPage() {
             </button>
           </footer>
         )}
-        {!shown.length && (
+        {!loading && !shown.length && (
           <div className="ct-empty">
             <p className="ct-empty-h">No contacts match.</p>
             <p>Try fewer filters or a shorter search.</p>
@@ -267,6 +295,8 @@ export function ContactsPage() {
         people={people}
         onClose={() => setComparing(false)}
         onClear={() => { setComparing(false); setSelected([]); toast("Compare cleared"); }}
+        onAdd={(id) => setSelected((cur) => (cur.includes(id) || cur.length >= MAX_COMPARE ? cur : [...cur, id]))}
+        onRemove={(id) => setSelected((cur) => cur.filter((x) => x !== id))}
         lists={lists}
         onShortlist={toggleShortlist}
         onCopy={toast}
@@ -395,12 +425,39 @@ function CampaignPicker({ value, onChange, counts }: { value: string; onChange: 
   );
 }
 
+/* One placeholder row, shaped like the real one so nothing jumps when the
+   data lands: checkbox, avatar and two lines, email, phone, location, saved
+   for, and the shortlist pill. Line widths vary a little row to row so the
+   block reads as content, not as a stripe pattern. */
+function SkeletonRow({ i }: { i: number }) {
+  const w = (base: number, spread: number) => `${base + ((i * 37) % spread)}px`;
+  return (
+    <tr className="ct-skel-row" style={{ animationDelay: `${Math.min(i, 10) * 30}ms` }}>
+      <td className="ct-c-check"><span className="csk csk-box" /></td>
+      <td className="ct-c-name">
+        <div className="ct-who">
+          <span className="csk csk-circle" />
+          <div className="csk-lines">
+            <span className="csk csk-line" style={{ width: w(100, 50) }} />
+            <span className="csk csk-line is-sub" style={{ width: w(130, 50) }} />
+          </div>
+        </div>
+      </td>
+      <td className="ct-c-co">
+        <div className="ct-co"><span className="csk csk-sq" /><div className="csk-lines"><span className="csk csk-line" style={{ width: w(70, 40) }} /><span className="csk csk-line is-sub" style={{ width: w(90, 30) }} /></div></div>
+      </td>
+      <td className="ct-c-sum"><div className="csk-lines"><span className="csk csk-line" style={{ width: "92%" }} /><span className="csk csk-line is-sub" style={{ width: w(140, 80) }} /></div></td>
+      <td className="ct-c-contact"><div className="csk-lines"><span className="csk csk-line" style={{ width: w(150, 50) }} /><span className="csk csk-line is-sub" style={{ width: w(110, 20) }} /></div></td>
+      <td className="ct-c-act"><span className="csk csk-pill" /></td>
+    </tr>
+  );
+}
+
 /* ── row ── */
 
 function Row({
-  i, c, checked, onCheck, onOpen, shortlisted, onShortlist, onCopy,
+  c, checked, onCheck, onOpen, shortlisted, onShortlist, onCopy,
 }: {
-  i: number;
   c: Contact;
   checked: boolean;
   onCheck: () => void;
@@ -409,10 +466,10 @@ function Row({
   onShortlist: (campaign: string) => void;
   onCopy: (msg: string) => void;
 }) {
+  const tenure = tenureOf(c);
   return (
     <tr
       className={`ct-row${checked ? " is-checked" : ""}`}
-      style={{ animationDelay: `${Math.min(i, 12) * 22}ms` }}
       onClick={(e) => {
         if ((e.target as HTMLElement).closest("button, input, a, label, select")) return;
         onOpen();
@@ -429,19 +486,32 @@ function Row({
           <Avatar name={c.name} hue={c.hue} size={34} />
           <div className="ct-who-text">
             <button type="button" className="ct-name" onClick={onOpen}>{c.name}</button>
-            <span className="ct-title">{c.title} · {c.company}</span>
+            <span className="ct-title">
+              {c.title}<span className="ct-title-co"> · {c.company} · {c.location}</span>
+            </span>
           </div>
         </div>
       </td>
-      <td><CopyCell kind="email" value={c.email?.value} verified={c.email?.verified} onCopy={onCopy} /></td>
-      <td><CopyCell kind="phone" value={c.phone?.value} onCopy={onCopy} /></td>
-      <td className="ct-c-where">
-        <span className="ct-main">{c.location}</span>
-        <span className="ct-sub">{c.years} yrs · {c.seniority}</span>
+      <td className="ct-c-co">
+        <span className="ct-co">
+          <span className="ct-co-mark" aria-hidden="true">{c.company.slice(0, 1)}</span>
+          <span className="ct-co-text">
+            <span className="ct-main">{c.company}<span className="ct-co-loc"> · {c.location}</span></span>
+            <span className={`ct-sub${tenure.years !== null && tenure.years < 1 ? " is-new" : ""}`}>{tenure.label}</span>
+          </span>
+        </span>
       </td>
-      <td className="ct-c-camp">
-        <span className="ct-main">{campName(c.campaign)}</span>
-        <span className="ct-sub">{capturedLabel(c.capturedAgo)} · {c.capturedBy}</span>
+      <td className="ct-c-sum">
+        <p className="ct-sum">
+          {c.openToWork && <span className="ct-otw">Open to work</span>}
+          {summaryOf(c)}
+        </p>
+      </td>
+      <td className="ct-c-contact">
+        <div className="ct-contact">
+          <span className="ct-contact-l"><EnvelopeSimple size={13} aria-hidden="true" /><CopyCell kind="email" value={c.email?.value} verified={c.email?.verified} onCopy={onCopy} missing="No email yet" /></span>
+          <span className="ct-contact-l"><Phone size={13} aria-hidden="true" /><CopyCell kind="phone" value={c.phone?.value} onCopy={onCopy} missing="No phone yet" /></span>
+        </div>
       </td>
       <td className="ct-c-act">
         <ShortlistControl suggest={c.campaign} on={shortlisted} onPick={onShortlist} />
@@ -450,9 +520,9 @@ function Row({
   );
 }
 
-function CopyCell({ kind, value, verified, onCopy }: { kind: "email" | "phone"; value?: string; verified?: boolean; onCopy: (m: string) => void }) {
+function CopyCell({ kind, value, verified, onCopy, missing = "Not found yet" }: { kind: "email" | "phone"; value?: string; verified?: boolean; onCopy: (m: string) => void; missing?: string }) {
   const [done, setDone] = useState(false);
-  if (!value) return <span className="ct-none">Not found yet</span>;
+  if (!value) return <span className="ct-none">{missing}</span>;
   const copy = () => {
     void copyText(value);
     onCopy(kind === "email" ? "Email copied" : "Number copied");
@@ -955,14 +1025,21 @@ function ContactLine({ icon, label, value, note, onCopy, kind }: {
 }
 
 /* ── compare ──
-   Two or three people in columns, one row per thing a recruiter weighs.
-   Skills everyone shares are marked, and so is the most experienced. */
+   Up to three people in columns, one row per thing a recruiter weighs.
+   Skills everyone shares are marked, and so is the most experienced.
+
+   The set can change without leaving: each person has an × to drop them,
+   and while there is room a fourth column offers "Add person", a search
+   over every contact. Both edit the same selection the table's ticks show,
+   so closing the dialog leaves the table agreeing with what was compared. */
 
 function CompareDialog({
-  open, people, onClose, onClear, lists, onShortlist, onCopy, onOpen,
+  open, people, onClose, onClear, onAdd, onRemove, lists, onShortlist, onCopy, onOpen,
 }: {
   open: boolean;
   onClear: () => void;
+  onAdd: (id: string) => void;
+  onRemove: (id: string) => void;
   people: readonly Contact[];
   onClose: () => void;
   lists: Shortlists;
@@ -971,8 +1048,10 @@ function CompareDialog({
   onOpen: (id: string) => void;
 }) {
   const last = useRef<readonly Contact[]>(people);
-  if (open && people.length) last.current = people;
+  if (open) last.current = people;
   const ps = open ? people : last.current;
+  const room = ps.length < MAX_COMPARE;
+  const cols = ps.length + (room ? 1 : 0);
   const shared = new Set(ps[0]?.skills.filter((s) => ps.every((p) => p.skills.includes(s))) ?? []);
   const most = Math.max(...ps.map((p) => p.years));
   const lead = ps.filter((p) => p.years === most).length === 1 ? most : -1;
@@ -991,10 +1070,12 @@ function CompareDialog({
 
   return (
     <Dialog open={open} onClose={onClose} label="Compare contacts" size="lg">
-      <div className="cc" style={{ ["--cc-n" as string]: ps.length }}>
+      <div className="cc" style={{ ["--cc-n" as string]: cols }}>
         <header className="cc-head">
           <h2>Compare</h2>
-          {shared.size > 0 && <p><span className="cp-skill is-shared">Shared</span> skills all {ps.length} have</p>}
+          {ps.length < 2
+            ? <p>Add {ps.length ? "one more person" : "two people"} to compare side by side</p>
+            : shared.size > 0 && <p><span className="cp-skill is-shared">Shared</span> skills all {ps.length} have</p>}
           <button type="button" className="ct-btn cc-clear" onClick={onClear}>
             <X size={12} weight="bold" /> Clear compare
           </button>
@@ -1004,22 +1085,92 @@ function CompareDialog({
             <div className="cc-corner" />
             {ps.map((p) => (
               <div key={p.id} className="cc-person">
+                <button type="button" className="cc-x" onClick={() => onRemove(p.id)} aria-label={`Remove ${p.name} from compare`} title="Remove from compare">
+                  <X size={12} weight="bold" />
+                </button>
                 <Avatar name={p.name} hue={p.hue} size={44} />
                 <button type="button" className="ct-name" onClick={() => onOpen(p.id)}>{p.name}</button>
                 <span className="ct-title">{p.title}</span>
                 <ShortlistControl suggest={p.campaign} on={lists[p.id] ?? []} onPick={(camp) => onShortlist(p.id, camp)} />
               </div>
             ))}
+            {room && <AddSlot exclude={ps.map((p) => p.id)} near={ps[0]} onAdd={onAdd} />}
             {rows.map((r) => (
               <div key={r.label} className="cc-row">
                 <div className="cc-label">{r.label}</div>
                 {ps.map((p) => <div key={p.id} className="cc-cell">{r.cell(p)}</div>)}
+                {room && <div className="cc-cell is-empty" aria-hidden="true"><span /></div>}
               </div>
             ))}
           </div>
         </div>
       </div>
     </Dialog>
+  );
+}
+
+/* The open column: a dashed slot that becomes a search over every contact.
+   Before anything is typed it suggests people from the same campaign as
+   the first person being compared, since that is usually the comparison. */
+function AddSlot({ exclude, near, onAdd }: { exclude: readonly string[]; near?: Contact; onAdd: (id: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const [cursor, setCursor] = useState(0);
+  const ref = useRef<HTMLButtonElement>(null);
+  const close = useCallback(() => { setOpen(false); setQ(""); }, []);
+  const list = useMemo(() => {
+    const pool = CONTACTS.filter((c) => !exclude.includes(c.id));
+    const needle = q.trim();
+    const hits = needle ? pool.filter((c) => matches(c, EMPTY_FILTERS, needle))
+      : [...pool].sort((a, b) => Number(b.campaign === near?.campaign) - Number(a.campaign === near?.campaign));
+    return hits.slice(0, 8);
+  }, [q, exclude, near]);
+  useEffect(() => { setCursor(0); }, [q]);
+  const pick = (id: string) => { onAdd(id); close(); };
+
+  return (
+    <div className="cc-person cc-add">
+      <button ref={ref} type="button" className="cc-add-btn" onClick={() => setOpen((o) => !o)} aria-haspopup="listbox" aria-expanded={open}>
+        <span className="cc-add-ico" aria-hidden="true"><Plus size={16} weight="bold" /></span>
+        <span className="cc-add-t">Add person</span>
+        <span className="cc-add-s">Search contacts</span>
+      </button>
+      <Popover anchor={ref} open={open} onClose={close} width={320}>
+        <div className="ct-cp">
+          <label className="ct-cp-search">
+            <MagnifyingGlass size={14} aria-hidden="true" />
+            <input
+              autoFocus
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Name, title, company or skill"
+              aria-label="Find a person to compare"
+              onKeyDown={(e) => {
+                if (e.key === "ArrowDown") { e.preventDefault(); setCursor((c) => Math.min(list.length - 1, c + 1)); }
+                if (e.key === "ArrowUp") { e.preventDefault(); setCursor((c) => Math.max(0, c - 1)); }
+                if (e.key === "Enter" && list[cursor]) { e.preventDefault(); pick(list[cursor]!.id); }
+              }}
+            />
+          </label>
+          <div className="ct-cp-list" role="listbox" aria-label="Contacts">
+            {!q && near && <p className="cc-add-hint">From {campName(near.campaign)} first</p>}
+            {list.map((c, i) => (
+              <button key={c.id} type="button" role="option" aria-selected={i === cursor}
+                className={`ct-cp-i cc-add-i${i === cursor ? " is-cursor" : ""}`}
+                onMouseEnter={() => setCursor(i)} onClick={() => pick(c.id)}>
+                <Avatar name={c.name} hue={c.hue} size={26} />
+                <span className="ct-cp-t">
+                  <span className="ct-cp-name">{c.name}</span>
+                  <span className="ct-cp-role">{c.title} · {c.company}</span>
+                </span>
+                <span className="ct-cp-n">{c.years}y</span>
+              </button>
+            ))}
+            {!list.length && <p className="ct-cp-empty">No one matches “{q}”.</p>}
+          </div>
+        </div>
+      </Popover>
+    </div>
   );
 }
 

@@ -298,3 +298,24 @@ export function sortContacts(list: readonly Contact[], key: SortKey): readonly C
 
 export const capturedLabel = (days: number): string =>
   days === 0 ? "Today" : days === 1 ? "Yesterday" : days < 7 ? `${days}d ago` : days < 30 ? `${Math.floor(days / 7)}w ago` : `${Math.floor(days / 30)}mo ago`;
+
+/* ── what a recruiter scans a row for ── */
+
+const NOW_YEAR = 2026;
+
+/** How long they have been in the current role, from the profile's dates. */
+export function tenureOf(c: Contact): { years: number | null; label: string } {
+  const m = c.jobs[0]?.span.match(/(\d{4})\s*–\s*Present/);
+  if (!m) return { years: null, label: "Tenure not on profile yet" };
+  const y = NOW_YEAR - Number(m[1]);
+  return { years: y, label: y < 1 ? "Joined this year" : `Since ${m[1]} · ${y} yr${y === 1 ? "" : "s"}` };
+}
+
+/** One or two lines on why this person might matter: experience, domain,
+ *  where they were before, and what they are strongest in. */
+export function summaryOf(c: Contact): string {
+  const prev = c.jobs[1]?.company;
+  const top = c.skills.slice(0, 3);
+  const skills = top.length > 1 ? `${top.slice(0, -1).join(", ")} and ${top[top.length - 1]}` : top[0] ?? "";
+  return `${c.years} yrs in ${c.industry.toLowerCase()}${prev ? `, previously ${prev}` : ""}. Strong in ${skills}.`;
+}
