@@ -717,30 +717,34 @@
 
   // ---------- the hub: two ways in, then one agent at a time ----------
 
-  /** Which sections belong to each view. Everything else is hidden, so a view is the whole screen. */
+  /**
+   * Which sections each view shows; everything else is hidden. The two tabs are a toggle, not a journey: `agents` and
+   * `tools` keep the same heading and the same buttons in place and swap only what is under them. Opening one agent
+   * is the one thing that does replace the screen, because that is a different place to be.
+   */
   var VIEWS = {
-    hub: ["hub"],
-    tools: ["detail", "tools"],
+    agents: ["hub", "v-agents"],
+    tools: ["hub", "tools"],
     talent_ops: ["detail", "newjob", "openwrap", "closed-wrap", "team"],
     sourcing: ["detail", "v-sourcing"],
-    assistant: ["detail", "tools"],
   };
-  var PANELS = ["hub", "detail", "tools", "newjob", "openwrap", "closed-wrap", "team", "v-sourcing"];
-  var TITLES = { tools: "Connectors", talent_ops: "Talent operations", sourcing: "Sourcing", assistant: "Personal assistant" };
+  var PANELS = ["hub", "v-agents", "detail", "tools", "newjob", "openwrap", "closed-wrap", "team", "v-sourcing"];
+  var TITLES = { talent_ops: "Talent operations", sourcing: "Sourcing" };
 
   function view(name) {
-    state.view = name;
-    var on = VIEWS[name] || VIEWS.hub;
+    state.view = VIEWS[name] ? name : "agents";
+    var on = VIEWS[state.view];
     PANELS.forEach(function (id) {
       var n = $(id);
       if (!n) return;
       n.hidden = on.indexOf(id) < 0;
     });
     // Closed jobs are a details block that only appears when there are any.
-    if (name === "talent_ops" && !$("closed-wrap").hidden) $("closed-wrap").hidden = !state.hasClosed;
-    if (name !== "hub") $("d-title").textContent = TITLES[name] || "";
-    if (name === "sourcing") loadJds();
-    window.scrollTo(0, 0);
+    if (!$("closed-wrap").hidden) $("closed-wrap").hidden = !state.hasClosed;
+    if (TITLES[state.view]) $("d-title").textContent = TITLES[state.view];
+    if (state.view === "sourcing") loadJds();
+    // Toggling stays where the eye already is; opening an agent is a new screen, so it starts at the top.
+    if (!VIEWS[state.view] || state.view === "talent_ops" || state.view === "sourcing") window.scrollTo(0, 0);
   }
 
   function tile(o) {
@@ -779,7 +783,13 @@
         name: a.name,
         brief: BRIEFS[a.agent] || a.about,
         action: on ? "Open" : "Switch on",
-        onClick: function () { on ? view(a.agent) : (location.href = a.page + "/"); },
+        // The assistant's own screen is the tools it can reach, which is the other tab: send them there rather than
+        // building a second screen that says the same thing.
+        onClick: function () {
+          if (!on) return (location.href = a.page + "/");
+          if (a.agent === "assistant") { setTab("tools"); return view("tools"); }
+          view(a.agent);
+        },
       }));
     });
   }
@@ -819,10 +829,12 @@
     return a;
   }
 
-  $("tab-agents").addEventListener("click", function () { setTab("agents"); view("hub"); });
+  $("tab-agents").addEventListener("click", function () { setTab("agents"); view("agents"); });
   $("tab-tools").addEventListener("click", function () { setTab("tools"); view("tools"); });
-  $("d-back").addEventListener("click", function () { setTab("agents"); view("hub"); });
+  // Back from an agent returns to the tab they came from, which is the one still lit.
+  $("d-back").addEventListener("click", function () { view(state.tab === "tools" ? "tools" : "agents"); });
   function setTab(which) {
+    state.tab = which;
     $("tab-agents").setAttribute("aria-pressed", which === "agents" ? "true" : "false");
     $("tab-tools").setAttribute("aria-pressed", which === "tools" ? "true" : "false");
   }
@@ -844,7 +856,7 @@
     renderTeam();
     renderTools();
     renderAgents();
-    view(state.view || "hub");
+    view(state.view || "agents");
   }
 
   // ---------- organisation ----------
