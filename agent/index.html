@@ -135,6 +135,17 @@
   @media (max-width: 420px) { .tool { flex-wrap: wrap; } .tool .sm { width: 100%; } }
   .toast { position: fixed; left: 50%; bottom: max(20px, env(safe-area-inset-bottom)); transform: translateX(-50%); background: var(--black); color: #fff; padding: 10px 16px; border-radius: 100px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; }
   .toast.show { opacity: 1; }
+  /* Organisation */
+  label.opt { display: flex; gap: 10px; align-items: flex-start; margin: -4px 0 18px; font-size: 15px; font-weight: 400; color: var(--ink2); cursor: pointer; }
+  label.opt input { width: 18px; height: 18px; margin: 2px 0 0; accent-color: var(--accent); flex: none; }
+  input[readonly] { background: var(--panel); color: var(--ink2); }
+  input[readonly]:focus { border-color: var(--rule-strong); box-shadow: none; }
+  .mate { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 2px; border-top: 1px solid var(--rule); min-height: 52px; }
+  .mate:first-child { border-top: 0; }
+  .mate-name { overflow-wrap: anywhere; min-width: 0; }
+  .mate .acts { align-items: center; }
+  .pill.role { background: var(--accent-soft); color: var(--accent); }
+  .pill.role.plain { background: #eee; color: var(--muted); }
 </style>
 </head>
 <body>
@@ -158,6 +169,7 @@
         <label for="company">Company name</label>
         <input id="company" type="text" autocomplete="organization" autocapitalize="words" maxlength="120">
       </div>
+      <label class="opt" id="org-opt"><input type="checkbox" id="create-org" checked><span>Set up an organisation for my team, so colleagues can join with an invite link. I'll be its owner.</span></label>
       <div class="field">
         <label for="phone">Mobile number (WhatsApp)</label>
         <div class="phone">
@@ -224,6 +236,31 @@
       <p class="lead" id="d-lead"></p>
       <div class="banner ok" id="d-welcome" hidden>You're set up. Your assistant is on WhatsApp: tell it about a new role anytime and it will create the job and send you the invite links. Everything also shows up here. You can also connect Google Workspace, Notion and Slack below so it can do more for you.</div>
       <a class="btn ghost" id="d-wa" href="#" target="_blank" rel="noopener" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#wa-icon"/></svg>Open WhatsApp chat</a>
+    </section>
+
+    <section class="card" id="team">
+      <h2 id="t-title">Your team</h2>
+      <div class="error" id="e6" role="alert"></div>
+      <div id="t-has" hidden>
+        <p class="job-meta" id="t-meta"></p>
+        <div class="inv">
+          <div class="inv-top">
+            <div class="inv-label">Teammate invite link</div>
+            <div class="acts"><button type="button" class="sm" id="t-copy">Copy</button><button type="button" class="sm fill" id="t-share">Share</button></div>
+          </div>
+          <div class="inv-url" id="t-url"></div>
+        </div>
+        <div id="t-list"></div>
+        <div class="job-foot"><button type="button" class="link muted" id="t-rotate" hidden>Get a new link</button></div>
+      </div>
+      <form id="f-org" hidden novalidate>
+        <p class="lead" style="font-size:16px;margin-bottom:16px">Bring your recruiting team onto Superhyre. Everyone gets their own assistant, and as the owner you can ask yours what anyone is working on.</p>
+        <div class="field">
+          <label for="o-name">Organisation name</label>
+          <input id="o-name" type="text" autocapitalize="words" maxlength="120" required>
+        </div>
+        <button type="submit" id="b-org">Create organisation</button>
+      </form>
     </section>
 
     <section class="card" id="tools">
@@ -300,6 +337,7 @@
   var params = new URLSearchParams(location.search);
   var clean = function (v) { return (v || "").toLowerCase().replace(/[^a-z0-9]/g, ""); };
   var jobCode = clean(params.get("j"));
+  var orgCode = clean(params.get("o"));
   var legacy = clean(params.get("r"));
   var magic = (params.get("t") || "").toLowerCase().replace(/[^a-f0-9]/g, "");
   var state = { phone: "", name: "", company: "", mode: "signup", resendAt: 0, timer: null, me: null, newJob: null };
@@ -343,7 +381,11 @@
     state.mode = mode;
     err("e1", "");
     $("name-field").hidden = mode === "login";
-    $("company-field").hidden = mode !== "signup";
+    // Joining a team: the organisation comes from the link and can't be changed; only name and number are typed.
+    $("company-field").hidden = mode !== "signup" && mode !== "team";
+    $("company").readOnly = mode === "team";
+    $("company-field").querySelector("label").textContent = mode === "team" ? "Organisation" : "Company name";
+    $("org-opt").hidden = mode !== "signup";
     if (mode === "signup") {
       $("title").textContent = "Get started";
       $("lead").textContent = "Set up your hiring assistant on WhatsApp. Create jobs, share invite links and let it coordinate interviews for you.";
@@ -351,7 +393,13 @@
     } else if (mode === "login") {
       $("title").textContent = "Welcome back";
       $("lead").textContent = "Sign in with your WhatsApp number to see your jobs and invite links.";
-      $("switch").innerHTML = 'New to Superhyre? <button type="button" class="link" data-mode="signup">Create an account</button>';
+      $("switch").innerHTML = orgCode
+        ? 'New to Superhyre? <button type="button" class="link" data-mode="team">Join your team</button>'
+        : 'New to Superhyre? <button type="button" class="link" data-mode="signup">Create an account</button>';
+    } else if (mode === "team") {
+      $("title").textContent = "Join your team";
+      $("lead").textContent = "Get your own hiring assistant on WhatsApp. It creates jobs, shares invite links and coordinates interviews for you.";
+      $("switch").innerHTML = 'Already on Superhyre? <button type="button" class="link" data-mode="login">Sign in</button>';
     } else {
       $("switch").innerHTML = "";
     }
@@ -364,8 +412,9 @@
   function sendBody() {
     var b = { action: "send", phone: state.phone, tz: timeZone() };
     if (state.mode === "join") { b.name = state.name; b.job = jobCode; }
+    else if (state.mode === "team") { b.name = state.name; b.org = orgCode; }
     else if (state.mode === "login") b.login = true;
-    else { b.name = state.name; b.company = state.company; }
+    else { b.name = state.name; b.company = state.company; b.create_org = $("create-org").checked; }
     return b;
   }
 
@@ -384,6 +433,7 @@
       busy(btn, false, "Continue");
       if (!r.ok) {
         if (r.code === "no_account") setMode("signup");
+        if (r.code === "already_member") setMode("login");
         return err("e1", r.message);
       }
       if (r.mode === "reverse") return startWhatsApp(r);
@@ -432,7 +482,7 @@
     state.code = "";
     if (r.kind === "recruiter" && r.session) {
       setSession(r.session);
-      return loadDashboard({ welcome: state.mode === "signup" });
+      return loadDashboard({ welcome: state.mode === "signup" || state.mode === "team" });
     }
     $("done-title").textContent = "You're all set, " + r.first_name;
     $("done-lead").textContent = r.kind === "recruiter"
@@ -602,8 +652,78 @@
     $("n-open").textContent = open.length ? "(" + open.length + ")" : "";
     $("n-closed").textContent = "(" + closed.length + ")";
     $("closed-wrap").hidden = !closed.length;
+    renderTeam();
     renderTools();
   }
+
+  // ---------- organisation ----------
+  function teamInvite(o) { return "Join " + o.name + " on Superhyre and get your own hiring assistant on WhatsApp: " + o.link; }
+  function renderTeam() {
+    var o = state.me.org;
+    $("t-has").hidden = !o;
+    $("f-org").hidden = !!o;
+    if (!o) {
+      $("t-title").textContent = "Your team";
+      if (!$("o-name").value && state.me.company) $("o-name").value = state.me.company;
+      return;
+    }
+    $("t-title").textContent = o.name;
+    $("t-meta").textContent = (o.is_owner ? "You're the owner. " : "You're a recruiter in this team. ") + plural(o.team.length, "recruiter") +
+      ". Send colleagues the link; they fill in their own name and number. You can also ask your assistant for it on WhatsApp.";
+    $("t-url").textContent = o.link;
+    $("t-rotate").hidden = !o.is_owner;
+    var list = $("t-list");
+    list.textContent = "";
+    o.team.forEach(function (m) {
+      var row = el("div", "mate");
+      row.appendChild(el("span", "mate-name", m.name + (m.you ? " (you)" : "")));
+      var acts = el("div", "acts");
+      if (o.is_owner && !m.you && m.id) {
+        var rm = el("button", "link muted", "Remove"); rm.type = "button";
+        rm.setAttribute("aria-label", "Remove " + m.name);
+        rm.addEventListener("click", function () {
+          if (!confirm("Remove " + m.name + " from " + o.name + "? They keep their own account and jobs, but leave the team.")) return;
+          rm.disabled = true;
+          call({ action: "org_remove", session: state.session, member_id: m.id }).then(function (r) {
+            rm.disabled = false;
+            if (!r.ok) return handleDashErr(r, function (msg) { err("e6", msg); });
+            state.me.org = r.org; renderTeam(); toast(m.name + " removed");
+          });
+        });
+        acts.appendChild(rm);
+      }
+      acts.appendChild(el("span", "pill role" + (m.owner ? "" : " plain"), m.owner ? "Owner" : "Recruiter"));
+      row.appendChild(acts);
+      list.appendChild(row);
+    });
+  }
+  $("t-copy").addEventListener("click", function () { copy(state.me.org.link); });
+  $("t-share").addEventListener("click", function () {
+    var text = teamInvite(state.me.org);
+    if (navigator.share) navigator.share({ text: text }).catch(function () {});
+    else window.open("https://wa.me/?text=" + encodeURIComponent(text), "_blank", "noopener");
+  });
+  $("t-rotate").addEventListener("click", function () {
+    if (!confirm("Make a new teammate invite link? The current link will stop working.")) return;
+    var b = $("t-rotate"); b.disabled = true; err("e6", "");
+    call({ action: "org_rotate", session: state.session }).then(function (r) {
+      b.disabled = false;
+      if (!r.ok) return handleDashErr(r, function (m) { err("e6", m); });
+      state.me.org = r.org; renderTeam(); toast("New link ready");
+    });
+  });
+  $("f-org").addEventListener("submit", function (e) {
+    e.preventDefault();
+    err("e6", "");
+    var name = $("o-name").value.replace(/\s+/g, " ").trim();
+    if (name.length < 2) return err("e6", "Please enter your organisation's name."), $("o-name").focus();
+    var btn = $("b-org"); busy(btn, true);
+    call({ action: "org_create", session: state.session, name: name }).then(function (r) {
+      busy(btn, false, "Create organisation");
+      if (!r.ok) return handleDashErr(r, function (m) { err("e6", m); });
+      state.me.org = r.org; renderTeam(); toast("Organisation created");
+    });
+  });
 
   // ---------- connected tools ----------
   var TOOLS = {
@@ -766,6 +886,21 @@
         });
       });
     }
+  } else if (orgCode) {
+    // Teammate invite: the organisation is filled in from the link; they add their own name and number.
+    setMode("team");
+    show("s-details");
+    call({ action: "invite", org: orgCode }).then(function (r) {
+      var b = $("invited");
+      if (r.ok) {
+        $("company").value = r.org;
+        b.textContent = "You've been invited to join " + r.org + " on Superhyre as a recruiter.";
+      } else {
+        b.textContent = r.message || "This team invite link is no longer valid. Please ask your team for a new one.";
+        $("b-send").disabled = true;
+      }
+      b.hidden = false;
+    });
   } else if (jobCode) {
     // Job invite: the link decides the role, so there is nothing to choose.
     setMode("join");
