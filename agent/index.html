@@ -72,6 +72,13 @@
   .link.muted { color: var(--muted); }
   .row { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; gap: 8px; }
   .otp { text-align: center; font-size: 28px !important; letter-spacing: .5em; padding-left: .5em !important; font-variant-numeric: tabular-nums; }
+  /* Two choices side by side, for a question with exactly two answers. */
+  .seg { display: flex; gap: 8px; }
+  .seg button {
+    flex: 1; height: 52px; font: inherit; font-size: 15.5px; cursor: pointer; color: var(--black);
+    background: #fff; border: 1px solid var(--rule-strong); border-radius: var(--radius);
+  }
+  .seg button.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 500; }
   .error { display: none; background: var(--danger-bg); color: var(--danger); border-radius: 10px; padding: 10px 12px; margin: 0 0 14px; font-size: 14.5px; }
   .error.show { display: block; }
   .hint { color: var(--muted); font-size: 14px; font-weight: 300; margin: 14px 0 0; text-align: center; }
@@ -164,6 +171,13 @@
       <div class="field" id="name-field">
         <label for="name">Full name</label>
         <input id="name" type="text" autocomplete="name" autocapitalize="words" maxlength="80" required>
+      </div>
+      <div class="field" id="use-field">
+        <span class="label" id="use-label">What will you use it for?</span>
+        <div class="seg" role="radiogroup" aria-labelledby="use-label">
+          <button type="button" data-use="work" class="on" role="radio" aria-checked="true">Work</button>
+          <button type="button" data-use="personal" role="radio" aria-checked="false">My own things</button>
+        </div>
       </div>
       <div class="field" id="company-field">
         <label for="company">Company name</label>
@@ -341,7 +355,7 @@
   var orgCode = clean(params.get("o"));
   var legacy = clean(params.get("r"));
   var magic = (params.get("t") || "").toLowerCase().replace(/[^a-f0-9]/g, "");
-  var state = { phone: "", name: "", company: "", mode: "signup", resendAt: 0, timer: null, me: null, newJob: null };
+  var state = { phone: "", name: "", company: "", use: "work", mode: "signup", resendAt: 0, timer: null, me: null, newJob: null };
   var SCREENS = ["s-details", "s-otp", "s-wa", "s-done", "s-dash", "s-loading"];
 
   // ---------- storage (may be blocked; the page still works, you just sign in again) ----------
@@ -382,18 +396,44 @@
   }
 
   // ---------- entry form: recruiter sign-up, recruiter sign-in, or joining a job ----------
+  /**
+   * Signing up for their own things or for work. Work is where it starts, since that is what most people are here for;
+   * choosing their own things drops the company (there isn't one) and makes the group a circle of friends.
+   */
+  function setUse(use) {
+    state.use = use === "personal" ? "personal" : "work";
+    Array.prototype.forEach.call(document.querySelectorAll("#use-field .seg button"), function (b) {
+      var on = b.getAttribute("data-use") === state.use;
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-checked", on ? "true" : "false");
+    });
+    if (state.mode === "signup") setMode("signup");
+  }
+  $("use-field").addEventListener("click", function (e) {
+    var u = e.target.getAttribute && e.target.getAttribute("data-use");
+    if (u) setUse(u);
+  });
+
   function setMode(mode) {
     state.mode = mode;
     err("e1", "");
     $("name-field").hidden = mode === "login";
+    // Only a new account is asked; joining a team or a job is already answered by the link.
+    $("use-field").hidden = mode !== "signup";
+    var personal = mode === "signup" && state.use === "personal";
     // Joining a team: the organisation comes from the link and can't be changed; only name and number are typed.
-    $("company-field").hidden = mode !== "signup" && mode !== "team";
+    $("company-field").hidden = personal || (mode !== "signup" && mode !== "team");
     $("company").readOnly = mode === "team";
     $("company-field").querySelector("label").textContent = mode === "team" ? "Organisation" : "Company name";
     $("org-opt").hidden = mode !== "signup";
+    $("org-opt").querySelector("span").textContent = personal
+      ? "Start a circle so friends can join with an invite link. I'll be its owner, and nothing of mine is shared with them unless I say so."
+      : "Set up an organisation for my team, so colleagues can join with an invite link. I'll be its owner.";
     if (mode === "signup") {
       $("title").textContent = "Get started";
-      $("lead").textContent = "Set up your hiring assistant on WhatsApp. Create jobs, share invite links and let it coordinate interviews for you.";
+      $("lead").textContent = personal
+        ? "Set up your assistant on WhatsApp. Connect your email, calendar and notes and it works in them for you, by text or voice note."
+        : "Set up your hiring assistant on WhatsApp. Create jobs, share invite links and let it coordinate interviews for you.";
       $("switch").innerHTML = 'Already signed up? <button type="button" class="link" data-mode="login">Sign in</button>';
     } else if (mode === "login") {
       $("title").textContent = "Welcome back";
@@ -419,7 +459,11 @@
     if (state.mode === "join") { b.name = state.name; b.job = jobCode; }
     else if (state.mode === "team") { b.name = state.name; b.org = orgCode; }
     else if (state.mode === "login") b.login = true;
-    else { b.name = state.name; b.company = state.company; b.create_org = $("create-org").checked; }
+    else {
+      b.name = state.name; b.create_org = $("create-org").checked; b.use_case = state.use;
+      // Someone signing up for their own things has no company to give.
+      if (state.use !== "personal") b.company = state.company;
+    }
     return b;
   }
 
@@ -429,7 +473,7 @@
     var company = $("company").value.replace(/\s+/g, " ").trim();
     var phone = e164();
     if (state.mode !== "login" && name.length < 2) return err("e1", "Please enter your full name."), $("name").focus();
-    if (state.mode === "signup" && company.length < 2) return err("e1", "Please enter your company name."), $("company").focus();
+    if (state.mode === "signup" && state.use !== "personal" && company.length < 2) return err("e1", "Please enter your company name."), $("company").focus();
     if (!phone) return err("e1", "Please enter a valid mobile number."), $("phone").focus();
     state.phone = phone; state.name = name; state.company = company;
     var btn = $("b-send");
