@@ -72,6 +72,30 @@
   .link.muted { color: var(--muted); }
   .row { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; gap: 8px; }
   .otp { text-align: center; font-size: 28px !important; letter-spacing: .5em; padding-left: .5em !important; font-variant-numeric: tabular-nums; }
+  /* The two ways in, side by side, and the tiles they lead to. */
+  .tabs { display: flex; gap: 10px; margin: 0 0 22px; }
+  .tab {
+    flex: 1; height: 56px; font: inherit; font-size: 16px; font-weight: 500; cursor: pointer;
+    color: var(--black); background: #fff; border: 1px solid var(--rule-strong); border-radius: var(--radius);
+  }
+  .tab[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(216px, 1fr)); gap: 14px; }
+  .tile {
+    display: flex; flex-direction: column; gap: 8px; min-height: 184px; padding: 18px;
+    border: 1px solid var(--rule); border-radius: 14px; background: #fff;
+  }
+  .tile .ico { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 9px; background: var(--accent-soft); color: var(--accent); }
+  .tile .ico svg { width: 20px; height: 20px; }
+  .tile .nm { font-weight: 500; font-size: 16.5px; }
+  .tile .br { color: var(--muted); font-size: 14px; line-height: 1.45; flex: 1; }
+  .tile .act { width: 100%; margin-top: 2px; }
+  .tile.on { border-color: var(--accent); }
+  .back {
+    font: inherit; font-size: 15px; cursor: pointer; color: var(--muted); background: none;
+    border: 0; padding: 0; margin: 0 0 10px; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .back::before { content: "\2190"; }
+  #detail h1 { margin: 0 0 20px; }
   /* Two choices side by side, for a question with exactly two answers. */
   .seg { display: flex; gap: 8px; }
   .seg button {
@@ -245,13 +269,21 @@
   </section>
 
   <div id="s-dash" hidden>
-    <section class="card">
-      <h1 id="d-hello">Your jobs</h1>
-      <p class="lead" id="d-lead"></p>
-      <div class="banner ok" id="d-welcome" hidden>You're set up. Your assistant is on WhatsApp: tell it about a new role anytime and it will create the job and send you the invite links. Everything also shows up here. You can also connect Google Workspace, Notion and Slack below so it can do more for you.</div>
-      <a class="btn ghost" id="d-wa" href="#" target="_blank" rel="noopener" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#wa-icon"/></svg>Open WhatsApp chat</a>
-      <p class="job-meta" style="margin-top:14px"><a href="connectors/">Connectors and agents</a> &mdash; your tools, and what your assistant can take on.</p>
-    </section>
+    <div id="hub">
+      <h1 id="d-hello">Your assistant</h1>
+      <div class="tabs">
+        <button type="button" class="tab" id="tab-agents" aria-pressed="true">Agents</button>
+        <button type="button" class="tab" id="tab-tools" aria-pressed="false">Connectors</button>
+      </div>
+      <div class="grid" id="v-agents"></div>
+    </div>
+
+    <div id="detail" hidden>
+      <button type="button" class="back" id="d-back">Back</button>
+      <h1 id="d-title"></h1>
+    </div>
+
+    <section class="card" id="v-sourcing" hidden></section>
 
     <section class="card" id="team">
       <h2 id="t-title">Your team</h2>
@@ -279,8 +311,6 @@
     </section>
 
     <section class="card" id="tools">
-      <h2>Connected tools</h2>
-      <p class="lead" style="font-size:16px;margin-bottom:16px">Optional. Connect your work tools so your assistant can do more for you, right from WhatsApp.</p>
       <div class="error" id="e5" role="alert"></div>
       <div class="tool" id="g-tool">
         <div class="tool-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.2l7.9 6.2C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 7l7.2 5.6c4.2-3.9 7.1-9.7 7.1-17.1z"/><path fill="#FBBC05" d="M10.5 28.6A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.8-4.6l-7.9-6.2A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.8l7.9-6.2z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.2-5.6c-2.2 1.5-5.1 2.4-8.7 2.4-6.2 0-11.5-4.2-13.4-9.9l-7.9 6.2C6.6 42.6 14.6 48 24 48z"/></svg></div>
@@ -308,7 +338,7 @@
       </div>
     </section>
 
-    <section class="card">
+    <section class="card" id="newjob">
       <h2>New job</h2>
       <div class="error" id="e4" role="alert"></div>
       <form id="f-job" novalidate>
@@ -327,7 +357,7 @@
       <p class="hint">You'll get two links: one for candidates, one for hiring managers.</p>
     </section>
 
-    <section class="section">
+    <section class="section" id="openwrap">
       <h2>Open jobs <small id="n-open"></small></h2>
       <div id="open-jobs"></div>
     </section>
@@ -685,11 +715,121 @@
     return card;
   }
 
+  // ---------- the hub: two ways in, then one agent at a time ----------
+
+  /** Which sections belong to each view. Everything else is hidden, so a view is the whole screen. */
+  var VIEWS = {
+    hub: ["hub"],
+    tools: ["detail", "tools"],
+    talent_ops: ["detail", "newjob", "openwrap", "closed-wrap", "team"],
+    sourcing: ["detail", "v-sourcing"],
+    assistant: ["detail", "tools"],
+  };
+  var PANELS = ["hub", "detail", "tools", "newjob", "openwrap", "closed-wrap", "team", "v-sourcing"];
+  var TITLES = { tools: "Connectors", talent_ops: "Talent operations", sourcing: "Sourcing", assistant: "Personal assistant" };
+
+  function view(name) {
+    state.view = name;
+    var on = VIEWS[name] || VIEWS.hub;
+    PANELS.forEach(function (id) {
+      var n = $(id);
+      if (!n) return;
+      n.hidden = on.indexOf(id) < 0;
+    });
+    // Closed jobs are a details block that only appears when there are any.
+    if (name === "talent_ops" && !$("closed-wrap").hidden) $("closed-wrap").hidden = !state.hasClosed;
+    if (name !== "hub") $("d-title").textContent = TITLES[name] || "";
+    if (name === "sourcing") loadJds();
+    window.scrollTo(0, 0);
+  }
+
+  function tile(o) {
+    var t = el("div", "tile" + (o.on ? " on" : ""));
+    var ico = el("div", "ico");
+    ico.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + o.icon + "</svg>";
+    t.appendChild(ico);
+    t.appendChild(el("div", "nm", o.name));
+    t.appendChild(el("div", "br", o.brief));
+    var b = el("button", "sm act" + (o.on ? "" : " fill"), o.action);
+    b.type = "button";
+    b.addEventListener("click", o.onClick);
+    t.appendChild(b);
+    return t;
+  }
+
+  var ICONS = {
+    assistant: '<path d="M12 3v3"/><rect x="4" y="6" width="16" height="12" rx="3"/><path d="M9 11v2M15 11v2"/>',
+    talent_ops: '<path d="M16 21v-2a4 4 0 0 0-8 0v2"/><circle cx="12" cy="7" r="4"/>',
+    sourcing: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+  };
+
+  function renderAgents() {
+    var box = $("v-agents");
+    box.textContent = "";
+    var list = (state.agents || []).slice().sort(function (a, b) {
+      // What they already have comes first; the assistant always leads, since it is the one they got with the account.
+      return (b.enabled || b.always_on) - (a.enabled || a.always_on) || (b.always_on - a.always_on);
+    });
+    if (!list.length) return box.appendChild(el("div", "empty", "Couldn't load your agents. Reload the page."));
+    list.forEach(function (a) {
+      var on = a.enabled || a.always_on;
+      box.appendChild(tile({
+        on: on,
+        icon: ICONS[a.agent] || ICONS.assistant,
+        name: a.name,
+        brief: BRIEFS[a.agent] || a.about,
+        action: on ? "Open" : "Switch on",
+        onClick: function () { on ? view(a.agent) : (location.href = a.page + "/"); },
+      }));
+    });
+  }
+
+  /** Shorter than what the agent's own page says: a tile is a glance, not a description. */
+  var BRIEFS = {
+    assistant: "Your email, calendar, documents and notes, worked on from WhatsApp.",
+    talent_ops: "Jobs, invite links, candidates and interviews, booked and reminded.",
+    sourcing: "Send a JD, get candidates in a sheet in your own Drive.",
+  };
+
+  function loadJds() {
+    var box = $("v-sourcing");
+    box.innerHTML = '<p class="empty"><span class="spin" aria-hidden="true"></span> Loading…</p>';
+    call({ action: "jds_list", session: state.session }).then(function (r) {
+      box.textContent = "";
+      if (!r.ok) return box.appendChild(el("div", "empty", r.message || "Couldn't load your JDs."));
+      if (!r.jds.length) {
+        return box.appendChild(el("div", "empty", "No JDs yet. Send one to your assistant on WhatsApp and it will appear here with its sheet of candidates."));
+      }
+      r.jds.forEach(function (j) {
+        var row = el("div", "jdrow");
+        row.appendChild(el("div", "nm", [j.role, j.company].filter(Boolean).join(" at ") || "Untitled role"));
+        var links = el("div", "job-meta");
+        if (j.jd_url) links.appendChild(link(j.jd_url, "Open the JD"));
+        if (j.sheet_url) links.appendChild(link(j.sheet_url, "Candidates" + (j.runs ? " (" + j.runs + " run" + (j.runs === 1 ? "" : "s") + ")" : "")));
+        if (!j.jd_url && !j.sheet_url) links.textContent = "No links yet.";
+        row.appendChild(links);
+        box.appendChild(row);
+      });
+    });
+  }
+  function link(href, text) {
+    var a = document.createElement("a");
+    a.href = href; a.target = "_blank"; a.rel = "noopener"; a.textContent = text;
+    a.style.marginRight = "14px";
+    return a;
+  }
+
+  $("tab-agents").addEventListener("click", function () { setTab("agents"); view("hub"); });
+  $("tab-tools").addEventListener("click", function () { setTab("tools"); view("tools"); });
+  $("d-back").addEventListener("click", function () { setTab("agents"); view("hub"); });
+  function setTab(which) {
+    $("tab-agents").setAttribute("aria-pressed", which === "agents" ? "true" : "false");
+    $("tab-tools").setAttribute("aria-pressed", which === "tools" ? "true" : "false");
+  }
+
   function render() {
     var me = state.me;
     $("d-hello").textContent = "Hi " + me.first_name;
-    $("d-lead").textContent = (me.company ? me.company + ". " : "") + "Your jobs and invite links. You can also do all of this by chatting with your assistant on WhatsApp.";
-    if (me.wa_url) { $("d-wa").href = me.wa_url; $("d-wa").hidden = false; }
     if (!$("j-company").value && me.company) $("j-company").value = me.company;
     var open = me.jobs.filter(function (j) { return j.status === "open"; });
     var closed = me.jobs.filter(function (j) { return j.status !== "open"; });
@@ -700,9 +840,11 @@
     closed.forEach(function (j) { cj.appendChild(jobCard(j)); });
     $("n-open").textContent = open.length ? "(" + open.length + ")" : "";
     $("n-closed").textContent = "(" + closed.length + ")";
-    $("closed-wrap").hidden = !closed.length;
+    state.hasClosed = closed.length > 0;
     renderTeam();
     renderTools();
+    renderAgents();
+    view(state.view || "hub");
   }
 
   // ---------- organisation ----------
@@ -833,6 +975,9 @@
     });
   }
   function flashTools(p) {
+    // Coming back from a tool's consent screen: the connectors view is the one that shows what just happened.
+    setTab("tools");
+    view("tools");
     var t = $(((TOOLS[p] || TOOLS.google).id) + "-tool"); t.classList.add("flash");
     $("tools").scrollIntoView({ behavior: "smooth", block: "center" });
     setTimeout(function () { t.classList.remove("flash"); }, 4000);
@@ -851,7 +996,12 @@
         setMode("login"); show("s-details"); return err("e1", r.message);
       }
       state.me = r;
-      $("d-welcome").hidden = !(opts && opts.welcome);
+      return call({ action: "agents_list", session: state.session }).then(function (a) {
+        if (a.ok) state.agents = a.agents;
+        return r;
+      });
+    }).then(function (r) {
+      if (!r || !r.ok) return;
       render();
       // A "connect <tool>" link from chat goes straight on to that tool's consent screen.
       var start = state.pendingConnect;
