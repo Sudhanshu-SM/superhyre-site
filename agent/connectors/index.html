@@ -49,7 +49,9 @@
   var TOOLS = [
     { key: "google", name: "Google Workspace", desc: "Gmail, Calendar, Drive, Docs and Sheets. Read and send email, book meetings with a Meet link, write documents and sheets." },
     { key: "notion", name: "Notion", desc: "The pages and databases you share. Find things, add rows, write notes and comment." },
-    { key: "slack", name: "Slack", desc: "The channels you're in. Search, summarise and post as you, after you approve the message." }
+    { key: "slack", name: "Slack", desc: "The channels you're in. Search, summarise and post as you, after you approve the message." },
+    { key: "trello", name: "Trello", desc: "The boards you're a member of. See what's where, add and move cards, set due dates and comment." },
+    { key: "magnifi", name: "Magnifi", desc: "Your client conversations on WhatsApp. Who's unhappy, what was said, what needs attention, and your tickets. A Magnifi admin approves it." }
   ];
 
   function drawTools(tools) {
@@ -59,7 +61,7 @@
       var ready = s.available !== false;
       return '<div class="row"><div class="body"><div class="t">' + S.esc(t.name) +
         ' <span class="pill' + (on ? " on" : "") + '">' + (on ? "Connected" : ready ? "Not connected" : "Coming soon") + '</span></div>' +
-        '<div class="d">' + S.esc(t.desc) + (on && s.email ? " <br>Connected as " + S.esc(s.email) : "") + '</div></div>' +
+        '<div class="d">' + S.esc(t.desc) + (on && (s.account || s.email) ? " <br>Connected: " + S.esc(s.account || s.email) : "") + '</div></div>' +
         (ready ? '<a class="sm' + (on ? "" : " fill") + '" href="../?connect=' + t.key + '">' + (on ? "Reconnect" : "Connect") + '</a>' : "") +
         '</div>';
     }).join("");

@@ -336,6 +336,22 @@
         </div>
         <button type="button" class="sm fill" id="sl-btn" hidden>Connect</button>
       </div>
+      <div class="tool" id="tr-tool">
+        <div class="tool-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24"><rect width="24" height="24" rx="4" fill="#0C66E4"/><rect x="4" y="4" width="7" height="14" rx="1.5" fill="#fff"/><rect x="13" y="4" width="7" height="9" rx="1.5" fill="#fff"/></svg></div>
+        <div class="tool-main">
+          <div class="tool-name">Trello</div>
+          <div class="tool-desc" id="tr-desc"></div>
+        </div>
+        <button type="button" class="sm fill" id="tr-btn" hidden>Connect</button>
+      </div>
+      <div class="tool" id="mg-tool">
+        <div class="tool-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="#25A366" stroke-width="2.5"/><path d="M15.5 15.5 21 21" stroke="#25A366" stroke-width="2.5" stroke-linecap="round"/></svg></div>
+        <div class="tool-main">
+          <div class="tool-name">Magnifi</div>
+          <div class="tool-desc" id="mg-desc"></div>
+        </div>
+        <button type="button" class="sm fill" id="mg-btn" hidden>Connect</button>
+      </div>
     </section>
 
     <section class="card" id="newjob">
@@ -935,7 +951,11 @@
     notion: { id: "nt", name: "Notion", what: "your Notion pages and databases", short: "Pages, trackers and databases",
       pitch: "Find pages, read and update your hiring trackers and databases, add notes and comments. You choose which pages to share." },
     slack: { id: "sl", name: "Slack", what: "your Slack", short: "Channels, threads and messages",
-      pitch: "Search and summarise conversations, read channels and threads, and post messages as you after you approve them." }
+      pitch: "Search and summarise conversations, read channels and threads, and post messages as you after you approve them." },
+    trello: { id: "tr", name: "Trello", what: "your Trello boards", short: "Boards, lists and cards",
+      pitch: "See what's on your boards, add and move cards, set due dates and comment. Only boards you're a member of." },
+    magnifi: { id: "mg", name: "Magnifi", what: "your Magnifi workspace", short: "Client conversations on WhatsApp",
+      pitch: "Ask who's unhappy, what a client said, what needs attention, and update tickets. A Magnifi admin approves the connection." }
   };
   function renderTools() {
     Object.keys(TOOLS).forEach(function (p) {
@@ -949,7 +969,7 @@
       } else if (s.connected) {
         desc.className = "tool-desc ok";
         var acct = s.account || s.email;
-        desc.textContent = "Connected" + (acct ? (p === "google" ? " as " : " to ") + acct : "") +
+        desc.textContent = "Connected" + (acct ? (p === "google" || p === "trello" ? " as " : " to ") + acct : "") +
           (s.missing && s.missing.length ? ". Not allowed: " + s.missing.join(", ") + "." : "");
         btn.textContent = "Disconnect"; btn.className = "sm";
       } else if (s.expired) {
@@ -1073,15 +1093,17 @@
   // ?connect=<tool> (from a chat link) opens the page at that tool's connect button.
   var connect = TOOLS[params.get("connect")] ? params.get("connect") : "";
   var oauthState = params.get("state");
-  var oauthCode = params.get("code"), oauthError = params.get("error");
+  // Trello (OAuth 1.0a) comes back with oauth_verifier and its request token instead of a code; Magnifi adds iss.
+  var oauthCode = params.get("code") || params.get("oauth_verifier"), oauthError = params.get("error");
+  var oauthToken = params.get("oauth_token"), oauthIss = params.get("iss");
   if (params.has("connect")) stripParam("connect");
   state.pendingConnect = connect;
 
   if (oauthState && (oauthCode || oauthError)) {
-    // Back from Google's, Notion's or Slack's consent screen. The state starts with the tool's name (the server checks
-    // its signature); the code is exchanged with the signed-in session that started it.
+    // Back from a tool's consent screen. The state starts with the tool's name (the server checks its signature); the
+    // code is exchanged with the signed-in session that started it.
     var provider = TOOLS[oauthState.split(".")[0]] ? oauthState.split(".")[0] : "google", tname = TOOLS[provider].name;
-    ["state", "code", "scope", "error", "error_description", "authuser", "hd", "prompt"].forEach(function (p) { params.delete(p); });
+    ["state", "code", "scope", "error", "error_description", "authuser", "hd", "prompt", "iss", "oauth_token", "oauth_verifier"].forEach(function (p) { params.delete(p); });
     stripParam("state");
     if (!state.session) {
       setMode("login"); show("s-details");
@@ -1090,7 +1112,7 @@
       loadDashboard({ provider: provider, toolsError: oauthError === "access_denied" ? tname + " wasn't connected because access wasn't allowed." : tname + " didn't complete the connection. Please try again." });
     } else {
       show("s-loading");
-      call({ action: "tool_callback", session: state.session, code: oauthCode, state: oauthState }).then(function (r) {
+      call({ action: "tool_callback", session: state.session, code: oauthCode, state: oauthState, token: oauthToken, iss: oauthIss }).then(function (r) {
         if (!r.ok && r.code === "signed_out") { setSession(""); setMode("login"); show("s-details"); return err("e1", "Please sign in, then connect " + tname + " again."); }
         loadDashboard(r.ok ? { tools: provider } : { provider: provider, toolsError: r.message }).then(function () {
           if (r.ok) toast(tname + " connected");
