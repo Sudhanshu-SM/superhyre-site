@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>Connectors and agents - Superhyre</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="../logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fanwood+Text&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../agent.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <img src="../logo.svg" alt="">
+    <span class="name">Superhyre</span>
+    <span class="sp"></span>
+    <a class="link" href="../">Back</a>
+  </div>
+
+  <h1>Connectors and agents</h1>
+  <p class="lead">Your tools are what your assistant can reach. Your agents are what it can do.</p>
+  <div class="banner" id="msg" hidden></div>
+
+  <section class="card">
+    <h2>Tools</h2>
+    <div id="tools"><p class="muted"><span class="spin" aria-hidden="true"></span> Loading…</p></div>
+    <p class="foot">Connecting opens the tool's own permission screen. You can disconnect any of them at any time, and we never delete anything in them.</p>
+  </section>
+
+  <section class="card">
+    <h2>Agents</h2>
+    <div id="agents"><p class="muted"><span class="spin" aria-hidden="true"></span> Loading…</p></div>
+    <p class="foot">An agent you haven't switched on does nothing and sees nothing. Your assistant will tell you what each one can do once it's on.</p>
+  </section>
+</div>
+
+<script src="../config.js"></script>
+<script src="../agent.js"></script>
+<script>
+(function () {
+  var S = window.SH, token = "";
+
+  // The connect screens send people back to /agent, so that is where a connection is made; this page sends them there
+  // with the tool already chosen rather than handling OAuth a second time.
+  var TOOLS = [
+    { key: "google", name: "Google Workspace", desc: "Gmail, Calendar, Drive, Docs and Sheets. Read and send email, book meetings with a Meet link, write documents and sheets." },
+    { key: "notion", name: "Notion", desc: "The pages and databases you share. Find things, add rows, write notes and comment." },
+    { key: "slack", name: "Slack", desc: "The channels you're in. Search, summarise and post as you, after you approve the message." }
+  ];
+
+  function drawTools(tools) {
+    S.el("tools").innerHTML = TOOLS.map(function (t) {
+      var s = (tools && tools[t.key]) || {};
+      var on = !!s.connected;
+      var ready = s.available !== false;
+      return '<div class="row"><div class="body"><div class="t">' + S.esc(t.name) +
+        ' <span class="pill' + (on ? " on" : "") + '">' + (on ? "Connected" : ready ? "Not connected" : "Coming soon") + '</span></div>' +
+        '<div class="d">' + S.esc(t.desc) + (on && s.email ? " <br>Connected as " + S.esc(s.email) : "") + '</div></div>' +
+        (ready ? '<a class="sm' + (on ? "" : " fill") + '" href="../?connect=' + t.key + '">' + (on ? "Reconnect" : "Connect") + '</a>' : "") +
+        '</div>';
+    }).join("");
+  }
+
+  function drawAgents(agents) {
+    S.el("agents").innerHTML = (agents || []).map(function (a) {
+      var pill = a.always_on ? '<span class="pill on">Always on</span>'
+        : a.enabled ? '<span class="pill on">On</span>' : '<span class="pill">Off</span>';
+      return '<div class="row"><div class="body"><div class="t">' + S.esc(a.name) + ' ' + pill + '</div>' +
+        '<div class="d">' + S.esc(a.about) + '</div></div>' +
+        '<a class="sm' + (a.enabled || a.always_on ? "" : " fill") + '" href="../' + S.esc(a.page) + '/">' +
+        (a.enabled || a.always_on ? "Open" : "Switch on") + '</a></div>';
+    }).join("");
+  }
+
+  S.session().then(function (s) {
+    token = s;
+    return Promise.all([S.api(token, { action: "me" }), S.api(token, { action: "agents_list" })]);
+  }).then(function (both) {
+    var me = both[0], list = both[1];
+    if (!me.ok) { S.note("msg", me.message || "Please sign in again.", "bad"); return; }
+    drawTools(me.tools);
+    if (list.ok) drawAgents(list.agents);
+    else S.note("msg", list.message || "I couldn't load your agents.", "bad");
+  }).catch(function () {});
+})();
+</script>
+</body>
+</html>

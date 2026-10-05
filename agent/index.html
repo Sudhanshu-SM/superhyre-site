@@ -236,6 +236,7 @@
       <p class="lead" id="d-lead"></p>
       <div class="banner ok" id="d-welcome" hidden>You're set up. Your assistant is on WhatsApp: tell it about a new role anytime and it will create the job and send you the invite links. Everything also shows up here. You can also connect Google Workspace, Notion and Slack below so it can do more for you.</div>
       <a class="btn ghost" id="d-wa" href="#" target="_blank" rel="noopener" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#wa-icon"/></svg>Open WhatsApp chat</a>
+      <p class="job-meta" style="margin-top:14px"><a href="connectors/">Connectors and agents</a> &mdash; your tools, and what your assistant can take on.</p>
     </section>
 
     <section class="card" id="team">
@@ -347,6 +348,10 @@
   function getSession() { try { return localStorage.getItem("sh_session") || ""; } catch (x) { return ""; } }
   function setSession(s) { try { s ? localStorage.setItem("sh_session", s) : localStorage.removeItem("sh_session"); } catch (x) {} state.session = s || ""; }
   state.session = getSession();
+
+  // Sent here by one of the pages under /agent because there was no session; go back once there is one.
+  var next = params.get("next") || "";
+  if (state.session && /^\/agent\/[a-z-]+\/?$/.test(next)) { location.replace(next); return; }
 
   function call(body) {
     return fetch(API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
