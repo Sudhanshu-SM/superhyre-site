@@ -43,68 +43,95 @@
 
   <main class="legal">
     <h1>Privacy Policy<br>Superhyre Contact Finder</h1>
-    <p class="eff"><strong>Chrome extension</strong> &middot; Effective date: 24 September 2026</p>
+    <p class="eff"><strong>Chrome extension</strong> &middot; Effective date: 6 October 2026</p>
 
-    <p>This policy explains how the <strong>Superhyre Contact Finder</strong> browser extension (&ldquo;the Extension&rdquo;) handles data. It is an internal business tool for authorized users of <strong>superhyre</strong>. It requires signing in with a <strong>work Google account</strong>; personal-email accounts are refused at signup.</p>
+    <p>This policy explains how the <strong>Superhyre Contact Finder</strong> browser extension (&ldquo;the Extension&rdquo;) handles data. It is a business tool for authorized users of <strong>superhyre</strong>. It requires signing in with a <strong>work Google account</strong>; personal-email accounts are refused at signup.</p>
 
     <h2>What the Extension accesses</h2>
-    <p>The Extension runs only on <code>https://www.linkedin.com/*</code>. It reads nothing until you act.</p>
-    <p>When you open the sidebar on a profile page (<code>https://www.linkedin.com/in/…</code>) it reads:</p>
+    <p>The Extension runs only on <code>https://www.linkedin.com/*</code>. With the sidebar closed it reads nothing on a profile page and sends nothing anywhere.</p>
+    <p>When the sidebar is open on a profile page (<code>https://www.linkedin.com/in/&hellip;</code>) it reads, from that page only:</p>
     <ul>
       <li>the <strong>canonical profile URL</strong> (the <code>/in/&lt;slug&gt;</code> identifier, with tracking parameters stripped);</li>
-      <li>the <strong>name</strong> in the profile&rsquo;s heading.</li>
+      <li>the <strong>name</strong>, <strong>headline</strong>, current <strong>title</strong> and <strong>company</strong>, <strong>location</strong>, the <strong>About</strong> text, and the <strong>education</strong> and <strong>experience</strong> entries shown on the page.</li>
     </ul>
-    <p>If you click <strong>&ldquo;Scrape full profile + phone&rdquo;</strong> it additionally reads, from that page only: the headline, current title and company, location, profile image URL, and up to ten entries from the experience list.</p>
-    <p>On a LinkedIn <strong>people-search results</strong> page it reads the profile URLs of the visible results, in order to mark the people already in your pipeline with a dot.</p>
-    <p>That is the entire read surface. The Extension does <strong>not</strong> read your LinkedIn feed, connections, messages, or any other page or site, and it does not run on any other domain.</p>
+    <p>These are used to show the person in the sidebar and, when you look someone up or add them to your sheet or a job, to save them.</p>
+    <p>On a LinkedIn <strong>people-search results</strong> page it reads the canonical profile URLs of the visible results &mdash; up to fifty per page &mdash; to mark the people already in your pipeline with a dot. This happens while you are signed in, whether or not the sidebar is open, because the dots are drawn on the results list itself.</p>
+    <p>When you choose to <strong>upload a job description</strong> (Add to job), the Extension reads the file you pick (PDF, DOCX or TXT, up to 10 MB). It reads no other file.</p>
+    <p>That is the entire read surface. The Extension does <strong>not</strong> read your LinkedIn feed, connections or messages, or any other page or site, and it does not run on any other domain.</p>
 
     <h2>What the Extension stores on your device</h2>
     <p>Using Chrome&rsquo;s local storage (<code>chrome.storage.local</code>), the Extension stores only:</p>
     <ul>
       <li>your <strong>Supabase session</strong> (access and refresh token) from signing in with Google;</li>
-      <li>your <strong>sidebar preferences</strong> (whether it is open, and how wide).</li>
+      <li>your <strong>sidebar preferences</strong>: open or closed, width, whether it is pinned, and where you placed its edge tab;</li>
+      <li>the <strong>job you selected</strong> to add people to, if any;</li>
+      <li>for a few seconds, a flag that opens the sidebar on the LinkedIn tab you opened from the Extension&rsquo;s popup.</li>
     </ul>
-    <p>There are <strong>no API keys on your device</strong> &mdash; see &ldquo;Where the provider keys live&rdquo; below. The Extension contains no analytics, advertising, tracking, or telemetry code, and stores no browsing or lookup history locally.</p>
+    <p>There are <strong>no API keys on your device</strong> &mdash; see &ldquo;Where the provider keys live&rdquo; below. The Extension contains no analytics, advertising, tracking or telemetry code, and stores no browsing or lookup history locally.</p>
 
     <h2>What the Extension transmits, and to whom</h2>
-    <p><strong>1. Google</strong> (<code>accounts.google.com</code>) &mdash; when you sign in. The Extension requests only the <code>openid</code>, <code>email</code> and <code>profile</code> scopes and receives your email address and name. It requests no access to Gmail, Drive, Calendar, Sheets, or any other Google service.</p>
-    <p><strong>2. superhyre&rsquo;s Supabase project</strong> (<code>npqajviolhoufuggfobg.supabase.co</code>) &mdash; the only server the Extension talks to. It receives, as you use it:</p>
+    <p><strong>1. Google sign-in</strong> (<code>accounts.google.com</code>). The Extension requests these scopes:</p>
     <ul>
-      <li>the profile URL you are viewing, on every sidebar open (a free cache lookup);</li>
-      <li>the scraped profile fields listed above, when you reveal or save;</li>
-      <li>the candidate&rsquo;s stage and any notes you enter, when you shortlist or queue;</li>
-      <li>a log entry for each phone-reveal attempt: your user id, the profile URL, which provider answered, the outcome, and a timestamp. This log enforces a daily per-user limit and records spend.</li>
+      <li><code>openid</code>, <code>email</code>, <code>profile</code> &mdash; your email address and name, to sign you in;</li>
+      <li><code>drive.file</code> &mdash; to create your contacts spreadsheet and a job&rsquo;s shared spreadsheet, and to share a job&rsquo;s spreadsheet with your teammates. It covers only files the Extension itself creates; it cannot see anything else in your Drive;</li>
+      <li><code>spreadsheets</code> &mdash; to write rows into those spreadsheets, including a job&rsquo;s spreadsheet that a teammate created and shared with you, which <code>drive.file</code> alone cannot write to. The Extension reads and writes only the spreadsheets it created for you or that are recorded as your team&rsquo;s job spreadsheets, and only to add or update the rows described in point 2. It does not read, list or change any other spreadsheet you have.</li>
     </ul>
-    <p><strong>3. Contact-data providers &mdash; reached by superhyre&rsquo;s server, never by your browser.</strong> When you click a reveal button, superhyre&rsquo;s server-side function sends the LinkedIn profile URL &mdash; and nothing else &mdash; to independent third-party contact-data providers, one at a time, until one of them has a match. Their handling of that request is governed by their own terms and privacy policies, not this one.</p>
-    <p>The Extension sends data to <strong>no other destination</strong>. Its manifest grants host access to exactly one domain, so it is technically incapable of contacting a provider, an analytics service, or anything else directly.</p>
+    <p>It requests no access to Gmail, Calendar, or any other Google service.</p>
+    <p><strong>2. Google Sheets and Drive APIs</strong> (<code>sheets.googleapis.com</code>, <code>www.googleapis.com</code>), with your own Google sign-in. When you add someone to your sheet or a job, or when a lookup completes, the Extension writes one row for that person: name, LinkedIn URL, the phone numbers and email addresses your account is allowed to see, title, company, location, education, work experience, bio, notes, the date and time they were added, and <strong>who added them</strong> (your name). It reads the existing rows of that spreadsheet only to find and update the same person&rsquo;s row instead of adding a duplicate. When a job&rsquo;s spreadsheet is first created, it is shared as an editor with the active members of your organization. When you take someone off a job, their row is removed from that job&rsquo;s spreadsheet.</p>
+    <p><strong>3. superhyre&rsquo;s Supabase project</strong> (<code>npqajviolhoufuggfobg.supabase.co</code>). It receives, as you use the Extension:</p>
+    <ul>
+      <li>the profile URL you are viewing, each time the sidebar shows a profile (a free lookup of what your account already has);</li>
+      <li>up to fifty result profile URLs per people-search page, to find which of them are already in your pipeline;</li>
+      <li>the profile fields listed above, when you look someone up or add them to your sheet or a job;</li>
+      <li>a <strong>candidate record in your organization&rsquo;s pipeline</strong> (or your personal workspace), stamped as sourced from the Extension. It is created when you add someone to your sheet or a job, and automatically after a lookup, since looking someone up is treated as the intent to work them;</li>
+      <li><strong>jobs</strong>: when you create a job, its company, role, location, experience range, skills and the text of the job description; when you add or remove someone, the shortlist entry on that job;</li>
+      <li>a log entry for each lookup: your user id, your organization, the profile URL, the outcome and a timestamp. It enforces your credit balance and records spend;</li>
+      <li><strong>activity entries</strong> for job and sheet actions (who added or removed whom, on which job, and when), written to your workspace&rsquo;s activity log so your team can see them on the Activity page;</li>
+      <li>the <strong>job description file</strong> you upload, so superhyre&rsquo;s server can read it (see point 5).</li>
+    </ul>
+    <p><strong>4. Contact-data and profile-data providers &mdash; reached by superhyre&rsquo;s server, never by your browser.</strong> When you look up a phone number or email, superhyre&rsquo;s server sends the LinkedIn profile URL &mdash; and nothing else &mdash; to independent third-party contact-data providers, one at a time, until one has a match. When a person is saved, superhyre&rsquo;s server may also send their LinkedIn profile URL to a third-party profile-data service to fill in public profile details (work history, education, skills). These providers&rsquo; handling of a request is governed by their own terms and privacy policies.</p>
+    <p><strong>5. An AI model &mdash; reached by superhyre&rsquo;s server, never by your browser.</strong> When you upload a job description, superhyre&rsquo;s server turns the file into text and sends that text to an AI model (Anthropic&rsquo;s Claude) to pick out the company, role, skills and experience, which you then check before the job is created. Only the job description text is sent: no profile, contact or Google data. It is not used to train any model.</p>
+    <p><strong>6. Gmail, only when you click.</strong> <strong>Request credits</strong> and <strong>Contact us</strong> open Gmail&rsquo;s compose window in a new tab with a draft addressed to superhyre. Nothing is sent unless you press Send, and the Extension has no access to your Gmail.</p>
+    <p>The Extension sends data to <strong>no other destination</strong>. Its manifest grants host access to exactly three hosts &mdash; superhyre&rsquo;s Supabase project, <code>sheets.googleapis.com</code> and <code>www.googleapis.com</code> &mdash; so it is technically incapable of contacting a provider, an analytics service, or anything else directly.</p>
 
     <h2>Where the provider keys live</h2>
-    <p>The provider API keys are held as secrets in superhyre&rsquo;s Supabase project and are never present in the Extension. An unpacked extension is readable by anyone who has it, so a key shipped inside it would be a key its users have. The only credential in the Extension bundle is a Supabase <strong>publishable</strong> key, which is public by design and cannot by itself read data or spend a provider credit &mdash; every action requires your signed-in user token, and access is enforced by row-level security.</p>
+    <p>The provider and AI API keys are held as secrets in superhyre&rsquo;s Supabase project and are never present in the Extension. An unpacked extension is readable by anyone who has it, so a key shipped inside it would be a key its users have. The only credential in the Extension bundle is a Supabase <strong>publishable</strong> key, which is public by design and cannot by itself read data or spend a credit: every action requires your signed-in user token, and access is enforced in the database.</p>
 
     <h2>Shared contact data &mdash; please read</h2>
-    <p class="callout">Revealed contact details are written to a <strong>person graph shared across all organizations using the Superhyre platform</strong>, not only your own. This is deliberate: it means a phone number another organization has already paid to reveal is returned to you at no cost, and vice versa.</p>
-    <p>In practice:</p>
+    <p class="callout">Contact details that are found are stored in a <strong>person graph shared across all organizations using the Superhyre platform</strong>, so that the same person is not paid for twice. What each account can <strong>see</strong> is limited:</p>
     <ul>
-      <li><strong>Contact details</strong> (name, phone numbers, email addresses, and the scraped profile fields) are visible platform-wide.</li>
-      <li><strong>Your organization&rsquo;s own opinion of a person</strong> &mdash; whether they are shortlisted, their stage, your notes, who owns them, your call queue &mdash; is stored in a schema private to your organization and is <strong>not</strong> visible to any other organization.</li>
+      <li>An account (an organization, or a user without one) sees a person&rsquo;s phone numbers and email addresses only after it has looked them up itself, or already holds them. A number another organization found is shown to you only when you look the person up, and that lookup uses one of your credits.</li>
+      <li>Numbers that are not a person&rsquo;s own (office switchboards, toll-free lines, malformed values) are not kept or shown.</li>
+      <li><strong>Your organization&rsquo;s own work</strong> &mdash; who is shortlisted, on which job, their stage, your notes, who owns them, your activity &mdash; is stored in a space private to your organization and is <strong>not</strong> visible to any other organization. Within your organization, teammates can see each other&rsquo;s jobs, shortlists and activity.</li>
     </ul>
 
     <h2>Data subjects, controllers, and responsibilities</h2>
-    <p>The profile data and phone numbers processed relate to third-party individuals (&ldquo;data subjects&rdquo;). <strong>superhyre is the data controller</strong> for everything the Extension writes.</p>
+    <p>The profile data and contact details processed relate to third-party individuals (&ldquo;data subjects&rdquo;). <strong>superhyre is the data controller</strong> for everything the Extension writes to superhyre&rsquo;s systems. The spreadsheets in your Google Drive are yours and your organization&rsquo;s.</p>
     <p>Depending on your and the data subject&rsquo;s location, applicable law (e.g. GDPR, CCPA/CPRA, India&rsquo;s DPDP Act) may grant data subjects rights to access, correct, or delete this data. Requests can be directed to <a href="mailto:team@superhyre.com">team@superhyre.com</a>; a specific person&rsquo;s record can be deleted on request, including from the shared person graph.</p>
-    <p>You are responsible for using the Extension in compliance with applicable law, LinkedIn&rsquo;s terms, the providers&rsquo; terms, and your organization&rsquo;s policies.</p>
+    <p>You are responsible for using the Extension in compliance with applicable law, LinkedIn&rsquo;s terms, and your organization&rsquo;s policies.</p>
+
+    <h2>Limited use</h2>
+    <p>We use the data described above only to provide the Extension&rsquo;s function &mdash; finding recruiting contacts on LinkedIn and saving them, with their profile, into your Superhyre pipeline, your jobs and your Google Sheets &mdash; and to operate, secure and bill for it.</p>
+    <ul>
+      <li>We do <strong>not</strong> sell this data, or transfer it to third parties, other than the contact-data and profile-data providers and the AI model described above, used solely for the request you made.</li>
+      <li>We do <strong>not</strong> use or transfer it for any purpose unrelated to that function: no advertising, no profiling, no resale.</li>
+      <li>We do <strong>not</strong> use or transfer it to determine creditworthiness or for lending purposes.</li>
+      <li>The Extension contains no analytics, advertising or tracking code of any kind.</li>
+    </ul>
+    <p><strong>Google user data.</strong> Superhyre&rsquo;s use and transfer of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">Google API Services User Data Policy</a>, including the Limited Use requirements. Data from your Google account (your name, email address, and the spreadsheets described above) is used only to sign you in and to write and update your contact and job spreadsheets. It is not sold, not used for advertising, not read by humans except with your consent or for security and legal reasons, and not used to develop, improve or train AI or machine-learning models.</p>
 
     <h2>Permissions and why they are needed</h2>
     <ul>
-      <li><strong>storage</strong> &mdash; to keep your session and sidebar preferences on your device.</li>
-      <li><strong>identity</strong> &mdash; to sign you in with Google. This uses Google&rsquo;s own consent window; the Extension never sees your Google password.</li>
-      <li><strong>host access to <code>npqajviolhoufuggfobg.supabase.co</code></strong> &mdash; the single server it talks to.</li>
-      <li><strong>content script on <code>linkedin.com</code></strong> &mdash; to show the sidebar and read the fields described above.</li>
+      <li><strong>storage</strong> &mdash; to keep your session and the preferences listed above on your device.</li>
+      <li><strong>identity</strong> &mdash; to sign you in with Google, in Google&rsquo;s own consent window. The Extension never sees your Google password.</li>
+      <li><strong>host access to <code>npqajviolhoufuggfobg.supabase.co</code></strong> &mdash; superhyre&rsquo;s server.</li>
+      <li><strong>host access to <code>sheets.googleapis.com</code> and <code>www.googleapis.com</code></strong> &mdash; to create, share and write the spreadsheets described above.</li>
+      <li><strong>content script on <code>www.linkedin.com</code></strong> &mdash; to show the sidebar and read the fields described above.</li>
     </ul>
-    <p>The Extension requests no <code>tabs</code>, <code>history</code>, <code>cookies</code>, <code>webRequest</code>, or all-sites host permission.</p>
+    <p>The Extension requests no <code>tabs</code>, <code>history</code>, <code>cookies</code>, <code>webRequest</code>, <code>scripting</code> or all-sites permission, and executes no remotely hosted code: every line it runs ships inside the package.</p>
 
     <h2>Data retention</h2>
-    <p>Your session stays on your device until you sign out or uninstall; signing out deletes it. Contact and candidate data is retained in superhyre&rsquo;s systems until deleted on request or as part of its normal data lifecycle. Reveal log entries are retained for billing, abuse-prevention and audit purposes.</p>
+    <p>Your session stays on your device until you sign out or uninstall; signing out deletes it. Contact, candidate, job and activity data is retained in superhyre&rsquo;s systems until deleted on request or as part of its normal data lifecycle. Lookup log entries are retained for billing, abuse-prevention and audit purposes, and are deleted with the user account they belong to. Uploaded job description files are not kept; the text read from them is kept with the job. Spreadsheets in Google Drive stay there until you or your organization delete them.</p>
 
     <h2>Children</h2>
     <p>The Extension is a business tool and is not directed to anyone under 16.</p>
