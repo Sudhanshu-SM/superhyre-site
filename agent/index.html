@@ -148,7 +148,7 @@
     background: #fff; color: var(--accent); border: 1px solid var(--accent); box-shadow: none;
   }
   button.sm.fill { background: var(--accent); color: #fff; }
-  .job-foot { display: flex; justify-content: flex-end; }
+  .job-foot { display: flex; justify-content: flex-end; gap: 16px; }
   details.closed-list > summary { list-style: none; cursor: pointer; }
   details.closed-list > summary::-webkit-details-marker { display: none; }
   details.closed-list > summary h2::after { content: "+"; font-family: var(--ui); color: var(--muted); margin-left: auto; font-size: 20px; }
@@ -298,7 +298,11 @@
           <div class="inv-url" id="t-url"></div>
         </div>
         <div id="t-list"></div>
-        <div class="job-foot"><button type="button" class="link muted" id="t-rotate" hidden>Get a new link</button></div>
+        <div class="job-foot">
+          <button type="button" class="link muted" id="t-rotate" hidden>Get a new link</button>
+          <button type="button" class="link muted" id="t-leave" hidden>Leave team</button>
+          <button type="button" class="link muted" id="t-delete" hidden>Delete team</button>
+        </div>
       </div>
       <form id="f-org" hidden novalidate>
         <p class="lead" style="font-size:16px;margin-bottom:16px">Bring your recruiting team onto Superhyre. Everyone gets their own assistant, and as the owner you can ask yours what anyone is working on.</p>
@@ -891,6 +895,8 @@
       ". Send colleagues the link; they fill in their own name and number. You can also ask your assistant for it on WhatsApp.";
     $("t-url").textContent = o.link;
     $("t-rotate").hidden = !o.is_owner;
+    $("t-leave").hidden = o.is_owner;
+    $("t-delete").hidden = !o.is_owner;
     var list = $("t-list");
     list.textContent = "";
     o.team.forEach(function (m) {
@@ -930,6 +936,26 @@
       if (!r.ok) return handleDashErr(r, function (m) { err("e6", m); });
       state.me.org = r.org; renderTeam(); toast("New link ready");
     });
+  });
+  function quitTeam(id, action, question, done) {
+    var o = state.me.org;
+    if (!confirm(question(o))) return;
+    var b = $(id); b.disabled = true; err("e6", "");
+    call({ action: action, session: state.session }).then(function (r) {
+      b.disabled = false;
+      if (!r.ok) return handleDashErr(r, function (m) { err("e6", m); });
+      state.me.org = null; renderTeam(); toast(done(o));
+    });
+  }
+  $("t-leave").addEventListener("click", function () {
+    quitTeam("t-leave", "org_leave",
+      function (o) { return "Leave " + o.name + "? You keep your own account and jobs, but you'd need a new invite to rejoin."; },
+      function (o) { return "You left " + o.name; });
+  });
+  $("t-delete").addEventListener("click", function () {
+    quitTeam("t-delete", "org_delete",
+      function (o) { return "Delete " + o.name + "? This can't be undone. Everyone in it is taken out of the team, the invite link stops working and all sharing ends. Everyone keeps their own account and jobs."; },
+      function (o) { return o.name + " deleted"; });
   });
   $("f-org").addEventListener("submit", function (e) {
     e.preventDefault();
