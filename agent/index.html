@@ -305,7 +305,7 @@
         </div>
       </div>
       <form id="f-org" hidden novalidate>
-        <p class="lead" style="font-size:16px;margin-bottom:16px">Bring your recruiting team onto Superhyre. Everyone gets their own assistant, and as the owner you can ask yours what anyone is working on.</p>
+        <p class="lead" style="font-size:16px;margin-bottom:16px">You aren't in a team yet. Set one up to bring your recruiting team onto Superhyre. Everyone gets their own assistant, and as the owner you can ask yours what anyone is working on.</p>
         <div class="field">
           <label for="o-name">Organisation name</label>
           <input id="o-name" type="text" autocapitalize="words" maxlength="120" required>
@@ -886,8 +886,9 @@
     $("t-has").hidden = !o;
     $("f-org").hidden = !!o;
     if (!o) {
-      $("t-title").textContent = "Your team";
-      if (!$("o-name").value && state.me.company) $("o-name").value = state.me.company;
+      // A suggestion only: a filled-in name here read as if the team still existed.
+      $("t-title").textContent = "No team yet";
+      $("o-name").placeholder = state.me.company ? "e.g. " + state.me.company : "";
       return;
     }
     $("t-title").textContent = o.name;
@@ -944,7 +945,7 @@
     call({ action: action, session: state.session }).then(function (r) {
       b.disabled = false;
       if (!r.ok) return handleDashErr(r, function (m) { err("e6", m); });
-      state.me.org = null; renderTeam(); toast(done(o));
+      state.me.org = null; $("o-name").value = ""; renderTeam(); toast(done(o));
     });
   }
   $("t-leave").addEventListener("click", function () {
