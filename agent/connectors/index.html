@@ -61,8 +61,9 @@
       var ready = s.available !== false;
       return '<div class="row"><div class="body"><div class="t">' + S.esc(t.name) +
         ' <span class="pill' + (on ? " on" : "") + '">' + (on ? "Connected" : ready ? "Not connected" : "Coming soon") + '</span></div>' +
-        '<div class="d">' + S.esc(t.desc) + (on && (s.account || s.email) ? " <br>Connected: " + S.esc(s.account || s.email) : "") + '</div></div>' +
-        (ready ? '<a class="sm' + (on ? "" : " fill") + '" href="../?connect=' + t.key + '">' + (on ? "Reconnect" : "Connect") + '</a>' : "") +
+        '<div class="d">' + S.esc(t.desc) + (on && (s.account || s.email) ? " <br>Connected: " +
+          S.esc(s.accounts && s.accounts.length > 1 ? s.accounts.map(function (a) { return a.email + (a.primary ? " (main)" : ""); }).join(", ") : s.account || s.email) : "") + '</div></div>' +
+        (ready ? '<a class="sm' + (on ? "" : " fill") + '" href="../?connect=' + t.key + '">' + (on ? (t.key === "google" ? "Add account" : "Reconnect") : "Connect") + '</a>' : "") +
         '</div>';
     }).join("");
   }

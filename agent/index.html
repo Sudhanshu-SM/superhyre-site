@@ -161,6 +161,11 @@
   .tool-name { font-weight: 500; }
   .tool-desc { color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
   .tool-desc.ok { color: var(--ok); }
+  .accts { margin-top: 6px; font-size: 14px; }
+  .acct { display: flex; align-items: center; gap: 10px; padding: 3px 0; }
+  .acct .em { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .acct .main { color: var(--muted); }
+  .acct button { background: none; border: 0; padding: 0; color: var(--accent); font: inherit; cursor: pointer; }
   .tool .sm { flex: none; }
   .more { color: var(--muted); font-size: 14px; margin: 12px 2px 0; }
   @media (max-width: 420px) { .tool { flex-wrap: wrap; } .tool .sm { width: 100%; } }
@@ -321,6 +326,7 @@
         <div class="tool-main">
           <div class="tool-name">Google Workspace</div>
           <div class="tool-desc" id="g-desc">Gmail, Calendar, Drive, Docs and Sheets: summarise and send emails, schedule Meet calls, find files, update sheets.</div>
+          <div class="accts" id="g-accts" hidden></div>
         </div>
         <button type="button" class="sm fill" id="g-btn" hidden>Connect</button>
       </div>
@@ -984,7 +990,40 @@
     magnifi: { id: "mg", name: "Magnifi", what: "your Magnifi workspace", short: "Client conversations on WhatsApp",
       pitch: "Ask who's unhappy, what a client said, what needs attention, and update tickets. A Magnifi admin approves the connection." }
   };
+  function drawAccounts(accounts) {
+    var box = $("g-accts");
+    box.innerHTML = ""; box.hidden = false;
+    accounts.forEach(function (a) {
+      var row = document.createElement("div"); row.className = "acct";
+      var em = document.createElement("span"); em.className = "em";
+      em.textContent = a.email + (a.active ? "" : " (expired, reconnect it)");
+      row.appendChild(em);
+      if (a.primary && accounts.length > 1) {
+        var m = document.createElement("span"); m.className = "main"; m.textContent = "Main"; row.appendChild(m);
+      } else if (!a.primary) {
+        var mk = document.createElement("button"); mk.type = "button"; mk.textContent = "Make main";
+        mk.addEventListener("click", function () { accountAction({ action: "google_primary", account: a.email }, a.email + " is now your main account"); });
+        row.appendChild(mk);
+      }
+      var off = document.createElement("button"); off.type = "button"; off.textContent = "Remove";
+      off.addEventListener("click", function () {
+        if (!confirm("Disconnect " + a.email + "? Your assistant will no longer be able to use its Gmail, Calendar, Drive, Docs and Sheets.")) return;
+        accountAction({ action: "tool_disconnect", provider: "google", account: a.email }, a.email + " disconnected");
+      });
+      row.appendChild(off);
+      box.appendChild(row);
+    });
+  }
+  function accountAction(body, done) {
+    err("e5", "");
+    body.session = state.session;
+    return call(body).then(function (r) {
+      if (!r.ok) return handleDashErr(r, function (m) { err("e5", m); });
+      state.me.tools = r.tools; renderTools(); toast(done);
+    });
+  }
   function renderTools() {
+    $("g-accts").hidden = true;
     Object.keys(TOOLS).forEach(function (p) {
       var t = TOOLS[p], s = (state.me.tools && state.me.tools[p]) || {};
       var desc = $(t.id + "-desc"), btn = $(t.id + "-btn");
@@ -993,6 +1032,13 @@
       btn.className = "sm fill";
       if (!s.available) {
         desc.textContent = t.short + ". Coming soon.";
+      } else if (p === "google" && s.accounts && s.accounts.length) {
+        // Several Google accounts: each listed with its own Remove, and the button adds another.
+        desc.className = "tool-desc ok";
+        desc.textContent = s.accounts.length > 1 ? "Connected to " + s.accounts.length + " accounts. New emails and events go from the main one unless you say otherwise." : "Connected" +
+          (s.missing && s.missing.length ? ". Not allowed: " + s.missing.join(", ") + "." : "");
+        drawAccounts(s.accounts);
+        btn.textContent = "Add another account"; btn.className = "sm";
       } else if (s.connected) {
         desc.className = "tool-desc ok";
         var acct = s.account || s.email;
@@ -1013,6 +1059,8 @@
     $(t.id + "-btn").addEventListener("click", function () {
       var s = state.me.tools[p] || {}, btn = $(t.id + "-btn"), label = btn.textContent;
       err("e5", "");
+      // Google: the button adds another account; each one is removed from its own row.
+      if (p === "google" && s.accounts && s.accounts.length) return startTool(p, btn, label);
       if (s.connected) {
         if (!confirm("Disconnect " + t.name + "? Your assistant will no longer be able to use " + t.what + ".")) return;
         busy(btn, true);
