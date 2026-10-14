@@ -84,25 +84,15 @@
 .ab:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .ab:disabled { cursor: default; }
 
-.ab.is-primary { background: var(--accent-fill); color: #fff; }
-.ab.is-primary:hover:not(:disabled) { background: var(--accent-text); }
+.ab.is-primary { background: var(--btn-fill); color: var(--btn-ink); }
+.ab.is-primary:hover:not(:disabled) { background: var(--btn-fill-hover); }
 .ab.is-quiet { background: #fff; border-color: var(--rule); color: var(--ink); }
 .ab.is-quiet:hover:not(:disabled) { background: var(--page-2); }
-.ab.is-busy.is-primary { background: var(--accent-text); }
+.ab.is-busy.is-primary { background: var(--btn-fill-hover); }
 .ab.is-done { background: var(--c-sage-tint) !important; border-color: var(--c-sage-line) !important; color: var(--c-sage-text) !important; cursor: default; }
 
 .ab-in { display: inline-flex; align-items: center; gap: 7px; animation: ab-in 240ms var(--ease-out); }
 @keyframes ab-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
-
-.ab-spin {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  border: 1.75px solid rgba(255, 255, 255, 0.35);
-  border-top-color: currentColor;
-  animation: spin 0.7s linear infinite;
-}
-.ab.is-quiet .ab-spin { border-color: var(--hairline); border-top-color: var(--accent); }
 
 .ab-check {
   display: grid;
@@ -135,4 +125,59 @@
   .ab-in, .ab-check { animation: none; }
   .cl { transition-duration: 1ms; }
   .dg-panel { animation-name: cb-fade !important; animation-duration: 180ms !important; }
+}
+
+/* a panel that did not load: the picture, the sentence and Try again (ErrorStates.tsx) */
+.ui-failed { padding: 16px 16px 24px; }
+/* Home's grid gives its one flexible row to the header; a failed day sits under it instead. */
+.orc-main.is-failed { grid-template-rows: auto minmax(0, 1fr); align-content: start; }
+
+/* ── a primary button that cannot be pressed yet ──
+   Neutral, in both themes: a faded orange is peach on white and brown on black, and says nothing. One block for
+   every primary button in the console (they share --btn-* in access.css), so the look cannot drift per page. A
+   button that is working keeps its fill and shows its ring (the loader), so it is not caught here. */
+:is(
+  .ab.is-primary, .ct-btn.is-primary, .cg-new, .ncx-btn.is-primary, .cw-btn.is-primary, .hz-btn.is-primary,
+  .sl-btn.is-primary, .ov2-btn.is-main, .src-btn.is-primary, .nt-btn.is-primary, .hm-tl-edit-ok, .orc-new
+):disabled:not(.is-busy):not([aria-busy="true"]):not(:has(> .ldr)) {
+  background: var(--btn-off-fill) !important;
+  border-color: transparent !important;
+  color: var(--btn-off-ink) !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+  filter: none !important;
+}
+/* ...and one that is working (it carries the loader's ring) keeps its fill at full strength, whatever else fades a
+   disabled button on its page: the ring says it is busy, and half an orange is peach on white and brown on black. */
+button:is(
+  .ab.is-primary, .ct-btn.is-primary, .cg-new, .ncx-btn.is-primary, .cw-btn.is-primary, .hz-btn.is-primary,
+  .sl-btn.is-primary, .ov2-btn.is-main, .src-btn.is-primary, .nt-btn.is-primary, .hm-tl-edit-ok, .orc-new
+):disabled:is(.is-busy, [aria-busy="true"], :has(> .ldr)) {
+  opacity: 1 !important;
+  cursor: progress;
+}
+
+/* ── a button that cannot be pressed, and its words ──
+   Whatever else it is, a label like "Saving" or "Add note" is text that carries meaning, and half-opacity ink on
+   white is 2.5:1. So a disabled text button keeps its shape and its edge, and says its words in the quiet token
+   (ink-3, over 4.5:1 on white and on the dark card); and one that is working keeps full strength, as the primary
+   ones above do. Icon-only buttons are not text, and keep their fade. */
+:is(.ct-btn, .ncx-btn, .cw-btn, .kl-btn, .ab, .sl-btn, .src-btn, .nt-btn, .hz-btn, .ov2-btn, .cg-btn):disabled:not(.is-primary, .is-main, .is-dark, .rl-danger, .is-done, .is-set, .is-active, .is-icon):not(:has(> svg:only-child)) {
+  opacity: 1 !important;
+  color: var(--ink-3) !important;
+}
+:is(.ct-btn, .ncx-btn, .cw-btn, .kl-btn, .ab, .sl-btn, .src-btn, .nt-btn, .hz-btn, .ov2-btn, .cg-btn):disabled:is([aria-busy="true"], :has(> .ldr)):not(.is-primary, .is-main, .is-dark, .rl-danger, .is-done, .is-set, .is-active, .is-icon) {
+  color: var(--ink) !important;
+  cursor: progress;
+}
+/* The calls sheet's primary button is one of the console's one orange button (see the block above). */
+.kl-btn.is-primary:disabled:not(:has(> .ldr)):not([aria-busy="true"]) {
+  background: var(--btn-off-fill) !important;
+  border-color: transparent !important;
+  color: var(--btn-off-ink) !important;
+  opacity: 1 !important;
+}
+.kl-btn.is-primary:disabled:is(:has(> .ldr), [aria-busy="true"]) {
+  opacity: 1 !important;
+  cursor: progress;
 }

@@ -8,7 +8,8 @@ import { CAMPAIGNS } from "./workspaces";
  * the page and the overview agree; the rest are filled in to the same shape.
  */
 
-export type CampaignStatus = "active" | "paused" | "draft" | "closed";
+/** A campaign is on or it is closed; there is nothing in between. Its owner or an admin closes and reopens it. */
+export type CampaignStatus = "active" | "closed";
 
 export type Stage = "sourced" | "shortlisted" | "contacted" | "replied" | "interviews" | "hired";
 
@@ -21,6 +22,15 @@ export const STAGES: readonly { id: Stage; label: string }[] = [
   { id: "hired", label: "Hired" },
 ];
 
+/** How far a campaign's people got (server: modules/pipeline/counts.ts). `outreach` is the people contacted. */
+export type CampaignReached = {
+  found: number; shortlisted: number; outreach: number; replied: number; interviewing: number; hired: number;
+};
+/** Conversions between neighbouring steps, whole percent; null while nobody was in the step before. */
+export type CampaignRates = {
+  kept: number | null; reachedOut: number | null; replied: number | null; interviewing: number | null; hired: number | null;
+};
+
 export type CampaignRow = {
   id: string;
   name: string;
@@ -29,7 +39,19 @@ export type CampaignRow = {
   status: CampaignStatus;
   owner: string;
   team: readonly string[];
+  /** Live rows: the same people by user id, which is what access goes by (names can repeat). */
+  ownerId?: string | null;
+  teamIds?: readonly string[];
+  /** Live rows: "org" campaigns are open to everyone in the organisation. */
+  visibility?: "team" | "org";
+  /** Where people are now: each stage's headcount. */
   funnel: Readonly<Record<Stage, number>>;
+  /**
+   * Live rows: how far people got, and the conversions between steps, as the server defines them
+   * (the same numbers the Overview funnel and the Pipeline header say).
+   */
+  reached?: CampaignReached;
+  rates?: CampaignRates;
   /** People sourced per day, oldest first, last 14 days. */
   trend: readonly number[];
   /** Hires this campaign is meant to make. */
@@ -38,33 +60,94 @@ export type CampaignRow = {
   agents: readonly string[];
   /** Something waiting on a person, if anything. */
   needs?: string;
+  /** Of each day's newly sourced profiles, how many a recruiter kept for the
+      shortlist; aligned with `trend`. Absent → no "kept" figure anywhere. */
+  kept?: readonly number[];
   updatedAgo: string;
+  /** ISO. Live rows only, for picking the most recent campaign. */
+  updatedAt?: string;
   createdAgo: string;
+  /** What the create form captured. Absent on the seeded campaigns. */
+  setup?: CampaignSetup;
+  /** Live data only: the overview figures (sourced, trend, replies) have not arrived yet. */
+  loading?: true;
 };
 
-const BY_ID: Readonly<Record<string, Omit<CampaignRow, "id" | "name" | "department" | "location">>> = {
+export type Employment = "full-time" | "contract" | "intern";
+export type WorkMode = "onsite" | "hybrid" | "remote";
+export type Channel = "email" | "whatsapp" | "linkedin";
+export type Priority = "low" | "normal" | "high" | "urgent";
+export type Visibility = "team" | "org";
+
+/** Everything the New campaign form asks beyond name, team and location. */
+export type CampaignSetup = {
+  clientId?: string;
+  hiringManager?: string;
+  seniority?: string;
+  employment?: Employment;
+  workMode?: WorkMode;
+  /** Days a week in the office, for hybrid. */
+  officeDays?: number;
+  locations?: readonly string[];
+  /** ISO date, and whether it is when the hire starts or when the search closes. */
+  targetDate?: string;
+  dateKind?: "start" | "close";
+  comp?: { currency: string; min?: number; max?: number; variable?: string; shown: boolean };
+  expMin?: number;
+  expMax?: number;
+  mustHave?: readonly string[];
+  niceToHave?: readonly string[];
+  education?: string;
+  notice?: string;
+  dealbreakers?: string;
+  jd?: string;
+  intake?: string;
+  channels?: readonly Channel[];
+  /** "none", "generate", or the id of an existing form to reuse. */
+  screening?: string;
+  priority?: Priority;
+  visibility?: Visibility;
+  fee?: string;
+  /** What the recruiter set for the campaign's searches, over its role spec (PUT /v1/campaigns/:id/filters). */
+  filters?: Readonly<Record<string, readonly string[] | readonly [number, number] | string | boolean>>;
+};
+
+type Funnel = CampaignRow["funnel"];
+/** Replies nobody has answered yet: everyone who replied and has not moved on
+    to interviews. Pipeline's `step: "replied"` count is built from the same
+    two numbers, so Home, Campaigns, the Overview and Pipeline all agree. */
+export const repliesWaiting = (f: Funnel) => Math.max(0, f.replied - f.interviews);
+const repliesNeed = (f: Funnel) => `${repliesWaiting(f)} replies waiting`;
+
+type Base = Omit<CampaignRow, "id" | "name" | "department" | "location" | "needs"> & { needs?: string | ((f: Funnel) => string) };
+
+const BY_ID: Readonly<Record<string, Base>> = {
   "backend-snr": {
     status: "active", owner: "Punith S", team: ["Punith S", "Arnab J", "Sudhanshu M"],
     funnel: { sourced: 214, shortlisted: 13, contacted: 33, replied: 10, interviews: 4, hired: 1 },
     trend: [3, 6, 5, 7, 6, 2, 1, 8, 10, 7, 11, 9, 2, 1], target: 3,
-    agents: ["Sourcing", "Outreach"], needs: "4 replies waiting", updatedAgo: "12m ago", createdAgo: "3w ago",
+    kept: [1, 2, 1, 2, 2, 0, 0, 2, 3, 2, 4, 3, 0, 0],
+    agents: ["Sourcing", "Outreach"], needs: repliesNeed, updatedAgo: "12m ago", createdAgo: "3w ago",
   },
   "platform-sre": {
     status: "active", owner: "Sudhanshu M", team: ["Sudhanshu M", "Riya K"],
     funnel: { sourced: 96, shortlisted: 7, contacted: 19, replied: 5, interviews: 1, hired: 0 },
     trend: [2, 3, 3, 5, 4, 1, 1, 5, 6, 4, 6, 5, 1, 0], target: 2,
+    kept: [0, 1, 1, 1, 1, 0, 0, 1, 2, 1, 2, 1, 0, 0],
     agents: ["Sourcing"], updatedAgo: "1h ago", createdAgo: "2w ago",
   },
   "ios-mid": {
-    status: "paused", owner: "Riya K", team: ["Riya K"],
+    status: "active", owner: "Riya K", team: ["Riya K"],
     funnel: { sourced: 58, shortlisted: 4, contacted: 9, replied: 2, interviews: 1, hired: 1 },
     trend: [1, 2, 1, 2, 2, 0, 0, 2, 3, 2, 4, 3, 1, 1], target: 2,
-    agents: [], needs: "Paused 9 days, no one assigned", updatedAgo: "9d ago", createdAgo: "5w ago",
+    kept: [0, 1, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0],
+    agents: [], needs: "Quiet for 9 days, no one assigned", updatedAgo: "9d ago", createdAgo: "5w ago",
   },
   "design-lead": {
     status: "active", owner: "Arnab J", team: ["Arnab J", "Punith S"],
     funnel: { sourced: 41, shortlisted: 6, contacted: 11, replied: 6, interviews: 3, hired: 0 },
     trend: [0, 1, 2, 3, 2, 1, 0, 2, 4, 3, 3, 4, 2, 1], target: 1,
+    kept: [0, 0, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0],
     agents: ["Outreach"], needs: "2 interviews to schedule", updatedAgo: "34m ago", createdAgo: "10d ago",
   },
   "gtm-ae": {
@@ -77,24 +160,24 @@ const BY_ID: Readonly<Record<string, Omit<CampaignRow, "id" | "name" | "departme
     status: "active", owner: "Riya K", team: ["Riya K", "Sudhanshu M", "Arnab J"],
     funnel: { sourced: 77, shortlisted: 9, contacted: 22, replied: 8, interviews: 2, hired: 1 },
     trend: [2, 2, 4, 3, 5, 3, 2, 6, 5, 7, 6, 8, 5, 4], target: 2,
+    kept: [1, 0, 1, 1, 1, 1, 0, 2, 1, 2, 1, 2, 1, 1],
     agents: ["Sourcing", "Screening"], updatedAgo: "5m ago", createdAgo: "3w ago",
   },
   "fin-controller": {
-    status: "draft", owner: "Sudhanshu M", team: ["Sudhanshu M"],
+    status: "active", owner: "Sudhanshu M", team: ["Sudhanshu M"],
     funnel: { sourced: 0, shortlisted: 0, contacted: 0, replied: 0, interviews: 0, hired: 0 },
     trend: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], target: 1,
-    agents: [], needs: "Brief not finished", updatedAgo: "2d ago", createdAgo: "2d ago",
+    agents: [], needs: "Role spec not approved", updatedAgo: "2d ago", createdAgo: "2d ago",
   },
 };
 
 export const CAMPAIGN_ROWS: readonly CampaignRow[] = CAMPAIGNS.map((c) => {
   const [department = "", location = ""] = c.role.split(" · ");
-  return { id: c.id, name: c.name, department, location, ...BY_ID[c.id]! };
+  const { needs, ...base } = BY_ID[c.id]!;
+  return { id: c.id, name: c.name, department, location, ...base, needs: typeof needs === "function" ? needs(base.funnel) : needs };
 });
 
-export const STATUS_LABEL: Readonly<Record<CampaignStatus, string>> = {
-  active: "Active", paused: "Paused", draft: "Draft", closed: "Closed",
-};
+export const STATUS_LABEL: Readonly<Record<CampaignStatus, string>> = { active: "Active", closed: "Closed" };
 
 export const DEPARTMENTS = ["Engineering", "Design", "Data", "Product", "Go to market", "Finance", "Operations"] as const;
 
@@ -108,14 +191,14 @@ export function newCampaign(input: { name: string; department: string; location:
     name: input.name,
     department: input.department,
     location: input.location || "Remote",
-    status: input.agent ? "active" : "draft",
+    status: "active",
     owner: input.owner,
     team: [input.owner],
     funnel: { sourced: 0, shortlisted: 0, contacted: 0, replied: 0, interviews: 0, hired: 0 },
     trend: Array.from({ length: 14 }, () => 0),
     target: input.target,
     agents: input.agent ? ["Sourcing"] : [],
-    needs: input.agent ? undefined : "Brief not finished",
+    needs: input.agent ? undefined : "Role spec not approved",
     updatedAgo: "Just now",
     createdAgo: "Just now",
   };

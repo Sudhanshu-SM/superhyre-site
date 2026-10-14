@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Sign in — SuperHyre</title>
+<title>SuperHyre</title>
 
 <!-- Unlinked from the marketing site by design, and told not to index itself.
      This is the operator entrance, not a page anyone should arrive at from
@@ -11,9 +11,64 @@
 <meta name="robots" content="noindex, nofollow" />
 <meta name="description" content="Sign in to SuperHyre." />
 
-<link rel="icon" type="image/svg+xml" href="/assets/logo.svg" />
-<link rel="icon" href="/favicon.ico" sizes="any" />
+<!-- The mark, as the tab's icon, inline: the app lives under /access/, so a root-relative icon was a 404 on every
+     load (and on a slow link, one more request in front of everything else). -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 35'%3E%3Cpath fill='%23ea5a1e' stroke='%23ea5a1e' stroke-miterlimit='10' d='M16.047 0.496124C16.0223 2.74925 16.6685 4.85749 17.9504 6.64333C19.9314 9.36012 22.9612 10.9359 26.1146 11.8233C28.2333 12.4029 30.3556 12.6674 32.605 12.6855V15.9384C30.3697 15.942 28.2969 16.4962 26.3159 17.4562C20.4611 20.3831 15.9694 26.7367 15.9129 33.4961L12.989 33.0868L12.0426 28.5008C11.3117 25.9579 10.3653 23.9656 7.78397 23.1252C6.90469 22.8427 6.03954 22.7014 5.11789 22.5963L1.34654 22.4551L0.60498 19.0464C2.40944 18.8218 4.13268 18.4378 5.79942 17.7315C12.8336 14.714 13.2221 7.87494 13.2362 0.829384L15.9023 0.496124'/%3E%3C/svg%3E" />
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+<!-- The page's own colour, before anything else arrives. The theme used to be applied by the console after it
+     mounted, which on a slow link left a cream (or white) page in front of a dark console for a second or more.
+     This reads the same two things the console reads (the person's saved choice, else the device), puts the
+     answer on <html> straight away, and draws a loader in plain CSS so there is something to look at while the
+     scripts download. The candidate's page (#/apply) is light by design and is left alone. -->
+<script>
+  (function () {
+    if (window.location.hash.indexOf("#/apply") === 0) return;
+    var choice = "system";
+    try {
+      var saved = window.localStorage.getItem("superhyre.theme");
+      if (saved === "light" || saved === "dark") choice = saved;
+    } catch (e) { /* a private window: the device decides */ }
+    var dark = choice === "dark" || (choice === "system" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+    // A browser that has signed in here before is about to be given the console, whose surface is white in the
+    // light theme; one that has not is about to see the sign-in, on sand. (Same test as consoleChunk.ts.)
+    var app = false;
+    try {
+      for (var i = 0; i < window.localStorage.length; i += 1) {
+        var k = window.localStorage.key(i);
+        if (k && /^sb-.+-auth-token$/.test(k)) { app = true; break; }
+      }
+    } catch (e) { /* a private window: nothing is remembered */ }
+    if (app) document.documentElement.setAttribute("data-surface", "app");
+  })();
+</script>
+<style>
+  html { background: #f6ece1; }
+  /* Signed in before: the console's own surface (white), so the first paint is the colour the shell lands on. */
+  html[data-surface="app"] { background: #ffffff; }
+  /* ...and the body too: the console's stylesheet paints <body> sand (the sign-in's ground) the moment it arrives,
+     which showed for one frame between this loader and the app's own session check. */
+  html[data-surface="app"] body { background: #ffffff; }
+  html[data-theme="dark"] { background: #171717; color-scheme: dark; }
+  body { margin: 0; }
+  /* The loader, as the console's own draws it (components/Loader.tsx, loader.css): the mark inside a ring that
+     travels round it. Replaced the moment the app mounts. */
+  .sh-boot { position: fixed; inset: 0; display: grid; place-items: center; }
+  .sh-boot-l { position: relative; display: grid; place-items: center; width: 64px; height: 64px; color: #ea5a1e; }
+  .sh-boot-ring { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .sh-boot-ring circle { fill: none; stroke: currentColor; stroke-linecap: round; stroke-width: 1.25; }
+  .sh-boot-track { opacity: 0.16; }
+  .sh-boot-arc { transform-origin: 50% 50%; animation: sh-turn 1.15s linear infinite, sh-breathe 1.9s ease-in-out infinite; }
+  .sh-boot-mark { width: 46%; height: 46%; display: block; }
+  @keyframes sh-turn { from { transform: rotate(-90deg); } to { transform: rotate(270deg); } }
+  @keyframes sh-breathe { 0%, 100% { stroke-dasharray: 12 88; } 50% { stroke-dasharray: 40 60; } }
+  @media (prefers-reduced-motion: reduce) {
+    .sh-boot-arc { animation: none; stroke-dasharray: 28 72; transform: rotate(-90deg); }
+    .sh-boot-ring { animation: sh-pulse 2.4s ease-in-out infinite; }
+    @keyframes sh-pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+  }
+</style>
 
 <!-- Fanwood Text matches how index.html / talent.html /
      extension/privacy load type, so the card renders in the same faces as the
@@ -23,13 +78,30 @@
 
      Bowlby One was dropped: it existed for the tool strip, that strip is gone,
      and a font in this link with no renderer is a request on the critical path
-     buying nothing. -->
+     buying nothing.
+
+     The stylesheet is not render-blocking: it loads as print and becomes the page's once it has arrived
+     (display=swap, so text shows in the fallback face meanwhile). A slow or unreachable Google host no
+     longer holds the first paint. -->
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Fanwood+Text:ital@0;1&family=Inter:wght@300..700&family=Space+Grotesk:wght@500;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Fanwood+Text:ital@0;1&family=Inter:wght@300..700&family=Space+Grotesk:wght@500;600&family=Source+Serif+4:opsz,wght@8..60,400..600&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+<noscript><link href="https://fonts.googleapis.com/css2?family=Fanwood+Text:ital@0;1&family=Inter:wght@300..700&family=Space+Grotesk:wght@500;600&family=Source+Serif+4:opsz,wght@8..60,400..600&display=swap" rel="stylesheet" /></noscript>
 </head>
 <body>
-<div id="root"></div>
+<div id="root">
+  <div class="sh-boot" role="status" aria-label="Loading SuperHyre">
+    <span class="sh-boot-l">
+      <svg class="sh-boot-ring" viewBox="0 0 32 32" focusable="false" aria-hidden="true">
+        <circle class="sh-boot-track" cx="16" cy="16" r="14.5" />
+        <circle class="sh-boot-arc" cx="16" cy="16" r="14.5" pathLength="100" />
+      </svg>
+      <svg class="sh-boot-mark" viewBox="0 0 34 35" focusable="false" aria-hidden="true">
+        <path fill="currentColor" stroke="currentColor" stroke-miterlimit="10" d="M16.047 0.496124C16.0223 2.74925 16.6685 4.85749 17.9504 6.64333C19.9314 9.36012 22.9612 10.9359 26.1146 11.8233C28.2333 12.4029 30.3556 12.6674 32.605 12.6855V15.9384C30.3697 15.942 28.2969 16.4962 26.3159 17.4562C20.4611 20.3831 15.9694 26.7367 15.9129 33.4961L12.989 33.0868L12.0426 28.5008C11.3117 25.9579 10.3653 23.9656 7.78397 23.1252C6.90469 22.8427 6.03954 22.7014 5.11789 22.5963L1.34654 22.4551L0.60498 19.0464C2.40944 18.8218 4.13268 18.4378 5.79942 17.7315C12.8336 14.714 13.2221 7.87494 13.2362 0.829384L15.9023 0.496124" />
+      </svg>
+    </span>
+  </div>
+</div>
 <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>

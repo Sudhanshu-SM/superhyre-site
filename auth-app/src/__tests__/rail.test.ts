@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { BRIEFS, CHANNELS } from "../orchestrator";
 import { CONFIG, RECENT_FEW, searchBriefs } from "../Rail";
-import { ROUTES } from "../nav";
+import { ROUTES, SETTINGS_SECTIONS } from "../nav";
 
 /**
  * Rail — the orchestrator's right column.
@@ -106,7 +106,11 @@ describe("the configuration panel", () => {
      somewhere, and "somewhere" means a route the hash router actually
      honours — not a `#` placeholder and not a dead path. */
   it("points every unset field at a real route", () => {
-    const real = new Set(Object.values(ROUTES).map((r) => `#${r.path}`));
+    /* A route, or one of Settings' own sections (the channels link opens Connections). */
+    const real = new Set([
+      ...Object.values(ROUTES).map((r) => `#${r.path}`),
+      ...SETTINGS_SECTIONS.map((s) => `#/settings/${s}`),
+    ]);
     const unset = CONFIG.filter((r) => r.action);
     expect(unset.length).toBeGreaterThan(0);
     for (const row of unset) {
@@ -145,9 +149,40 @@ describe("the channels row", () => {
     expect(channels!.value).toBe(`${channels!.marks!.length} of ${CHANNELS.length}`);
   });
 
-  it("gives every channel a brand colour to render", () => {
+  it("gives every channel a brand colour to render, and the one it renders in the dark theme", () => {
     for (const c of CHANNELS) {
-      expect(c.brand).toMatch(/^#[0-9a-f]{6}$/i);
+      expect(c.brand, c.name).toMatch(/^#[0-9a-f]{6}$/i);
+      expect(c.brandDark, c.name).toMatch(/^#[0-9a-f]{6}$/i);
+    }
+  });
+
+  /* The mark's colour is inline data, so no stylesheet rule can turn it over: Slack's aubergine and Notion's black
+     were 1.7:1 and 1.1:1 on the dark card (invisible). Each brand states its own dark value and both themes are
+     measured against the card they sit on. */
+  it("keeps every mark visible on its card in both themes (3:1, the floor for a meaningful glyph)", () => {
+    const lum = (hex: string) => {
+      const v = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+      return 0.2126 * v[0]! + 0.7152 * v[1]! + 0.0722 * v[2]!;
+    };
+    const ratio = (a: string, b: string) => {
+      const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+      return (hi! + 0.05) / (lo! + 0.05);
+    };
+    const WHITE_CARD = "#ffffff";
+    const DARK_CARD = "#1c1c1c"; // --panel in theme.css, the Agent page's Configuration card
+    for (const c of CHANNELS) {
+      expect(ratio(c.brand, WHITE_CARD), `${c.name} on the light card`).toBeGreaterThanOrEqual(3);
+      expect(ratio(c.brandDark, DARK_CARD), `${c.name} on the dark card`).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it("is the same list the live rail draws from: every integration states both values", async () => {
+    const { integrationsOf } = await import("../railConfig");
+    const on = { available: true, status: "connected", products: ["gmail"], accountEmail: "a@b.c" } as never;
+    const conn = { status: "connected", workspaceName: "W", accountName: null, settings: {} } as never;
+    for (const i of integrationsOf({ google: on, slack: conn, notion: conn })) {
+      expect(i.brand, i.name).toMatch(/^#[0-9a-f]{6}$/i);
+      expect(i.brandDark, i.name).toMatch(/^#[0-9a-f]{6}$/i);
     }
   });
 });

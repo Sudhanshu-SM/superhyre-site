@@ -1,0 +1,123 @@
+/* ═══════════════════════════ outreach ═══════════════════════════
+   Every email, WhatsApp chat and call, by campaign: the Calls page's own quiet shell (calls.css: the campaign cards,
+   the thin orange-tinted dividers, the sheet) with a channel switch above the toolbar, a channel mark on each line and
+   one sheet per person. Neutral surfaces and two tones of ink; the brand's orange stays a thin line or a label. */
+
+/* ── the channel switch ── */
+.ko-switch {
+  display: inline-flex; gap: 2px; padding: 3px; max-width: 100%; justify-self: start; overflow-x: auto;
+  border: 1px solid var(--hairline); border-radius: 12px; background: var(--sub); scrollbar-width: none;
+}
+.ko-switch::-webkit-scrollbar { display: none; }
+.ko-switch button {
+  display: inline-flex; align-items: center; gap: 7px; flex: none; height: 32px; padding: 0 12px; border: 0; border-radius: 9px;
+  background: none; font: var(--type-label); letter-spacing: var(--track-label); color: var(--ink-2); cursor: pointer; white-space: nowrap;
+  transition: background-color 120ms var(--ease-out), color 120ms var(--ease-out);
+}
+.ko-switch button:hover { color: var(--ink); }
+.ko-switch button.is-on { background: var(--card); color: var(--ink); box-shadow: 0 0 0 1px var(--hairline); }
+.ko-switch button:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.ko-switch-n { font: var(--type-caption); letter-spacing: 0; color: var(--ink-3); }
+.ko-switch button.is-on .ko-switch-n { color: var(--ink-2); }
+
+/* ── the channel mark ── */
+.chm { display: block; flex: none; }
+.chm.is-email, .chm.is-call { color: currentColor; }
+
+/* ── a line ──
+   The same two-line row as a call, with the channel mark before the name and a status column wide enough for
+   "Waiting for a reply". */
+.kl-row.ko-row { grid-template-columns: 34px minmax(0, 1fr) 148px 56px 130px; }
+.ko-mark { display: inline-flex; flex: none; align-self: center; color: var(--ink-2); }
+.kl-row.ko-row .kl-av.is-number { color: var(--ink-2); }
+
+/* a card's figures: how many, and when it last moved, in two columns of their own (no bar: there is no one thing
+   to share out across emails, chats and calls) */
+.ko-gstats {
+  display: grid; grid-template-columns: 88px 190px; align-items: center; column-gap: 18px; white-space: nowrap;
+  font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); font-variant-numeric: tabular-nums;
+}
+.ko-glast { justify-self: end; text-align: right; }
+
+@container klr (max-width: 899px) {
+  .kl-row.ko-row { grid-template-columns: 34px minmax(0, 1fr) 148px 120px; }
+}
+@container klr (max-width: 619px) {
+  .kl-row.ko-row { grid-template-columns: 34px minmax(0, 1fr) auto; }
+}
+@container kl (max-width: 860px) {
+  .ko-gstats { grid-column: 2 / 3; grid-row: 2; grid-template-columns: auto minmax(0, 1fr); column-gap: 14px; }
+  .ko-glast { justify-self: start; text-align: left; }
+}
+@container kl (max-width: 480px) {
+  .ko-gstats { column-gap: 10px; }
+}
+
+/* ── the sheet: tabs, the thread, the strip at the bottom ── */
+/* No scrolling of its own: a scroll container is a grid item that may shrink to nothing when a long thread fills the
+   sheet, and four short tabs fit a phone. */
+.ko-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--hairline); }
+.ko-tabs button {
+  display: inline-flex; align-items: center; gap: 6px; flex: 0 1 auto; margin-bottom: -1px; padding: 9px 12px; border: 0;
+  border-bottom: 2px solid transparent; background: none; font: var(--type-label); letter-spacing: var(--track-label);
+  color: var(--ink-2); cursor: pointer; white-space: nowrap;
+}
+.ko-tabs button:hover { color: var(--ink); }
+.ko-tabs button.is-on { color: var(--ink); border-bottom-color: var(--accent-fill); }
+.ko-tabs button:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; border-radius: 6px; }
+.ko-tab-n { font: var(--type-caption); letter-spacing: 0; color: var(--ink-3); }
+
+.ko-panel { display: grid; gap: 12px; align-content: start; min-width: 0; }
+.ko-failed { display: grid; justify-items: start; gap: 10px; padding: 8px 2px; }
+.ko-failed p { margin: 0; }
+.ko-thread { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+.ko-thread > li { min-width: 0; }
+
+.ko-card {
+  display: grid; gap: 8px; min-width: 0; padding: 14px 16px; border: 1px solid var(--hairline); border-radius: 12px; background: var(--sub);
+}
+.ko-card p { margin: 0; }
+.ko-card-h { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; min-width: 0; color: var(--ink-2); }
+.ko-card-who { flex: 0 1 auto; font: 600 13px/1.4 var(--ui); letter-spacing: 0; color: var(--ink); }
+.ko-card-st { font: var(--type-label); letter-spacing: var(--track-label); }
+.ko-card-when { margin-left: auto; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); }
+.ko-subject { font: 600 15px/1.4 var(--ui); letter-spacing: -0.006em; color: var(--ink); overflow-wrap: anywhere; }
+.ko-text { font: var(--type-body); letter-spacing: var(--track-body); color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+.ko-more { justify-self: start; }
+.ko-actions { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 2px; }
+
+/* a WhatsApp message is a bubble: theirs on the left, ours on the right */
+.ko-card.is-chat { background: none; border: 0; padding: 0; }
+.ko-bubble {
+  max-width: 88%; padding: 10px 12px; border: 1px solid var(--hairline); border-radius: 12px; background: var(--sub);
+  font: var(--type-body); letter-spacing: var(--track-body); color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.ko-card.is-chat.is-out .ko-bubble { margin-left: auto; background: var(--card); }
+
+/* a call's own body inside its card: the sheet's panels, on the card's surface, with no frame of their own */
+.ko-call-open { display: grid; gap: 0; min-width: 0; margin-top: 2px; border-top: 1px solid var(--hairline); }
+.ko-call-open .kl-sec { padding: 16px 0; border: 0; border-radius: 0; background: none; }
+.ko-call-open .kl-sec + .kl-sec { border-top: 1px solid var(--hairline); }
+.ko-call-open .kl-wait.is-small { min-height: 72px; }
+
+/* what can be done from here: one quiet strip that stays at the bottom of the sheet */
+.ko-compose {
+  flex: none; padding: 12px 22px calc(12px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid color-mix(in srgb, var(--accent-fill) 14%, transparent); background: var(--card);
+}
+.ko-compose p { margin: 0; }
+.ko-compose-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+
+@media (max-width: 640px) {
+  /* four equal columns on a phone: the marks give way to the words and their numbers */
+  .ko-switch { display: flex; width: 100%; }
+  .ko-switch button { flex: 1 1 0; justify-content: center; gap: 5px; padding: 0 6px; min-width: 0; }
+  .ko-switch .chm { display: none; }
+  .ko-compose { padding-inline: 16px; }
+  .ko-card { padding: 12px 14px; }
+  .ko-card-when { margin-left: 0; flex-basis: 100%; }
+  .ko-bubble { max-width: 94%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ko-switch button { transition: none; }
+}

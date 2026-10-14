@@ -25,7 +25,15 @@ import type { AllowedBootstrap } from "./types";
  * the result is a signup that succeeds into a dead end. Skipping auth on the
  * client in dev gets the same design access with none of that.
  */
-export const DEV_SKIP_AUTH: boolean = import.meta.env.DEV;
+const LOCAL_HOST = /^(localhost|127\.0\.0\.1|\[::1\])$/;
+/**
+ * Also required beyond `DEV`: a development-mode mode string, and a local address when there is a window.
+ * A bundle accidentally built with NODE_ENV=development and served from a real host still has no bypass.
+ */
+export const DEV_SKIP_AUTH: boolean =
+  import.meta.env.DEV &&
+  (import.meta.env.MODE === "development" || import.meta.env.MODE === "test") &&
+  (typeof window === "undefined" || LOCAL_HOST.test(window.location.hostname));
 
 /**
  * Fixture standing in for a real `extension_bootstrap()` response.

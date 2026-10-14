@@ -16,7 +16,9 @@ export function Avatar({ name, hue, size = 40 }: { name: string; hue: string; si
       style={{
         width: size,
         height: size,
-        fontSize: Math.round(size * 0.36),
+        /* initials never drop under the 12px text floor: a fixed 12px up to
+           40px avatars, then 0.4 of the size */
+        font: size > 40 ? `600 ${Math.round(size * 0.4)}px/1 var(--ui)` : "600 var(--fs-12, 12px)/1 var(--ui)",
         background: `var(--c-${hue}-tint)`,
         color: `var(--c-${hue}-text)`,
         borderColor: `var(--c-${hue}-line)`,
@@ -96,23 +98,25 @@ export function Career({ c, labels = false }: { c: Candidate; labels?: boolean }
    under a single header, so the criterion names are printed once instead of
    on every row; elsewhere `labelled` prints them beside the marks.          */
 
-export function FitMark({ met, label }: { met: boolean; label: string }) {
+export function FitMark({ met, label, unscored = false }: { met: boolean; label: string; unscored?: boolean }) {
+  /* Someone the ranking has not judged yet is unknown, not a miss. */
+  const said = unscored ? "Not scored yet" : met ? "Meets" : "Does not meet";
   return (
-    <span className={`cb-fit${met ? " is-met" : ""}`} title={`${met ? "Meets" : "Does not meet"}: ${label}`}>
-      {met ? <Check size={10} weight="bold" aria-hidden="true" /> : null}
-      <span className="sr-only">{met ? "Meets" : "Does not meet"}: {label}</span>
+    <span className={`cb-fit${unscored ? " is-unscored" : met ? " is-met" : ""}`} title={`${said}: ${label}`}>
+      {met && !unscored ? <Check size={10} weight="bold" aria-hidden="true" /> : null}
+      <span className="sr-only">{said}: {label}</span>
     </span>
   );
 }
 
-export function FitRow({ meets }: { meets: readonly boolean[] }) {
+export function FitRow({ meets, criteria = CRITERIA, short = CRITERIA_SHORT, unscored = false }: { meets: readonly boolean[]; criteria?: readonly string[]; short?: readonly string[]; unscored?: boolean }) {
   const n = meets.filter(Boolean).length;
   return (
-    <ul className="cb-fitrow" aria-label={`Meets ${n} of ${CRITERIA.length} criteria`}>
-      {CRITERIA.map((c, i) => (
-        <li key={c} className={meets[i] ? "is-met" : undefined}>
-          <FitMark met={!!meets[i]} label={c} />
-          <span aria-hidden="true">{CRITERIA_SHORT[i]}</span>
+    <ul className="cb-fitrow" aria-label={unscored ? "Not scored yet" : `Meets ${n} of ${criteria.length} criteria`}>
+      {criteria.map((c, i) => (
+        <li key={`${c}${i}`} className={meets[i] && !unscored ? "is-met" : undefined}>
+          <FitMark met={!!meets[i]} label={c} unscored={unscored} />
+          <span aria-hidden="true">{short[i]}</span>
         </li>
       ))}
     </ul>
@@ -144,7 +148,7 @@ export function Summary({ text, marks }: { text: string; marks: readonly string[
 }
 
 /**
- * Shortlist and reject. Pressing the active one again clears it, so a verdict
+ * Shortlist and pass. Pressing the active one again clears it, so a verdict
  * is never a one-way door. `icons` drops the labels for dense rows; the
  * buttons keep their names for assistive tech either way.
  */
@@ -164,12 +168,12 @@ export function Verdicts({
         type="button"
         className={`cb-v is-reject${rej ? " is-on" : ""}`}
         aria-pressed={rej}
-        aria-label={`${rej ? "Undo reject" : "Reject"} ${name}`}
-        title={rej ? "Undo reject" : "Reject (X)"}
+        aria-label={`${rej ? "Undo pass" : "Pass"} ${name}`}
+        title={rej ? "Undo pass" : "Pass (X)"}
         onClick={(e) => { e.stopPropagation(); onVerdict(rej ? null : "rejected"); }}
       >
         <X size={14} weight="bold" aria-hidden="true" />
-        {!icons && <span>{rej ? "Rejected" : "Reject"}</span>}
+        {!icons && <span>{rej ? "Passed" : "Pass"}</span>}
       </button>
       <button
         type="button"

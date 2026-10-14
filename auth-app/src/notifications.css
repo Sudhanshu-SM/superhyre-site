@@ -1,0 +1,115 @@
+/* ═════════ the bell's panel (Notifications.tsx) ═════════
+   A full-height sheet docked against the sidebar's right edge. Rows are text on the left, time on the right
+   and a quiet dot while unread; a line that asks something gets its answer buttons underneath, small and
+   quiet, so the list stays a list and not a stack of cards. */
+
+.ntp {
+  position: fixed; top: 0; bottom: 0; z-index: 55;
+  display: flex; flex-direction: column; min-width: 0;
+  background: var(--nav-surface, #fff); color: var(--ink);
+  border-right: 1px solid var(--nav-edge-panel, var(--hairline));
+  box-shadow: 6px 0 24px rgba(26, 22, 20, 0.08);
+  outline: none;
+  animation: ntp-in 180ms var(--ease-out, ease-out);
+}
+@keyframes ntp-in { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .ntp { animation: none; } }
+/* A phone: the whole screen. */
+.ntp.is-sheet { inset: 0; width: auto; border-right: 0; box-shadow: none; animation-name: ntp-up; }
+@keyframes ntp-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+.ntp-head { display: flex; align-items: center; gap: 12px; flex: none; padding: 14px 14px 12px 20px; min-height: 56px; }
+.ntp-title { margin: 0; margin-right: auto; font: 600 15px/1.2 var(--ui); letter-spacing: -0.011em; color: var(--ink); }
+
+/* All / Unread: two words, the chosen one lifted. */
+.ntp-seg { display: inline-flex; padding: 2px; border-radius: 999px; background: var(--sub); }
+.ntp-seg button {
+  height: 28px; padding: 0 12px; border: 0; border-radius: 999px; background: transparent; cursor: pointer;
+  font: 500 13px/1 var(--ui); color: var(--ink-2);
+  transition: background-color var(--t), color var(--t);
+}
+.ntp-seg button:hover { color: var(--ink); }
+.ntp-seg button[aria-pressed="true"] { background: var(--nav-surface, #fff); color: var(--ink); box-shadow: var(--e1); }
+.ntp-seg button:focus-visible, .ntp-x:focus-visible, .ntp-ask button:focus-visible, .ntp-catbtn:focus-visible,
+.ntp-markall:focus-visible, .ntp-menu button:focus-visible, .ntp-line:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+
+.ntp-x {
+  display: inline-grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 8px;
+  background: transparent; color: var(--ink-2); cursor: pointer;
+}
+.ntp-x:hover { background: var(--nav-hover); color: var(--ink); }
+
+/* The one-time ask for browser alerts: a quiet strip, gone once answered. */
+.ntp-ask {
+  display: flex; align-items: center; gap: 10px; flex: none; padding: 10px 14px 10px 20px;
+  border-top: 1px solid var(--nav-rule, var(--hairline)); border-bottom: 1px solid var(--nav-rule, var(--hairline));
+}
+.ntp-ask-t { flex: 1 1 auto; min-width: 0; font: 400 13px/1.4 var(--ui); color: var(--ink-2); }
+.ntp-ask-go {
+  flex: none; height: 30px; padding: 0 14px; border: 1px solid var(--hairline); border-radius: 8px; background: var(--sub);
+  font: 500 13px/1 var(--ui); color: var(--ink); cursor: pointer;
+}
+.ntp-ask-go:hover { background: var(--nav-hover); }
+.ntp-ask-x {
+  display: inline-grid; place-items: center; flex: none; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 6px;
+  background: transparent; color: var(--ink-2); cursor: pointer;
+}
+.ntp-ask-x:hover { color: var(--ink); background: var(--nav-hover); }
+
+.ntp-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex: none; padding: 4px 14px 4px 12px; min-height: 44px; border-bottom: 1px solid var(--nav-rule, var(--hairline)); }
+.ntp-cat { position: relative; }
+.ntp-catbtn {
+  display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 8px; border: 0; border-radius: 8px;
+  background: transparent; color: var(--ink); cursor: pointer; font: 400 13px/1 var(--ui);
+}
+.ntp-catbtn:hover { background: var(--nav-hover); }
+.ntp-catbtn svg { color: var(--ink-2); }
+.ntp-markall {
+  padding: 6px 4px; border: 0; background: none; cursor: pointer; font: 400 13px/1 var(--ui); color: var(--ink);
+}
+.ntp-markall:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+.ntp-menu {
+  position: absolute; z-index: 2; top: calc(100% + 4px); left: 0; min-width: 200px; margin: 0; padding: 4px; list-style: none;
+  border: 1px solid var(--nav-edge-panel, var(--hairline)); border-radius: 10px; background: var(--nav-surface, #fff); box-shadow: var(--e3);
+}
+.ntp-menu button {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 34px; padding: 0 10px;
+  border: 0; border-radius: 7px; background: transparent; cursor: pointer; font: 400 13px/1 var(--ui); color: var(--ink); text-align: left;
+}
+.ntp-menu button:hover { background: var(--nav-hover); }
+.ntp-menu button[aria-checked="true"] { font-weight: 500; }
+
+.ntp-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.ntp-row { display: grid; border-bottom: 1px solid var(--nav-rule, var(--hairline)); }
+.ntp-line {
+  display: flex; align-items: flex-start; gap: 14px; width: 100%; padding: 14px 16px 14px 20px;
+  border: 0; background: transparent; cursor: pointer; text-align: left; color: var(--ink-2);
+  font: 400 14px/1.45 var(--ui); letter-spacing: -0.006em;
+}
+.ntp-line:hover { background: var(--nav-hover); }
+.ntp-row.is-unread .ntp-line { color: var(--ink); }
+.ntp-text { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.ntp-when { display: inline-flex; align-items: center; gap: 8px; flex: none; padding-top: 2px; color: var(--ink-2); white-space: nowrap; }
+.ntp-dot { width: 7px; height: 7px; border-radius: 50%; background: transparent; }
+.ntp-row.is-unread .ntp-dot { background: var(--accent-fill, #cc4d17); }
+.ntp-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.ntp-row .nt-acts { padding: 0 20px 14px; margin-top: -4px; }
+
+.ntp-empty { display: grid; justify-items: center; gap: 4px; padding: 48px 24px; text-align: center; color: var(--ink-2); }
+.ntp-empty p { margin: 0; }
+
+.nt-acts { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; padding: 0 8px 8px; }
+.nt-note { margin: 0; color: var(--ink-2); flex: 1 1 100%; }
+
+.nt-btn {
+  height: 28px; padding: 0 12px; border: 1px solid var(--hairline); border-radius: 999px;
+  background: transparent; color: var(--ink); cursor: pointer;
+  font: var(--type-label); letter-spacing: var(--track-label);
+  transition: background-color var(--t), border-color var(--t), color var(--t);
+}
+.nt-btn:hover { background: var(--sub); }
+.nt-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.nt-btn:disabled { opacity: 0.55; cursor: default; }
+.nt-btn.is-primary { background: var(--btn-fill); border-color: var(--btn-fill); color: var(--btn-ink); }
+.nt-btn.is-primary:hover { background: var(--btn-fill-hover); border-color: var(--btn-fill-hover); }

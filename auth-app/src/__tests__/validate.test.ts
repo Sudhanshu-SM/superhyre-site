@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {CONSUMER_DOMAINS, emailDomain, emailProblem } from "../validate";
+import { CONSUMER_DOMAINS, emailDomain, emailProblem, isPersonalAddress } from "../validate";
 
 describe("emailDomain", () => {
   it("lowercases and trims, matching core.email_domain()", () => {
@@ -34,12 +34,15 @@ describe("emailProblem", () => {
     expect(emailProblem("jane@some-startup.xyz")).toBeNull();
   });
 
-  it("rejects consumer domains before a round trip", () => {
-    expect(emailProblem("jane@gmail.com")).toMatch(/work email/i);
+  it("accepts personal addresses: they start in Personal", () => {
+    expect(emailProblem("jane@gmail.com")).toBeNull();
+    expect(emailProblem("  Jane@GMAIL.com  ")).toBeNull();
   });
 
-  it("rejects consumer domains regardless of case or padding", () => {
-    expect(emailProblem("  Jane@GMAIL.com  ")).toMatch(/work email/i);
+  it("classifies personal addresses for set-up regardless of case or padding", () => {
+    expect(isPersonalAddress("  Jane@GMAIL.com  ")).toBe(true);
+    expect(isPersonalAddress("jane@acme.com")).toBe(false);
+    expect(isPersonalAddress("not an email")).toBe(false);
   });
 
   it("flags an incomplete domain separately from a personal one", () => {
@@ -50,12 +53,13 @@ describe("emailProblem", () => {
   });
 
   it("asks for input when empty rather than calling it malformed", () => {
-    expect(emailProblem("   ")).toMatch(/enter your work email/i);
+    expect(emailProblem("   ")).toMatch(/enter your email/i);
   });
 
   it("covers every domain in the mirrored list", () => {
     for (const domain of CONSUMER_DOMAINS) {
-      expect(emailProblem(`jane@${domain}`)).toMatch(/work email/i);
+      expect(isPersonalAddress(`jane@${domain}`)).toBe(true);
+      expect(emailProblem(`jane@${domain}`)).toBeNull();
     }
   });
 });

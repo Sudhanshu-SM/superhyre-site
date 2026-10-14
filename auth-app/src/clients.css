@@ -1,0 +1,202 @@
+/* ── Clients ──
+   Built on the Shortlisted table (.sl, .sl-card, .sl-table): same warm white
+   page, hairlines and 16px card. The detail page keeps the one-screen rule:
+   header and tabs are fixed, the card below scrolls inside itself. */
+
+.cli { max-width: 1360px; }
+.cli-note { margin: 0; color: var(--ink-2); }
+
+/* list */
+.cli-table .cli-c-name { width: 14%; padding-left: 16px; }
+.cli-table .cli-c-ind { width: 10%; }
+.cli-table .cli-c-loc { width: 100px; }
+.cli-table .cli-c-owner { width: 124px; }
+.cli-table .cli-c-num { width: 82px; font-variant-numeric: tabular-nums; }
+.cli-table .cli-c-last { width: 96px; }
+.cli-table .cli-c-status { width: 80px; }
+/* Two-word numeric headings sit on two lines rather than truncate. */
+.cli-table th.cli-c-num { white-space: normal; line-height: 1.15; }
+.cli-table th.cli-c-num .sl-sort { height: auto; min-height: 26px; padding-block: 2px; text-align: left; }
+.cli-table td { height: 58px; }
+.cli-table td.cli-c-ind, .cli-table td.cli-c-loc, .cli-table td.cli-c-last, .cli-table td.cli-c-status { color: var(--ink-2); }
+.cli-table tr.is-quiet td { color: var(--ink-3); }
+.cli-table tr.is-quiet .cli-name .t-body-strong { color: var(--ink-2); }
+.cli-table tbody tr:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.cli-name { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.cli-person { display: grid; gap: 1px; min-width: 0; line-height: 1.35; }
+.cli-mail { font: var(--type-body-sm); color: var(--ink-2); text-decoration: none; }
+.cli-mail:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.cli-sub { font: var(--type-body-sm); color: var(--ink-2); }
+.cli-none { color: var(--ink-3); }
+
+/* detail header */
+.cli.is-detail { gap: 12px; }
+.cli-head { align-items: flex-end; }
+.cli-id { display: flex; align-items: center; gap: 14px; margin-top: 6px; min-width: 0; }
+.cli-id-t { display: grid; gap: 6px; min-width: 0; }
+.cli-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; margin: 0; color: var(--ink-2); }
+.cli-meta-i { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.cli-meta-i svg { color: var(--ink-3); flex: none; }
+.cli-meta-i.is-link { color: var(--ink-2); text-decoration: none; }
+.cli-meta-i.is-link:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.cli-status { font-weight: 500; color: var(--ink); }
+.cli-status.is-inactive { color: var(--ink-3); }
+.cli-more { width: 36px; justify-content: center; padding: 0; }
+.cli .cw-head-act { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.cli-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--sl-edge); }
+.cli-tab {
+  position: relative; display: inline-flex; align-items: center; gap: 7px; height: 38px; padding: 0 12px; border: 0; background: none;
+  font: var(--type-label); letter-spacing: var(--track-label); color: var(--ink-2); cursor: pointer;
+}
+.cli-tab:hover { color: var(--ink); }
+.cli-tab.is-on { color: var(--ink); }
+.cli-tab.is-on::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: -1px; height: 2px; border-radius: 2px; background: var(--ink); }
+.cli-tab:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; border-radius: 8px; }
+.cli-tab-n { font: var(--type-caption); font-variant-numeric: tabular-nums; color: var(--ink-3); }
+
+.cli-scroll { animation: cli-in 220ms var(--ease-out) both; }
+@keyframes cli-in { from { opacity: 0; transform: translateY(3px); } }
+
+/* overview */
+.cli-ov { display: grid; gap: 0; }
+.cli-sum { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-bottom: 1px solid var(--sl-line); }
+.cli-fig { display: grid; gap: 4px; justify-items: start; padding: 20px 24px; border: 0; border-right: 1px solid var(--sl-line); background: none; text-align: left; font: inherit; color: inherit; }
+.cli-fig:last-child { border-right: 0; }
+button.cli-fig { cursor: pointer; transition: background-color var(--t); }
+button.cli-fig:hover { background: var(--sl-hover); }
+button.cli-fig:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.cli-fig .t-label { color: var(--ink-2); }
+.cli-fig b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.cli-fig .t-body-sm { color: var(--ink-3); }
+
+.cli-ov-g { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.2fr) minmax(0, 1fr); }
+.cli-block { min-width: 0; padding: 20px 24px 24px; border-right: 1px solid var(--sl-line); }
+.cli-block:last-child { border-right: 0; }
+.cli-block h2 { margin: 0 0 12px; color: var(--ink); }
+.cli-block h2.cli-gap { margin-top: 22px; }
+.cli-facts { display: grid; gap: 10px; margin: 0; }
+.cli-facts > div { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 12px; align-items: baseline; }
+.cli-facts dt { color: var(--ink-3); }
+.cli-facts dd { margin: 0; color: var(--ink); min-width: 0; overflow-wrap: anywhere; }
+.cli-facts a { color: var(--ink); text-decoration: underline; text-decoration-color: #d9cfc6; text-underline-offset: 3px; }
+.cli-fee, .cli-notes { margin: 0; color: var(--ink); white-space: pre-wrap; }
+.cli-fee.is-empty, .cli-notes.is-empty { color: var(--ink-3); }
+.cli-pc { display: flex; gap: 12px; align-items: flex-start; }
+.cli-pc-t { display: grid; gap: 2px; min-width: 0; }
+.cli-pc-t p { margin: 0; }
+.cli-pc-t .t-body-sm { color: var(--ink-2); }
+.cli-acts { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; }
+.cli-empty-line { margin: 0; color: var(--ink-2); }
+.cli-gap-s { margin-top: 14px; }
+.cli-start { display: grid; gap: 8px; justify-items: start; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--sl-line); }
+.cli-start p { margin: 0; color: var(--ink-2); }
+
+.sl-btn.is-sm { height: 30px; padding: 0 10px; border-radius: 8px; text-decoration: none; }
+.sl-btn.is-ghost { border-color: transparent; box-shadow: none; background: none; color: var(--ink-2); }
+.sl-btn.is-ghost:hover { background: #f5f0eb; color: var(--ink); }
+a.sl-btn { color: var(--ink); }
+
+/* campaigns tab */
+.cli-ctable .cli-k-name { width: 30%; padding-left: 24px; }
+.cli-ctable .cli-k-status { width: 11%; }
+.cli-ctable .cli-k-hired { width: 11%; }
+.cli-ctable .cli-k-pipe { width: 11%; }
+.cli-ctable .cli-k-owner { width: 15%; }
+.cli-ctable .cli-k-upd { width: 12%; }
+.cli-ctable .cli-k-go { width: 44px; color: var(--ink-3); }
+.cli-ctable td { height: 60px; }
+.cli-ctable td.cli-k-status, .cli-ctable td.cli-k-upd { color: var(--ink-2); }
+.cli-ctable tbody tr:hover .cli-k-go { color: var(--ink); }
+.cli-ctable tbody tr:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+
+/* contacts tab */
+.cli-people { margin: 0; padding: 0; list-style: none; }
+.cli-people > li { display: grid; grid-template-columns: 36px minmax(0, 1.2fr) minmax(0, 1fr) 300px; align-items: center; gap: 14px; padding: 14px 24px; border-bottom: 1px solid var(--sl-line); }
+.cli-people p { margin: 0; }
+.cli-people-t { display: grid; gap: 2px; min-width: 0; }
+.cli-people-t .t-body-sm { color: var(--ink-2); }
+.cli-primary { margin-left: 10px; font-weight: 500; color: #2f7a47; }
+.cli-people-reach { display: grid; gap: 2px; min-width: 0; color: var(--ink-2); }
+.cli-people .cli-acts { margin: 0; justify-content: flex-end; }
+.cli-people > li.cli-people-add { display: block; border-bottom: 0; }
+
+/* activity tab */
+.cli-act { display: grid; gap: 6px; padding: 18px 24px 24px; max-width: 820px; }
+.cli-note-f { display: flex; gap: 8px; margin-bottom: 10px; }
+.cli-note-f .ncx-in { flex: 1; }
+.cli-log { margin: 0; padding: 0; list-style: none; }
+.cli-log li { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--sl-line); }
+.cli-log li:last-child { border-bottom: 0; }
+.cli-log-when { color: var(--ink-3); font-variant-numeric: tabular-nums; padding-top: 1px; }
+.cli-log-t { display: grid; gap: 2px; min-width: 0; }
+.cli-log-t p { margin: 0; color: var(--ink); }
+.cli-log-t .t-body-sm { color: var(--ink-2); }
+.cli-log li.is-note q { quotes: "“" "”"; }
+
+/* dialogs */
+.cli-dlg { display: flex; flex-direction: column; min-height: 0; max-height: min(760px, calc(100dvh - 48px)); }
+.cli-dlg-h { padding: 22px 64px 14px 24px; border-bottom: 1px solid #f1ece7; }
+.cli-dlg-h h2 { margin: 0 0 4px; color: var(--ink); }
+.cli-dlg-h p { margin: 0; color: var(--ink-2); }
+.cli-form { display: flex; flex-direction: column; min-height: 0; }
+.cli-form-b { flex: 1; min-height: 0; overflow-y: auto; padding: 6px 24px 20px; }
+.cli-form-h { margin: 18px 0 10px; color: var(--ink-2); }
+.cli-form-f { display: flex; align-items: center; gap: 8px; padding: 12px 16px 12px 24px; border-top: 1px solid #f1ece7; background: #fdfbf9; }
+.cli-form-f > :first-child { flex: 1; }
+
+@media (max-width: 1100px) {
+  .cli-ov-g { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .cli-ov-g .cli-block:last-child { grid-column: 1 / -1; border-top: 1px solid var(--sl-line); }
+  .cli-block:nth-child(2) { border-right: 0; }
+}
+@media (max-width: 760px) {
+  .cli-ov-g, .cli-sum { grid-template-columns: minmax(0, 1fr); }
+  .cli-block, .cli-fig { border-right: 0; border-bottom: 1px solid var(--sl-line); }
+  .cli-people > li { grid-template-columns: 36px minmax(0, 1fr); }
+  .cli-people-reach, .cli-people .cli-acts { grid-column: 2; justify-content: flex-start; }
+}
+@media (prefers-reduced-motion: reduce) { .cli-scroll { animation: none; } }
+
+/* the campaign's client picker */
+.cl-search { width: 100%; }
+.cl-st { font-weight: 400; color: var(--ink-3); }
+.cl-none { padding: 10px 4px; color: var(--ink-2); list-style: none; }
+.cl-list { max-height: 360px; overflow-y: auto; }
+.cl-new .cli-form-b { padding: 0; overflow: visible; }
+.cl-new .cli-form-h:first-child { margin-top: 0; }
+.cl-new .cli-form-f { position: sticky; bottom: -24px; z-index: 1; margin: 16px -24px -24px; }
+.cl-dlg { display: grid; gap: 16px; min-height: 0; padding: 24px; overflow-y: auto; }
+/* give the primary contact real room; numbers columns stay narrow */
+.cli-table .cli-c-name { width: auto; }
+.cli-table .cli-c-ind { width: 132px; }
+.cli-table .cli-c-loc { width: 104px; }
+.cli-table .cli-c-contact { width: 24%; }
+.cli-table .cli-c-num { width: 64px; }
+.cli-table .cli-c-last { width: 92px; }
+.cli-table .cli-c-status { width: 80px; }
+.cli-table .cli-c-name { width: 19%; }
+.cli-table .cli-c-ind { width: 120px; }
+.cli-table .cli-c-contact { width: auto; }
+.cli-table .cli-c-owner { width: 118px; }
+
+/* ── narrower windows: fewer columns, never a squeezed name ──
+   The name is what a row is for. With the nav beside it a 1024px window leaves the table about 700px,
+   and the fixed columns alone take 640 of that, so the name and contact column were left a few
+   pixels each. Industry, location and the contact give way first (the client's page has them), then
+   on a phone the owner, hires and last activity, leaving the name, open campaigns and status. */
+@media (max-width: 1240px) {
+  .cli-table .cli-c-ind, .cli-table .cli-c-loc, .cli-table .cli-c-contact { display: none; }
+  .cli-table .cli-c-name { width: auto; }
+}
+@media (max-width: 560px) {
+  .cli-table .cli-c-owner, .cli-table th.cli-c-num:nth-child(7), .cli-table td.cli-c-num:nth-child(7), .cli-table .cli-c-last { display: none; }
+}
+
+/* A name with no spaces (a pasted handle, a very long one) wraps inside the header instead of running
+   out of the page: every grid track between the title and the edge is allowed to shrink. */
+.cli .cw-head-t, .cli-id-t { grid-template-columns: minmax(0, 1fr); }
+.cli .cw-h1, .cli-meta { overflow-wrap: anywhere; }
+.cli-id { flex-wrap: nowrap; }
+.cli p, .cli .cli-facts dd, .cli .cw-crumb > * { overflow-wrap: anywhere; min-width: 0; }
+.cli .cw-crumb { flex-wrap: wrap; }

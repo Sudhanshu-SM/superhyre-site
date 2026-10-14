@@ -40,7 +40,7 @@ export function SignInCard(p: EmailStepProps) {
     >
       <h1 className="card-title">sign in</h1>
       <p className="card-sub">
-        Use your work email. We send a code, so there is no password to
+        We send a code to your email, so there is no password to
         remember.
       </p>
 
@@ -49,7 +49,7 @@ export function SignInCard(p: EmailStepProps) {
 
       <Field
         id="email"
-        label="Work email"
+        label="Email"
         type="email"
         value={p.email}
         onChange={(e) => p.onEmail(e.target.value)}

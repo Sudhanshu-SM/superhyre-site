@@ -1,0 +1,384 @@
+/*
+ * The conversation and what is attached to it.
+ *
+ * ── THE TRANSCRIPT ──────────────────────────────────────────────────────────
+ * The person's message sits on the right in a soft bubble; the agent answers on the left, plain, under its
+ * mark. Both are in one size and one line height (the agent's), turns are not divided by a rule, and the
+ * spacing is one rhythm: 28px from one exchange to the next, 10px from a message to the agent's first line.
+ * Higher specificity than access.css's older rules on purpose: those are left as they were.
+ */
+.orc.is-agent .orc-log > .orc-turn { padding: 0; border-top: 0; }
+.orc.is-agent .orc-log > .orc-turn + .orc-turn { border-top: 0; }
+.orc.is-agent .orc-stream .orc-log { gap: 28px; }
+/* The last message rests 56px above the composer when the transcript is scrolled to its end, and a message
+   brought into view (by following the chat, or scrollIntoView) is brought above that line, not against it. */
+.orc.is-agent .orc-stream.is-live .orc-log { padding-bottom: 56px; scroll-padding-bottom: 56px; padding-right: 12px; }
+
+.orc-turn .rep-prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  width: fit-content;
+  max-width: min(70%, 640px);
+  margin: 0 0 10px auto;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 20px;
+  background: var(--sub);
+  font: 400 15px/1.65 var(--ui);
+  letter-spacing: -0.011em;
+  color: var(--ink);
+  text-align: left;
+}
+.rep-prompt-text { margin: 0; font: inherit; letter-spacing: inherit; white-space: pre-wrap; overflow-wrap: anywhere; }
+.rep-prompt-file {
+  display: inline-flex; align-items: center; gap: 6px; max-width: 100%;
+  font: 500 13px/1.4 var(--ui); color: var(--ink-2);
+}
+.rep-prompt-file b { font-weight: 500; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rep-prompt-file small { font: 400 12px/1.4 var(--ui); color: var(--ink-2); white-space: nowrap; }
+.rep-prompt-more {
+  padding: 0; border: 0; background: none; cursor: pointer;
+  font: 500 12.5px/1.4 var(--ui); color: var(--ink-2);
+}
+.rep-prompt-more:hover { color: var(--ink); }
+.rep-prompt-more:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+@media (max-width: 640px) { .orc-turn .rep-prompt { max-width: 85%; } }
+
+/* ── ATTACHMENTS IN THE COMPOSER ─────────────────────────────────────────────
+   Inside the composer's own box, at its top, wrapping onto as many lines as they need. One chip design for
+   everything attached (a file, pasted text, the job description, the filters): the same height, radius and
+   spacing, the name cut with an ellipsis, and a remove at its end. Never over the input, never clipped by the
+   box: the box grows to hold them, and the rail's end (the box's top) moves with it. */
+.orc-composer-field.has-attached { flex-wrap: wrap; }
+.orc-composer-field .orc-attached {
+  order: -1;
+  flex: 1 0 100%;
+  min-width: 0;
+  margin: 0 0 8px;
+}
+.orc-attached-list {
+  display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none;
+}
+.orc-attached-list > li { min-width: 0; max-width: 100%; }
+.orc-file {
+  display: inline-flex; align-items: center; gap: 4px; max-width: 100%; height: 30px;
+  padding: 0 4px 0 10px; border: 1px solid var(--hairline); border-radius: 10px;
+  background: var(--sub); color: var(--ink);
+  font: 500 13px/1 var(--ui);
+}
+.orc-file-open {
+  display: inline-flex; align-items: center; gap: 7px; min-width: 0; padding: 0; border: 0; background: none;
+  color: inherit; font: inherit; text-align: left;
+}
+button.orc-file-open { cursor: pointer; }
+.orc-file-open:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.orc-file-open svg { flex: none; color: var(--ink-2); }
+.orc-file b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 24ch; }
+.orc-file small { flex: none; font: 400 12px/1 var(--ui); color: var(--ink-2); white-space: nowrap; }
+.orc-file.is-failed { border-color: var(--rule); }
+.orc-file.is-failed b { color: var(--ink-2); }
+.orc-file-more { padding: 0 11px; cursor: pointer; color: var(--ink-2); font: 500 12.5px/1 var(--ui); }
+.orc-file-more:hover { color: var(--ink); }
+.orc-file-x {
+  display: inline-grid; place-items: center; flex: none; width: 22px; height: 22px; padding: 0; border: 0;
+  border-radius: 7px; background: transparent; color: var(--ink-2); cursor: pointer;
+}
+.orc-file-x:hover { background: var(--page-2, var(--sub)); color: var(--ink); }
+.orc-file-x:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.orc-attached-err { margin: 6px 2px 0; font: 400 12.5px/1.45 var(--ui); color: var(--ink-2); }
+
+.orc-attach {
+  display: inline-grid; place-items: center; flex: none; width: 28px; height: 28px; padding: 0;
+  border: 0; border-radius: 50%; background: transparent; color: var(--ink-2); cursor: pointer;
+  transition: color var(--t-dim), background var(--t-dim);
+}
+.orc-attach:hover { background: var(--sub); color: var(--ink); }
+.orc-attach:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.orc-attach-note {
+  display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; margin: 8px 4px 0;
+  font: 400 12.5px/1.45 var(--ui); color: var(--ink-2);
+}
+.orc-attach-note button {
+  padding: 0; border: 0; border-bottom: 1px solid var(--rule); background: none; cursor: pointer;
+  font: inherit; color: var(--ink);
+}
+
+/* Dropping a file anywhere on the page: calm, full area, and it takes no clicks. */
+.orc-drop {
+  position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; pointer-events: none;
+  background: color-mix(in srgb, var(--page) 82%, transparent);
+}
+.orc-drop-in {
+  display: grid; place-items: center; gap: 6px; padding: 28px 40px;
+  border: 1.5px dashed var(--accent-line, var(--rule)); border-radius: 20px;
+  font: 500 15px/1.4 var(--ui); color: var(--ink);
+}
+.orc-drop-in small { font: 400 12.5px/1.4 var(--ui); color: var(--ink-2); }
+
+.orc-paste-view { display: grid; gap: 12px; }
+.orc-paste-view textarea {
+  width: 100%; min-height: 220px; padding: 12px 14px; border: 1px solid var(--hairline); border-radius: 14px;
+  font: 400 14px/1.55 var(--ui); color: var(--ink); background: var(--page-2, var(--page)); resize: vertical;
+}
+.orc-paste-view footer { display: flex; gap: 8px; align-items: center; }
+.orc-paste-view footer .sp { flex: 1; }
+
+/*
+ * ── THE RAIL IS FIXED; THE COMPOSER MEETS IT ────────────────────────────────
+ * Beside the conversation (wider than 1100px) the page is a grid with a dock at its foot: a row of fixed height
+ * that holds the composer's input once a chat is open. The rail sits in the rows above the dock, at the END of
+ * them, so the bottom edge of its last panel (History) is the top edge of the docked input. That is the same
+ * in every state: nothing about a chat starting, a message being sent, an idea list or a line under the input
+ * can move it. A window too short for it caps it (24px clear of the top) and it scrolls inside itself.
+ *
+ * Scoped to the Agent page (`.orc.is-agent`): Home is `.orc.is-solo` and must not meet any of this.
+ *
+ *   home   [ heading, down to the Configuration panel's top ]  [ composer + ideas ]  [ the rest ]  [ dock ]
+ *   chat   [ transcript, the whole height above the dock ]                                          [ composer ]
+ *
+ * `--config-top` is where the Configuration panel's top rests, read from the rail by Agent.tsx; at home the
+ * composer's top is on that line. Starting a chat sends the composer down to the dock (a short glide).
+ */
+.orc.is-agent { --dock: 120px; --dock-under: 40px; }
+@media (min-width: 1101px) {
+  .orc.is-agent.is-chat { grid-template-rows: minmax(0, 1fr) var(--dock); }
+  .orc.is-agent:not(.is-chat) { grid-template-rows: var(--config-top, 36dvh) auto minmax(0, 1fr) var(--dock); }
+
+  .orc.is-agent > .orc-main {
+    grid-row: 1 / -1;
+    grid-column: 1;
+    grid-template-rows: subgrid;
+  }
+  .orc.is-agent > .orc-main > .orc-stream {
+    grid-row: 1 / -1;
+    display: grid;
+    grid-template-rows: subgrid;
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 0;
+  }
+  .orc.is-agent > .orc-main > .orc-stream > .orc-log { grid-row: 1; min-height: 0; }
+  .orc.is-agent.is-chat > .orc-main > .orc-stream > .orc-composer {
+    grid-row: 2;
+    align-self: end;
+    position: relative;
+    margin-bottom: var(--dock-under);
+    padding-top: 0;
+  }
+  .orc.is-agent:not(.is-chat) > .orc-main > .orc-stream > .orc-composer {
+    grid-row: 2;
+    align-self: start;
+    padding-top: 0;
+  }
+  /* Docked, what is under the input hangs from it into the dock: it never moves the input. */
+  .orc.is-agent.is-chat .orc-composer-below {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+  }
+
+  .orc.is-agent > .orc-rail {
+    grid-row: 1 / -2;
+    grid-column: 2;
+    align-self: end;
+    max-height: calc(100% - 24px);
+    min-height: 0;
+    padding: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+}
+
+/* The History panel's head: room above and below the New button, and a little air before the first chat. */
+/* Its height is its own (the New button's, with the room around it), shown or not: History is the same height
+   before a chat and in one, so the rail does not change size, and so move, when a chat starts. */
+.rail-hist .rail-hist-head { box-sizing: border-box; min-height: 58px; padding: 12px 0; margin: -4px 0 2px; }
+
+/* ── WHAT THE BRIEF SAYS SO FAR ──────────────────────────────────────────────
+   One line under the composer while a brief is being written: five quiet items, each a check and a label,
+   dim until the words say it. It wraps on a narrow screen and never overlaps the composer. */
+.orc-signals {
+  display: flex; flex-wrap: wrap; gap: 2px 14px; margin: 10px 0 0; padding: 0 4px; list-style: none;
+}
+.orc-signal {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 26px; padding: 0; border: 0; background: none;
+  color: var(--ink-2); font: 400 13.5px/1.3 var(--ui); letter-spacing: -0.006em; cursor: pointer;
+  opacity: 0.7; transition: color var(--t), opacity var(--t);
+}
+.orc-signal svg { flex: none; }
+.orc-signal:hover { opacity: 1; color: var(--ink); }
+.orc-signal:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; border-radius: 6px; }
+.orc-signal.is-found { opacity: 1; color: var(--accent-text, var(--accent)); }
+.orc-signal em {
+  max-width: 18ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-style: normal; font-size: 12.5px; color: var(--ink-2);
+}
+@media (prefers-reduced-motion: reduce) { .orc-signal { transition: none; } }
+
+/* The job description slot says the file's name, cut. */
+.orc-chip-name { max-width: 16ch; overflow: hidden; text-overflow: ellipsis; }
+
+
+/* ── THE TWO CONTEXT CHIPS: one anatomy ───────────────────────────────────────
+   Job description and Filters are the same chip: 32px tall, a 20px neutral circle with a 12px glyph in it, a
+   13px/500 label on the same line, and (Filters) the count as an 18px round badge, 8px apart, everything centred
+   on one line. Selected is the accent border and its tint, nothing else: the circle, the weight and the shadow
+   do not change. */
+.orc.is-agent .orc-composer .orc-slots .orc-gslot.orc-ctx {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 12px 0 10px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-pill);
+  background: transparent;
+  box-shadow: none;
+  font: 500 13px/1 var(--ui);
+  letter-spacing: -0.006em;
+  color: var(--ink);
+}
+.orc.is-agent .orc-composer .orc-slots .orc-gslot.orc-ctx:hover {
+  background: var(--sub);
+  border-color: var(--rule);
+  box-shadow: none;
+}
+.orc.is-agent .orc-composer .orc-slots .orc-gslot.orc-ctx.is-on,
+.orc.is-agent .orc-composer .orc-slots .orc-gslot.orc-ctx.is-on:hover {
+  background: var(--accent-tint);
+  border-color: var(--accent-line);
+  color: var(--ink);
+  font-weight: 500;
+}
+.orc.is-agent .orc-composer .orc-slots .orc-gslot.orc-ctx .orc-ctx-ico,
+.orc.is-agent .orc-composer .orc-slots .orc-gslot.orc-ctx.is-on .orc-ctx-ico,
+.orc.is-agent .orc-composer .orc-slots .orc-gslot.orc-ctx:hover .orc-ctx-ico {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--sub);
+  color: var(--ink-2);
+  box-shadow: none;
+  transform: none;
+  animation: none;
+}
+.orc.is-agent .orc-composer .orc-slots .orc-gslot.orc-ctx .orc-ctx-ico svg { width: 12px; height: 12px; }
+.orc.is-agent .orc-composer .orc-slots .orc-gslot.orc-ctx .orc-chip-l {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+}
+.orc.is-agent .orc-composer .orc-slots .orc-gslot.orc-ctx .orc-ctx-n {
+  position: static;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 18px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--accent-fill);
+  color: #fff;
+  font: 600 11px/1 var(--ui);
+  font-variant-numeric: tabular-nums;
+  box-shadow: none;
+  animation: none;
+}
+/* Narrow: the chips are their circles, the count a badge on its corner (the label stays as the tooltip). */
+@container (max-width: 480px) {
+  .orc.is-agent .orc-composer .orc-slots .orc-gslot.orc-ctx { width: 32px; padding: 0; justify-content: center; border-radius: 50%; }
+  .orc.is-agent .orc-composer .orc-slots .orc-gslot.orc-ctx .orc-ctx-n {
+    position: absolute; top: -6px; right: -6px; box-shadow: 0 0 0 2px var(--page);
+  }
+}
+
+
+/* ═══ THE RAIL DOES NOT MOVE: fixed panels, fixed rows ═══════════════════════════════════════════════════════════
+   The rail is anchored to the foot of the page (its last panel ends on the line the composer's input starts on), so
+   its top is wherever its height puts it. That height is now one number: the week is 90px; the Configuration panel
+   is seven rows (six of 40px and the two-line Channels row of 60px), always the same seven in the same order; the
+   History panel is a head, three slots of 48px and its "View all" row. A value that is not set says "Not set", a
+   read that has not come back is a skeleton bar in the same place, so nothing above or below shifts when a field is
+   added, an answer arrives or a chat is started. Every Configuration row and every chat is one whole-row target. */
+.orc.is-agent > .orc-rail { gap: 16px; }
+.orc.is-agent .orc-rail { --rail-stats: 90px; --rail-row: 40px; --rail-row-two: 60px; --rail-slot: 48px; --rail-more: 36px; }
+.orc.is-agent .orc-rail .rail-sec { gap: 6px; }
+
+/* the week */
+.orc.is-agent .orc-rail .rail-stats,
+.orc.is-agent .orc-rail .rail-stats-wait { box-sizing: border-box; height: var(--rail-stats); min-height: var(--rail-stats); overflow: hidden; }
+.orc.is-agent .orc-rail .rail-stats { align-content: center; }
+.orc.is-agent .orc-rail .rail-stats-wait { display: grid; place-items: center; }
+
+/* configuration */
+.orc.is-agent .orc-rail .rail-config { padding: 10px 6px 6px; }
+.orc.is-agent .orc-rail .rail-config-head { box-sizing: border-box; align-items: center; height: 28px; margin: 0; padding: 0 8px; }
+.orc.is-agent .orc-rail .rail-config-rows { list-style: none; margin: 0; padding: 0; }
+.orc.is-agent .orc-rail .rail-row {
+  box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  width: 100%; height: var(--rail-row); padding: 0 8px; border: 0; border-radius: var(--r-field);
+  background: transparent; color: inherit; font: inherit; text-align: left; text-decoration: none; cursor: pointer;
+  transition: background var(--t-dim);
+}
+.orc.is-agent .orc-rail .rail-row.is-two { height: var(--rail-row-two); }
+.orc.is-agent .orc-rail .rail-row:hover { background: var(--sub); }
+.orc.is-agent .orc-rail .rail-row:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.orc.is-agent .orc-rail .rail-config-label { flex: none; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); }
+.orc.is-agent .orc-rail .rail-config-value { display: flex; flex-direction: column; align-items: flex-end; justify-content: center; min-width: 0; margin: 0; text-align: right; }
+.orc.is-agent .orc-rail .rail-config-line { display: inline-flex; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; max-width: 100%; }
+.orc.is-agent .orc-rail .rail-config-text {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font: var(--type-label); letter-spacing: var(--track-label); color: var(--ink);
+}
+.orc.is-agent .orc-rail .rail-config-text.is-empty { font-weight: 400; color: var(--ink-2); }
+.orc.is-agent .orc-rail .rail-config-marks { margin: 0; vertical-align: baseline; }
+.orc.is-agent .orc-rail .rail-config-note {
+  display: inline-flex; align-items: center; justify-content: flex-end; gap: 6px; max-width: 100%; height: 16px; margin: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--type-caption); letter-spacing: var(--track-caption); color: var(--ink-2);
+}
+.orc.is-agent .orc-rail .rail-config-offer { margin: 0; }
+/* a read on its way: a quiet bar where the value goes */
+.orc.is-agent .orc-rail .rail-skel { display: block; width: 72px; height: 10px; border-radius: 5px; background: var(--sub); animation: rail-skel 1.4s ease-in-out infinite; }
+.orc.is-agent .orc-rail .rail-skel.is-short { width: 120px; height: 8px; }
+@keyframes rail-skel { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .orc.is-agent .orc-rail .rail-skel { animation: none; } }
+
+/* history */
+.orc.is-agent .orc-rail .rail-hist { padding: 8px 6px; --row-inset: 0px; }
+.orc.is-agent .orc-rail .rail-hist .rail-hist-head { box-sizing: border-box; align-items: center; height: 44px; min-height: 44px; margin: 0; padding: 0 8px; }
+.orc.is-agent .orc-rail .rail-hist-body { height: calc(var(--rail-slot) * 3); overflow: hidden; }
+.orc.is-agent .orc-rail .rail-hist-wait { display: grid; place-items: center; height: 100%; }
+.orc.is-agent .orc-rail .rail-briefs.is-inline { gap: 0; }
+.orc.is-agent .orc-rail .rail-briefs.is-inline > li { height: var(--rail-slot); }
+.orc.is-agent .orc-rail .rail-briefs.is-inline .rail-brief {
+  box-sizing: border-box; height: var(--rail-slot); align-content: center; padding: 0 8px; row-gap: 0; column-gap: 10px;
+}
+.orc.is-agent .orc-rail .rail-briefs.is-inline .rail-brief-mode { align-self: center; margin-top: 0; }
+.orc.is-agent .orc-rail .rail-briefs.is-inline .rail-brief-title {
+  display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font: var(--type-body-sm); letter-spacing: var(--track-body-sm);
+}
+.orc.is-agent .orc-rail .rail-briefs.is-inline .rail-brief-camp { font: var(--type-caption); letter-spacing: var(--track-caption); }
+.orc.is-agent .orc-rail .rail-briefs.is-inline .rail-brief-when { margin-top: 0; align-self: center; font: var(--type-caption); letter-spacing: var(--track-caption); }
+/* a slot with no chat in it yet: a faint line, so the list is three slots whether there are three chats or none */
+.orc.is-agent .orc-rail .rail-brief-slot { display: flex; align-items: center; padding: 0 8px 0 34px; }
+.orc.is-agent .orc-rail .rail-brief-slot-line { display: block; width: 52%; height: 8px; border-radius: 4px; background: var(--sub); opacity: 0.8; }
+.orc.is-agent .orc-rail .rail-brief-slot-note { font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); }
+/* "View all N": the whole row */
+.orc.is-agent .orc-rail .rail-hist > .rail-more {
+  box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; align-self: stretch;
+  height: var(--rail-more); margin: 0; padding: 0 8px; border-radius: var(--r-field);
+  font: var(--type-label); letter-spacing: var(--track-label); color: var(--accent-text); cursor: pointer;
+  transition: background var(--t-dim), color var(--t-dim);
+}
+.orc.is-agent .orc-rail .rail-hist > .rail-more:hover:not(:disabled) { background: var(--sub); color: var(--accent-deep); }
+.orc.is-agent .orc-rail .rail-hist > .rail-more:disabled { color: var(--ink-2); cursor: default; }

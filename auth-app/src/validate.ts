@@ -6,17 +6,12 @@
 /**
  * Mirror of `core.free_email_domains` (Superhyre-Extension/supabase/00_shared.sql).
  *
- * THE DATABASE IS THE AUTHORITY, not this list. A Supabase "Before User
- * Created" hook (`core.reject_free_email`) rejects consumer domains with HTTP
- * 400, and it fires for Google sign-in too. This copy exists only to fail
- * *before* the round trip, because "that address will not work" is far more
- * useful under the field than after a redirect to Google and back.
- *
- * Consequence of the split worth knowing: if the table gains a domain this
- * list lacks, the signup still gets refused — just by the server, and the copy
- * in authErrors.ts covers that path. Drift makes the hint incomplete, never
- * wrong. Never invert it: do not let this list refuse a domain the server
- * would allow.
+ * The console no longer refuses these addresses: anyone can sign in and start in
+ * their private Personal workspace, and set-up uses this list to decide which
+ * "your team" question to ask (see `isPersonalAddress`). The production project's
+ * Supabase "Before User Created" hook (`core.reject_free_email`) is a separate
+ * switch that also guards the Chrome extension; if it still rejects consumer
+ * domains the server answers 400 and the copy in authErrors.ts covers that path.
  */
 export const CONSUMER_DOMAINS: readonly string[] = [
   "gmail.com", "googlemail.com", "outlook.com", "outlook.in", "hotmail.com",
@@ -48,16 +43,19 @@ export function emailDomain(email: string): string | null {
  */
 export function emailProblem(email: string): string | null {
   const value = email.trim();
-  if (value === "") return "Enter your work email address.";
+  if (value === "") return "Enter your email address.";
 
   const domain = emailDomain(value);
   if (domain === null || !domain.includes(".") || domain.endsWith(".")) {
     return "That does not look like a complete email address.";
   }
-  if (CONSUMER_DOMAINS.includes(domain)) {
-    return "SuperHyre needs a work email. Personal addresses cannot be used.";
-  }
   return null;
+}
+
+/** True for a free-mail address (gmail and the like): such an address says nothing about the person's company. */
+export function isPersonalAddress(email: string): boolean {
+  const domain = emailDomain(email);
+  return domain !== null && CONSUMER_DOMAINS.includes(domain);
 }
 
 /* MIN_PASSWORD and passwordProblem lived here and are gone. Sign-in is a

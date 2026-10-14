@@ -1,0 +1,57 @@
+/* Ghost charts: the soft picture of a chart that has no data yet (src/GhostChart.tsx).
+   Only tokens and two fixed tints, set per theme below, so the same drawing is right in the light and the dark
+   theme: a pale wash of the accent in the light one, a faint white in the dark one (orange on near-black reads
+   brown), faded out by an SVG mask so it dissolves into whatever the card is. */
+
+.gh {
+  --an-ghost-fill: #f8e6df;
+  --an-ghost-line: #ead0c3;
+  --an-ghost-plane: color-mix(in srgb, var(--ink) 7%, transparent);
+  margin: 0;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 4px;
+  width: 100%;
+  min-height: 232px;
+  padding: 4px 8px 8px;
+  text-align: center;
+}
+html:root[data-theme="dark"] .gh {
+  --an-ghost-fill: rgba(255, 255, 255, 0.08);
+  --an-ghost-line: rgba(255, 255, 255, 0.18);
+  --an-ghost-plane: rgba(255, 255, 255, 0.07);
+}
+
+.gh svg { display: block; width: min(100%, 480px); height: auto; max-height: 172px; }
+.gh.is-compact svg { max-height: 132px; }
+.gh.is-compact { min-height: 188px; }
+
+.gh .gh-fill { fill: var(--an-ghost-fill); }
+.gh .gh-plane { fill: var(--an-ghost-plane); }
+.gh .gh-rule { stroke: var(--an-ghost-line); stroke-opacity: 0.55; stroke-width: 1; }
+.gh .gh-stroke { fill: none; stroke: var(--an-ghost-line); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.gh .gh-stroke.is-dash { stroke-dasharray: 5 6; stroke-opacity: 0.7; }
+.gh .gh-ring { stroke: var(--an-ghost-plane); }
+.gh .gh-ring.is-fill { stroke: var(--an-ghost-fill); }
+.gh .gh-h0 { fill-opacity: 0.35; }
+.gh .gh-h1 { fill-opacity: 0.6; }
+.gh .gh-h2 { fill-opacity: 0.85; }
+.gh .gh-h3 { fill-opacity: 1; }
+
+.gh figcaption { display: grid; justify-items: center; gap: 4px; margin-top: 2px; max-width: 46ch; }
+.gh .gh-t { font: 600 14px/20px var(--word, var(--ui)); letter-spacing: -0.005em; color: var(--ink-3); }
+.gh .gh-l { font: var(--type-body); letter-spacing: var(--track-body); color: var(--ink-2); text-wrap: balance; }
+.gh .gh-a {
+  margin-top: 4px;
+  font: var(--type-label); letter-spacing: var(--track-label);
+  color: var(--accent-text); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--accent-text) 40%, transparent);
+  text-underline-offset: 3px; border-radius: 4px;
+}
+.gh .gh-a:hover { text-decoration-color: currentColor; }
+.gh .gh-a:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 2px; }
+
+@media (max-width: 560px) {
+  .gh { min-height: 200px; }
+  .gh svg { max-height: 132px; }
+}

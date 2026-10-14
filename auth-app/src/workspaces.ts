@@ -1,3 +1,6 @@
+import { LIVE } from "./api/client";
+import type { CampaignRow } from "./campaignsData";
+
 /**
  * Scope: organisations and workspaces.
  *
@@ -56,11 +59,10 @@ export type Workspace = {
  * its own tenant of one, so offering it scopes "shared across the
  * organisation" would describe a boundary it is not inside.
  */
-export function workspacesFor(displayName: string, organizationName: string | null): Workspace[] {
-  const first = displayName.trim().split(/\s+/)[0] ?? displayName;
+export function workspacesFor(_displayName: string, organizationName: string | null): Workspace[] {
   const own: Workspace = {
     id: "user",
-    name: `${first}'s workspace`,
+    name: "Personal",
     level: "user",
     hint: "Private to you",
     switchable: true,
@@ -87,7 +89,7 @@ export function currentWorkspace(displayName: string, organizationName: string |
      rather than an index because with noUncheckedIndexedAccess an index read is
      `Workspace | undefined`, and the fallback keeps this total. */
   return list.find((w) => w.level === "user") ?? {
-    id: "user", name: `${displayName}'s workspace`, level: "user",
+    id: "user", name: "Personal", level: "user",
     hint: "Private to you", switchable: true,
   };
 }
@@ -125,6 +127,16 @@ export const CAMPAIGNS: readonly Campaign[] = [
  *  index read is `Campaign | undefined`, and a non-null assertion here would be
  *  a lie the moment someone empties the array. Duplicating one row keeps the
  *  default total. */
-export const CURRENT_CAMPAIGN: Campaign = {
-  id: "backend-snr", name: "Senior Backend Engineers", role: "Engineering · Bangalore",
-};
+export const CURRENT_CAMPAIGN: Campaign = LIVE
+  /* Live, no campaign is current until the list arrives (see `defaultCampaign`): the seeded id names nothing on the server. */
+  ? { id: "", name: "Pick a campaign", role: "" }
+  : { id: "backend-snr", name: "Senior Backend Engineers", role: "Engineering · Bangalore" };
+
+/** The campaign a live console opens on: the most recently updated active one
+ *  the person can open, else the most recent they can open at all. */
+export function defaultCampaign(rows: readonly CampaignRow[], canOpen: (r: CampaignRow) => boolean): CampaignRow | undefined {
+  const newest = (list: readonly CampaignRow[]) => list.reduce<CampaignRow | undefined>(
+    (best, r) => (!best || Date.parse(r.updatedAt ?? "") > Date.parse(best.updatedAt ?? "") ? r : best), undefined);
+  const open = rows.filter((r) => r.updatedAt && canOpen(r));
+  return newest(open.filter((r) => r.status === "active")) ?? newest(open);
+}

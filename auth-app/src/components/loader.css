@@ -1,0 +1,79 @@
+/* The loader: the mark, with a thin ring travelling round it. One component, three sizes (see Loader.tsx). */
+
+.ldr {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  vertical-align: middle;
+  color: var(--accent);
+}
+.ldr.is-inherit { color: inherit; }
+
+.ldr.is-sm { width: 18px; height: 18px; }
+.ldr.is-md { width: 40px; height: 40px; }
+.ldr.is-lg { width: 64px; height: 64px; }
+
+.ldr-mark { width: 46%; height: 46%; display: block; }
+
+.ldr-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.ldr-ring circle {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  /* The ring is a hairline at every size: the viewBox is 32, so these are 1.5px, 2px and 2.5px on screen. */
+  stroke-width: 2.7;
+}
+.ldr.is-md .ldr-ring circle { stroke-width: 1.6; }
+.ldr.is-lg .ldr-ring circle { stroke-width: 1.25; }
+
+.ldr-track { opacity: 0.16; }
+
+/* An arc that travels while its own length breathes, so the ring has a pulse rather than reading as a uniform
+   circle going round. Two periods, so the pattern does not settle into one repeating gesture. */
+.ldr-arc {
+  transform-origin: 50% 50%;
+  animation:
+    ldr-turn 1.15s linear infinite,
+    ldr-breathe 1.9s ease-in-out infinite;
+}
+
+@keyframes ldr-turn {
+  from { transform: rotate(-90deg); }
+  to { transform: rotate(270deg); }
+}
+
+@keyframes ldr-breathe {
+  0%, 100% { stroke-dasharray: 12 88; }
+  50% { stroke-dasharray: 40 60; }
+}
+
+/* Held still, and breathing: an arc that is short of a full ring still reads as waiting. */
+@media (prefers-reduced-motion: reduce) {
+  .ldr-arc {
+    animation: none;
+    stroke-dasharray: 28 72;
+    transform: rotate(-90deg);
+  }
+  .ldr-ring { animation: ldr-pulse 2.4s ease-in-out infinite; }
+  @keyframes ldr-pulse {
+    0%, 100% { opacity: 0.55; }
+    50% { opacity: 1; }
+  }
+}
+
+/* Centred in the room it is given: a panel, or a whole page. */
+.ldr-block {
+  display: grid;
+  place-items: center;
+  width: 100%;
+}
+.ldr-block.is-sm { padding: 10px 0; }
+.ldr-block.is-md { padding: 36px 0; }
+.ldr-block.is-lg { min-height: 50vh; padding: 48px 0; }

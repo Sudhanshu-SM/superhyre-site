@@ -14,7 +14,7 @@ import { CAMPAIGNS } from "./workspaces";
  * Fixture data, generated from a fixed seed so every load is the same list.
  */
 
-export type Provider = "Extension" | "Crustdata" | "SalesQL" | "Apollo";
+export type Provider = "Extension" | "Crustdata" | "SalesQL" | "Apollo" | "Manual";
 
 export type Seniority = "Junior" | "Mid" | "Senior" | "Staff" | "Lead" | "Manager" | "Director";
 
@@ -27,7 +27,9 @@ export type Contact = {
   title: string;
   company: string;
   location: string;
-  seniority: Seniority;
+  /** Null when neither the title nor the years say. */
+  seniority: Seniority | null;
+  /** Years of experience; 0 is how "not on the profile" arrives. */
   years: number;
   industry: string;
   skills: readonly string[];
@@ -45,6 +47,17 @@ export type Contact = {
   jobs: readonly ContactJob[];
   school?: { name: string; degree: string; years: string };
   about?: string;
+  /** How they entered SuperHyre. Absent on the fixtures, which all came
+      through the extension. "Manual" is the add form or pasted links,
+      "Upload" a CSV. */
+  origin?: "Extension" | "Agent" | "Manual" | "Upload" | "Form";
+  /** Where a person added by hand came from, when the recruiter said. */
+  channel?: "Referral" | "Job board" | "Event" | "Other";
+  /** Who looks after them, when it is not whoever saved them. */
+  owner?: string;
+  notes?: string;
+  /** From the API: whether this workspace holds an email or phone for them. */
+  onFile?: { email: boolean; phone: boolean };
 };
 
 export const MEMBERS = ["Arnab J", "Sudhanshu M", "Punith S", "Riya K"] as const;
@@ -146,16 +159,25 @@ const YEARS_BY: Readonly<Record<Seniority, readonly [number, number]>> = {
   Junior: [1, 3], Mid: [3, 6], Senior: [5, 9], Staff: [8, 13], Lead: [7, 12], Manager: [8, 14], Director: [12, 18],
 };
 
-function build(): readonly Contact[] {
-  const r = rng(20260928);
+/** Names already handed out, so a later batch (a campaign's pipeline) never
+ *  reuses a contact's name for a different person. */
+const USED_NAMES = new Set<string>();
+
+/**
+ * Generates people for a plan of campaigns from a fixed seed. Contacts and
+ * each campaign's pipeline are made by the same generator, so a person reads
+ * the same way wherever they appear.
+ */
+export function makePeople(seed: number, plan: readonly { campaign: string; count: number }[], prefix: string, used: Set<string> = USED_NAMES): Contact[] {
+  const r = rng(seed);
   const pick = <T,>(xs: readonly T[]): T => xs[Math.floor(r() * xs.length)]!;
-  const used = new Set<string>();
   const out: Contact[] = [];
   let n = 0;
-  for (const camp of CAMPAIGNS) {
+  for (const item of plan) {
+    const camp = { id: item.campaign };
     const spec = SPECS[camp.id];
     if (!spec) continue;
-    for (let i = 0; i < spec.count; i++) {
+    for (let i = 0; i < item.count; i++) {
       let name = "";
       do name = `${pick(FIRST)} ${pick(LAST)}`; while (used.has(name));
       used.add(name);
@@ -163,7 +185,12 @@ function build(): readonly Contact[] {
       const [company, industry] = pick(spec.companies);
       const [lo, hi] = YEARS_BY[seniority];
       const years = lo + Math.floor(r() * (hi - lo + 1));
-      const skills = [...spec.skills].sort(() => r() - 0.5).slice(0, 4 + Math.floor(r() * 3));
+      /* A seeded Fisher-Yates shuffle: a random sort comparator is called a
+         different number of times by each engine's sort, which drifts the rng
+         and changed every later person between Firefox and Chrome. */
+      const sk = [...spec.skills];
+      for (let j = sk.length - 1; j > 0; j--) { const k = Math.floor(r() * (j + 1)); [sk[j], sk[k]] = [sk[k]!, sk[j]!]; }
+      const skills = sk.slice(0, 4 + Math.floor(r() * 3));
       const [first, last] = name.toLowerCase().split(" ") as [string, string];
       const domain = `${company.toLowerCase().replace(/[^a-z0-9]/g, "")}.com`;
       const hasEmail = r() > 0.12;
@@ -177,7 +204,7 @@ function build(): readonly Contact[] {
       const profile: Contact["profile"] = r() > 0.2 ? "full" : "basic";
       const schoolStart = 2026 - years - 4;
       out.push({
-        id: `ct-${++n}`,
+        id: `${prefix}-${++n}`,
         name,
         hue: pick(HUES),
         title,
@@ -217,7 +244,17 @@ function build(): readonly Contact[] {
   return out.sort((a, b) => a.capturedAgo - b.capturedAgo);
 }
 
-export const CONTACTS: readonly Contact[] = build();
+export const CONTACTS: readonly Contact[] = makePeople(
+  20260928,
+  CAMPAIGNS.filter((c) => SPECS[c.id]).map((c) => ({ campaign: c.id, count: SPECS[c.id]!.count })),
+  "ct",
+);
+
+/** The contacts' names alone, before any pipeline is made. A pipeline dedupes
+ *  against these (not against whichever pipelines happened to load first), so
+ *  its people are the same on every load and every route into the app. */
+const CONTACT_NAMES: ReadonlySet<string> = new Set(CONTACTS.map((c) => c.name));
+export const contactNames = (): Set<string> => new Set(CONTACT_NAMES);
 
 /** Shortlists the fixture starts with, so the page is not empty on first view. */
 export const SEED_SHORTLIST: Readonly<Record<string, readonly string[]>> = Object.fromEntries(
@@ -260,8 +297,22 @@ export function activeFilterCount(f: Filters): number {
     + f.capturedBy.length + (f.profile !== "any" ? 1 : 0) + (f.captured !== "any" ? 1 : 0) + (f.openToWork ? 1 : 0);
 }
 
+/** "7 yrs · Senior" (just "7 yrs" with no level), or null when the years are not on the profile. */
+export function experienceLabel(c: Pick<Contact, "years" | "seniority">): string | null {
+  if (!(c.years > 0)) return null;
+  return c.seniority ? `${c.years} yrs · ${c.seniority}` : `${c.years} yrs`;
+}
+
+/** The years that lead a comparison: one person has the most, and at least two have years on the profile; else -1. */
+export function mostYears(people: readonly Pick<Contact, "years">[]): number {
+  const known = people.map((p) => p.years).filter((y) => y > 0);
+  if (known.length < 2) return -1;
+  const most = Math.max(...known);
+  return known.filter((y) => y === most).length === 1 ? most : -1;
+}
+
 export function matches(c: Contact, f: Filters, q: string): boolean {
-  if (f.seniority.length && !f.seniority.includes(c.seniority)) return false;
+  if (f.seniority.length && (c.seniority === null || !f.seniority.includes(c.seniority))) return false;
   if (f.experience.length && !EXP_BANDS.some((b) => f.experience.includes(b.id) && b.test(c.years))) return false;
   if (f.location.length && !f.location.includes(c.location)) return false;
   if (f.skills.length && !f.skills.every((s) => c.skills.includes(s))) return false;
@@ -317,5 +368,14 @@ export function summaryOf(c: Contact): string {
   const prev = c.jobs[1]?.company;
   const top = c.skills.slice(0, 3);
   const skills = top.length > 1 ? `${top.slice(0, -1).join(", ")} and ${top[top.length - 1]}` : top[0] ?? "";
-  return `${c.years} yrs in ${c.industry.toLowerCase()}${prev ? `, previously ${prev}` : ""}. Strong in ${skills}.`;
+  /* People added by hand may arrive with little more than a name. Say what
+     is known, and say plainly when the rest is still to come. */
+  const exp = c.years ? `${c.years} yrs${c.industry ? ` in ${c.industry.toLowerCase()}` : " of experience"}${prev ? `, previously ${prev}` : ""}.` : "";
+  const strong = skills ? `Strong in ${skills}.` : "";
+  const said = [exp, strong].filter(Boolean).join(" ");
+  if (said) return said;
+  if (c.notes) return c.notes.split("\n")[0]!;
+  if (c.origin === "Upload") return "Imported in bulk. Nothing more on file yet.";
+  if (c.origin === "Form") return "Applied through a form. Nothing more on file yet.";
+  return c.linkedin ? "Added from a LinkedIn link. Nothing more on file yet." : "Added by hand. Nothing more on file yet.";
 }

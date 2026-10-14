@@ -1,9 +1,37 @@
 import { X } from "@phosphor-icons/react";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AXIS_FROM, Avatar, Career, FitMark, Verdicts } from "./CandidateBits";
+import type { CandidateSet } from "./liveCandidate";
 import type { Candidate, Verdict } from "./sourcing";
 import { CANDIDATES, CRITERIA, CRITERIA_SHORT, REASON, TOTAL_MATCHES } from "./sourcing";
+import { plainText } from "./displayText";
+
+/** What the list ranks and shows: the demo's fixtures, or a connected campaign's matches. */
+type Source = {
+  candidates: readonly Candidate[];
+  criteria: readonly string[];
+  short: readonly string[];
+  reasons: Readonly<Record<string, string>>;
+  total: number;
+  subtitle: string;
+};
+
+const FIXTURES: Source = {
+  candidates: CANDIDATES, criteria: CRITERIA, short: CRITERIA_SHORT, reasons: REASON, total: TOTAL_MATCHES, subtitle: "Senior Backend Engineers",
+};
+
+const sourceOf = (set: CandidateSet | null | undefined): Source =>
+  set
+    ? {
+        candidates: set.candidates,
+        criteria: set.criteria.map((c) => c.text),
+        short: set.criteria.map((c) => c.short),
+        reasons: set.reasons,
+        total: set.total,
+        subtitle: "",
+      }
+    : FIXTURES;
 
 /**
  * RankedMatches — the ranked list, as a dialog in the middle of the page.
@@ -26,9 +54,9 @@ import { CANDIDATES, CRITERIA, CRITERIA_SHORT, REASON, TOTAL_MATCHES } from "./s
  *
  * ── TRIAGE IS THE JOB, SO IT GETS A STRIP AND THE KEYBOARD ─────────────────
  * The strip under the title is the batch at a glance: one segment per match,
- * filled as you shortlist or reject, and each segment jumps to its row. The
+ * filled as you shortlist or pass, and each segment jumps to its row. The
  * keyboard does the rest without the mouse: ↑↓ to move, Enter to open, S to
- * shortlist, X to reject.
+ * shortlist, X to pass.
  */
 
 type Filter = "all" | "todo" | "shortlisted" | "rejected";
@@ -38,8 +66,10 @@ const EXIT_MS = 220;
 const SIDEBAR_W = 520;
 
 export function RankedMatches({
-  open, onClose, verdicts, onVerdict, activeId, onOpen,
+  open, onClose, verdicts: made, onVerdict, activeId, onOpen, set,
 }: {
+  /** A connected campaign's matches. Omitted, the list shows the demo's. */
+  set?: CandidateSet | null;
   open: boolean;
   onClose: () => void;
   verdicts: Readonly<Record<string, Verdict>>;
@@ -49,6 +79,12 @@ export function RankedMatches({
   /** Open a profile. `ids` is the list the sidebar's arrows should walk. */
   onOpen: (id: string, ids: readonly string[]) => void;
 }): JSX.Element | null {
+  const src = sourceOf(set);
+  const CANDS = src.candidates;
+  /* What the server says was decided, and what was decided in this session on top: people already
+     shortlisted or passed stay in the list (and in its counts) instead of dropping out of it. */
+  const decided = set?.decisions;
+  const verdicts = useMemo<Readonly<Record<string, Verdict>>>(() => ({ ...(decided ?? {}), ...made }), [decided, made]);
   const [mounted, setMounted] = useState(open);
   const [leaving, setLeaving] = useState(false);
   const [filter, setFilter] = useState<Filter>("all");
@@ -96,7 +132,7 @@ export function RankedMatches({
     return () => window.removeEventListener("resize", measure);
   }, [mounted]);
 
-  const list = CANDIDATES.filter((c) => {
+  const list = CANDS.filter((c) => {
     const v = verdicts[c.id];
     if (filter === "todo") return !v;
     if (filter === "all") return true;
@@ -106,10 +142,10 @@ export function RankedMatches({
   const at = Math.min(cursor, Math.max(0, list.length - 1));
 
   const counts = {
-    all: CANDIDATES.length,
-    todo: CANDIDATES.filter((c) => !verdicts[c.id]).length,
-    shortlisted: CANDIDATES.filter((c) => verdicts[c.id] === "shortlisted").length,
-    rejected: CANDIDATES.filter((c) => verdicts[c.id] === "rejected").length,
+    all: CANDS.length,
+    todo: CANDS.filter((c) => !verdicts[c.id]).length,
+    shortlisted: CANDS.filter((c) => verdicts[c.id] === "shortlisted").length,
+    rejected: CANDS.filter((c) => verdicts[c.id] === "rejected").length,
   };
 
   /* The cursor follows the open profile, so closing the sidebar leaves you on
@@ -177,14 +213,14 @@ export function RankedMatches({
         aria-modal="true"
         aria-labelledby="rm-title"
         tabIndex={-1}
-        style={{ ["--rm-shift" as string]: `${(SIDEBAR_W + 16) / 2}px` }}
+        style={{ ["--rm-shift" as string]: `${(SIDEBAR_W + 16) / 2}px`, ["--rm-n" as string]: Math.max(1, src.short.length) }}
       >
         <header className="rm-head">
           <div className="rm-head-row">
             <div>
               <h2 id="rm-title" className="rm-title">Ranked matches</h2>
               <p className="rm-sub">
-                Top {CANDIDATES.length} of {TOTAL_MATCHES.toLocaleString("en-IN")} · Senior Backend Engineers
+                Top {CANDS.length} of {src.total.toLocaleString("en-IN")}{src.subtitle ? ` · ${src.subtitle}` : ""}
               </p>
             </div>
             <button type="button" className="rm-close" aria-label="Close (Esc)" title="Close (Esc)" onClick={onClose}>
@@ -193,10 +229,11 @@ export function RankedMatches({
           </div>
 
           <Triage
+            candidates={CANDS}
             verdicts={verdicts}
             onJump={(id) => {
               setFilter("all");
-              const i = CANDIDATES.findIndex((c) => c.id === id);
+              const i = CANDS.findIndex((c) => c.id === id);
               setCursor(i);
               requestAnimationFrame(() => reveal(i));
             }}
@@ -208,7 +245,7 @@ export function RankedMatches({
                 ["all", "All"],
                 ["todo", "To review"],
                 ["shortlisted", "Shortlisted"],
-                ["rejected", "Rejected"],
+                ["rejected", "Passed"],
               ] as const
             ).map(([id, label]) => (
               <button
@@ -230,9 +267,9 @@ export function RankedMatches({
           <span className="rm-col-rank">#</span>
           <span className="rm-col-who">Candidate</span>
           <span className="rm-col-career">Career <i>{AXIS_FROM} → now</i></span>
-          {CRITERIA_SHORT.map((s, i) => (
-            <span key={s} className="rm-col-fit" title={CRITERIA[i]}>{s}</span>
-          ))}
+          {src.short.length ? src.short.map((s, i) => (
+            <span key={`${s}${i}`} className="rm-col-fit" title={src.criteria[i]}>{s}</span>
+          )) : <span className="rm-col-fit" />}
           <span />
         </div>
 
@@ -245,7 +282,9 @@ export function RankedMatches({
                 <li key={c.id} style={{ animationDelay: `${Math.min(i, 10) * 24}ms` }}>
                   <Row
                     c={c}
-                    rank={CANDIDATES.indexOf(c) + 1}
+                    rank={CANDS.indexOf(c) + 1}
+                    criteria={src.criteria}
+                    reason={src.reasons[c.id]}
                     verdict={verdicts[c.id]}
                     onVerdict={(v) => onVerdict(c.id, v)}
                     active={c.id === activeId}
@@ -262,7 +301,7 @@ export function RankedMatches({
           <span><kbd>↑</kbd><kbd>↓</kbd> move</span>
           <span><kbd>Enter</kbd> open</span>
           <span><kbd>S</kbd> shortlist</span>
-          <span><kbd>X</kbd> reject</span>
+          <span><kbd>X</kbd> pass</span>
           <span className="rm-foot-right"><kbd>Esc</kbd> close</span>
         </footer>
       </div>
@@ -275,30 +314,31 @@ const EMPTY: Record<Filter, string> = {
   all: "No matches.",
   todo: "Every match has a verdict. Nothing left to review.",
   shortlisted: "Nobody shortlisted yet. Press S on a row, or use the bookmark.",
-  rejected: "Nobody rejected yet.",
+  rejected: "Nobody passed yet.",
 };
 
 /* ── the triage strip ────────────────────────────────────────────────────── */
 
 function Triage({
-  verdicts, onJump,
+  candidates, verdicts, onJump,
 }: {
+  candidates: readonly Candidate[];
   verdicts: Readonly<Record<string, Verdict>>;
   onJump: (id: string) => void;
 }) {
-  const done = CANDIDATES.filter((c) => verdicts[c.id]).length;
-  const short = CANDIDATES.filter((c) => verdicts[c.id] === "shortlisted").length;
+  const done = candidates.filter((c) => verdicts[c.id]).length;
+  const short = candidates.filter((c) => verdicts[c.id] === "shortlisted").length;
   return (
     <div className="rm-triage">
       <div className="rm-triage-strip">
-        {CANDIDATES.map((c, i) => {
+        {candidates.map((c, i) => {
           const v = verdicts[c.id];
           return (
             <button
               key={c.id}
               type="button"
               className={`rm-seg${v ? ` is-${v}` : ""}`}
-              aria-label={`#${i + 1} ${c.name}${v ? `, ${v}` : ", not reviewed"}`}
+              aria-label={`#${i + 1} ${plainText(c.name)}${v ? `, ${v === "rejected" ? "passed" : v}` : ", not reviewed"}`}
               title={`#${i + 1} ${c.name}`}
               onClick={() => onJump(c.id)}
             />
@@ -306,7 +346,7 @@ function Triage({
         })}
       </div>
       <p className="rm-triage-l">
-        <b>{done}</b> of {CANDIDATES.length} reviewed
+        <b>{done}</b> of {candidates.length} reviewed
         {short > 0 && <> · <span className="rm-triage-short">{short} shortlisted</span></>}
       </p>
     </div>
@@ -316,17 +356,21 @@ function Triage({
 /* ── a row ───────────────────────────────────────────────────────────────── */
 
 function Row({
-  c, rank, verdict, onVerdict, active, cursor, onOpen,
+  c, rank, criteria, reason, verdict, onVerdict, active, cursor, onOpen,
 }: {
   c: Candidate;
   rank: number;
+  criteria: readonly string[];
+  reason: string | undefined;
   verdict?: Verdict;
   onVerdict: (v: Verdict | null) => void;
   active: boolean;
   cursor: boolean;
   onOpen: () => void;
 }) {
-  const now = c.jobs[0]!;
+  const now = c.jobs[0];
+  const role = now?.roles[0]?.title ?? c.headline;
+  const org = now?.org.name ?? c.current.name;
   return (
     <article
       className={`rm-row${verdict ? ` is-${verdict}` : ""}${active ? " is-active" : ""}${cursor ? " is-cursor" : ""}`}
@@ -336,21 +380,21 @@ function Row({
       <div className="rm-who">
         <Avatar name={c.name} hue={c.hue} size={34} />
         <div className="rm-who-id">
-          <p className="rm-name">
-            {c.name}
+          <p className="rm-name" title={plainText(c.name)}>
+            <span className="rm-name-t">{plainText(c.name)}</span>
             {c.openToWork && <span className="rm-otw" title="Open to work">Open</span>}
           </p>
-          <p className="rm-role">{now.roles[0]!.title} · {now.org.name}</p>
+          <p className="rm-role">{[role, org].filter(Boolean).join(" · ")}</p>
         </div>
       </div>
       <div className="rm-career"><Career c={c} /></div>
       {c.meets.map((m, i) => (
-        <span key={i} className="rm-fit"><FitMark met={m} label={CRITERIA[i]!} /></span>
+        <span key={i} className="rm-fit"><FitMark met={m} label={criteria[i] ?? ""} unscored={c.scored === false} /></span>
       ))}
       <div className="rm-acts">
         <Verdicts verdict={verdict} onVerdict={onVerdict} name={c.name} icons />
       </div>
-      <p className="rm-reason">{REASON[c.id]}</p>
+      <p className="rm-reason">{reason}</p>
     </article>
   );
 }

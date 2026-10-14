@@ -1,0 +1,569 @@
+SUPERHYRE MAIN SITE ASSETS: GENERATION SCRIPT
+==============================================
+(The sign-up flow assets come later, in a separate script.)
+
+GENERATE THEM ONE BY ONE
+------------------------
+- One prompt = one image. Paste ONE prompt, generate, save it, then move to the next.
+- Never put two or more assets in one image: no grids, no sheets, no collages, no
+  side-by-side variations.
+- Name every file EXACTLY as written on its "FILE NAME:" line, for example
+  E3-empty-columns.png. Same capitals, hyphens and spelling; no spaces, no extra words.
+- Keep all 62 files in one folder and tell me where it is.
+
+Before you start
+----------------
+- Attach the sign-in artwork (superhyre-site/assets/access-art.webp) as the style
+  reference if your generator accepts one. Every image matches that look.
+- For each prompt you can ask for 3 or 4 variations, then keep ONE: the closest to the
+  sign-in art, with no garbled text (screens and cards show only grey or orange bars).
+- Use the size given on each "SIZE:" line.
+- Generate the P2 images first, P3 after.
+
+The checklist of all 62 file names is at the end.
+
+
+==============================================================================
+EMPTY STATES  (23 images)
+==============================================================================
+
+E1  blank-board
+FILE NAME: E1-blank-board.png
+SIZE: 1600x1200   PRIORITY: P2
+USED ON: Campaigns page, no campaigns yet (admin)
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: a close-up still life of ONE object on the corner of a warm wooden desk, seen at a gentle three-quarter angle, the wood and the light fading softly to pure white at every edge so the image sits on a white page. Lots of calm space around the object. Landscape 4:3. Scene: A small cork pin board leaning against the wall at the back of the desk, completely empty except for one orange pin waiting in its corner, a fresh stack of blank index cards beside it.
+
+E2  empty-tray
+FILE NAME: E2-empty-tray.png
+SIZE: 1600x1200   PRIORITY: P2
+USED ON: Campaigns page, recruiter not on any yet
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: a close-up still life of ONE object on the corner of a warm wooden desk, seen at a gentle three-quarter angle, the wood and the light fading softly to pure white at every edge so the image sits on a white page. Lots of calm space around the object. Landscape 4:3. Scene: An empty wire in-tray with a single paper clip resting in it, and a small closed notebook beside it.
+
+E3  empty-columns
+FILE NAME: E3-empty-columns.png
+SIZE: 1600x1200   PRIORITY: P2
+USED ON: Campaign pipeline, nobody on the board
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: a close-up still life of ONE object on the corner of a warm wooden desk, seen at a gentle three-quarter angle, the wood and the light fading softly to pure white at every edge so the image sits on a white page. Lots of calm space around the object. Landscape 4:3. Scene: A miniature kanban board standing on the desk: four empty columns drawn as soft rounded lanes, the first lane holding one faint dashed card outline.
+
+E4  velvet-box
+FILE NAME: E4-velvet-box.png
+SIZE: 1600x1200   PRIORITY: P2
+USED ON: Shortlisted page, empty
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: a close-up still life of ONE object on the corner of a warm wooden desk, seen at a gentle three-quarter angle, the wood and the light fading softly to pure white at every edge so the image sits on a white page. Lots of calm space around the object. Landscape 4:3. Scene: A small open keepsake box lined with soft peach fabric, its little card slots all empty, the lid open.
+
+E5  card-stack-blank
+FILE NAME: E5-card-stack-blank.png
+SIZE: 1600x1200   PRIORITY: P2
+USED ON: Candidates page, no candidates yet
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: a close-up still life of ONE object on the corner of a warm wooden desk, seen at a gentle three-quarter angle, the wood and the light fading softly to pure white at every edge so the image sits on a white page. Lots of calm space around the object. Landscape 4:3. Scene: A neat stack of blank candidate profile cards (round avatar circles left empty, text bars in pale grey) with the top card lifting slightly off the stack.
+
+E6  binoculars
+FILE NAME: E6-binoculars.png
+SIZE: 1600x1200   PRIORITY: P2
+USED ON: Any search or filter with no matches
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: a close-up still life of ONE object on the corner of a warm wooden desk, seen at a gentle three-quarter angle, the wood and the light fading softly to pure white at every edge so the image sits on a white page. Lots of calm space around the object. Landscape 4:3. Scene: A pair of charcoal binoculars resting on the desk beside a card showing an empty rounded search bar with a faint search icon.
+
+E7  business-cards
+FILE NAME: E7-business-cards.png
+SIZE: 1600x1200   PRIORITY: P2
+USED ON: Clients page, no clients yet
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: a close-up still life of ONE object on the corner of a warm wooden desk, seen at a gentle three-quarter angle, the wood and the light fading softly to pure white at every edge so the image sits on a white page. Lots of calm space around the object. Landscape 4:3. Scene: An empty business-card holder on the desk with one blank cream business card standing beside it, slightly angled.
+
+E8  card-stand
+FILE NAME: E8-card-stand.png
+SIZE: 1600x1200   PRIORITY: P3
+USED ON: Client detail, no campaigns for this client
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: a close-up still life of ONE object on the corner of a warm wooden desk, seen at a gentle three-quarter angle, the wood and the light fading softly to pure white at every edge so the image sits on a white page. Lots of calm space around the object. Landscape 4:3. Scene: A small wooden card stand holding one blank cream card upright, a pencil lying beside it.
+
+E9  blank-form
+FILE NAME: E9-blank-form.png
+SIZE: 1600x1200   PRIORITY: P2
+USED ON: Forms tab, no forms yet
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: a close-up still life of ONE object on the corner of a warm wooden desk, seen at a gentle three-quarter angle, the wood and the light fading softly to pure white at every edge so the image sits on a white page. Lots of calm space around the object. Landscape 4:3. Scene: A clipboard holding a blank form with empty checkbox squares and empty lines, a fountain pen beside it with its cap off.
+
+E10  mailbox-waiting
+FILE NAME: E10-mailbox-waiting.png
+SIZE: 1600x1200   PRIORITY: P2
+USED ON: Responses, form live but no answers yet
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: a close-up still life of ONE object on the corner of a warm wooden desk, seen at a gentle three-quarter angle, the wood and the light fading softly to pure white at every edge so the image sits on a white page. Lots of calm space around the object. Landscape 4:3. Scene: A small cream desk mailbox with its orange flag raised and its little door open, empty inside.
+
+E11  form-unpublished
+FILE NAME: E11-form-unpublished.png
+SIZE: 1600x1200   PRIORITY: P3
+USED ON: Responses, no form live
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: a close-up still life of ONE object on the corner of a warm wooden desk, seen at a gentle three-quarter angle, the wood and the light fading softly to pure white at every edge so the image sits on a white page. Lots of calm space around the object. Landscape 4:3. Scene: A phone lying on the desk showing a form whose fields are faint dashed outlines (not live yet), with a small toggle switch at the top in the off position.
+
+E12  phone-quiet
+FILE NAME: E12-phone-quiet.png
+SIZE: 1600x1200   PRIORITY: P3
+USED ON: Calls page, none yet
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: a close-up still life of ONE object on the corner of a warm wooden desk, seen at a gentle three-quarter angle, the wood and the light fading softly to pure white at every edge so the image sits on a white page. Lots of calm space around the object. Landscape 4:3. Scene: A charcoal desk phone with its handset resting in the cradle and a coiled cord, quiet, a notepad beside it.
+
+E13  clear-desk
+FILE NAME: E13-clear-desk.png
+SIZE: 1600x1200   PRIORITY: P2
+USED ON: Home, My tasks all done
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: a close-up still life of ONE object on the corner of a warm wooden desk, seen at a gentle three-quarter angle, the wood and the light fading softly to pure white at every edge so the image sits on a white page. Lots of calm space around the object. Landscape 4:3. Scene: A tidy desk corner at the end of a good day: a neat stack of ticked cards squared up, a cup of tea, and a small plant catching warm light.
+
+E14  notebook-open
+FILE NAME: E14-notebook-open.png
+SIZE: 1200x900   PRIORITY: P3
+USED ON: Campaign activity log, nothing yet
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: a close-up still life of ONE object on the corner of a warm wooden desk, seen at a gentle three-quarter angle, the wood and the light fading softly to pure white at every edge so the image sits on a white page. Lots of calm space around the object. Landscape 4:3. Scene: An open notebook with blank ruled pages and a ribbon bookmark, a pencil resting in the fold.
+
+E15  sleeping-tablet
+FILE NAME: E15-sleeping-tablet.png
+SIZE: 1600x1200   PRIORITY: P2
+USED ON: Agents rail, nothing running
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: a close-up still life of ONE object on the corner of a warm wooden desk, seen at a gentle three-quarter angle, the wood and the light fading softly to pure white at every edge so the image sits on a white page. Lots of calm space around the object. Landscape 4:3. Scene: The charcoal tablet lying face up with its screen dark except for a small soft orange four-pointed star glowing gently in the centre, resting.
+
+E16  agent-ready
+FILE NAME: E16-agent-ready.png
+SIZE: 1600x1200   PRIORITY: P2
+USED ON: Agent page, new chat landing
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: a close-up still life of ONE object on the corner of a warm wooden desk, seen at a gentle three-quarter angle, the wood and the light fading softly to pure white at every edge so the image sits on a white page. Lots of calm space around the object. Landscape 4:3. Scene: The tablet stands upright on the desk showing a chat screen with one empty message box and a small orange four-pointed star above it; three small cards fan out beside the tablet (a job card, a candidate card, a calendar card), ready to be used.
+
+E17  bell-quiet
+FILE NAME: E17-bell-quiet.png
+SIZE: 1200x900   PRIORITY: P3
+USED ON: Notifications, none
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: a close-up still life of ONE object on the corner of a warm wooden desk, seen at a gentle three-quarter angle, the wood and the light fading softly to pure white at every edge so the image sits on a white page. Lots of calm space around the object. Landscape 4:3. Scene: A small brass service bell resting on the desk, untouched, a soft shadow beneath it.
+
+E18  letters-tied
+FILE NAME: E18-letters-tied.png
+SIZE: 1200x900   PRIORITY: P3
+USED ON: Chat history, no past chats
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: a close-up still life of ONE object on the corner of a warm wooden desk, seen at a gentle three-quarter angle, the wood and the light fading softly to pure white at every edge so the image sits on a white page. Lots of calm space around the object. Landscape 4:3. Scene: A small neat stack of blank folded notes tied with an orange string bow.
+
+E19  blueprint
+FILE NAME: E19-blueprint.png
+SIZE: 1600x1200   PRIORITY: P2
+USED ON: Campaign overview before the brief is done
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: a close-up still life of ONE object on the corner of a warm wooden desk, seen at a gentle three-quarter angle, the wood and the light fading softly to pure white at every edge so the image sits on a white page. Lots of calm space around the object. Landscape 4:3. Scene: A rolled-out sheet on the desk with a half-finished outline of a role card sketched in dashed lines, a ruler and a pencil resting on it.
+
+E20  own-desk
+FILE NAME: E20-own-desk.png
+SIZE: 1600x1200   PRIORITY: P2
+USED ON: Personal workspace, first visit
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: a close-up still life of ONE object on the corner of a warm wooden desk, seen at a gentle three-quarter angle, the wood and the light fading softly to pure white at every edge so the image sits on a white page. Lots of calm space around the object. Landscape 4:3. Scene: A small private desk corner: a lamp switched on making a warm pool of light, a closed laptop, a small plant and a key with an orange tag on a ring.
+
+E21  extension-piece
+FILE NAME: E21-extension-piece.png
+SIZE: 1600x1200   PRIORITY: P2
+USED ON: Integrations, extension not used yet
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: a close-up still life of ONE object on the corner of a warm wooden desk, seen at a gentle three-quarter angle, the wood and the light fading softly to pure white at every edge so the image sits on a white page. Lots of calm space around the object. Landscape 4:3. Scene: A laptop showing a browser window with a profile page made of bars and a round avatar, and an orange puzzle piece floating just above the browser's top-right corner, about to click in.
+
+E22  easel
+FILE NAME: E22-easel.png
+SIZE: 1600x1200   PRIORITY: P2
+USED ON: No campaign selected
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: a close-up still life of ONE object on the corner of a warm wooden desk, seen at a gentle three-quarter angle, the wood and the light fading softly to pure white at every edge so the image sits on a white page. Lots of calm space around the object. Landscape 4:3. Scene: A small tabletop easel holding a blank cream card, angled slightly toward the left as if facing the sidebar.
+
+E23  chart-empty
+FILE NAME: E23-chart-empty.png
+SIZE: 1600x1200   PRIORITY: P3
+USED ON: Analytics pages before there's data
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: a close-up still life of ONE object on the corner of a warm wooden desk, seen at a gentle three-quarter angle, the wood and the light fading softly to pure white at every edge so the image sits on a white page. Lots of calm space around the object. Landscape 4:3. Scene: A card on the desk with an empty chart: axes and soft grid lines, no bars yet, one small orange dot at the start of the line.
+
+
+==============================================================================
+HOME: READY-MADE WORKFLOWS  (9 images)
+==============================================================================
+
+W1  talent-map
+FILE NAME: W1-talent-map.png
+SIZE: 1600x1200   PRIORITY: P2
+USED ON: Workflow card: Talent map
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: the RESULT this workflow produces, shown as a crisp off-white card or sheet floating slightly above the corner of a warm wooden desk with a soft shadow beneath it; the desk fades to pure white at the edges. The card is the hero. Landscape 4:3. Scene: A map card showing a simplified country outline with soft regions, several small company markers (rounded squares) and one larger orange marker with three tiny candidate avatars clustered by it.
+
+W2  jd-from-notes
+FILE NAME: W2-jd-from-notes.png
+SIZE: 1600x1200   PRIORITY: P2
+USED ON: Workflow card: Job description from notes
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: the RESULT this workflow produces, shown as a crisp off-white card or sheet floating slightly above the corner of a warm wooden desk with a soft shadow beneath it; the desk fades to pure white at the edges. The card is the hero. Landscape 4:3. Scene: On the left a messy handwritten-looking note card (scribble bars), on the right a clean formatted job description sheet (title bar, sections, bullet bars), a dashed orange arrow curving from the note to the sheet.
+
+W3  find-people
+FILE NAME: W3-find-people.png
+SIZE: 1600x1200   PRIORITY: P2
+USED ON: Workflow card: Find people for a role
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: the RESULT this workflow produces, shown as a crisp off-white card or sheet floating slightly above the corner of a warm wooden desk with a soft shadow beneath it; the desk fades to pure white at the edges. The card is the hero. Landscape 4:3. Scene: A results sheet listing five candidate rows (avatar circle and bars), the top two rows highlighted with an orange left edge and a small orange tick, a soft 'more coming' row fading at the bottom.
+
+W4  salary-range
+FILE NAME: W4-salary-range.png
+SIZE: 1600x1200   PRIORITY: P2
+USED ON: Workflow card: Salary benchmark
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: the RESULT this workflow produces, shown as a crisp off-white card or sheet floating slightly above the corner of a warm wooden desk with a soft shadow beneath it; the desk fades to pure white at the edges. The card is the hero. Landscape 4:3. Scene: A card with a horizontal range chart: a soft grey full band, an orange highlighted middle range, and a small marker pin on it; a couple of plain coins beside the card.
+
+W5  comparison
+FILE NAME: W5-comparison.png
+SIZE: 1600x1200   PRIORITY: P2
+USED ON: Workflow card: Employer comparison
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: the RESULT this workflow produces, shown as a crisp off-white card or sheet floating slightly above the corner of a warm wooden desk with a soft shadow beneath it; the desk fades to pure white at the edges. The card is the hero. Landscape 4:3. Scene: A comparison card with three narrow columns of rounded rows; one column has an orange header and a few orange ticks, the others have grey ticks and dashes.
+
+W6  form-from-jd
+FILE NAME: W6-form-from-jd.png
+SIZE: 1600x1200   PRIORITY: P2
+USED ON: Workflow card: Application form from a job description
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: the RESULT this workflow produces, shown as a crisp off-white card or sheet floating slightly above the corner of a warm wooden desk with a soft shadow beneath it; the desk fades to pure white at the edges. The card is the hero. Landscape 4:3. Scene: A job description sheet on the left and a phone on the right showing an application form (fields as rounded bars, an orange submit button bar), joined by a dashed orange line.
+
+W7  shortlist-page
+FILE NAME: W7-shortlist-page.png
+SIZE: 1600x1200   PRIORITY: P2
+USED ON: Workflow card: Client shortlist page
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: the RESULT this workflow produces, shown as a crisp off-white card or sheet floating slightly above the corner of a warm wooden desk with a soft shadow beneath it; the desk fades to pure white at the edges. The card is the hero. Landscape 4:3. Scene: A clean shareable page card with a header band, three candidate cards side by side with avatars, and a small orange link chain icon in the corner.
+
+W8  weekly-update
+FILE NAME: W8-weekly-update.png
+SIZE: 1600x1200   PRIORITY: P2
+USED ON: Workflow card: Weekly client update
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: the RESULT this workflow produces, shown as a crisp off-white card or sheet floating slightly above the corner of a warm wooden desk with a soft shadow beneath it; the desk fades to pure white at the edges. The card is the hero. Landscape 4:3. Scene: An email card with a small header, two progress bars and three tiny candidate avatars, a small desk calendar beside it with one day circled in orange.
+
+W9  keep-sourcing
+FILE NAME: W9-keep-sourcing.png
+SIZE: 1600x1200   PRIORITY: P2
+USED ON: Workflow card: Keep sourcing
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: the RESULT this workflow produces, shown as a crisp off-white card or sheet floating slightly above the corner of a warm wooden desk with a soft shadow beneath it; the desk fades to pure white at the edges. The card is the hero. Landscape 4:3. Scene: A candidate card stack that keeps growing: new candidate cards sliding in one after another from the right on a dashed orange track, the newest one with a small orange glow.
+
+
+==============================================================================
+SUCCESS MOMENTS  (6 images)
+==============================================================================
+
+X1  campaign-launch
+FILE NAME: X1-campaign-launch.png
+SIZE: 1200x1200   PRIORITY: P2
+USED ON: Campaign created
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: a lively low three-quarter angle, the subject caught mid-moment with a little motion (soft speed lines or a gentle lift), one strong terracotta orange highlight, everything else calm; plain soft sand background fading to pure white at the edges. Square 1:1. Scene: A campaign card being pinned up onto a board, the orange pin just pressed in, two tiny sparkle lines around it.
+
+X2  hired
+FILE NAME: X2-hired.png
+SIZE: 1200x1200   PRIORITY: P2
+USED ON: Candidate hired
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: a lively low three-quarter angle, the subject caught mid-moment with a little motion (soft speed lines or a gentle lift), one strong terracotta orange highlight, everything else calm; plain soft sand background fading to pure white at the edges. Square 1:1. Scene: A candidate profile card standing upright like a small trophy on a little plinth, an orange ribbon rosette pinned to its corner.
+
+X3  form-live
+FILE NAME: X3-form-live.png
+SIZE: 1200x1200   PRIORITY: P2
+USED ON: Form published
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: a lively low three-quarter angle, the subject caught mid-moment with a little motion (soft speed lines or a gentle lift), one strong terracotta orange highlight, everything else calm; plain soft sand background fading to pure white at the edges. Square 1:1. Scene: A phone standing upright showing an application form, a small orange flag popping up from behind it.
+
+X4  messages-sent
+FILE NAME: X4-messages-sent.png
+SIZE: 1200x1200   PRIORITY: P2
+USED ON: Outreach sent
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: a lively low three-quarter angle, the subject caught mid-moment with a little motion (soft speed lines or a gentle lift), one strong terracotta orange highlight, everything else calm; plain soft sand background fading to pure white at the edges. Square 1:1. Scene: Three rounded message bubbles flying out of an open laptop in a loose upward arc, the lead bubble orange, soft speed lines behind them.
+
+X5  export-ready
+FILE NAME: X5-export-ready.png
+SIZE: 1200x1200   PRIORITY: P3
+USED ON: Export ready
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: a lively low three-quarter angle, the subject caught mid-moment with a little motion (soft speed lines or a gentle lift), one strong terracotta orange highlight, everything else calm; plain soft sand background fading to pure white at the edges. Square 1:1. Scene: A spreadsheet card sliding out of a cream tray, its grid of cells neat, an orange corner tab on the sheet.
+
+X6  watch-done
+FILE NAME: X6-watch-done.png
+SIZE: 1200x1200   PRIORITY: P2
+USED ON: Keep-sourcing watch finished
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: a lively low three-quarter angle, the subject caught mid-moment with a little motion (soft speed lines or a gentle lift), one strong terracotta orange highlight, everything else calm; plain soft sand background fading to pure white at the edges. Square 1:1. Scene: A cream folder bulging with candidate cards, an orange tick badge clipped to its front, a tiny burst of sparkle lines above it.
+
+
+==============================================================================
+SYSTEM STATES  (6 images)
+==============================================================================
+
+Y1  signpost
+FILE NAME: Y1-signpost.png
+SIZE: 1200x1200   PRIORITY: P2
+USED ON: Page not found
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: minimal and quiet, one small subject in the lower middle with a large amount of empty pure white space, muted palette with only a touch of terracotta. Square 1:1. Scene: A small wooden signpost with three blank arrow boards pointing different ways, standing on a tiny patch of sand.
+
+Y2  coffee-spill
+FILE NAME: Y2-coffee-spill.png
+SIZE: 1200x1200   PRIORITY: P2
+USED ON: Something went wrong
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: minimal and quiet, one small subject in the lower middle with a large amount of empty pure white space, muted palette with only a touch of terracotta. Square 1:1. Scene: A coffee mug that has tipped over very gently, a small neat puddle, the laptop beside it untouched and safe.
+
+Y3  no-signal
+FILE NAME: Y3-no-signal.png
+SIZE: 1200x1200   PRIORITY: P2
+USED ON: You're offline
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: minimal and quiet, one small subject in the lower middle with a large amount of empty pure white space, muted palette with only a touch of terracotta. Square 1:1. Scene: A small wifi router with its little lights off and a tiny potted plant beside it, waiting patiently.
+
+Y4  queue-cups
+FILE NAME: Y4-queue-cups.png
+SIZE: 1200x1200   PRIORITY: P3
+USED ON: The agent is at capacity
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: minimal and quiet, one small subject in the lower middle with a large amount of empty pure white space, muted palette with only a touch of terracotta. Square 1:1. Scene: A neat row of four takeaway cups on a counter, each with a small order ticket, the last one with an orange ticket.
+
+Y5  lockbox
+FILE NAME: Y5-lockbox.png
+SIZE: 1200x1200   PRIORITY: P2
+USED ON: Only admins can open this / not on this campaign
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: minimal and quiet, one small subject in the lower middle with a large amount of empty pure white space, muted palette with only a touch of terracotta. Square 1:1. Scene: A small cream lockbox with its lid shut and a little padlock on the front.
+
+Y6  toolbox
+FILE NAME: Y6-toolbox.png
+SIZE: 1200x1200   PRIORITY: P3
+USED ON: Planned maintenance
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: minimal and quiet, one small subject in the lower middle with a large amount of empty pure white space, muted palette with only a touch of terracotta. Square 1:1. Scene: A tidy open toolbox with a wrench and a screwdriver, a small orange spirit level resting across it.
+
+
+==============================================================================
+WORKING STATES  (3 images)
+==============================================================================
+
+I1  sourcing
+FILE NAME: I1-sourcing.png
+SIZE: 1200x1200   PRIORITY: P2
+USED ON: First search running
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: a clean layered composition built from separate flat shapes with clear gaps between foreground, middle and background layers (so they can be animated separately later), soft sand background fading to pure white. Square 1:1. Scene: Background: a soft globe-like circle with faint map shapes. Middle: a sweeping orange radar arc. Foreground: three candidate cards at different depths drifting toward the viewer.
+
+I2  matching
+FILE NAME: I2-matching.png
+SIZE: 1200x1200   PRIORITY: P2
+USED ON: Judging candidates against the role
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: a clean layered composition built from separate flat shapes with clear gaps between foreground, middle and background layers (so they can be animated separately later), soft sand background fading to pure white. Square 1:1. Scene: Background: a job card. Middle: a row of candidate cards passing through a soft rounded gate. Foreground: a small orange tick badge and a grey dash badge.
+
+I3  reading-file
+FILE NAME: I3-reading-file.png
+SIZE: 1200x1200   PRIORITY: P2
+USED ON: Reading a job description or CV upload
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: a clean layered composition built from separate flat shapes with clear gaps between foreground, middle and background layers (so they can be animated separately later), soft sand background fading to pure white. Square 1:1. Scene: Background: a document sheet. Middle: a soft orange scanning band across it. Foreground: three small extracted cards (a title bar card, a skills chips card, a location pin card).
+
+
+==============================================================================
+CANDIDATE PAGES (APPLICATION FORM)  (4 images)
+==============================================================================
+
+G1  apply-band
+FILE NAME: G1-apply-band.png
+SIZE: 3200x1000   PRIORITY: P2
+USED ON: Application page header band (tinted to the employer's colour)
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: the APPLICANT's world, not the recruiter's: a calm home desk by a window at dusk with warm lamp light, a phone or a laptop, a houseplant; neutral and welcoming, no company branding anywhere. Scene: A very wide, calm horizon of the window view at dusk: soft layered hills and a warm sky, mostly plain so it can be tinted. Wide 16:5.
+
+G2  apply-sent
+FILE NAME: G2-apply-sent.png
+SIZE: 1600x1200   PRIORITY: P2
+USED ON: Application sent
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: the APPLICANT's world, not the recruiter's: a calm home desk by a window at dusk with warm lamp light, a phone or a laptop, a houseplant; neutral and welcoming, no company branding anywhere. Scene: A phone on the home desk showing a simple confirmation card with a large tick; a cup of tea steams beside it and the window glows warm. Landscape 4:3.
+
+G3  apply-closed
+FILE NAME: G3-apply-closed.png
+SIZE: 1600x1200   PRIORITY: P2
+USED ON: Application form closed
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: the APPLICANT's world, not the recruiter's: a calm home desk by a window at dusk with warm lamp light, a phone or a laptop, a houseplant; neutral and welcoming, no company branding anywhere. Scene: The window with its blinds half drawn, a closed laptop on the desk, a lamp still on. Landscape 4:3.
+
+G4  apply-code
+FILE NAME: G4-apply-code.png
+SIZE: 1600x1200   PRIORITY: P2
+USED ON: Applicant: check your inbox for the code
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: the APPLICANT's world, not the recruiter's: a calm home desk by a window at dusk with warm lamp light, a phone or a laptop, a houseplant; neutral and welcoming, no company branding anywhere. Scene: A phone on the home desk showing an envelope notification card and six empty rounded code boxes. Landscape 4:3.
+
+
+==============================================================================
+SETTINGS AND CONNECTIONS  (4 images)
+==============================================================================
+
+D1  seats
+FILE NAME: D1-seats.png
+SIZE: 1200x1200   PRIORITY: P2
+USED ON: Members, only you so far
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: one simple object, centred, at a gentle three-quarter angle, soft sand background fading to pure white. Square 1:1. Scene: A row of four small desk name plates, the first with a short bar on it, the other three blank.
+
+D2  mail-connect
+FILE NAME: D2-mail-connect.png
+SIZE: 1200x1200   PRIORITY: P2
+USED ON: Connect Gmail
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: one simple object, centred, at a gentle three-quarter angle, soft sand background fading to pure white. Square 1:1. Scene: An inbox tray card and an open laptop joined by a dashed orange line that is just completing its path.
+
+D3  reconnect
+FILE NAME: D3-reconnect.png
+SIZE: 1200x1200   PRIORITY: P3
+USED ON: A connection needs reconnecting
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: one simple object, centred, at a gentle three-quarter angle, soft sand background fading to pure white. Square 1:1. Scene: A short chain lying in a curve with one link opened, its two ends just apart.
+
+D4  sheet-connect
+FILE NAME: D4-sheet-connect.png
+SIZE: 1200x1200   PRIORITY: P3
+USED ON: Export to Google Sheets
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: one simple object, centred, at a gentle three-quarter angle, soft sand background fading to pure white. Square 1:1. Scene: A spreadsheet card with a neat grid of cells and an orange corner folded over, like a page ready to turn.
+
+
+==============================================================================
+PLACEHOLDERS  (3 images)
+==============================================================================
+
+B1  news
+FILE NAME: B1-news.png
+SIZE: 1600x900   PRIORITY: P2
+USED ON: Home insights (market news, coming)
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: a calm wide vignette, mostly white space, soft sand ground fading to pure white. Landscape 16:9. Scene: A folded newspaper with column bars and a picture block lying beside a morning coffee.
+
+B2  support
+FILE NAME: B2-support.png
+SIZE: 1600x900   PRIORITY: P3
+USED ON: Support page
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: a calm wide vignette, mostly white space, soft sand ground fading to pure white. Landscape 16:9. Scene: A friendly headset resting on a stack of notes, a speech bubble card with three dots floating above it.
+
+B3  coming-later
+FILE NAME: B3-coming-later.png
+SIZE: 1600x900   PRIORITY: P3
+USED ON: Settings, connectors coming later
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: a calm wide vignette, mostly white space, soft sand ground fading to pure white. Landscape 16:9. Scene: A cardboard box with its flaps folded shut and a small orange tag tied to it.
+
+
+==============================================================================
+EMAIL AND LINK PREVIEWS  (4 images)
+==============================================================================
+
+H1  email-invite
+FILE NAME: H1-email-invite.png
+SIZE: 1200x400   PRIORITY: P2
+USED ON: Invite email header
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: landscape; keep the right half completely plain soft sand with nothing in it (a title is placed there in code). Scene: On the left third: an envelope with an orange wax-style seal sitting on the desk corner beside a small plant. Wide 3:1.
+
+H2  email-digest
+FILE NAME: H2-email-digest.png
+SIZE: 1200x400   PRIORITY: P3
+USED ON: Weekly digest email header
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: landscape; keep the right half completely plain soft sand with nothing in it (a title is placed there in code). Scene: On the left third: a mug, a short stack of candidate cards and a small potted cactus. Wide 3:1.
+
+H3  og-default
+FILE NAME: H3-og-default.png
+SIZE: 1200x630   PRIORITY: P2
+USED ON: Link preview for superhyre.com and app links
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: landscape; keep the right half completely plain soft sand with nothing in it (a title is placed there in code). Scene: On the left half: the tablet showing candidate rows with three candidate cards rising off it on dashed orange lines, plant and mug nearby. Landscape 1200x630.
+
+H4  og-apply
+FILE NAME: H4-og-apply.png
+SIZE: 1200x630   PRIORITY: P2
+USED ON: Link preview for an application form
+PROMPT:
+Generate ONE single image only (not a grid, sheet or set of variations). Warm flat editorial illustration in the style of a modern recruiting-software brand illustration: clean vector shapes, soft gradients, gentle shading and a subtle paper grain. Palette: peach and sand (#F6E3D3, #EBCFB9), warm wood (#C98A5E), terracotta orange (#E8602C), charcoal (#2E2E33), off-white cards (#FBF7F2), olive leaves (#6F7B4A). Any text on screens, cards or paper is drawn only as simple grey or orange bars, never real words, letters or numbers. People appear only as simple friendly avatars inside profile cards (hair, glasses or a beard, no other facial detail, varied skin tones, professional clothing). No hands or arms, no logos, no watermark, no border. Framing: landscape; keep the right half completely plain soft sand with nothing in it (a title is placed there in code). Scene: On the left half: a phone on the home desk showing an application form with an orange button bar, warm lamp light. Landscape 1200x630.
+
+
+==============================================================================
+CHECKLIST: 62 FILES
+==============================================================================
+[ ] E1-blank-board.png                 P2
+[ ] E2-empty-tray.png                  P2
+[ ] E3-empty-columns.png               P2
+[ ] E4-velvet-box.png                  P2
+[ ] E5-card-stack-blank.png            P2
+[ ] E6-binoculars.png                  P2
+[ ] E7-business-cards.png              P2
+[ ] E8-card-stand.png                  P3
+[ ] E9-blank-form.png                  P2
+[ ] E10-mailbox-waiting.png            P2
+[ ] E11-form-unpublished.png           P3
+[ ] E12-phone-quiet.png                P3
+[ ] E13-clear-desk.png                 P2
+[ ] E14-notebook-open.png              P3
+[ ] E15-sleeping-tablet.png            P2
+[ ] E16-agent-ready.png                P2
+[ ] E17-bell-quiet.png                 P3
+[ ] E18-letters-tied.png               P3
+[ ] E19-blueprint.png                  P2
+[ ] E20-own-desk.png                   P2
+[ ] E21-extension-piece.png            P2
+[ ] E22-easel.png                      P2
+[ ] E23-chart-empty.png                P3
+[ ] W1-talent-map.png                  P2
+[ ] W2-jd-from-notes.png               P2
+[ ] W3-find-people.png                 P2
+[ ] W4-salary-range.png                P2
+[ ] W5-comparison.png                  P2
+[ ] W6-form-from-jd.png                P2
+[ ] W7-shortlist-page.png              P2
+[ ] W8-weekly-update.png               P2
+[ ] W9-keep-sourcing.png               P2
+[ ] X1-campaign-launch.png             P2
+[ ] X2-hired.png                       P2
+[ ] X3-form-live.png                   P2
+[ ] X4-messages-sent.png               P2
+[ ] X5-export-ready.png                P3
+[ ] X6-watch-done.png                  P2
+[ ] Y1-signpost.png                    P2
+[ ] Y2-coffee-spill.png                P2
+[ ] Y3-no-signal.png                   P2
+[ ] Y4-queue-cups.png                  P3
+[ ] Y5-lockbox.png                     P2
+[ ] Y6-toolbox.png                     P3
+[ ] I1-sourcing.png                    P2
+[ ] I2-matching.png                    P2
+[ ] I3-reading-file.png                P2
+[ ] G1-apply-band.png                  P2
+[ ] G2-apply-sent.png                  P2
+[ ] G3-apply-closed.png                P2
+[ ] G4-apply-code.png                  P2
+[ ] D1-seats.png                       P2
+[ ] D2-mail-connect.png                P2
+[ ] D3-reconnect.png                   P3
+[ ] D4-sheet-connect.png               P3
+[ ] B1-news.png                        P2
+[ ] B2-support.png                     P3
+[ ] B3-coming-later.png                P3
+[ ] H1-email-invite.png                P2
+[ ] H2-email-digest.png                P3
+[ ] H3-og-default.png                  P2
+[ ] H4-og-apply.png                    P2

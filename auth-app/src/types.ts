@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { Me } from "./api/identity";
 
 /**
  * `public.extension_bootstrap()` — parsed, not cast.
@@ -67,7 +68,11 @@ export type View =
    *  form the user has already moved past. */
   | { v: "code"; email: string }
   | { v: "signedIn"; bootstrap: AllowedBootstrap }
-  | { v: "blocked"; email: string };
+  | { v: "blocked"; email: string }
+  /** Connected to the API: `/v1/me` decides between onboarding and the console. */
+  | { v: "live"; me: Me }
+  /** Signed in, but `/v1/me` could not be read. */
+  | { v: "accountError"; message: string; kind?: "network" | "server" | "session" | "rate-limit" | "no-access" };
 
 /** Per-action request state. Independent per action so a failed sign-up cannot
  *  wipe an error the Google button just produced, and vice versa. */

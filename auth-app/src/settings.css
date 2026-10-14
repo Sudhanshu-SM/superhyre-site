@@ -1,0 +1,136 @@
+/* ═════════ settings (Settings*.tsx) ═════════
+   One short list on the left, one white panel on the right. Sections inside
+   the panel are divided by hairlines, never boxed again. Forms reuse the
+   new-campaign fields (newcampaign.css). */
+
+/* No narrower than the other workspace pages: a column that is centred with its own width puts the
+   title 32px to the right of every other page's. */
+.cw.st { max-width: 1240px; }
+.st-body { display: grid; grid-template-columns: 188px minmax(0, 1fr); gap: 24px; align-items: start; }
+
+.st-nav { display: grid; gap: 2px; position: sticky; top: 16px; }
+.st-nav-i {
+  display: flex; align-items: center; height: 36px; padding: 0 12px; border-radius: 10px;
+  font: var(--type-label); letter-spacing: var(--track-label); color: var(--ink-2); text-decoration: none;
+  transition: background-color var(--t), color var(--t);
+}
+.st-nav-i:hover { background: #faf6f2; color: var(--ink); }
+.st-nav-i.is-on { background: #f6f1ec; color: var(--ink); }
+.st-nav-i:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+.st-panel {
+  min-width: 0; padding: 22px 24px 24px; border: 1px solid #efe8e1; border-radius: 16px; background: #fff;
+  box-shadow: 0 1px 2px rgba(58, 35, 23, 0.03);
+}
+.st-sec { display: grid; gap: 16px; min-width: 0; }
+.st-h { margin: 0; color: var(--ink); }
+.st-h-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.st-iso { margin: 4px 0 0; color: var(--ink-2); }
+.st-sub { margin: 0 0 6px; color: var(--ink-2); }
+.st-group { display: grid; min-width: 0; padding-top: 16px; border-top: 1px solid #f1ebe5; }
+.st-read { margin: 0; display: flex; align-items: center; height: 38px; color: var(--ink-2); overflow-wrap: anywhere; }
+.st-quiet { margin: 0; color: var(--ink-2); }
+.st-err { margin: 0; color: #a2552f; }
+.st-ok { margin: 0; color: #3f7d2a; }
+
+.st-foot { display: flex; align-items: center; gap: 8px; padding-top: 4px; }
+.st-foot > :first-child { flex: 1; }
+.st .ncx-btn:disabled { opacity: 0.5; cursor: default; }
+/* A primary button that cannot be pressed is neutral in ui.css (one block, !important); a working one keeps its orange
+   fill and its ring under the pointer too, so there is no per-page :hover rule here to turn it pale grey under white text. */
+
+/* ── lists: requests, invites, the Google row ── */
+.st-list { margin: 0; padding: 0; list-style: none; }
+.st-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap;
+  min-height: 56px; padding: 8px 0; border-bottom: 1px solid #f4efea;
+}
+.st-list > .st-item:last-child { border-bottom: 0; }
+.st-conn { border: 0; padding: 0; }
+.st-who { display: grid; gap: 2px; min-width: 0; }
+.st-who > :first-child { color: var(--ink); }
+.st-mail { color: var(--ink-2); }
+.st-acts { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin: 0; }
+.st-role { width: auto; height: 32px; font: var(--type-body-sm); }
+
+.st-link {
+  padding: 0; border: 0; background: none; cursor: pointer;
+  font: var(--type-label); letter-spacing: var(--track-label); color: var(--ink-2);
+  text-decoration: underline; text-decoration-color: #ddd5cd; text-underline-offset: 3px;
+}
+.st-link:hover { color: var(--ink); text-decoration-color: currentColor; }
+.st-link:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 3px; }
+
+/* ── Slack and Notion: the organisation's connections ──
+   Each is a group under the Google row, divided by the hairline `.st-group`
+   already draws. A group is a row (who, status, buttons), the form or picker
+   that row opens, and one quiet line of what it is for. */
+.st-org { gap: 12px; }
+.st-pick { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; }
+.st-pick-l { color: var(--ink-2); }
+.st-pick-block { display: grid; gap: 10px; min-width: 0; }
+.st-token, .st-targets { max-width: 520px; }
+.st-results { margin: 0; padding: 0; list-style: none; border: 1px solid #efe8e1; border-radius: 12px; background: #fff; overflow: hidden; }
+.st-results li + li { border-top: 1px solid #f4efea; }
+.st-results button {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 38px;
+  padding: 6px 12px; border: 0; background: none; text-align: left; cursor: pointer; color: var(--ink);
+  font: var(--type-body-sm);
+}
+.st-results button:hover { background: #faf6f2; }
+.st-results button:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+
+/* ── the members table ── */
+.st-table { width: 100%; table-layout: fixed; border-collapse: collapse; color: var(--ink); }
+.st-table th {
+  height: 34px; padding: 0 10px 0 0; text-align: left; border-bottom: 1px solid #efe8e1;
+  font: var(--type-caption); letter-spacing: var(--track-caption); color: var(--ink-3);
+}
+.st-table td { height: 56px; padding: 6px 10px 6px 0; border-bottom: 1px solid #f4efea; font: var(--type-body); vertical-align: middle; }
+.st-table tbody tr:last-child td { border-bottom: 0; }
+.st-table th:nth-child(1) { width: 40%; }
+.st-table th:nth-child(2) { width: 132px; }
+.st-c-num { width: 88px; text-align: right; padding-right: 24px !important; font-variant-numeric: tabular-nums; }
+.st-c-date { width: 84px; color: var(--ink-2); }
+.st-table td.st-c-act { text-align: right; padding-right: 0; white-space: nowrap; }
+.st-c-act .st-link + .st-link { margin-left: 14px; }
+
+/* ── members: groups by role ── */
+.st-roleline { margin-top: -2px; margin-bottom: 4px; }
+.st-meta { color: var(--ink-2); }
+.st-more {
+  display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 8px;
+  background: none; color: var(--ink-2); cursor: pointer;
+}
+.st-more:hover { background: var(--sub); color: var(--ink); }
+.st-more:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.ct-menu-i.is-danger { color: #b3261e; }
+.st-toggle-note { margin: 0; color: var(--ink-2); }
+.st-import { display: grid; gap: 10px; padding: 14px 0 2px; border-top: 1px solid var(--hairline); }
+.st-import p { margin: 0; }
+
+/* ── invite ── */
+.st-invite { display: grid; gap: 14px; padding: 16px; border-radius: 12px; background: #fdfbf9; }
+.st-invite p { margin: 0; color: var(--ink); }
+.st-copy { display: flex; gap: 8px; }
+.st-copy .ncx-in { flex: 1; min-width: 0; color: var(--ink-2); }
+
+.st-remove { display: grid; gap: 14px; }
+.st-remove p { margin: 0; }
+
+@media (max-width: 760px) {
+  .st-body { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  /* Every section is in view: they wrap to a second line rather than hide behind a sideways scroll. */
+  .st-nav { position: static; display: flex; flex-wrap: wrap; gap: 4px; }
+  .st-nav-i { flex: none; }
+  .st-panel { padding: 18px 16px 20px; }
+  .st-table th:nth-child(1) { width: auto; }
+  .st-c-num, .st-c-date { display: none; }
+  .st .ncx-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 560px) {
+  .st-table td.st-c-act { white-space: normal; }
+  .st-c-act .st-link { display: block; margin: 2px 0 2px auto; }
+  .st-c-act .st-link + .st-link { margin-left: auto; }
+}

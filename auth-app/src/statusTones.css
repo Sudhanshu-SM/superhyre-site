@@ -1,0 +1,39 @@
+/* The colour of a status word (statusTones.ts). Text only. Light on the left, dark below; every value is
+   measured on the surfaces a status lands on: the card, a hovered row and a chosen row.
+
+   light (on #ffffff / #fcfaf8 / #fff7f1 / #f3f2f0)        dark (on #171717 / #1f1f1f / #262626)
+     outreach     #8a5a00   5.93  5.69  5.60  5.30            #e2b24f   9.15  8.41  7.72
+     replied      #1d7a3a   5.39  5.18  5.09  4.82            #6fcf8c   9.37  8.62  7.91
+     interviewing #1f5fb8   6.20  5.95  5.85  5.54            #86b4f2   8.39  7.71  7.08
+     hired        #a8400f   6.17  5.92  5.82  5.51            #ff8f5c   7.97  7.33  6.73
+     passed       #9a4535   6.41  6.16  6.05  5.73            #dc8f80   7.07  6.50  5.97
+   muted and ink are the console's own --ink-2 and --ink. */
+
+:root {
+  --st-muted: var(--ink-2);
+  --st-ink: var(--ink);
+  --st-outreach: #8a5a00;
+  --st-replied: #1d7a3a;
+  --st-interviewing: #1f5fb8;
+  --st-hired: #a8400f;
+  --st-passed: #9a4535;
+}
+html:root[data-theme="dark"] {
+  --st-outreach: #e2b24f;
+  --st-replied: #6fcf8c;
+  --st-interviewing: #86b4f2;
+  --st-hired: #ff8f5c;
+  --st-passed: #dc8f80;
+}
+
+/* `html` first: one step more specific than the stage colours the pages had, whatever order they arrive in. */
+html .st[data-st="muted"] { color: var(--st-muted); }
+html .st[data-st="ink"] { color: var(--st-ink); }
+html .st[data-st="outreach"] { color: var(--st-outreach); }
+html .st[data-st="replied"] { color: var(--st-replied); }
+html .st[data-st="interviewing"] { color: var(--st-interviewing); }
+html .st[data-st="hired"] { color: var(--st-hired); font-weight: 600; }
+html .st[data-st="passed"] { color: var(--st-passed); }
+
+/* The status dropdown's chevron takes the word's tone, at 60 percent. */
+html .sl-status.st svg { color: color-mix(in srgb, currentColor 60%, transparent); }

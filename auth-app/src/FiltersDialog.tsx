@@ -1,7 +1,8 @@
-import { Check, MagnifyingGlass, Plus, Sparkle, X } from "@phosphor-icons/react";
+import { CaretDown, CaretUp, Check, MagnifyingGlass, Plus, Sparkle, X } from "@phosphor-icons/react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Category, Control, FilterDef, Value, Values } from "./filters";
-import { CATEGORIES, activeCount, estimate, isActive } from "./filters";
+import { CATEGORIES, activeCount, advancedSetCount, basicCategories, estimate, isActive, openAdvanced } from "./filters";
+import { Loader } from "./components/Loader";
 import { Dialog } from "./ui";
 import "./composer.css";
 
@@ -15,28 +16,64 @@ import "./composer.css";
  * options match. The Apply button carries the match estimate.
  */
 export function FiltersDialog({
-  open, onClose, initial, prefilled, onApply,
+  open, onClose, initial, prefilled, onApply, live, readOnly, focus, lead,
 }: {
   open: boolean;
   onClose: () => void;
   initial: Values;
   /** Filter ids that came from the brief, marked so the recruiter knows why. */
   prefilled: readonly string[];
-  onApply: (v: Values) => void;
+  /** May return a promise: the dialog stays open while it is saved, and says so if it was not. */
+  onApply: (v: Values) => void | Promise<void>;
+  /**
+   * Connected: these are the campaign's own search filters, saved to it and used by its next search. There is
+   * no match count (the prototype's is a fixture) and the button says what it does.
+   */
+  live?: boolean | undefined;
+  /** Someone who follows the campaign sees its filters and cannot change them. */
+  readOnly?: boolean | undefined;
+  /** Opens scrolled to this group (a category id); `n` changes each time so the same group can be asked for again. */
+  focus?: { category: string; n: number } | null | undefined;
+  /** The line under the title when connected, in place of the usual one. */
+  lead?: string | undefined;
 }) {
+  const [saving, setSaving] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
   const [values, setValues] = useState<Values>(initial);
   const [active, setActive] = useState(CATEGORIES[0]!.id);
   const [query, setQuery] = useState("");
+  /* Opens on the basics. "View more filters" opens the whole catalogue; searching does too, since a search has
+     to look through all of it. */
+  const [more, setMore] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
   const jumping = useRef<number | null>(null);
 
-  useEffect(() => { if (open) { setValues(initial); setQuery(""); } }, [open, initial]);
+  useEffect(() => { if (open) { setValues(initial); setQuery(""); setFailed(null); setSaving(false); setMore(false); } }, [open, initial]);
 
-  const set = useCallback((id: string, v: Value) => setValues((x) => ({ ...x, [id]: v })), []);
+  const apply = () => {
+    const done = onApply(values);
+    if (!(done instanceof Promise)) { onClose(); return; }
+    setSaving(true);
+    setFailed(null);
+    done.then(
+      () => { setSaving(false); onClose(); },
+      (err: unknown) => {
+        setSaving(false);
+        setFailed(err instanceof Error && err.message ? err.message : "Couldn't save the filters. Try again.");
+      },
+    );
+  };
+
+  const set = useCallback((id: string, v: Value) => { if (!readOnly) setValues((x) => ({ ...x, [id]: v })); }, [readOnly]);
   const matches = estimate(values);
   const count = activeCount(values);
 
   const q = query.trim().toLowerCase();
+  const expanded = more || q.length > 0;
+  const basics = useMemo(() => basicCategories(), []);
+  /* What is set beyond the basics is shown even before "more" is pressed, so nothing set is hidden. */
+  const alsoSet = useMemo(() => openAdvanced(values), [values]);
+  const setBeyond = advancedSetCount(values);
   const visible = useMemo(() => CATEGORIES.map((c) => ({
     ...c,
     filters: c.filters.filter((f) => !q || f.label.toLowerCase().includes(q) || c.label.toLowerCase().includes(q) ||
@@ -73,13 +110,24 @@ export function FiltersDialog({
 
   const clearAll = () => setValues({});
 
+  /* Asked to open at a group (the brief's own "Location" or "Skills" was pressed): it is brought into view once
+     the dialog has its list. */
+  useEffect(() => {
+    if (!open || !focus) return;
+    const t = window.setTimeout(() => jump(focus.category), 150);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, focus?.n]);
+
   return (
-    <Dialog open={open} onClose={onClose} label="Filters" size="xl">
+    <Dialog open={open} onClose={onClose} label="Filters" size={expanded ? "xl" : "md"}>
       <div className="fd">
         <header className="fd-top">
           <div className="fd-title">
             <h2>Filters</h2>
-            <p>{prefilled.length ? <><Sparkle size={12} weight="fill" aria-hidden="true" />{prefilled.length} set from your brief</> : "Narrow the search before it runs"}</p>
+            <p>{live
+              ? (lead ?? (readOnly ? "What this campaign's searches use" : "The next search uses these"))
+              : prefilled.length ? <><Sparkle size={12} weight="fill" aria-hidden="true" />{prefilled.length} set from your brief</> : "Narrow the search before it runs"}</p>
           </div>
           <label className="fd-search">
             <MagnifyingGlass size={15} aria-hidden="true" />
@@ -87,7 +135,8 @@ export function FiltersDialog({
           </label>
         </header>
 
-        <div className="fd-body">
+        <div className={`fd-body${expanded ? "" : " is-basic"}`}>
+          {expanded && (
           <nav className="fd-nav" aria-label="Filter categories">
             {visible.map((c) => {
               const n = activeCount(values, c.filters.map((f) => f.id));
@@ -99,25 +148,52 @@ export function FiltersDialog({
                 </button>
               );
             })}
+            <button type="button" className="fd-fewer" onClick={() => setMore(false)} disabled={q.length > 0}>
+              <CaretUp size={14} weight="bold" aria-hidden="true" />Show fewer
+            </button>
           </nav>
+          )}
 
-          <div className="fd-list" ref={bodyRef} onScroll={spy}>
-            {visible.length === 0 && <p className="fd-empty">No filter matches "{query}".</p>}
-            {visible.map((c) => (
-              <Section key={c.id} cat={c} values={values} set={set} prefilled={prefilled} />
-            ))}
-            <div className="fd-tail" aria-hidden="true" />
+          <div className={`fd-list${readOnly ? " is-readonly" : ""}`} ref={bodyRef} onScroll={expanded ? spy : undefined}>
+            {expanded ? (
+              <>
+                {visible.length === 0 && <p className="fd-empty">No filter matches "{query}".</p>}
+                {visible.map((c) => (
+                  <Section key={c.id} cat={c} values={values} set={set} prefilled={prefilled} />
+                ))}
+                <div className="fd-tail" aria-hidden="true" />
+              </>
+            ) : (
+              <>
+                {basics.map((c) => (
+                  <Section key={c.id} cat={c} values={values} set={set} prefilled={prefilled} />
+                ))}
+                {alsoSet.map((c) => (
+                  <Section key={`more-${c.id}`} cat={c} values={values} set={set} prefilled={prefilled} />
+                ))}
+                <div className="fd-more-row">
+                  <button type="button" className="fd-more" onClick={() => setMore(true)} aria-expanded="false">
+                    View more filters{setBeyond > 0 ? ` (${setBeyond} set)` : ""}
+                    <CaretDown size={14} weight="bold" aria-hidden="true" />
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
         <footer className="fd-foot">
-          <button type="button" className="src-btn is-quiet mo-small" onClick={clearAll} disabled={count === 0}>Clear all</button>
-          <span className="fd-foot-n">{count === 0 ? "No filters set" : `${count} filter${count === 1 ? "" : "s"} set`}</span>
+          {!readOnly && <button type="button" className="src-btn is-quiet mo-small" onClick={clearAll} disabled={count === 0 || saving}>Clear all</button>}
+          <span className="fd-foot-n">{failed ?? (count === 0 ? "No filters set" : `${count} filter${count === 1 ? "" : "s"} set`)}</span>
           <span className="sp" />
-          <button type="button" className="src-btn is-quiet mo-small" onClick={onClose}>Cancel</button>
-          <button type="button" className="src-btn is-primary fd-apply" onClick={() => { onApply(values); onClose(); }}>
-            Apply{count ? ` ${count}` : ""} · {matches.toLocaleString("en-IN")} matches
-          </button>
+          <button type="button" className="src-btn is-quiet mo-small" onClick={onClose}>{readOnly ? "Close" : "Cancel"}</button>
+          {!readOnly && (
+            <button type="button" className="src-btn is-primary fd-apply" onClick={apply} disabled={saving}>
+              {live
+                ? (saving ? <><Loader size="sm" tone="inherit" />Saving…</> : "Save filters")
+                : <>Apply{count ? ` ${count}` : ""} · {matches.toLocaleString("en-IN")} matches</>}
+            </button>
+          )}
         </footer>
       </div>
     </Dialog>

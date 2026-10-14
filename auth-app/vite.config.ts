@@ -4,6 +4,11 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import type { Plugin } from "vite";
 import react from "@vitejs/plugin-react";
+import { asyncCss } from "./src/build/asyncCss";
+import { vendorChunk } from "./src/build/chunks";
+import { preloadReturning } from "./src/build/preload";
+import { postcssDark } from "./src/theme/postcssDark";
+import { postcssLining } from "./src/theme/postcssLining";
 
 const here = resolve(fileURLToPath(import.meta.url), "..");
 /** The site's own assets folder, one level up from this app. */
@@ -89,18 +94,22 @@ function serveSiteAssets(): Plugin {
 // spelled (with or without the trailing slash).
 export default defineConfig({
   base: "/access/",
-  plugins: [react(), serveSiteAssets()],
+  plugins: [react(), serveSiteAssets(), asyncCss(), preloadReturning()],
+
+  /* The console's dark theme is written out of its light stylesheets as they are built: see
+     src/theme/postcssDark.ts. The tokens it leans on are src/theme/theme.css. */
+  css: { postcss: { plugins: [postcssLining(), postcssDark()] } },
 
   build: {
     outDir: "../access",
     emptyOutDir: true,
-    // The app splits in exactly one place: the brand panel, so the animation
-    // library loads after the sign-in form rather than in front of it.
-    // Everything else stays in the entry chunk, since a round trip to fetch a
-    // text input is worse than shipping it. Chunk names share the access-
-    // prefix so the whole surface is greppable in one glob.
+    // The app splits where it is loaded, not at one point: the sign-in is the entry, the console and each of its
+    // pages are chunks of their own (src/consolePages.ts, src/consoleChunk.ts), and the libraries that do not
+    // change between releases are vendor files (src/build/chunks.ts). Chunk names share the access- prefix so
+    // the whole surface is greppable in one glob.
     rollupOptions: {
       output: {
+        manualChunks: vendorChunk,
         entryFileNames: "assets/access-[hash].js",
         chunkFileNames: "assets/access-[hash].js",
         assetFileNames: "assets/access-[hash][extname]",

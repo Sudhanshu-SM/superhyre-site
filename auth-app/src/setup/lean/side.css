@@ -1,0 +1,73 @@
+/* The screens around set-up: one picture where she would stand, her words on the left. */
+.lx-side .sd-pic {
+  position: absolute;
+  left: var(--cx);
+  bottom: calc(100dvh - var(--feet) + 1dvh);
+  width: clamp(260px, calc(var(--hero-h) * 0.78), 640px);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.lx-side .sd-pic.is-hero {
+  width: calc(var(--hero-h) * 0.63);
+  bottom: calc(12dvh - 0.054 * var(--hero-h));
+}
+.lx-side .sd-pic.is-hero .sd-img {
+  filter: none;
+}
+.lx-side .sd-pic.is-prop {
+  width: clamp(170px, calc(var(--hero-h) * 0.4), 360px);
+}
+.lx-side .sd-float {
+  display: block;
+  animation: nx-float 7s ease-in-out infinite;
+}
+.lx-side .sd-float.is-still {
+  animation: none;
+}
+.lx-side .sd-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  animation: none;
+  filter: drop-shadow(0 18px 22px rgba(150, 70, 30, 0.18));
+}
+.lx-side .sd-ground {
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  bottom: -2%;
+  height: 5%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(150, 70, 30, 0.22), rgba(150, 70, 30, 0));
+}
+.lx-side .sd-actions {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+}
+.lx-side .sd-more {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 22px;
+}
+.lx-side .sd-problem {
+  margin: 0;
+  max-width: 44ch;
+  font: 400 var(--lx-small) / 1.45 var(--ui);
+  color: var(--lx-alert);
+}
+.lx-side .sd-corner {
+  justify-self: end;
+}
+@media (max-width: 820px) {
+  .lx-side .sd-pic {
+    width: clamp(150px, 36vw, 240px);
+    bottom: calc(100dvh - var(--feet) + 6dvh);
+  }
+  .lx-side .sd-voice {
+    left: 24px;
+    right: 24px;
+    width: auto;
+    top: clamp(90px, 14dvh, 140px);
+  }
+}

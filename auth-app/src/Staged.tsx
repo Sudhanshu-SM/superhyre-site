@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
+import { TurnContext } from "./agentThread";
 import type { ReactNode } from "react";
 import { PhaseBlock, writeMs } from "./Sourcing";
 import type { Phase } from "./sourcing";
@@ -24,8 +25,11 @@ export function Staged({
   onGrow?: () => void;
   children: ReactNode;
 }): JSX.Element {
-  const [at, setAt] = useState(0);
-  const [took, setTook] = useState<Record<string, number>>({});
+  /* A turn restored from earlier in the session already ran its phases:
+     show them settled rather than playing them again. */
+  const restored = useContext(TurnContext)?.restored ?? false;
+  const [at, setAt] = useState(() => (restored ? phases.length : 0));
+  const [took, setTook] = useState<Record<string, number>>(() => (restored ? Object.fromEntries(phases.map((p) => [p.id, p.ms])) : {}));
   const started = useRef(Date.now());
   const phase = phases[at];
   const done = at >= phases.length;

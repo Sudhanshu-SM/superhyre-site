@@ -81,6 +81,9 @@
 /* Tinted, not solid: thirty-six solid green discs in one grid outweigh the
    names beside them. The check stays at full sage so "met" still reads at a
    glance; the empty ring is the absence of it. */
+/* Not judged yet: a short dash, unknown rather than a miss. */
+.cb-fit.is-unscored { border-color: transparent; }
+.cb-fit.is-unscored::after { content: ""; width: 8px; height: 1.5px; border-radius: 1px; background: var(--ink-3); opacity: 0.7; }
 .cb-fit.is-met { border-style: solid; border-color: var(--c-sage-line); background: var(--c-sage-tint); color: var(--c-sage-text); }
 
 .cb-fitrow {
@@ -193,7 +196,7 @@
 }
 
 .rm-panel {
-  --rm-grid: 26px minmax(0, 1fr) 148px repeat(3, 58px) 70px;
+  --rm-grid: 26px minmax(0, 1fr) 148px repeat(var(--rm-n, 3), minmax(58px, 76px)) 70px;
   position: relative;
   width: min(860px, 100%);
   height: min(780px, 100%);
@@ -341,7 +344,9 @@
 }
 
 .rm-cols i { font-style: normal; font-weight: 400; opacity: 0.8; margin-left: 4px; }
-.rm-col-fit { text-align: center; white-space: nowrap; }
+.rm-col-fit { min-width: 0; overflow: hidden; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
+/* A long name gives way (ending in an ellipsis) before it reaches the next column. */
+.rm-name-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rm-col-rank { text-align: right; }
 
 .rm-body {
@@ -686,17 +691,11 @@
 .ps-facts dt { color: var(--ink-2); }
 .ps-facts dd { margin: 0; color: var(--ink); }
 
-.ps-status { display: inline-flex; align-items: center; gap: 7px; }
-
-.ps-status::before {
-  content: "";
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--c-blue);
-}
+/* Where they stand is a plain word, no marker in front of it. */
+.ps-status { display: inline; }
 
 .ps-about { margin: 0; font: 400 14px/1.65 var(--ui); color: var(--ink); }
+.ps-note-by { font-size: 12.5px; color: var(--ink-2); }
 
 .ps-jobs, .ps-schools { display: grid; gap: 22px; margin: 4px 0 0; padding: 0; list-style: none; }
 .ps-job, .ps-schools li { display: grid; grid-template-columns: 40px 1fr; gap: 14px; }
@@ -849,7 +848,7 @@
 @media (max-width: 760px) {
   .rm { padding: 0; }
   .rm-panel { width: 100%; height: 100%; border-radius: 0; border: 0; }
-  .rm-panel { --rm-grid: 0 minmax(0, 1fr) repeat(3, 20px) 66px; }
+  .rm-panel { --rm-grid: 0 minmax(0, 1fr) repeat(var(--rm-n, 3), 20px) 66px; }
   .rm-cols, .rm-row { column-gap: 8px; }
   .rm-cols { padding: 8px 20px; }
   .rm-row { padding: 12px 10px 12px 12px; }
@@ -883,3 +882,5 @@
   .rm-panel { transition: opacity 180ms var(--ease-out); }
   .ps-dock { transform: none; }
 }
+
+.ps-sec.is-empty { display: none; }

@@ -1,0 +1,890 @@
+[
+  {
+    "name": "hero-idle.png",
+    "folder": "hero",
+    "width": 2048,
+    "height": 3072,
+    "asset_number": 1,
+    "source": "imagegen-vector-illustration"
+  },
+  {
+    "name": "hero-tap.png",
+    "folder": "hero",
+    "width": 2048,
+    "height": 3072,
+    "asset_number": 2,
+    "source": "imagegen-vector-illustration"
+  },
+  {
+    "name": "hero-watch.png",
+    "folder": "hero",
+    "width": 2048,
+    "height": 3072,
+    "asset_number": 3,
+    "source": "imagegen-vector-illustration"
+  },
+  {
+    "name": "hero-think.png",
+    "folder": "hero",
+    "width": 2048,
+    "height": 3072,
+    "asset_number": 4,
+    "source": "imagegen-vector-illustration"
+  },
+  {
+    "name": "hero-tablet.png",
+    "folder": "hero",
+    "width": 2048,
+    "height": 3072,
+    "asset_number": 5,
+    "source": "imagegen-vector-illustration"
+  },
+  {
+    "name": "hero-tablet-blink.png",
+    "folder": "hero",
+    "width": 2048,
+    "height": 3072,
+    "asset_number": 6,
+    "source": "imagegen-vector-illustration"
+  },
+  {
+    "name": "hero-laptop-sit.png",
+    "folder": "hero",
+    "width": 2048,
+    "height": 3072,
+    "asset_number": 7,
+    "source": "imagegen-vector-illustration"
+  },
+  {
+    "name": "hero-door.png",
+    "folder": "hero",
+    "width": 2048,
+    "height": 3072,
+    "asset_number": 8,
+    "source": "imagegen-vector-illustration"
+  },
+  {
+    "name": "hero-rise.png",
+    "folder": "hero",
+    "width": 2048,
+    "height": 3072,
+    "asset_number": 9,
+    "source": "imagegen-vector-illustration"
+  },
+  {
+    "name": "star.png",
+    "folder": "star-dial",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 10,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "star-glow.png",
+    "folder": "star-dial",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 11,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "ripple-1.png",
+    "folder": "star-dial",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 12,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "ripple-2.png",
+    "folder": "star-dial",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 13,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "ripple-3.png",
+    "folder": "star-dial",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 14,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "watch-star.png",
+    "folder": "star-dial",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 15,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "dial-0.png",
+    "folder": "star-dial",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 16,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "dial-1.png",
+    "folder": "star-dial",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 17,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "dial-2.png",
+    "folder": "star-dial",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 18,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "dial-3.png",
+    "folder": "star-dial",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 19,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "dial-4.png",
+    "folder": "star-dial",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 20,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "dial-5.png",
+    "folder": "star-dial",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 21,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "dial-6.png",
+    "folder": "star-dial",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 22,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "ring-progress-0.png",
+    "folder": "star-dial",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 23,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "ring-progress-1.png",
+    "folder": "star-dial",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 24,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "ring-progress-2.png",
+    "folder": "star-dial",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 25,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "ring-progress-3.png",
+    "folder": "star-dial",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 26,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "ring-progress-4.png",
+    "folder": "star-dial",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 27,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "power-mind-lit.png",
+    "folder": "powers",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 28,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "power-mind-dim.png",
+    "folder": "powers",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 29,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "power-reach-lit.png",
+    "folder": "powers",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 30,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "power-reach-dim.png",
+    "folder": "powers",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 31,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "power-voice-lit.png",
+    "folder": "powers",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 32,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "power-voice-dim.png",
+    "folder": "powers",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 33,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "power-forms-lit.png",
+    "folder": "powers",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 34,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "power-forms-dim.png",
+    "folder": "powers",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 35,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "power-insight-lit.png",
+    "folder": "powers",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 36,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "power-insight-dim.png",
+    "folder": "powers",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 37,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "power-memory-lit.png",
+    "folder": "powers",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 38,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "power-memory-dim.png",
+    "folder": "powers",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 39,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "seg-1-lit.png",
+    "folder": "powers",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 40,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "seg-1-dim.png",
+    "folder": "powers",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 41,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "seg-2-lit.png",
+    "folder": "powers",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 42,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "seg-2-dim.png",
+    "folder": "powers",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 43,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "seg-3-lit.png",
+    "folder": "powers",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 44,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "seg-3-dim.png",
+    "folder": "powers",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 45,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "seg-4-lit.png",
+    "folder": "powers",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 46,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "seg-4-dim.png",
+    "folder": "powers",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 47,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "seg-5-lit.png",
+    "folder": "powers",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 48,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "seg-5-dim.png",
+    "folder": "powers",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 49,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "seg-6-lit.png",
+    "folder": "powers",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 50,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "seg-6-dim.png",
+    "folder": "powers",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 51,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "prop-name.png",
+    "folder": "props",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 52,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "prop-workspace.png",
+    "folder": "props",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 53,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "prop-link.png",
+    "folder": "props",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 54,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "prop-client-building.png",
+    "folder": "props",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 55,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "prop-jd.png",
+    "folder": "props",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 56,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "prop-message.png",
+    "folder": "props",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 57,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "prop-campaign.png",
+    "folder": "props",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 58,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "prop-door.png",
+    "folder": "props",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 59,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "prop-lamp.png",
+    "folder": "props",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 60,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "prop-plant.png",
+    "folder": "props",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 61,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "prop-envelope.png",
+    "folder": "props",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 62,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "prop-sofa.png",
+    "folder": "props",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 63,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "leaf-s.png",
+    "folder": "props",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 64,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "leaf-m.png",
+    "folder": "props",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 65,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "leaf-l.png",
+    "folder": "props",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 66,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "sun.png",
+    "folder": "props",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 67,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "cloud.png",
+    "folder": "props",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 68,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "field-1.png",
+    "folder": "scenery",
+    "width": 4096,
+    "height": 2048,
+    "asset_number": 69,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "field-2.png",
+    "folder": "scenery",
+    "width": 4096,
+    "height": 2048,
+    "asset_number": 70,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "field-3.png",
+    "folder": "scenery",
+    "width": 4096,
+    "height": 2048,
+    "asset_number": 71,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "field-4.png",
+    "folder": "scenery",
+    "width": 4096,
+    "height": 2048,
+    "asset_number": 72,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "hill-far.png",
+    "folder": "scenery",
+    "width": 4096,
+    "height": 2048,
+    "asset_number": 73,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "hill-mid.png",
+    "folder": "scenery",
+    "width": 4096,
+    "height": 2048,
+    "asset_number": 74,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "hill-near.png",
+    "folder": "scenery",
+    "width": 4096,
+    "height": 2048,
+    "asset_number": 75,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "skyline.png",
+    "folder": "scenery",
+    "width": 4096,
+    "height": 2048,
+    "asset_number": 76,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "spark-s.png",
+    "folder": "effects",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 77,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "spark-m.png",
+    "folder": "effects",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 78,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "spark-l.png",
+    "folder": "effects",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 79,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "beam.png",
+    "folder": "effects",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 80,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "glow.png",
+    "folder": "effects",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 81,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "dots.png",
+    "folder": "effects",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 82,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "trail.png",
+    "folder": "effects",
+    "width": 2048,
+    "height": 2048,
+    "asset_number": 83,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "sprite-star-pulse-1.png",
+    "folder": "sprites",
+    "width": 1024,
+    "height": 1024,
+    "asset_number": 84,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "sprite-star-pulse-2.png",
+    "folder": "sprites",
+    "width": 1024,
+    "height": 1024,
+    "asset_number": 85,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "sprite-star-pulse-3.png",
+    "folder": "sprites",
+    "width": 1024,
+    "height": 1024,
+    "asset_number": 86,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "sprite-star-pulse-4.png",
+    "folder": "sprites",
+    "width": 1024,
+    "height": 1024,
+    "asset_number": 87,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "sprite-star-pulse-5.png",
+    "folder": "sprites",
+    "width": 1024,
+    "height": 1024,
+    "asset_number": 88,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "sprite-star-pulse-6.png",
+    "folder": "sprites",
+    "width": 1024,
+    "height": 1024,
+    "asset_number": 89,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "sprite-typing-1.png",
+    "folder": "sprites",
+    "width": 1024,
+    "height": 1024,
+    "asset_number": 90,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "sprite-typing-2.png",
+    "folder": "sprites",
+    "width": 1024,
+    "height": 1024,
+    "asset_number": 91,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "sprite-typing-3.png",
+    "folder": "sprites",
+    "width": 1024,
+    "height": 1024,
+    "asset_number": 92,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "sprite-breathe-1.png",
+    "folder": "sprites",
+    "width": 1024,
+    "height": 1024,
+    "asset_number": 93,
+    "source": "cropped-character-sprite"
+  },
+  {
+    "name": "sprite-breathe-2.png",
+    "folder": "sprites",
+    "width": 1024,
+    "height": 1024,
+    "asset_number": 94,
+    "source": "cropped-character-sprite"
+  },
+  {
+    "name": "sprite-breathe-3.png",
+    "folder": "sprites",
+    "width": 1024,
+    "height": 1024,
+    "asset_number": 95,
+    "source": "cropped-character-sprite"
+  },
+  {
+    "name": "sprite-breathe-4.png",
+    "folder": "sprites",
+    "width": 1024,
+    "height": 1024,
+    "asset_number": 96,
+    "source": "cropped-character-sprite"
+  },
+  {
+    "name": "sprite-blink-1.png",
+    "folder": "sprites",
+    "width": 1024,
+    "height": 1024,
+    "asset_number": 97,
+    "source": "cropped-character-sprite"
+  },
+  {
+    "name": "sprite-blink-2.png",
+    "folder": "sprites",
+    "width": 1024,
+    "height": 1024,
+    "asset_number": 98,
+    "source": "cropped-character-sprite"
+  },
+  {
+    "name": "sprite-blink-3.png",
+    "folder": "sprites",
+    "width": 1024,
+    "height": 1024,
+    "asset_number": 99,
+    "source": "cropped-character-sprite"
+  },
+  {
+    "name": "sprite-twinkle-1.png",
+    "folder": "sprites",
+    "width": 1024,
+    "height": 1024,
+    "asset_number": 100,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "sprite-twinkle-2.png",
+    "folder": "sprites",
+    "width": 1024,
+    "height": 1024,
+    "asset_number": 101,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "sprite-twinkle-3.png",
+    "folder": "sprites",
+    "width": 1024,
+    "height": 1024,
+    "asset_number": 102,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "sprite-twinkle-4.png",
+    "folder": "sprites",
+    "width": 1024,
+    "height": 1024,
+    "asset_number": 103,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "sprite-trail-1.png",
+    "folder": "sprites",
+    "width": 1024,
+    "height": 1024,
+    "asset_number": 104,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "sprite-trail-2.png",
+    "folder": "sprites",
+    "width": 1024,
+    "height": 1024,
+    "asset_number": 105,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "sprite-trail-3.png",
+    "folder": "sprites",
+    "width": 1024,
+    "height": 1024,
+    "asset_number": 106,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "sprite-trail-4.png",
+    "folder": "sprites",
+    "width": 1024,
+    "height": 1024,
+    "asset_number": 107,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "sprite-ripple-1.png",
+    "folder": "sprites",
+    "width": 1024,
+    "height": 1024,
+    "asset_number": 108,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "sprite-ripple-2.png",
+    "folder": "sprites",
+    "width": 1024,
+    "height": 1024,
+    "asset_number": 109,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "sprite-ripple-3.png",
+    "folder": "sprites",
+    "width": 1024,
+    "height": 1024,
+    "asset_number": 110,
+    "source": "handcrafted-svg-vector"
+  },
+  {
+    "name": "sprite-ripple-4.png",
+    "folder": "sprites",
+    "width": 1024,
+    "height": 1024,
+    "asset_number": 111,
+    "source": "handcrafted-svg-vector"
+  }
+]

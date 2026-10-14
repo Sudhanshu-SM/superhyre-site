@@ -1,0 +1,52 @@
+/* Small additions for the connected chat's comparison, intake, rediscover and schedule views.
+   Everything else they draw is the console's own (compare.css, moments.css, sourcing.css). */
+
+.lv-note {
+  margin: 0;
+  font: var(--type-body-sm);
+  letter-spacing: var(--track-body-sm);
+  color: var(--ink-2);
+}
+
+/* A person the judge never read: a dash where the mark would be, not a "does not meet". */
+.cs2-none { font: var(--type-body-sm); color: var(--ink-3); }
+.cd-status { font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); }
+
+/* Intake: a group of chips under the card's heading, and the muted reason beside an open question. */
+.lv-group { display: grid; gap: 8px; }
+.lv-why { color: var(--ink-3); }
+.lv-fail { display: grid; gap: 10px; }
+
+/* Rediscover: the pick beside a person, where the demo had shortlist and reject. */
+.mo-past li > .lv-pick { grid-column: 2; grid-row: 1; }
+.lv-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font: var(--type-body-sm);
+  letter-spacing: var(--track-body-sm);
+  color: var(--ink);
+  cursor: pointer;
+}
+.lv-pick input { margin: 0; accent-color: var(--accent-fill); }
+.lv-pick:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 3px; border-radius: 6px; }
+.lv-pick.is-done { color: var(--c-sage-text); cursor: default; }
+.lv-acts { align-items: center; }
+
+/* Schedule: the people on the board, each with the one thing the console can do for them. */
+.lv-people { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.lv-people li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; padding: 6px 0; }
+.lv-person { display: grid; gap: 1px; min-width: 0; padding: 0; border: 0; background: transparent; text-align: left; cursor: pointer; }
+.lv-person b { font: var(--type-body-strong); letter-spacing: var(--track-body-strong); color: var(--ink); }
+.lv-person span { font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); }
+.lv-person:hover b { color: var(--accent-text); }
+.lv-person:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 6px; }
+.mo-done > svg { flex: none; }
+
+/* What is scheduled for the campaign, under the interviews (liveViews/Schedule.tsx). */
+.lv-later-list { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.lv-later-list li { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 2px 14px; padding: 6px 0; }
+.lv-later-when { display: grid; gap: 1px; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink); font-variant-numeric: tabular-nums; }
+.lv-later-when small { font: var(--type-caption); color: var(--ink-3); }
+.lv-later-what { font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); overflow-wrap: anywhere; }
+@media (max-width: 560px) { .lv-later-list li { grid-template-columns: minmax(0, 1fr); } }

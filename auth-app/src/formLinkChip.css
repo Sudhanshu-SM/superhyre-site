@@ -1,0 +1,21 @@
+/* A pasted form link as a small card: the picture, the role, the host. */
+.flc-list { display: grid; gap: 8px; justify-items: start; margin: 8px 0 0; }
+.flc {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(100%, 380px);
+  padding: 8px 14px 8px 8px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  text-decoration: none;
+  transition: border-color 150ms, background-color 150ms;
+}
+.flc:hover { border-color: var(--accent-line); background: var(--sub); }
+.flc:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.flc-img { flex: none; width: 44px; height: 44px; border-radius: 8px; object-fit: cover; }
+.flc-t { display: grid; min-width: 0; gap: 2px; }
+.flc-t strong { overflow: hidden; font: var(--type-body-strong); letter-spacing: var(--track-body-strong); text-overflow: ellipsis; white-space: nowrap; }
+.flc-t small { overflow: hidden; font: var(--type-caption); color: var(--ink-3); text-overflow: ellipsis; white-space: nowrap; }

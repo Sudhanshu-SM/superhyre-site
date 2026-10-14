@@ -2,6 +2,7 @@ import {
   ArrowDownLeft, ArrowUpRight, CaretDown, FileText, SpeakerHigh, WarningCircle,
 } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
+import { Loader } from "./components/Loader";
 import { Pager } from "./components/Pager";
 import { describeActivityError } from "./activity";
 import type { ActivityFailure } from "./activity";
@@ -92,10 +93,10 @@ export function DialerPage({ section }: { section: Section }) {
         <div className="ex-note">
           <p className="ex-note-head">The dialer is a team feature</p>
           <p className="ex-note-body">
-            Calls and the call queue live in your team workspace. This account is
-            a personal workspace, so there is no telephony attached to it yet.
-            When a colleague signs up on your email domain, SuperHyre creates a
-            shared workspace and the dialer becomes available.
+            Calls and the call queue live in your organisation. This account is
+            Personal, so there is no telephony attached to it yet. When a
+            colleague signs up on your email domain, SuperHyre creates an
+            organisation and the dialer becomes available.
           </p>
         </div>
       </Frame>
@@ -708,24 +709,7 @@ function Segmented({ label: l, options, value, onChange }: {
 }
 
 function Skeleton() {
-  return (
-    <>
-      <div className="ex-tiles" aria-hidden="true">
-        {[0, 1, 2, 3].map((i) => (
-          <div className="ex-tile" key={i}>
-            <span className="ex-sk ex-sk-label" />
-            <span className="ex-sk ex-sk-value" />
-            <span className="ex-sk ex-sk-note" />
-          </div>
-        ))}
-      </div>
-      <div className="ex-sec" aria-hidden="true">
-        <span className="ex-sk ex-sk-title" />
-        <div className="ex-sk ex-sk-chart" />
-      </div>
-      <p className="sr-only" role="status">Loading your call activity</p>
-    </>
-  );
+  return <Loader size="lg" label="Loading your call activity" block />;
 }
 
 function label(g: CallGroup): string {

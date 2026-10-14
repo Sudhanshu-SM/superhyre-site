@@ -1,5 +1,6 @@
 import { CaretDown, Clock, MagnifyingGlass, Sparkle } from "@phosphor-icons/react";
 import { useId, useMemo, useState } from "react";
+import { EmptyArt } from "./EmptyArt";
 import {
   SCOPED, TASKS, TASK_STATE_HUE, TASK_STATE_LABEL, campaignName,
 } from "./orchestrator";
@@ -112,7 +113,8 @@ const pressing = (t: TaskItem) => t.dueInDays <= 0 && t.state !== "done";
  * version of this card shipped, and the reason the other two rows get pale
  * tint pills instead.
  */
-const alarm = (t: TaskItem) => t.state === "blocked" || pressing(t);
+/* (Superseded: solid alarm pills were retired for calm outlined ones; see
+   `calm` below. Pressing rows still sort first.) */
 
 /**
  * Sort weight. Deliberately a separate record rather than the key order of
@@ -206,6 +208,13 @@ const lead = (t: TaskItem): TaskChip | undefined =>
        an exact tie keeps the incumbent and the earliest of equals wins. */
     return CHIP_RANK[c.hue] < CHIP_RANK[best.hue] ? c : best;
   }, undefined);
+
+/* ── CALM, NOT ALARMED ──
+   Home is opened most on the days hiring is going badly. Rose and solid
+   filled pills read as an alarm wall; the same facts in soft amber, outlined,
+   read as next steps. Severity still orders the rows (CHIP_RANK above); it
+   just no longer shouts. */
+const calm = (h: Hue): Hue => (h === "rose" ? "amber" : h);
 
 export function Tasks({
   onOpen, hero = false, today = false, scope, onScope,
@@ -366,11 +375,14 @@ export function Tasks({
            results" leaves the recruiter to guess which of the two controls
            they are fighting. role=status so it is announced rather than being
            a silent change for anyone not watching the rows. */
-        <p className="tk-empty" role="status">
-          {query.trim()
-            ? `No ${active.noun} match \u201c${query.trim()}\u201d.`
-            : `There are no ${active.noun}.`}
-        </p>
+        <div className="tk-empty has-art" role="status">
+          {query.trim() ? <EmptyArt name="empty-search" size={160} /> : <EmptyArt name="empty-tasks" size={200} />}
+          <p>
+            {query.trim()
+              ? `No ${active.noun} match \u201c${query.trim()}\u201d.`
+              : `There are no ${active.noun}.`}
+          </p>
+        </div>
       ) : (
         <ul className="tk-list">
           {rows.map((t) => {
@@ -388,7 +400,7 @@ export function Tasks({
                     row and a colour column scans down a list faster than any
                     amount of text can. */}
                 <span className="tk-mark">
-                  <Dot hue={TASK_STATE_HUE[t.state]} pulse={pressing(t)} />
+                  <Dot hue={calm(TASK_STATE_HUE[t.state])} pulse={false} />
                 </span>
 
                 <div className="tk-body">
@@ -429,9 +441,9 @@ export function Tasks({
                     is a state. */}
                 <span className="tk-chips">
                   {chip ? (
-                    <Chip label={chip.label} hue={chip.hue} Icon={chip.Icon} solid={alarm(t)} />
+                    <Chip label={chip.label} hue={calm(chip.hue)} Icon={chip.Icon} solid={false} />
                   ) : null}
-                  <Chip label={TASK_STATE_LABEL[t.state]} hue={TASK_STATE_HUE[t.state]} />
+                  <Chip label={TASK_STATE_LABEL[t.state]} hue={calm(TASK_STATE_HUE[t.state])} />
                 </span>
 
                 {/* Revealed by opacity on row hover/focus, never by insertion —

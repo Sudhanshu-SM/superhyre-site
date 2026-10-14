@@ -1,0 +1,1334 @@
+SUPERHYRE EMPTY-STATE, ERROR AND MILESTONE ASSETS: ALL PROMPTS (42 images)
+==========================================================================
+
+WHAT THIS IS
+One self-contained prompt per asset. Every prompt opens with the SuperHyre design-system block
+(style, palette, composition, mood, canvas), then names the single object to draw. Paste ONE prompt,
+generate, save the image under the file name shown, then the next.
+
+THE SYSTEM IN ONE GLANCE
+- Style: flat vector graphic illustration, solid fills, no outlines, no gradients, no shadows, no texture.
+  Same family as the sign-up flow art (the sprout pot, the sofa, the lamp, the envelope).
+- Palette: peach #F8D8C8, blush #FCE9E1, soft coral #F08858, terracotta brown #B06038,
+  deep brown #382018 (tiny details), vivid orange #E85818 (one small accent per image).
+- One hero object per image, never repeated across images (that is why a bonsai is for "no tasks"
+  and nothing else). No people, hands, faces, animals, text or numbers in any image.
+- Mood: calm, relaxed, quietly warm. Errors are never red or scary; empty is never sad.
+- Canvas: 2048 x 2048, square, flat pure white background so it can be cut out (same pipeline as the
+  background-removed sign-up set). Object at about 55% of the canvas, centred.
+
+IF YOUR TOOL ALLOWS A REFERENCE IMAGE
+Attach these from superhyre-site/assets/sign-up-flow-transparent/props/ : prop-plant.png, prop-sofa.png,
+prop-lamp.png. They set the exact shape language, colours and flatness. Use the same one every time.
+
+SAVE AS
+Exact file names below, .png. Put them all in one folder and tell me where; I will cut the white
+background, trim, convert to WebP and wire each into its screen.
+
+REUSE (no new image needed)
+  - Sign-up: ask to join your team  -> reuse prop-door.png (already in the sign-up set).
+  - Sign-up: waiting for an admin to approve -> reuse prop-sofa.png (already in the sign-up set).
+  - Campaign page with no campaign selected -> keep the existing code-drawn WaitingFolder in NoCampaign.tsx.
+
+INDEX
+
+  A. EVERYDAY EMPTY STATES (screens people see every day)
+    01. empty-tasks.png  (Tasks, and the Home tasks card when nothing is due)
+    02. empty-tasks-delegated.png  (Tasks, Team tasks (assigned to others) for admins)
+    03. empty-campaigns.png  (Campaigns page, no campaigns yet)
+    04. empty-candidates.png  (Candidates page, no candidates yet)
+    05. empty-search.png  (Any search or filter with no matches (Candidates, Campaigns, Calls, Clients, Shortlist, command palette))
+    06. empty-shortlist.png  (Campaign, Shortlisted, nobody yet)
+    07. empty-passed.png  (Campaign, Rejected tab, nobody passed on yet)
+    08. empty-hires.png  (Campaign overview and Pipeline, Hired column, no hires yet)
+    09. empty-calls.png  (Calls page, no calls yet)
+    10. empty-clients.png  (Clients page, no clients yet)
+    11. empty-forms.png  (Campaign, Forms, no forms yet)
+    12. empty-responses.png  (Campaign, Forms, Responses, nothing in yet)
+    13. empty-schedules.png  (Scheduled page, Upcoming tab, nothing scheduled)
+    14. empty-sent.png  (Scheduled page, History tab, nothing has gone out yet)
+    15. empty-memory.png  (Settings, Memory, nothing remembered yet)
+    16. empty-dnc.png  (Settings, Do not contact, nobody on the list)
+    17. empty-notifications.png  (Notifications menu, all caught up (small, shown around 96 px))
+    18. empty-agent-activity.png  (Agent activity, nothing yet)
+    19. empty-chat-history.png  (Agent page rail, no chats yet)
+    20. empty-analytics.png  (Analytics pages (Outreach, Usage, Projects), no data yet)
+    21. empty-replies.png  (Outreach analytics, no replies yet)
+    22. empty-extension.png  (Extension page, nothing saved in the window)
+    23. empty-integrations.png  (Agent page right box and Settings, Connections, nothing connected)
+    24. empty-approvals.png  (Agent, nothing waiting for approval)
+    25. empty-no-matches.png  (Sourcing, the search finished with no one found)
+    26. sourcing-working.png  (Sourcing, while the agent is searching)
+    27. agent-welcome.png  (Agent page, first open, above the suggestions)
+
+  B. SYSTEM STATES (errors, offline, access, closed)
+    28. err-network.png  (Any panel that did not load, offline)
+    29. err-404.png  (Page not found, and the public apply form that cannot be found)
+    30. err-no-access.png  (You don't have access to this)
+    31. err-server.png  (Something went wrong on our side)
+    32. err-session.png  (Your session expired, sign in again)
+    33. err-rate-limit.png  (Too many requests, try again in a moment)
+    34. err-connector.png  (Settings, Connections, a service signed out (Slack, Notion, Google))
+    35. form-closed.png  (Public apply form, this form is closed)
+    36. form-thanks.png  (Public apply form, application submitted)
+    37. campaign-paused.png  (Campaign paused)
+
+  C. SIGN-UP SIDE SCREENS
+    38. su-invite-expired.png  (Sign-up side screen, the invite link has expired)
+    39. su-work-email.png  (Sign-up side screen, personal email: use your work email)
+    40. su-site-unreadable.png  (Sign-up side screen, we couldn't read your website)
+    41. su-workspace-setup.png  (Sign-up side screen, your workspace is being set up)
+
+  D. MILESTONES
+    42. moment-first-hire.png  (First hire made (toast and modal), campaign overview when a hire lands)
+
+
+####################################################################################################
+# A. EVERYDAY EMPTY STATES (screens people see every day)
+####################################################################################################
+
+----------------------------------------------------------------------------------------------------
+01. empty-tasks.png   (2048 x 2048, flat white background)
+Used on: Tasks, and the Home tasks card when nothing is due
+Shown with the words: “There are no tasks.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: empty-tasks. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product: SuperHyre,
+calm and professional recruiting software with an AI agent. This is one spot illustration in a
+family of empty-state, error and milestone images that sit beside a headline and one sentence on a
+white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if exported
+from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes with
+generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up flow
+art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of depth.
+NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights, NO
+perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: A small bonsai
+tree, symbolising peace and a clear desk. A shallow rounded-rectangle ceramic pot in peach with a
+thin coral rim band, standing on a slim terracotta wooden tray. The trunk is terracotta, gently
+curved and tapering, with two sweeping branches. The canopy is three or four soft cloud-like rounded
+pads in coral and peach, arranged asymmetrically like a classic bonsai, with ONE tiny vivid-orange
+blossom on the canopy. On the tray beside the pot: two smooth pebbles (blush and peach) and a tiny
+rake (terracotta handle, coral head) leaning on the tray edge. Two small leaves have drifted onto
+the tray. Still and peaceful, nothing left to do.
+
+----------------------------------------------------------------------------------------------------
+02. empty-tasks-delegated.png   (2048 x 2048, flat white background)
+Used on: Tasks, Team tasks (assigned to others) for admins
+Shown with the words: “You haven't handed anything to your team yet.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: empty-tasks-delegated. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product:
+SuperHyre, calm and professional recruiting software with an AI agent. This is one spot illustration
+in a family of empty-state, error and milestone images that sit beside a headline and one sentence
+on a white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if
+exported from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes
+with generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up
+flow art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of
+depth. NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights,
+NO perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: A relay baton
+lying horizontally on a small two-prong terracotta rest, waiting to be handed over. The baton is a
+slim rounded cylinder in coral with a terracotta band at each end and a vivid-orange band in the
+middle. Under the rest, a small blush rounded-rectangle pad. Above the baton, one gentle curved arc
+of three peach dashes (no arrowhead) suggesting a future hand-off.
+
+----------------------------------------------------------------------------------------------------
+03. empty-campaigns.png   (2048 x 2048, flat white background)
+Used on: Campaigns page, no campaigns yet
+Shown with the words: “No campaigns yet. Start one and the agent can begin finding people.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: empty-campaigns. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product:
+SuperHyre, calm and professional recruiting software with an AI agent. This is one spot illustration
+in a family of empty-state, error and milestone images that sit beside a headline and one sentence
+on a white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if
+exported from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes
+with generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up
+flow art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of
+depth. NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights,
+NO perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: A round pocket
+compass seen from the front with its lid open behind it as a half-disc in peach. Thick terracotta
+outer ring, blush face with four short coral tick bars at the four directions (no letters), a slim
+needle pointing diagonally up-right: coral head, peach tail, small vivid-orange centre pin. From the
+compass, a faint curved dashed path in peach drifts to the top right and ends in nothing, the route
+not yet taken.
+
+----------------------------------------------------------------------------------------------------
+04. empty-candidates.png   (2048 x 2048, flat white background)
+Used on: Candidates page, no candidates yet
+Shown with the words: “No candidates yet.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: empty-candidates. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product:
+SuperHyre, calm and professional recruiting software with an AI agent. This is one spot illustration
+in a family of empty-state, error and milestone images that sit beside a headline and one sentence
+on a white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if
+exported from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes
+with generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up
+flow art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of
+depth. NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights,
+NO perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: A single small
+card-catalogue drawer pulled halfway open, seen from the front. Terracotta body, a blank blush label
+holder, a round peach pull knob. The drawer is open and empty inside (blush interior) except for ONE
+blank blush index card standing up at a slight angle. Two tiny peach sparkle marks above it.
+
+----------------------------------------------------------------------------------------------------
+05. empty-search.png   (2048 x 2048, flat white background)
+Used on: Any search or filter with no matches (Candidates, Campaigns, Calls, Clients, Shortlist, command palette)
+Shown with the words: “No one matches. Try a wider filter.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: empty-search. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product: SuperHyre,
+calm and professional recruiting software with an AI agent. This is one spot illustration in a
+family of empty-state, error and milestone images that sit beside a headline and one sentence on a
+white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if exported
+from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes with
+generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up flow
+art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of depth.
+NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights, NO
+perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: A large round
+magnifying glass leaning slightly. Thick terracotta ring, short coral handle at the lower right,
+blush lens with one soft peach glint arc. Inside the lens a dashed peach circle with nothing in it.
+Beside it a small blank blush card tilted at an angle, showing nothing. Curious and patient, not
+failed.
+
+----------------------------------------------------------------------------------------------------
+06. empty-shortlist.png   (2048 x 2048, flat white background)
+Used on: Campaign, Shortlisted, nobody yet
+Shown with the words: “No one on the shortlist yet.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: empty-shortlist. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product:
+SuperHyre, calm and professional recruiting software with an AI agent. This is one spot illustration
+in a family of empty-state, error and milestone images that sit beside a headline and one sentence
+on a white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if
+exported from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes
+with generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up
+flow art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of
+depth. NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights,
+NO perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: An open book
+seen from the front, slightly above. Two blank blush pages with thin peach page-edge lines, a
+terracotta cover showing as a border beneath. A coral ribbon bookmark hangs from the centre gutter
+with a swallow-tail end and a tiny vivid-orange tip. The pages are completely blank, waiting.
+
+----------------------------------------------------------------------------------------------------
+07. empty-passed.png   (2048 x 2048, flat white background)
+Used on: Campaign, Rejected tab, nobody passed on yet
+Shown with the words: “Nobody rejected yet.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: empty-passed. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product: SuperHyre,
+calm and professional recruiting software with an AI agent. This is one spot illustration in a
+family of empty-state, error and milestone images that sit beside a headline and one sentence on a
+white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if exported
+from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes with
+generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up flow
+art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of depth.
+NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights, NO
+perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: A tidy
+cardboard archive box, empty, seen from the front. Terracotta body with a rounded handle cut-out on
+each side, a blank coral label panel on the front, the lid leaning against the front of the box in
+peach, the blush interior visible and empty. Neutral and tidy, nothing negative.
+
+----------------------------------------------------------------------------------------------------
+08. empty-hires.png   (2048 x 2048, flat white background)
+Used on: Campaign overview and Pipeline, Hired column, no hires yet
+Shown with the words: “Your first hire will land here.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: empty-hires. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product: SuperHyre,
+calm and professional recruiting software with an AI agent. This is one spot illustration in a
+family of empty-state, error and milestone images that sit beside a headline and one sentence on a
+white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if exported
+from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes with
+generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up flow
+art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of depth.
+NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights, NO
+perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: A single simple
+office chair seen from the front, waiting for someone. Rounded backrest in coral, seat in peach,
+short terracotta pedestal on a five-spoke base with three small round wheels visible. Beside it a
+tiny blank name plate on a short terracotta stand (blush rounded rectangle, nothing written). One
+small four-pointed vivid-orange sparkle above the seat.
+
+----------------------------------------------------------------------------------------------------
+09. empty-calls.png   (2048 x 2048, flat white background)
+Used on: Calls page, no calls yet
+Shown with the words: “No calls yet.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: empty-calls. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product: SuperHyre,
+calm and professional recruiting software with an AI agent. This is one spot illustration in a
+family of empty-state, error and milestone images that sit beside a headline and one sentence on a
+white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if exported
+from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes with
+generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up flow
+art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of depth.
+NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights, NO
+perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: A classic desk
+telephone at rest. Terracotta base with a grid of six round peach buttons, the handset sitting in
+its cradle in coral with peach ear and mouth caps, and a smooth coiled cord drawn as a neat
+terracotta spiral curling off to the right. A tiny indicator dot on the base, dim peach. Quiet.
+
+----------------------------------------------------------------------------------------------------
+10. empty-clients.png   (2048 x 2048, flat white background)
+Used on: Clients page, no clients yet
+Shown with the words: “No clients yet.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: empty-clients. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product: SuperHyre,
+calm and professional recruiting software with an AI agent. This is one spot illustration in a
+family of empty-state, error and milestone images that sit beside a headline and one sentence on a
+white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if exported
+from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes with
+generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up flow
+art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of depth.
+NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights, NO
+perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: A closed
+briefcase seen from the front. Terracotta body with rounded corners, a coral top strap with a small
+blush clasp plate, a curved terracotta handle on top, two small peach corner caps, and a blank coral
+luggage tag hanging from the handle on a thin peach cord.
+
+----------------------------------------------------------------------------------------------------
+11. empty-forms.png   (2048 x 2048, flat white background)
+Used on: Campaign, Forms, no forms yet
+Shown with the words: “No forms yet.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: empty-forms. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product: SuperHyre,
+calm and professional recruiting software with an AI agent. This is one spot illustration in a
+family of empty-state, error and milestone images that sit beside a headline and one sentence on a
+white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if exported
+from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes with
+generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up flow
+art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of depth.
+NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights, NO
+perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: A clipboard
+seen from the front. Terracotta board, a coral metal clip at the top, a blank blush sheet with three
+empty rounded-square checkboxes down the left, each followed by a short peach bar (just bars, no
+words). A pencil (coral body, terracotta tip, tiny deep-brown lead) rests diagonally across the
+lower-right of the sheet.
+
+----------------------------------------------------------------------------------------------------
+12. empty-responses.png   (2048 x 2048, flat white background)
+Used on: Campaign, Forms, Responses, nothing in yet
+Shown with the words: “Nothing in yet.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: empty-responses. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product:
+SuperHyre, calm and professional recruiting software with an AI agent. This is one spot illustration
+in a family of empty-state, error and milestone images that sit beside a headline and one sentence
+on a white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if
+exported from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes
+with generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up
+flow art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of
+depth. NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights,
+NO perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: A classic
+curbside mailbox: a rounded-arch terracotta body on a short coral post, the door resting slightly
+open showing an empty blush interior, and the small side flag in vivid orange lowered flat against
+the box (no mail yet). Nothing else.
+
+----------------------------------------------------------------------------------------------------
+13. empty-schedules.png   (2048 x 2048, flat white background)
+Used on: Scheduled page, Upcoming tab, nothing scheduled
+Shown with the words: “Nothing is scheduled.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: empty-schedules. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product:
+SuperHyre, calm and professional recruiting software with an AI agent. This is one spot illustration
+in a family of empty-state, error and milestone images that sit beside a headline and one sentence
+on a white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if
+exported from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes
+with generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up
+flow art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of
+depth. NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights,
+NO perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: A spiral-bound
+desk calendar seen from the front. A coral header band with five round peach binding rings along the
+top, a blank blush page with a faint grid of empty peach squares (no numbers), a slim terracotta
+stand behind it, and ONE round vivid-orange pushpin stuck at the upper-right corner of the page.
+
+----------------------------------------------------------------------------------------------------
+14. empty-sent.png   (2048 x 2048, flat white background)
+Used on: Scheduled page, History tab, nothing has gone out yet
+Shown with the words: “Nothing has gone out yet.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: empty-sent. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product: SuperHyre,
+calm and professional recruiting software with an AI agent. This is one spot illustration in a
+family of empty-state, error and milestone images that sit beside a headline and one sentence on a
+white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if exported
+from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes with
+generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up flow
+art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of depth.
+NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights, NO
+perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: A folded paper
+plane sitting ready on a small flat launch pad. Blush and peach wing faces with a coral centre fold
+and a small vivid-orange nose tip, tilted a little nose-up. The launch pad is a short rounded
+terracotta block with a coral stripe. Two short peach motion dashes behind the plane, like a breath
+before take-off.
+
+----------------------------------------------------------------------------------------------------
+15. empty-memory.png   (2048 x 2048, flat white background)
+Used on: Settings, Memory, nothing remembered yet
+Shown with the words: “Nothing remembered yet.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: empty-memory. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product: SuperHyre,
+calm and professional recruiting software with an AI agent. This is one spot illustration in a
+family of empty-state, error and milestone images that sit beside a headline and one sentence on a
+white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if exported
+from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes with
+generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up flow
+art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of depth.
+NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights, NO
+perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: A tall glass
+storage jar with a cork. Blush rounded-rectangle body with one lighter vertical peach highlight
+stripe on the left side, a terracotta cork stopper on top, and a blank coral label band across the
+middle. Empty inside except ONE tiny vivid-orange four-pointed sparkle floating in the jar.
+
+----------------------------------------------------------------------------------------------------
+16. empty-dnc.png   (2048 x 2048, flat white background)
+Used on: Settings, Do not contact, nobody on the list
+Shown with the words: “Nobody is on the list.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: empty-dnc. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product: SuperHyre, calm
+and professional recruiting software with an AI agent. This is one spot illustration in a family of
+empty-state, error and milestone images that sit beside a headline and one sentence on a white
+interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if exported from
+Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes with generously
+rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up flow art (the
+potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of depth. NO
+outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights, NO
+perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: A door hanger
+sign hanging over a round terracotta doorknob (show only the knob and a short strip of peach door
+edge). The hanger is a coral rounded rectangle with a round cut-out at the top that slips over the
+knob, carrying one peach crescent moon in the centre and two tiny blush stars.
+
+----------------------------------------------------------------------------------------------------
+17. empty-notifications.png   (2048 x 2048, flat white background)
+Used on: Notifications menu, all caught up (small, shown around 96 px)
+Shown with the words: “Nothing new. You're all caught up.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: empty-notifications. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product:
+SuperHyre, calm and professional recruiting software with an AI agent. This is one spot illustration
+in a family of empty-state, error and milestone images that sit beside a headline and one sentence
+on a white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if
+exported from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes
+with generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up
+flow art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of
+depth. NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights,
+NO perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: A small round
+desk call bell at rest, seen from the side. Domed coral cap, terracotta base ring, a tiny peach
+plunger button on top, and two small curved peach lines either side of it, very faint, like a sound
+that has just gone quiet. Extra simple, it must read at a small size.
+
+----------------------------------------------------------------------------------------------------
+18. empty-agent-activity.png   (2048 x 2048, flat white background)
+Used on: Agent activity, nothing yet
+Shown with the words: “Nothing yet. Ask the agent something and it shows up here.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: empty-agent-activity. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product:
+SuperHyre, calm and professional recruiting software with an AI agent. This is one spot illustration
+in a family of empty-state, error and milestone images that sit beside a headline and one sentence
+on a white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if
+exported from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes
+with generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up
+flow art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of
+depth. NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights,
+NO perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: A paper-tape
+ledger roll. A reel on a short terracotta stand, a long blush paper strip unrolling downwards and
+curling slightly at the bottom. The strip is blank apart from a thin column of small peach tick
+marks along its left edge, and a small coral tab at its end.
+
+----------------------------------------------------------------------------------------------------
+19. empty-chat-history.png   (2048 x 2048, flat white background)
+Used on: Agent page rail, no chats yet
+Shown with the words: “No chats yet. Your conversations with the agent will be listed here.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: empty-chat-history. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product:
+SuperHyre, calm and professional recruiting software with an AI agent. This is one spot illustration
+in a family of empty-state, error and milestone images that sit beside a headline and one sentence
+on a white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if
+exported from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes
+with generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up
+flow art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of
+depth. NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights,
+NO perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: A small vintage
+typewriter seen from the front. Terracotta body, three neat rows of round peach keys (no letters), a
+blank blush sheet of paper standing up behind the roller, and a round coral roller knob at each end.
+
+----------------------------------------------------------------------------------------------------
+20. empty-analytics.png   (2048 x 2048, flat white background)
+Used on: Analytics pages (Outreach, Usage, Projects), no data yet
+Shown with the words: “No emails in the last 30 days. Start from a campaign and it shows up here.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: empty-analytics. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product:
+SuperHyre, calm and professional recruiting software with an AI agent. This is one spot illustration
+in a family of empty-state, error and milestone images that sit beside a headline and one sentence
+on a white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if
+exported from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes
+with generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up
+flow art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of
+depth. NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights,
+NO perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: An abacus seen
+from the front. Terracotta rectangular frame, four thin horizontal coral rods, each with three or
+four round beads in peach and coral pushed to the left side, and ONE bead on the top rod in vivid
+orange. Neat and balanced.
+
+----------------------------------------------------------------------------------------------------
+21. empty-replies.png   (2048 x 2048, flat white background)
+Used on: Outreach analytics, no replies yet
+Shown with the words: “No replies yet.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: empty-replies. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product: SuperHyre,
+calm and professional recruiting software with an AI agent. This is one spot illustration in a
+family of empty-state, error and milestone images that sit beside a headline and one sentence on a
+white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if exported
+from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes with
+generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up flow
+art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of depth.
+NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights, NO
+perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: A message in a
+bottle. A corked glass bottle lying diagonally, blush body with a peach highlight, terracotta cork,
+a rolled blush scroll tied with a thin coral thread visible inside. It rests on a small flat peach
+sand mound with two soft coral wave lines beneath it. Patient waiting.
+
+----------------------------------------------------------------------------------------------------
+22. empty-extension.png   (2048 x 2048, flat white background)
+Used on: Extension page, nothing saved in the window
+Shown with the words: “Nothing saved in the last 30 days.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: empty-extension. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product:
+SuperHyre, calm and professional recruiting software with an AI agent. This is one spot illustration
+in a family of empty-state, error and milestone images that sit beside a headline and one sentence
+on a white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if
+exported from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes
+with generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up
+flow art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of
+depth. NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights,
+NO perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: One large
+jigsaw puzzle piece in coral with a round knob on top and a round knob on the left. To its right, a
+dashed peach outline of the matching empty notch where the next piece would fit. One tiny vivid-
+orange sparkle between them.
+
+----------------------------------------------------------------------------------------------------
+23. empty-integrations.png   (2048 x 2048, flat white background)
+Used on: Agent page right box and Settings, Connections, nothing connected
+Shown with the words: “Connect Slack, Notion or Google and the agent can use them.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: empty-integrations. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product:
+SuperHyre, calm and professional recruiting software with an AI agent. This is one spot illustration
+in a family of empty-state, error and milestone images that sit beside a headline and one sentence
+on a white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if
+exported from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes
+with generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up
+flow art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of
+depth. NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights,
+NO perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: An electrical
+plug just before connecting. A coral plug body with two peach prongs and a terracotta cable curling
+out to the bottom-left, facing a wall socket plate to the right (blush rounded square, terracotta
+border, two deep-brown slots). A small gap between them with three tiny dashed peach lines and one
+small vivid-orange dot in the middle of the gap.
+
+----------------------------------------------------------------------------------------------------
+24. empty-approvals.png   (2048 x 2048, flat white background)
+Used on: Agent, nothing waiting for approval
+Shown with the words: “Nothing is waiting for your yes.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: empty-approvals. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product:
+SuperHyre, calm and professional recruiting software with an AI agent. This is one spot illustration
+in a family of empty-state, error and milestone images that sit beside a headline and one sentence
+on a white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if
+exported from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes
+with generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up
+flow art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of
+depth. NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights,
+NO perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: A rubber stamp
+resting upright beside an open ink pad. Stamp: terracotta handle with a round knob, coral base. Ink
+pad: a rounded-rectangle terracotta tray with a clean peach pad surface. A blank blush paper corner
+beneath both, unstamped.
+
+----------------------------------------------------------------------------------------------------
+25. empty-no-matches.png   (2048 x 2048, flat white background)
+Used on: Sourcing, the search finished with no one found
+Shown with the words: “No one found yet. Try widening the filters.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: empty-no-matches. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product:
+SuperHyre, calm and professional recruiting software with an AI agent. This is one spot illustration
+in a family of empty-state, error and milestone images that sit beside a headline and one sentence
+on a white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if
+exported from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes
+with generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up
+flow art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of
+depth. NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights,
+NO perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: A funnel seen
+from the front. A wide coral cone narrowing to a short terracotta spout, thin terracotta rim on top.
+Three tiny peach dots falling towards the mouth from above. Below the spout a small empty blush
+bowl. Hopeful, not failed.
+
+----------------------------------------------------------------------------------------------------
+26. sourcing-working.png   (2048 x 2048, flat white background)
+Used on: Sourcing, while the agent is searching
+Shown with the words: “The agent is looking.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: sourcing-working. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product:
+SuperHyre, calm and professional recruiting software with an AI agent. This is one spot illustration
+in a family of empty-state, error and milestone images that sit beside a headline and one sentence
+on a white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if
+exported from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes
+with generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up
+flow art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of
+depth. NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights,
+NO perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: A telescope on
+a short three-legged tripod, pointing up and to the right. Terracotta tube made of three segments of
+decreasing width with coral rings, a peach lens end, a small vivid-orange ring near the eyepiece. At
+the far end of the tube, three tiny four-pointed stars (peach, coral, vivid orange) in the upper
+right: what it is looking at.
+
+----------------------------------------------------------------------------------------------------
+27. agent-welcome.png   (2048 x 2048, flat white background)
+Used on: Agent page, first open, above the suggestions
+Shown with the words: “What should we work on?”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: agent-welcome. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product: SuperHyre,
+calm and professional recruiting software with an AI agent. This is one spot illustration in a
+family of empty-state, error and milestone images that sit beside a headline and one sentence on a
+white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if exported
+from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes with
+generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up flow
+art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of depth.
+NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights, NO
+perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: The SuperHyre
+agent star. A large slim rounded four-pointed star with softly concave sides in vivid orange #E85818
+hovering above a small round peach pedestal disc. Behind the star, flat concentric circles in blush
+and peach as a soft halo. Two tiny four-pointed sparkles in coral near it. This is the brand star,
+keep it clean and symmetrical.
+
+####################################################################################################
+# B. SYSTEM STATES (errors, offline, access, closed)
+####################################################################################################
+
+----------------------------------------------------------------------------------------------------
+28. err-network.png   (2048 x 2048, flat white background)
+Used on: Any panel that did not load, offline
+Shown with the words: “Didn't load. Check your connection and try again.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: err-network. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product: SuperHyre,
+calm and professional recruiting software with an AI agent. This is one spot illustration in a
+family of empty-state, error and milestone images that sit beside a headline and one sentence on a
+white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if exported
+from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes with
+generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up flow
+art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of depth.
+NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights, NO
+perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: A satellite
+dish on a short terracotta stand. A coral concave dish seen front-on and tilted slightly off-axis, a
+terracotta arm holding a small peach receiver bulb. Three curved dashed peach signal arcs rise
+towards the upper right, the outermost one broken into fewer dashes. Calm, just out of alignment. No
+warning symbols.
+
+----------------------------------------------------------------------------------------------------
+29. err-404.png   (2048 x 2048, flat white background)
+Used on: Page not found, and the public apply form that cannot be found
+Shown with the words: “We can't find that page.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: err-404. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product: SuperHyre, calm
+and professional recruiting software with an AI agent. This is one spot illustration in a family of
+empty-state, error and milestone images that sit beside a headline and one sentence on a white
+interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if exported from
+Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes with generously
+rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up flow art (the
+potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of depth. NO
+outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights, NO
+perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: A wooden
+signpost. A terracotta post with three blank arrow-shaped boards pointing in different directions
+(coral to the left, peach to the right, blush up and to the right), each fixed with a tiny deep-
+brown round bolt. A small flat peach mound at the foot of the post. The boards carry no writing.
+
+----------------------------------------------------------------------------------------------------
+30. err-no-access.png   (2048 x 2048, flat white background)
+Used on: You don't have access to this
+Shown with the words: “You don't have access to this. Ask an admin.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: err-no-access. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product: SuperHyre,
+calm and professional recruiting software with an AI agent. This is one spot illustration in a
+family of empty-state, error and milestone images that sit beside a headline and one sentence on a
+white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if exported
+from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes with
+generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up flow
+art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of depth.
+NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights, NO
+perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: Two short
+stanchion posts joined by a velvet rope. Each post is a terracotta pole with a round coral top and a
+round peach base. A coral rope hangs between them in a gentle U-curve, with a small vivid-orange
+tassel at one clasp. Polite and exclusive, not hostile.
+
+----------------------------------------------------------------------------------------------------
+31. err-server.png   (2048 x 2048, flat white background)
+Used on: Something went wrong on our side
+Shown with the words: “That was on us. We're looking into it.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: err-server. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product: SuperHyre,
+calm and professional recruiting software with an AI agent. This is one spot illustration in a
+family of empty-state, error and milestone images that sit beside a headline and one sentence on a
+white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if exported
+from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes with
+generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up flow
+art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of depth.
+NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights, NO
+perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: An open toolbox
+seen from the front, slightly above. Terracotta box body, a coral carry handle folded up on top, the
+peach lid tilted back. Inside a coral wrench and a peach screwdriver standing up, and a small vivid-
+orange nut resting in front. Tidy and reassuring: someone is on it. No sparks, no smoke, no cracks.
+
+----------------------------------------------------------------------------------------------------
+32. err-session.png   (2048 x 2048, flat white background)
+Used on: Your session expired, sign in again
+Shown with the words: “You've been signed out. Sign in to carry on.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: err-session. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product: SuperHyre,
+calm and professional recruiting software with an AI agent. This is one spot illustration in a
+family of empty-state, error and milestone images that sit beside a headline and one sentence on a
+white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if exported
+from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes with
+generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up flow
+art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of depth.
+NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights, NO
+perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: A key hanging
+from a small wall hook. A short terracotta bar with two tiny screws as the hook, a terracotta ring,
+a coral key with a round bow and two teeth, and a blank blush tag on a peach cord with one tiny
+vivid-orange dot on the tag.
+
+----------------------------------------------------------------------------------------------------
+33. err-rate-limit.png   (2048 x 2048, flat white background)
+Used on: Too many requests, try again in a moment
+Shown with the words: “Slow down a little. Try again in a moment.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: err-rate-limit. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product: SuperHyre,
+calm and professional recruiting software with an AI agent. This is one spot illustration in a
+family of empty-state, error and milestone images that sit beside a headline and one sentence on a
+white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if exported
+from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes with
+generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up flow
+art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of depth.
+NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights, NO
+perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: A pyramid
+metronome. A terracotta pyramid-shaped body with a coral front plate and a round peach base. A long
+thin peach pendulum arm swung to one side with a small vivid-orange weight. Three tiny curved peach
+tick dashes on each side to show a steady swing. Calm rhythm.
+
+----------------------------------------------------------------------------------------------------
+34. err-connector.png   (2048 x 2048, flat white background)
+Used on: Settings, Connections, a service signed out (Slack, Notion, Google)
+Shown with the words: “Slack signed out. Reconnect to keep sending.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: err-connector. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product: SuperHyre,
+calm and professional recruiting software with an AI agent. This is one spot illustration in a
+family of empty-state, error and milestone images that sit beside a headline and one sentence on a
+white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if exported
+from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes with
+generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up flow
+art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of depth.
+NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights, NO
+perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: An open
+padlock. A coral padlock body with a terracotta keyhole plate (small deep-brown keyhole) and a peach
+shackle lifted and swung open to one side. Nothing else. Plain and simple.
+
+----------------------------------------------------------------------------------------------------
+35. form-closed.png   (2048 x 2048, flat white background)
+Used on: Public apply form, this form is closed
+Shown with the words: “This form is closed.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: form-closed. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product: SuperHyre,
+calm and professional recruiting software with an AI agent. This is one spot illustration in a
+family of empty-state, error and milestone images that sit beside a headline and one sentence on a
+white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if exported
+from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes with
+generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up flow
+art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of depth.
+NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights, NO
+perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: A small
+shopfront seen from the front. A scalloped awning in alternating coral and blush stripes over a
+terracotta door frame, a blush roller shutter pulled down inside it (horizontal peach lines), and a
+small blank round coral sign hanging by two peach strings in front of the shutter.
+
+----------------------------------------------------------------------------------------------------
+36. form-thanks.png   (2048 x 2048, flat white background)
+Used on: Public apply form, application submitted
+Shown with the words: “Thanks. We've got your application.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: form-thanks. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product: SuperHyre,
+calm and professional recruiting software with an AI agent. This is one spot illustration in a
+family of empty-state, error and milestone images that sit beside a headline and one sentence on a
+white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if exported
+from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes with
+generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up flow
+art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of depth.
+NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights, NO
+perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: A two-level
+inbox tray in terracotta seen from the front, with one blush card lying on the top level. A large
+round coral check badge with a scalloped edge, a peach inner ring and a bold vivid-orange tick
+overlaps the lower-right of the card. Three tiny vivid-orange sparkles around it. Warm and
+welcoming.
+
+----------------------------------------------------------------------------------------------------
+37. campaign-paused.png   (2048 x 2048, flat white background)
+Used on: Campaign paused
+Shown with the words: “This campaign is paused.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: campaign-paused. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product:
+SuperHyre, calm and professional recruiting software with an AI agent. This is one spot illustration
+in a family of empty-state, error and milestone images that sit beside a headline and one sentence
+on a white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if
+exported from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes
+with generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up
+flow art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of
+depth. NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights,
+NO perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: An hourglass
+lying on its side. Terracotta frame with two round coral end plates and two thin terracotta rods,
+blush glass body shaped like two cones meeting tip to tip, peach sand settled evenly on both sides,
+and three tiny peach sand grains on the ground beside it. Time at rest, relaxed.
+
+####################################################################################################
+# C. SIGN-UP SIDE SCREENS
+####################################################################################################
+
+----------------------------------------------------------------------------------------------------
+38. su-invite-expired.png   (2048 x 2048, flat white background)
+Used on: Sign-up side screen, the invite link has expired
+Shown with the words: “That invite has expired. Ask for a new one.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: su-invite-expired. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product:
+SuperHyre, calm and professional recruiting software with an AI agent. This is one spot illustration
+in a family of empty-state, error and milestone images that sit beside a headline and one sentence
+on a white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if
+exported from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes
+with generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up
+flow art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of
+depth. NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights,
+NO perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: A sealed
+envelope with a broken wax seal. A blush envelope with a peach flap line, closed with a round
+terracotta wax seal split cleanly into two halves along a simple straight crack, one half sitting
+slightly apart. A small round clock face (peach face, two coral hands) overlaps the bottom-right
+corner of the envelope. Gentle, not alarming.
+
+----------------------------------------------------------------------------------------------------
+39. su-work-email.png   (2048 x 2048, flat white background)
+Used on: Sign-up side screen, personal email: use your work email
+Shown with the words: “Use your work email.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: su-work-email. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product: SuperHyre,
+calm and professional recruiting software with an AI agent. This is one spot illustration in a
+family of empty-state, error and milestone images that sit beside a headline and one sentence on a
+white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if exported
+from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes with
+generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up flow
+art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of depth.
+NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights, NO
+perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: A conference
+name badge on a lanyard. A coral lanyard strap forming an inverted V from the top, a small
+terracotta clip, and a blush rounded-rectangle badge with a blank round peach photo area and two
+short blank peach bars underneath (no words).
+
+----------------------------------------------------------------------------------------------------
+40. su-site-unreadable.png   (2048 x 2048, flat white background)
+Used on: Sign-up side screen, we couldn't read your website
+Shown with the words: “We couldn't read your site. Try another link, or tell us yourself.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: su-site-unreadable. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product:
+SuperHyre, calm and professional recruiting software with an AI agent. This is one spot illustration
+in a family of empty-state, error and milestone images that sit beside a headline and one sentence
+on a white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if
+exported from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes
+with generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up
+flow art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of
+depth. NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights,
+NO perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: A window seen
+from the front. A terracotta window frame with four blush panes and a peach sill, with venetian
+blinds drawn halfway down over the top two panes (coral slats, thin peach cords and one small vivid-
+orange pull tassel). A hiccup, nothing broken.
+
+----------------------------------------------------------------------------------------------------
+41. su-workspace-setup.png   (2048 x 2048, flat white background)
+Used on: Sign-up side screen, your workspace is being set up
+Shown with the words: “Setting up your workspace. A few seconds.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: su-workspace-setup. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product:
+SuperHyre, calm and professional recruiting software with an AI agent. This is one spot illustration
+in a family of empty-state, error and milestone images that sit beside a headline and one sentence
+on a white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if
+exported from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes
+with generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up
+flow art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of
+depth. NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights,
+NO perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: A blueprint
+sheet with a rolled end. A blush sheet partly unrolled, with a thin peach grid and a simple floor-
+plan outline of a few rectangles in coral lines. A terracotta ruler with peach tick marks and a
+coral pencil with a deep-brown tip lie across it. The rolled end curls up on the left.
+
+####################################################################################################
+# D. MILESTONES
+####################################################################################################
+
+----------------------------------------------------------------------------------------------------
+42. moment-first-hire.png   (2048 x 2048, flat white background)
+Used on: First hire made (toast and modal), campaign overview when a hire lands
+Shown with the words: “Your first hire. Congratulations.”
+----------------------------------------------------------------------------------------------------
+PROMPT (paste everything below this line):
+Generate ONE single image: moment-first-hire. SUPERHYRE ILLUSTRATION DESIGN SYSTEM. Product:
+SuperHyre, calm and professional recruiting software with an AI agent. This is one spot illustration
+in a family of empty-state, error and milestone images that sit beside a headline and one sentence
+on a white interface (shown at 160 to 280 px). STYLE: flat vector graphic illustration, as if
+exported from Illustrator or Figma. Solid colour fills only, crisp clean edges, geometric shapes
+with generously rounded corners, simple leaf and petal shapes. Same family as the SuperHyre sign-up
+flow art (the potted sprout, the sofa, the lamp, the envelope): front-on view with only a hint of
+depth. NO outlines or strokes, NO gradients, NO textures, NO shadows, NO 3D, NO glossy highlights,
+NO perspective distortion. PALETTE (use only these): peach #F8D8C8, blush #FCE9E1 (the lightest fill
+allowed, never pure white inside the object), soft coral #F08858, terracotta brown #B06038, deep
+brown #382018 (tiny details only), vivid orange #E85818 (ONE small accent at most). Foliage is
+coral, peach and terracotta, never green. COMPOSITION: exactly one hero object, centred, big and
+simple, plus at most three tiny supporting details. The object fills about 55% of the canvas with
+generous empty margin. MOOD: calm, quiet, reassuring and a little warm, never sad, never alarming,
+no red, no cracks or warning signs (unless this prompt names them), nothing anxious. STRICTLY NO:
+text, letters, numbers, logos, UI, people, hands, faces, animals. Anything that looks like writing
+is drawn only as plain peach bars. BACKGROUND AND CANVAS: flat pure white #FFFFFF everywhere around
+the object, no floor, no ground shadow, no frame, no border, so the white can be removed later.
+Square 1:1, 2048 x 2048. ONE image only, not a sheet, grid or variations. THE ASSET: A prize rosette
+ribbon. A round coral rosette with a scalloped outer ring, a peach centre disc carrying a small
+four-pointed vivid-orange star, and two terracotta ribbon tails hanging below with V-cut ends. Three
+tiny vivid-orange sparkles around it. Joyful but still restrained and professional.
+

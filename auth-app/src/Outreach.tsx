@@ -1,8 +1,20 @@
 import { ArrowRight, Check, CheckCircle, PencilSimple } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ApiError, LIVE, messageOf } from "./api/client";
+import { boardRows } from "./api/campaigns";
+import type { Item, Outcome, Thread } from "./api/outreach";
+import * as out from "./api/outreach";
+import { suppressedNotice } from "./dncView";
+import { hueFor } from "./candidateImport";
+import { googleHint, useGoogle } from "./googleSetup";
 import { Avatar } from "./CandidateBits";
 import { ConnectGate, ServiceMark, useConnectors } from "./connectors";
 import type { Need } from "./connectors";
+import { candidateFromCardPerson } from "./liveCandidate";
+import { putSet } from "./liveCandidates";
+import type { Named, Scope, ScopePerson } from "./liveViews/outreachScope";
+import { composeFirstEmail, namesLine, scopeLine, scopeOf, threadsInScope, unreachedOf } from "./liveViews/outreachScope";
+import { cancellable, goesOut, listedByName, nextLookMs, sectionsOf } from "./outreachView";
 import type { ChannelId, MomentCtx, ServiceId } from "./moments";
 import {
   CARRIER, CHANNEL_LABEL, HOOK, LINKEDIN_LIMIT, OUTREACH_PLAN, OUTREACH_WRITE, REACH, SERVICES, draftFor,
@@ -10,6 +22,8 @@ import {
 import type { Candidate } from "./sourcing";
 import { CANDIDATES } from "./sourcing";
 import { Staged } from "./Staged";
+import { Loader } from "./components/Loader";
+import { EmptyArt } from "./EmptyArt";
 
 /**
  * Outreach — the shortlist, reached on the channel each person answers on.
@@ -23,6 +37,10 @@ import { Staged } from "./Staged";
  *   reply     the first reply comes back into the conversation
  *
  * Nothing reaches a candidate before the recruiter has looked at it.
+ *
+ * With the API it is the campaign's real outreach: drafts to review, edit
+ * and approve (each gets a send time from the recruiter's Gmail pacing),
+ * what is scheduled, and sent emails waiting for a logged reply.
  */
 
 const CHANNELS: readonly ChannelId[] = ["gmail", "whatsapp", "linkedin"];
@@ -46,6 +64,10 @@ function defaultRoute(people: readonly Candidate[]): Record<string, ChannelId[]>
 const rank = (c: ChannelId) => ({ whatsapp: 0, gmail: 1, linkedin: 2 })[c];
 
 export function Outreach({ ctx }: { ctx: MomentCtx }): JSX.Element {
+  return LIVE ? <LiveOutreach campaign={ctx.campaign ?? null} onGrow={ctx.onGrow} /> : <FixtureOutreach ctx={ctx} />;
+}
+
+function FixtureOutreach({ ctx }: { ctx: MomentCtx }): JSX.Element {
   /* Frozen at send: shortlisting someone new mid-run must not rewrite a
      route the recruiter is already looking at. */
   const [{ people, fromShortlist }] = useState(() => audience(ctx));
@@ -554,4 +576,550 @@ function Lanes({
       )}
     </>
   );
+}
+
+/* ── with the API ────────────────────────────────────────────────────────── */
+
+const DRAFT_BATCH = 50;
+
+const noGrow = () => {};
+
+/** What the chat gives the outreach it hosts: whom the agent meant, and a way to open someone's profile. */
+export type OutreachHost = {
+  /** The people the agent named; with none, the campaign's shortlist. */
+  named?: Named;
+  openProfile?: (id: string, ids?: readonly string[]) => void;
+};
+
+type Waiting = Pick<ScopePerson, "campaignCandidateId" | "fullName"> & Partial<Pick<ScopePerson, "currentTitle" | "currentCompanyName">>;
+
+/**
+ * A campaign's real outreach. In the chat (`hosted`) it is drawn for the people the agent meant,
+ * says who they are and who has no email, and asks to connect Gmail right where drafts wait; it
+ * grows the turn. On a campaign page there is nothing to grow and it covers the whole shortlist.
+ */
+export function LiveOutreach({ campaign, onGrow = noGrow, hosted }: { campaign: { id: string; name: string } | null; onGrow?: () => void; hosted?: OutreachHost }): JSX.Element {
+  const campaignId = campaign?.id ?? null;
+  const [threads, setThreads] = useState<readonly Thread[] | null>(null);
+  /* On the shortlist with an email and no thread yet: who a first draft can go to. */
+  const [unreached, setUnreached] = useState<readonly Waiting[]>([]);
+  const [noEmail, setNoEmail] = useState(0);
+  /* In the chat: who the run is for, and those who can't be emailed. */
+  const [scope, setScope] = useState<Scope | null>(null);
+  const [noEmailPeople, setNoEmailPeople] = useState<readonly ScopePerson[]>([]);
+  const [gateSkipped, setGateSkipped] = useState<readonly ServiceId[]>([]);
+  const hostedRef = useRef(hosted);
+  hostedRef.current = hosted;
+  const namedKey = hosted ? `${hosted.named?.candidateIds.join(",") ?? ""}|${hosted.named?.personIds.join(",") ?? ""}` : "";
+  const [failedLoad, setFailedLoad] = useState<string | null>(null);
+  /* Message id → what is happening to it. Nothing is shown as scheduled,
+     cancelled or logged until the server has said so. */
+  const [busy, setBusy] = useState<Readonly<Record<string, string>>>({});
+  const [skipped, setSkipped] = useState<ReadonlySet<string>>(new Set());
+  const [note, setNote] = useState<string | null>(null);
+  /* What to say beside one message ("it had already gone out"), kept with it rather than in a note far above. */
+  const [rowNote, setRowNote] = useState<Readonly<Record<string, string>>>({});
+  /* Some people were left out of an approval because they are on the do-not-contact list. */
+  const [heldBack, setHeldBack] = useState<string | null>(null);
+  const [writing, setWriting] = useState(false);
+  const google = useGoogle();
+  const sending = googleHint(google, "gmail");
+  const [needsGmail, setNeedsGmail] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!campaignId) return;
+    try {
+      if (hostedRef.current) {
+        /* The board says who is on the do-not-contact list (the server's one rule, by person and by address),
+           so the count says who would be drafted and nobody listed is counted as someone to write to. */
+        const [ts, rows] = await Promise.all([out.listThreads(campaignId), boardRows(campaignId)]);
+        const sc = scopeOf(rows, hostedRef.current.named);
+        const { withEmail, withoutEmail } = unreachedOf(sc.people.filter((p) => !p.suppressed), ts);
+        setScope(sc);
+        setThreads(threadsInScope(ts, sc.people));
+        setUnreached(withEmail);
+        setNoEmail(withoutEmail.length);
+        setNoEmailPeople(withoutEmail);
+        setFailedLoad(null);
+        return;
+      }
+      const [ts, short] = await Promise.all([out.listThreads(campaignId), out.shortlisted(campaignId)]);
+      const has = new Set(ts.map((t) => t.campaignCandidateId));
+      /* Someone on the do-not-contact list is not someone who can be drafted for: they are left out of the count. */
+      const fresh = short.filter((c) => !has.has(c.campaignCandidateId) && !c.doNotContact);
+      setThreads(ts);
+      setUnreached(fresh.filter((c) => c.hasEmail));
+      setNoEmail(fresh.filter((c) => !c.hasEmail).length);
+      setFailedLoad(null);
+    } catch (err) {
+      setFailedLoad(messageOf(err));
+    }
+  }, [campaignId]);
+  useEffect(() => { void load(); }, [load, namedKey]);
+
+  /* A message on its way is looked at again just after it is due, so the card never says "Scheduled" about an
+     email that has already gone, and a Cancel is never offered for one that has. */
+  const lookIn = threads ? nextLookMs(threads) : null;
+  useEffect(() => {
+    if (lookIn === null) return;
+    const t = window.setTimeout(() => { void load(); }, lookIn);
+    return () => window.clearTimeout(t);
+  }, [lookIn, threads, load]);
+
+  useEffect(() => { onGrow(); }, [threads, busy, note, scope, gateSkipped, onGrow]);
+
+  /* Whoever is in view opens their profile from here, so they are registered where the profile sheet looks. */
+  useEffect(() => {
+    if (!scope || !campaignId) return;
+    const candidates = scope.people
+      .map((p) => candidateFromCardPerson({
+        personId: null, candidateId: p.candidateId, name: p.fullName, title: p.currentTitle, company: p.currentCompanyName,
+        city: p.city, years: p.yearsOfExperience, strengths: [], linkedinUrl: p.linkedinUrl,
+      }))
+      .filter((c): c is NonNullable<typeof c> => c !== null);
+    if (candidates.length) putSet({ key: `outreach:${campaignId}`, campaignId, candidates, criteria: [], reasons: {}, total: candidates.length });
+  }, [scope, campaignId]);
+
+  const mark = (ids: readonly string[], what: string | null) => setBusy((b) => {
+    const next = { ...b };
+    for (const id of ids) { if (what) next[id] = what; else delete next[id]; }
+    return next;
+  });
+  const fail = (err: unknown) => {
+    const msg = messageOf(err);
+    /* A 503 here is Google: say what to do about it, unless the server can't use Google at all. */
+    setNote(err instanceof ApiError && err.status === 503 && sending ? sending : msg);
+  };
+
+  const approve = async (ids: readonly string[]) => {
+    if (!ids.length) return;
+    /* Gmail isn't connected: say so right where they clicked, with the way to fix it,
+       rather than sending a request we know will be refused. */
+    if (sending) {
+      setNeedsGmail(true);
+      setNote(hosted && google?.available ? "Connect Gmail above first, then approve. Your drafts are kept until then." : `${sending} Your drafts are kept until then.`);
+      return;
+    }
+    setNeedsGmail(false);
+    setNote(null);
+    setHeldBack(null);
+    mark(ids, "Scheduling");
+    try {
+      const r = await out.approve(ids);
+      setThreads((cur) => (cur ? out.applyScheduled(cur, r.scheduled) : cur));
+      setHeldBack(suppressedNotice(r.suppressed ?? []));
+      if (r.skipped.length) void load();
+    } catch (err) {
+      fail(err);
+    }
+    mark(ids, null);
+  };
+
+  const save = async (i: Item, subject: string, body: string) => {
+    const before = i.message;
+    setNote(null);
+    setThreads((cur) => (cur ? out.patchMessage(cur, before.id, { subject, body }) : cur));
+    try {
+      await out.editMessage(before.id, { subject, body });
+    } catch (err) {
+      setThreads((cur) => (cur ? out.patchMessage(cur, before.id, { subject: before.subject, body: before.body }) : cur));
+      fail(err);
+    }
+  };
+
+  const cancel = async (i: Item) => {
+    const id = i.message.id;
+    setNote(null);
+    setRowNote((r) => { const n = { ...r }; delete n[id]; return n; });
+    mark([id], "Cancelling");
+    try {
+      await out.cancel(id);
+      setThreads((cur) => (cur ? out.patchMessage(cur, id, { status: "draft", scheduledFor: null }) : cur));
+      setSkipped((s) => { const n = new Set(s); n.delete(id); return n; });
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        /* Too late: it went out between the card being drawn and the press. Say so beside it, and read the truth. */
+        setRowNote((r) => ({ ...r, [id]: "It had already gone out, so it can't be called back." }));
+        await load();
+      } else {
+        setRowNote((r) => ({ ...r, [id]: messageOf(err) }));
+      }
+    }
+    mark([id], null);
+  };
+
+  const logIt = async (i: Item, outcome: Outcome, reply?: string) => {
+    setNote(null);
+    mark([i.message.id], "Saving");
+    try {
+      await out.logOutcome(i.message.id, outcome, reply);
+      const change = outcome === "replied" ? { status: "replied_logged" as const } : outcome === "bounced" ? { status: "failed" as const, error: "bounced" } : {};
+      setThreads((cur) => (cur ? out.patchMessage(cur, i.message.id, { ...change, outcome }) : cur));
+    } catch (err) {
+      fail(err);
+    }
+    mark([i.message.id], null);
+  };
+
+  const writeDrafts = async () => {
+    if (!campaign) return;
+    setNote(null);
+    setWriting(true);
+    try {
+      const items = unreached.slice(0, DRAFT_BATCH).map((c) => ({
+        campaignCandidateId: c.campaignCandidateId,
+        ...(hosted ? composeFirstEmail({ fullName: c.fullName, currentTitle: c.currentTitle ?? null, currentCompanyName: c.currentCompanyName ?? null }, campaign.name) : out.firstDraft(c.fullName, campaign.name)),
+      }));
+      const r = await out.createDrafts(campaign.id, items);
+      if (r.errors[0]) setNote(r.errors[0].message);
+      await load();
+    } catch (err) {
+      fail(err);
+    }
+    setWriting(false);
+  };
+
+  if (!campaign) return <div className="src mo"><p className="mo-note">Open a campaign first. Outreach goes to one campaign's shortlist at a time.</p></div>;
+  if (!threads) {
+    return (
+      <div className="src mo">
+        {failedLoad ? <p className="mo-note">{failedLoad}</p> : <Loader size="md" label={`Loading outreach for ${campaign.name}`} block />}
+        {failedLoad && <div className="mo-acts"><button type="button" className="src-btn is-quiet mo-small" onClick={() => void load()}>Try again</button></div>}
+      </div>
+    );
+  }
+
+  /* Someone on the do-not-contact list is never in the drafts, the schedule or a count: they have a row of their own, no actions. */
+  const { drafts, scheduled, sent, failed, doNotContact } = sectionsOf(threads, skipped);
+  /* Every person left out for being on the list is named here, those with a message waiting and those without. */
+  const listedPeople = listedByName(doNotContact, scope?.people);
+  const nothing = !drafts.length && !scheduled.length && !sent.length && !failed.length && !listedPeople.length;
+  const now = Date.now();
+  /* In the chat, Gmail is asked for right here when something is waiting to go and the server can use Google at all. */
+  const askGmail = !!hosted && !!google?.available && sending !== null && (drafts.length > 0 || unreached.length > 0);
+  const emailable = scope ? scope.people.filter((p) => p.hasEmail && !p.suppressed).length : 0;
+  const listed = scope ? scope.people.filter((p) => p.suppressed).length : 0;
+  const peopleIds = scope ? scope.people.map((p) => p.candidateId) : [];
+
+  return (
+    <div className="src mo">
+      {hosted && scope && (
+        <WhoFor scope={scope} emailable={emailable} listed={listed} without={noEmailPeople} onOpen={hosted.openProfile ? (id) => hosted.openProfile?.(id, peopleIds) : undefined} />
+      )}
+      {askGmail && (
+        <ConnectGate
+          needs={[{
+            service: "gmail",
+            why: "Approved emails go out from your own Gmail, spaced through the day. Nothing is sent until you approve each one.",
+            skipLabel: "Not now, keep them as drafts",
+            skippedNote: "Your drafts are kept until Gmail is connected.",
+          }]}
+          skipped={gateSkipped}
+          onSkip={(svc) => setGateSkipped((g) => [...g, svc])}
+          onUnskip={(svc) => setGateSkipped((g) => g.filter((x) => x !== svc))}
+          onSettled={noGrow}
+          title="Gmail needs connecting before anything can be sent"
+        />
+      )}
+      {note && (
+        <p className={`mo-note${needsGmail ? " is-ask" : ""}`} role={needsGmail ? "alert" : "status"}>
+          {note}
+          {needsGmail && !askGmail && <> <a href="#/settings/connections">Open Connections</a></>}
+        </p>
+      )}
+      {heldBack && (
+        <p className="mo-note" role="status">
+          {heldBack}
+        </p>
+      )}
+      {drafts.length > 0 && sending && !note && !askGmail && <p className="mo-note">{sending}</p>}
+      {drafts.length > 0 && (
+        <LiveDeck drafts={drafts} busy={busy} onApprove={(ids) => void approve(ids)} onSave={(i, s, b) => void save(i, s, b)}
+          onSkip={(i) => setSkipped((s) => new Set(s).add(i.message.id))} />
+      )}
+      {unreached.length > 0 && (hosted || drafts.length === 0) ? (
+        <section className="mo-card" aria-label={drafts.length > 0 ? "Not drafted yet" : "Drafts"}>
+          <div className="mo-card-h"><b>{drafts.length > 0 ? "Not drafted yet" : "Drafts"}</b><span>{hosted ? nameList(unreached.map((c) => c.fullName)) : unreachedLine(unreached.length, noEmail)}</span></div>
+          <div className="mo-ready">
+            <p>A short first email to each. You read and approve every one before it goes out.</p>
+            {sending && !askGmail && <p className="mo-note">{sending}</p>}
+            <div className="mo-ready-acts">
+              <button type="button" className="src-btn is-primary" disabled={writing} onClick={() => void writeDrafts()}>
+                {writing ? <><Loader size="sm" tone="inherit" />Writing drafts</> : `Draft ${Math.min(unreached.length, DRAFT_BATCH)} ${unreached.length === 1 ? "email" : "emails"}`}
+              </button>
+            </div>
+          </div>
+        </section>
+      ) : drafts.length === 0 && nothing && !hosted && (
+        <div className="mo-none">
+          <EmptyArt name="empty-approvals" size={160} />
+          <p className="mo-note">
+            {noEmail
+              ? `${noEmail === 1 ? "The 1 person" : `The ${noEmail} people`} not contacted on the ${campaign.name} shortlist ${noEmail === 1 ? "has" : "have"} no email on file, so they can't be emailed yet.`
+              : `Nothing is waiting for your approval on ${campaign.name}. Everyone on the shortlist has been written to.`}
+          </p>
+        </div>
+      )}
+
+      {skipped.size > 0 && drafts.length === 0 && (
+        <p className="mo-foot">
+          {skipped.size} skipped, still drafts.{" "}
+          <button type="button" className="src-btn is-quiet mo-small" onClick={() => setSkipped(new Set())}>Review them again</button>
+        </p>
+      )}
+
+      {scheduled.length > 0 && (
+        <section className="mo-card" aria-label="Scheduled">
+          <div className="mo-card-h"><b>Scheduled</b><span>Sent from your Gmail, spaced out through the day</span></div>
+          <div className="mo-stack">
+            {scheduled.map((i) => {
+              const m = i.message;
+              const going = goesOut(m, now);
+              return (
+                <div key={m.id} className="mo-stack">
+                  <div className="mo-draft-h">
+                    <Avatar name={i.thread.candidate.name} hue={hueFor(i.thread.candidate.name)} size={26} />
+                    <span className="mo-draft-id">
+                      <b>{i.thread.candidate.name}</b>
+                      <span>
+                        {going === "now"
+                          ? "Going out now"
+                          : m.scheduledFor ? out.whenLabel(m.scheduledFor) : "Waiting for a slot"}
+                      </span>
+                    </span>
+                    {(cancellable(m, now) || busy[m.id]) && (
+                      <button type="button" className="src-btn is-quiet mo-small" disabled={!!busy[m.id]} onClick={() => void cancel(i)}>
+                        {busy[m.id] ?? "Cancel"}
+                      </button>
+                    )}
+                  </div>
+                  {rowNote[m.id] && <p className="mo-foot" role="status">{rowNote[m.id]}</p>}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {listedPeople.length > 0 && (
+        <section className="mo-card" aria-label="Do not contact">
+          <div className="mo-card-h"><b>Do not contact</b><span>Left out of everything here. Nothing goes to them.</span></div>
+          <div className="mo-stack">
+            {listedPeople.map((p) => (
+              <div key={p.id} className="mo-draft-h">
+                <Avatar name={p.name} hue={hueFor(p.name)} size={26} />
+                <span className="mo-draft-id">
+                  <b>{p.name}</b>
+                  <span>Do not contact</span>
+                </span>
+              </div>
+            ))}
+            <p className="mo-foot">Only an admin can take someone off this list.</p>
+          </div>
+        </section>
+      )}
+
+      {sent.length > 0 && (
+        <section className="mo-card" aria-label="Sent">
+          <div className="mo-card-h"><b>Sent</b><span>SuperHyre can't read replies yet, so log what happened</span></div>
+          <div className="mo-stack">
+            {sent.map((i) => <SentRow key={i.message.id} item={i} busy={busy[i.message.id]} onLog={(o, reply) => void logIt(i, o, reply)} />)}
+          </div>
+        </section>
+      )}
+
+      {failed.length > 0 && (
+        <section className="mo-card" aria-label="Didn't send">
+          <div className="mo-card-h"><b>Didn't go out</b></div>
+          <div className="mo-stack">
+            {failed.map((i) => (
+              <div key={i.message.id} className="mo-draft-h">
+                <Avatar name={i.thread.candidate.name} hue={hueFor(i.thread.candidate.name)} size={26} />
+                <span className="mo-draft-id">
+                  <b>{i.thread.candidate.name}</b>
+                  <span>{i.message.error === "bounced" ? "Bounced" : i.message.error ?? "Not sent"}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}
+
+/** "A, B, C and 2 more". */
+function nameList(names: readonly string[], show = 3): string {
+  const { shown, more } = namesLine(names, show);
+  if (!more) return shown.length <= 1 ? shown.join("") : `${shown.slice(0, -1).join(", ")} and ${shown[shown.length - 1]}`;
+  return `${shown.join(", ")} and ${more} more`;
+}
+
+/** Who the run is for, in one sentence, and who has no email (each a way into their profile). */
+function WhoFor({ scope, emailable, listed, without, onOpen }: {
+  scope: Scope; emailable: number; listed: number; without: readonly ScopePerson[]; onOpen?: (candidateId: string) => void;
+}) {
+  const [all, setAll] = useState(false);
+  const { shown, more } = namesLine(without.map((p) => p.fullName), all ? without.length : 3);
+  const people = without.slice(0, shown.length);
+  return (
+    <>
+      <p className="mo-note">{scopeLine(scope, scope.people.length, emailable, listed)}</p>
+      {without.length > 0 && (
+        <p className="mo-note">
+          Without an email:{" "}
+          {people.map((p, i) => (
+            <span key={p.candidateId}>
+              {onOpen ? <button type="button" className="lt-link" onClick={() => onOpen(p.candidateId)}>{p.fullName}</button> : p.fullName}
+              {i < people.length - 1 ? ", " : ""}
+            </span>
+          ))}
+          {more > 0 && <>{" "}and <button type="button" className="lt-link" onClick={() => setAll(true)}>{more} more</button></>}
+          .
+        </p>
+      )}
+    </>
+  );
+}
+
+function LiveDeck({ drafts, busy, onApprove, onSave, onSkip }: {
+  drafts: readonly Item[];
+  busy: Readonly<Record<string, string>>;
+  onApprove: (ids: readonly string[]) => void;
+  onSave: (i: Item, subject: string, body: string) => void;
+  onSkip: (i: Item) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const current = drafts[0];
+  const working = drafts.some((i) => busy[i.message.id]);
+  useEffect(() => { setEditing(false); }, [current?.message.id]);
+
+  /* A, E, → while the deck is what is being worked on; never while typing. */
+  useEffect(() => {
+    if (!current || editing) return;
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "TEXTAREA" || t.tagName === "INPUT")) return;
+      if (e.metaKey || e.ctrlKey || e.altKey || busy[current.message.id] || document.querySelector(".rm, .ps")) return;
+      if (e.key === "a" || e.key === "A") { e.preventDefault(); onApprove([current.message.id]); }
+      if (e.key === "e" || e.key === "E") { e.preventDefault(); setEditing(true); }
+      if (e.key === "ArrowRight") { e.preventDefault(); onSkip(current); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [current, editing, busy, onApprove, onSkip]);
+
+  if (!current) return null;
+  const c = current.thread.candidate;
+  const state = busy[current.message.id];
+  return (
+    <section className="mo-card" aria-label="Drafts">
+      <div className="mo-card-h">
+        <b>Drafts</b>
+        <span>{drafts.length} to review</span>
+        <span className="sp" />
+        {drafts.length > 1 && (
+          <button type="button" className="src-btn is-quiet mo-small" disabled={working} onClick={() => onApprove(drafts.map((i) => i.message.id))}>
+            {working ? <><Loader size="sm" tone="inherit" />Scheduling</> : `Approve all ${drafts.length}`}
+          </button>
+        )}
+      </div>
+      <div className="mo-deck">
+        {drafts.slice(1, 3).map((i, k) => <div key={i.message.id} className={`mo-draft is-behind is-b${k + 1}`} aria-hidden="true" />)}
+        <article key={current.message.id} className="mo-draft is-front is-gmail">
+          <header className="mo-draft-h">
+            <Avatar name={c.name} hue={hueFor(c.name)} size={30} />
+            <div className="mo-draft-id">
+              <b>{c.name}</b>
+              <span>Email{c.primaryEmail ? ` · to ${c.primaryEmail}` : ""}{c.title ? ` · ${c.title}` : ""}</span>
+            </div>
+          </header>
+          {editing ? (
+            <LiveEdit item={current} onCancel={() => setEditing(false)} onSave={(s, b) => { onSave(current, s, b); setEditing(false); }} />
+          ) : (
+            <>
+              <p className="mo-subject"><span>Subject</span>{current.message.subject}</p>
+              <div className="mo-body is-gmail">{current.message.body}</div>
+              <div className="mo-draft-acts">
+                <button type="button" className="src-btn is-primary mo-small" disabled={!!state} onClick={() => onApprove([current.message.id])}>
+                  {state ?? <>Approve <kbd>A</kbd></>}
+                </button>
+                <button type="button" className="src-btn is-quiet mo-small" disabled={!!state} onClick={() => setEditing(true)}><PencilSimple size={13} aria-hidden="true" />Edit <kbd>E</kbd></button>
+                <span className="sp" />
+                <button type="button" className="src-btn is-quiet mo-small" disabled={!!state} onClick={() => onSkip(current)}>Skip <kbd>→</kbd></button>
+              </div>
+            </>
+          )}
+        </article>
+      </div>
+    </section>
+  );
+}
+
+function LiveEdit({ item, onSave, onCancel }: { item: Item; onSave: (subject: string, body: string) => void; onCancel: () => void }) {
+  const [subject, setSubject] = useState(item.message.subject ?? "");
+  const [body, setBody] = useState(item.message.body);
+  const ok = subject.trim().length > 0 && body.trim().length > 0;
+  const keys = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && ok) { e.preventDefault(); onSave(subject.trim(), body.trim()); }
+    if (e.key === "Escape") { e.preventDefault(); onCancel(); }
+  };
+  return (
+    <div className="mo-edit">
+      <textarea aria-label="Subject" rows={1} value={subject} maxLength={200} onKeyDown={keys}
+        onChange={(e) => setSubject(e.target.value.replace(/[\r\n]+/g, " "))} />
+      <textarea aria-label="Email" rows={8} value={body} autoFocus onKeyDown={keys} onChange={(e) => setBody(e.target.value)} />
+      <div className="mo-edit-acts">
+        <span className="sp" />
+        <button type="button" className="src-btn is-quiet mo-small" onClick={onCancel}>Cancel</button>
+        <button type="button" className="src-btn is-primary mo-small" disabled={!ok} onClick={() => onSave(subject.trim(), body.trim())}>Save</button>
+      </div>
+    </div>
+  );
+}
+
+function SentRow({ item, busy, onLog }: { item: Item; busy?: string; onLog: (o: Outcome, reply?: string) => void }) {
+  const [pasting, setPasting] = useState(false);
+  const [reply, setReply] = useState("");
+  const c = item.thread.candidate;
+  return (
+    <div className="mo-stack">
+      <div className="mo-draft-h">
+        <Avatar name={c.name} hue={hueFor(c.name)} size={26} />
+        <span className="mo-draft-id">
+          <b>{c.name}</b>
+          <span>{item.message.sentAt ? `Sent ${out.whenLabel(item.message.sentAt).toLowerCase()}` : "Sent"}</span>
+        </span>
+        {item.message.outcome ? <span className="mo-foot">{out.OUTCOME_WORDS[item.message.outcome]}</span> : busy ? <span className="mo-foot">{busy}</span> : !pasting && (
+          <span className="mo-draft-acts">
+            <button type="button" className="src-btn is-quiet mo-small" onClick={() => setPasting(true)}>Replied</button>
+            <button type="button" className="src-btn is-quiet mo-small" onClick={() => onLog("no_reply")}>No reply</button>
+            <button type="button" className="src-btn is-quiet mo-small" onClick={() => onLog("bounced")}>Bounced</button>
+          </span>
+        )}
+      </div>
+      {pasting && !busy && !item.message.outcome && (
+        <div className="mo-edit">
+          <textarea aria-label={`${c.name}'s reply`} rows={3} value={reply} autoFocus placeholder="Paste their reply, if you like" onChange={(e) => setReply(e.target.value)} />
+          <div className="mo-edit-acts">
+            <span className="sp" />
+            <button type="button" className="src-btn is-quiet mo-small" onClick={() => setPasting(false)}>Cancel</button>
+            {/* The form closes as soon as the reply is logged; the row then says it was, and the text is kept if it didn't save. */}
+            <button type="button" className="src-btn is-primary mo-small" onClick={() => { setPasting(false); onLog("replied", reply); }}>Log reply</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Who a first email can go to, said so it adds up to the Shortlisted page's "not contacted
+ * yet": people without an email are counted out loud, never silently left off.
+ */
+export function unreachedLine(withEmail: number, withoutEmail: number): string {
+  const total = withEmail + withoutEmail;
+  const lead = `${total} on the shortlist with nothing sent yet`;
+  if (!withoutEmail) return lead;
+  return `${lead}. ${withoutEmail} ${withoutEmail === 1 ? "has" : "have"} no email, so ${withEmail} can be emailed`;
 }

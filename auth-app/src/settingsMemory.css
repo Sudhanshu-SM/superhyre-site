@@ -1,0 +1,88 @@
+/* ═════════ Settings → Memory (SettingsMemory.tsx) ═════════
+   Lives inside the settings panel: rows divided by hairlines, never boxed again, the same
+   quiet text links the members table uses. Plain muted text for meta, no badges. */
+
+.sm { gap: 14px; }
+.sm-count { color: var(--ink-3); font-variant-numeric: tabular-nums; }
+
+/* ── search, scope, history ── */
+.sm-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; }
+.sm-search { flex: 1 1 200px; min-width: 0; width: auto; }
+.sm-scope { flex: 0 0 auto; width: auto; min-width: 150px; }
+.sm-check { display: inline-flex; align-items: center; gap: 8px; color: var(--ink-2); cursor: pointer; white-space: nowrap; }
+.sm-check input { margin: 0; width: 16px; height: 16px; }
+.sm-check:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 3px; border-radius: 4px; }
+
+/* ── the three kinds of note ── */
+.sm-type { min-width: 0; padding: 18px 0 6px; border-top: 1px solid #f1ebe5; }
+.sm-type:first-child { border-top: 0; padding-top: 6px; }
+.sm-th { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 8px; margin: 0; color: var(--ink); }
+.sm-help-line { margin: 2px 0 8px; }
+.sm-type > .sm-group { border-top: 0; padding-top: 6px; }
+/* Under a section's own heading a group's is a quieter second level: where the notes apply. */
+.sm-type .sm-gh { font: var(--type-body-sm); letter-spacing: var(--track-body-sm, normal); color: var(--ink-2); min-height: 24px; }
+.sm-type .sm-gt { color: var(--ink-2); }
+.sm-showmore { margin: 6px 0 10px; }
+
+/* ── groups and rows ── */
+.sm-groups { display: grid; min-width: 0; transition: opacity var(--t); }
+.sm-groups.is-busy { opacity: 0.55; }
+.sm-group { min-width: 0; padding: 14px 0 10px; border-top: 1px solid #f1ebe5; }
+.sm-group > .sm-list > .sm-row:first-child { padding-top: 6px; }
+.sm-queue { display: grid; gap: 6px; min-width: 0; padding-top: 14px; border-top: 1px solid #f1ebe5; }
+.sm-queue > .sm-list { margin-bottom: 4px; }
+.sm-queue .st-sub, .sm-gh { margin: 0; }
+.sm-queue > .st-quiet { margin: 0 0 2px; }
+
+.sm-gh { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 8px; min-height: 28px; color: var(--ink); }
+.sm-gt { color: var(--ink); }
+.sm-gs { color: var(--ink-3); font-weight: 400; }
+.sm-n { color: var(--ink-3); font-weight: 400; font-variant-numeric: tabular-nums; }
+.sm-gnote { margin: 0 0 4px; }
+
+.sm-fold {
+  display: inline-flex; align-items: baseline; gap: 8px; padding: 4px 0; border: 0; background: none; cursor: pointer;
+  font: inherit; letter-spacing: inherit; color: inherit;
+}
+.sm-fold svg { align-self: center; color: var(--ink-3); }
+.sm-fold:hover .sm-gt { text-decoration: underline; text-decoration-color: #ddd5cd; text-underline-offset: 3px; }
+.sm-fold:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+
+.sm-list { margin: 0; padding: 0; list-style: none; }
+.sm-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 4px 20px;
+  padding: 12px 0; border-bottom: 1px solid #f4efea;
+}
+.sm-list > .sm-row:last-child { border-bottom: 0; }
+.sm-main { display: grid; gap: 3px; min-width: 0; }
+.sm-text { margin: 0; font: var(--type-body); letter-spacing: var(--track-body); color: var(--ink); overflow-wrap: anywhere; max-width: 68ch; }
+.sm-said { margin: 0; color: var(--ink-2); overflow-wrap: anywhere; max-width: 68ch; }
+.sm-meta { margin: 0; color: var(--ink-3); }
+.sm-row.is-old .sm-text { color: var(--ink-3); }
+.sm-row.is-busy .sm-main { opacity: 0.6; }
+
+.sm-acts { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 6px 14px; min-height: 24px; }
+.sm-help { color: var(--ink-2); }
+.sm-acts .st-link:disabled { opacity: 0.5; cursor: default; }
+.sm-acts .ncx-btn:disabled { opacity: 0.5; cursor: default; }
+
+/* ── correcting a note, in place ── */
+.sm-row.is-editing { display: block; }
+.sm-edit { display: grid; gap: 8px; min-width: 0; }
+.sm-edit .ncx-in.is-area { max-width: 68ch; }
+.sm-edit-f { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.sm-edit-f > :first-child { flex: 1 1 220px; min-width: 0; margin: 0; }
+.sm-hint { color: var(--ink-3); }
+
+/* ── loading, empty, failed ── */
+.sm-note { display: grid; justify-items: start; gap: 8px; min-height: 61px; padding: 4px 0; }
+.sm-note p { margin: 0; }
+.sm-note.has-art { justify-items: center; gap: 6px; padding: 16px 0 24px; text-align: center; }
+.sm-note.has-art p { max-width: 52ch; }
+.sm-more { display: flex; align-items: center; gap: 12px; }
+
+@media (max-width: 560px) {
+  .sm-row { grid-template-columns: minmax(0, 1fr); }
+  .sm-acts { justify-content: flex-start; }
+  .sm-scope { flex: 1 1 140px; }
+}

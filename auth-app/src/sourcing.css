@@ -71,40 +71,12 @@
   to   { opacity: 1; transform: scale(1); }
 }
 
-.src-spin {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 1.75px solid var(--hairline);
-  border-top-color: var(--accent);
-  animation: spin 0.8s linear infinite;
-}
-
-/* The live label shimmers left to right. A gradient CLIPPED to the text, so
-   the words carry the sweep rather than a box behind them — and the base
-   colour is --ink-2 so the text stays legible at every point of the sweep. */
-.src-shimmer {
-  background: linear-gradient(
-    90deg,
-    var(--ink-2) 0%, var(--ink-2) 40%, var(--ink) 50%, var(--ink-2) 60%, var(--ink-2) 100%
-  );
-  background-size: 250% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  animation: src-shimmer 1.8s linear infinite;
-}
-
-@keyframes src-shimmer {
-  from { background-position: 100% 0; }
-  to   { background-position: -150% 0; }
-}
-
-.src-tick {
-  font: 400 12.5px/1 var(--ui);
+/* The measured duration of a finished phase: a separate muted token. */
+.src-took {
+  margin-left: 4px;
+  font: 400 12px/1 var(--ui);
   font-variant-numeric: tabular-nums;
-  color: var(--ink-2);
-  opacity: 0.8;
+  color: var(--ink-3);
 }
 
 /* What the phase turned up. Indented to the label's first letter (20px icon
@@ -323,8 +295,8 @@
 .src-btn.is-quiet:hover:not(:disabled) { background: var(--sub); }
 .src-btn.is-quiet:disabled { color: var(--ink-2); opacity: 0.55; cursor: default; }
 
-.src-btn.is-primary { background: var(--accent-fill); color: #fff; padding: 0 20px; }
-.src-btn.is-primary:hover { background: var(--accent-text); }
+.src-btn.is-primary { background: var(--btn-fill); color: var(--btn-ink); padding: 0 20px; }
+.src-btn.is-primary:hover { background: var(--btn-fill-hover); }
 
 .src-ran {
   display: flex;
@@ -490,7 +462,7 @@
   overflow: hidden;
   border: 0;
   border-radius: var(--r-pill);
-  background: linear-gradient(180deg, #db5a21 0%, var(--accent-fill) 100%);
+  background: var(--btn-fill);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.22),
     0 1px 2px rgba(204, 77, 23, 0.25),
@@ -515,7 +487,7 @@
 .src-more:hover::before { transition: transform 700ms var(--ease-out); transform: translateX(120%); }
 
 .src-more:hover {
-  background: linear-gradient(180deg, #cf5019 0%, var(--accent-text) 100%);
+  background: var(--btn-fill-hover);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.22),
     0 2px 4px rgba(204, 77, 23, 0.25),
@@ -532,7 +504,7 @@
 
 /* The same treatment for every primary action a moment offers. */
 .src-btn.is-primary {
-  background: linear-gradient(180deg, #db5a21 0%, var(--accent-fill) 100%);
+  background: var(--btn-fill);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.22),
     0 1px 2px rgba(204, 77, 23, 0.25),
@@ -540,7 +512,7 @@
   transition: background 220ms var(--ease-out), box-shadow 240ms var(--ease-out), transform 160ms var(--ease-out);
 }
 .src-btn.is-primary:hover:not(:disabled) {
-  background: linear-gradient(180deg, #cf5019 0%, var(--accent-text) 100%);
+  background: var(--btn-fill-hover);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.22),
     0 2px 4px rgba(204, 77, 23, 0.25),
@@ -552,6 +524,25 @@
   transition: transform 60ms var(--ease-out), box-shadow 60ms var(--ease-out);
 }
 .src-btn.is-primary:disabled { box-shadow: none; }
+
+/* ── a connected campaign's run ──
+   What a real search says that the demo never has to: a limit it hit, a source
+   that isn't connected, a run that stopped. Plain muted sentences, in the
+   transcript's own measure, never a banner. */
+.src-note {
+  margin: 0;
+  max-width: 64ch;
+  font: var(--type-body-sm);
+  letter-spacing: var(--track-body-sm);
+  color: var(--ink-2);
+}
+
+.src-note.is-stop { color: var(--ink); }
+
+.src-asks { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
+
+.src-results-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+.src-results-foot .src-btn { margin-top: 8px; }
 
 /* ── a narrow transcript ──
    Keyed to the run's own width rather than the viewport: the column can be
@@ -575,8 +566,9 @@
     animation-duration: 180ms !important;
   }
   .src-word { animation: none !important; }
-  .src-shimmer { animation: none !important; color: var(--ink-2); background: none; }
-  .src-spin { animation: spin 1.6s linear infinite !important; animation-duration: 1.6s !important; }
   .src-more:hover svg { transform: none; }
   .src-more::before { display: none; }
 }
+
+/* a picture standing in an empty result (EmptyArt) */
+.src-art { display: grid; justify-items: center; padding: 4px 0 8px; }

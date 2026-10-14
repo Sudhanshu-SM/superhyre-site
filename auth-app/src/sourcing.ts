@@ -33,6 +33,8 @@ export type Phase = {
   steps: readonly string[];
   /** The agent's paragraph once the phase lands. */
   says: string;
+  /** False hides the measured duration (a clarify finding is not work). */
+  timed?: boolean;
 };
 
 export const PLAN_PHASES: readonly Phase[] = [
@@ -152,6 +154,8 @@ export type Candidate = {
   highlights: readonly string[];
   /** Which of the three ranking criteria this profile meets. */
   meets: readonly boolean[];
+  /** False when the ranking has not judged this person yet: their marks are unknown, not misses. */
+  scored?: boolean;
   totalYears: number;
   avgTenure: number;
   about: string;
@@ -160,6 +164,10 @@ export type Candidate = {
   skills: Readonly<Record<string, readonly string[]>>;
   github?: { handle: string; since: string; repos: number };
   openToWork?: boolean;
+  /** Their public profile, for a person from a connected workspace. */
+  linkedinUrl?: string;
+  /** True for someone already in the workspace, whose own row (notes, status) the sheet can read. */
+  inWorkspace?: boolean;
 };
 
 export const CANDIDATES: readonly Candidate[] = [
@@ -672,7 +680,7 @@ export const PREVIEW_COUNT = 3;
 export type Verdict = "shortlisted" | "rejected";
 
 export const initials = (name: string): string =>
-  name.split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+  name.split(/\s+/).map((w) => Array.from(w)[0] ?? "").slice(0, 2).join("").toUpperCase();
 
 /* ── the ranked list's vocabulary ────────────────────────────────────────────
    The list reads down columns instead of across paragraphs, so each criterion
@@ -697,8 +705,9 @@ export const REASON: Readonly<Record<string, string>> = {
   "aditya-menon": "Owns a billing schema through a multi-region rollout",
 };
 
-/** "Present" in the fixtures is this month, which is what every span assumes. */
-const NOW = { y: 2025, m: 9 };
+/** "Present" is this month: the fixtures' spans were written against Sep 2025, and a real profile's against today. */
+const today = new Date();
+const NOW = { y: today.getFullYear(), m: today.getMonth() };
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 const toIndex = (s: string): number => {
@@ -722,6 +731,8 @@ export const NOW_INDEX = NOW.y * 12 + NOW.m;
  */
 export function trajectory(c: Candidate): readonly Segment[] {
   return c.jobs
+    // A role whose dates a profile doesn't give has nowhere to sit on the axis.
+    .filter((j) => j.roles.length > 0 && Number.isFinite(toIndex(j.roles[j.roles.length - 1]!.start)) && Number.isFinite(toIndex(j.roles[0]!.end)))
     .map((j) => {
       const first = j.roles[j.roles.length - 1]!;
       const last = j.roles[0]!;

@@ -1,6 +1,8 @@
-import { ArrowUp, Check, FileText, FunnelSimple, SlidersHorizontal } from "@phosphor-icons/react";
+import { ArrowUp, Check, FileText, FunnelSimple, Plus, SlidersHorizontal } from "@phosphor-icons/react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Campaigns } from "./Campaigns";
+import { Loader } from "./components/Loader";
+import { onInvalidate } from "./invalidate";
 import type { Deployed } from "./Campaigns";
 import { BorderGlow } from "./glow";
 import { BRIEFS, MODES, SCOPED, SOURCING_CONTEXT, STAGES } from "./orchestrator";
@@ -8,12 +10,14 @@ import type { CampaignKey, ModeId, PipelineRole } from "./orchestrator";
 import { Rail } from "./Rail";
 import { REPLIES } from "./replies";
 import { Prompt, Reply } from "./Reply";
-import { Recs } from "./Recs";
+import { IdeaChips, IdeaList } from "./Recs";
+import { nextVisit } from "./recs";
 import { highlightRuns } from "./slots";
 import { ProfileSidebar } from "./ProfileSidebar";
 import { FiltersDialog } from "./FiltersDialog";
-import { JdDialog } from "./JdDialog";
+import { JdDialog, jdFromText } from "./JdDialog";
 import type { Jd } from "./JdDialog";
+import { Dialog } from "./ui";
 import { activeCount, fromBrief } from "./filters";
 import type { Values } from "./filters";
 import { RankedMatches } from "./RankedMatches";
@@ -23,9 +27,44 @@ import { ConnectorsProvider } from "./connectors";
 import { Moment } from "./Moments";
 import { campaignName } from "./orchestrator";
 import { classify } from "./moments";
+import type { FormView } from "./formsStore";
+import { TurnContext, clearThread, saveTurns, savedTurns } from "./agentThread";
 import type { MomentCtx, MomentKind } from "./moments";
 import type { Verdict } from "./sourcing";
 import type { Campaign } from "./workspaces";
+import { api, LIVE, messageOf } from "./api/client";
+import { agentApi, attachmentApi, filtersApi } from "./api/agent";
+import {
+  ATTACH_ACCEPT, MAX_ATTACHMENTS, PATH_NOTE, composeMessage, fileRefusal, readClipboard, typeOf,
+} from "./attachments";
+import type { Attachment, PasteOutcome } from "./attachments";
+import { diffFilters, filtersLine, summariseFilters, valuesFromSetup, valuesFromSpec, withSaved } from "./liveFilters";
+import { orcClass } from "./agentLayout";
+import { keepsDraft, slotsFor } from "./agentDraft";
+import { AttachChips } from "./AttachChips";
+import { BriefSignals } from "./BriefSignals";
+import { refreshCampaign, refreshCampaignList, useCampaignRow, useCampaignRows } from "./campaignStore";
+import { useMayChangeCampaign } from "./campaignRights";
+import { useCampaignSpec } from "./specDraft";
+import type { Conversation } from "./api/agent";
+import { CHAT_LIMIT, chatLength, chatOver, newChat, openChat, resumeChat, sendMessage, useLiveChat } from "./liveChat";
+import { chatTitle, titleFromMessage, UNTITLED } from "./chatTitle";
+import { tidySeed } from "./seedText";
+import { useToast } from "./Contacts";
+import { LiveTurnBody } from "./LiveTurn";
+import { FormLinkChips } from "./FormLinkChip";
+import { WatchList } from "./WatchList";
+import type { Brief, Stat } from "./orchestrator";
+import { homeOverview } from "./api/home";
+import { getCandidate } from "./api/candidates";
+import { candidateFromDetail, candidateFromMatch } from "./liveCandidate";
+import type { CandidateSet } from "./liveCandidate";
+import { campaignIds, campaignOfCandidate, candidateById, clearSets, getSet, setOfCandidate, updateCandidate, useCandidateSets } from "./liveCandidates";
+import { LiveMomentProvider } from "./liveViews/LiveMoment";
+import { PassReasonDialog } from "./PassReason";
+import { useRailConfig } from "./useRailConfig";
+import "./agentHero.css";
+import "./chat.css";
 
 /**
  * Agent — brief the agent, and everything it has run.
@@ -73,12 +112,41 @@ type Turn = {
    * else is a Moment. Decided at send, like `replyIndex`.
    */
   kind: MomentKind;
+  /** Connected chats: the server-backed turn this one draws. */
+  liveKey?: string;
 };
 
+/** A chat as the rail lists it. */
+function briefOf(c: Conversation): Brief {
+  const mins = (Date.now() - Date.parse(c.updatedAt)) / 60_000;
+  const when =
+    mins < 60 ? `${Math.max(1, Math.round(mins))}m`
+    : mins < 1440 ? `${Math.round(mins / 60)}h`
+    : mins < 2880 ? "Yesterday"
+    : mins < 10_080 ? `${Math.round(mins / 1440)}d`
+    : `${Math.round(mins / 10_080)}w`;
+  return { id: c.id, title: chatTitle(c.title), campaign: c.focusCampaignName ?? "", when, mode: "agent" };
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function Agent({
-  campaign, handoff, onHandoffTaken,
+  campaign, campaignIsCurrent = false, inOrg = false, handoff, handoffSend = false, onHandoffTaken, onOpenForm, onOpenCampaign, onNewChat,
 }: {
+  /** Leaves the chat for a campaign, making it current. */
+  onOpenCampaign?: (campaignId: string) => void;
+  /** A fresh chat was started: the page no longer treats the campaign it was on as in focus. */
+  onNewChat?: () => void;
+  /** Send the handoff at once instead of leaving it in the composer. */
+  handoffSend?: boolean;
   campaign: Campaign;
+  /** Whether the recruiter picked or visited `campaign` this session. The
+      console always has a default campaign; only a chosen one is assumed. */
+  campaignIsCurrent?: boolean;
+  /** Connected, whether the workspace is an organisation (it has a team to show and invite to). */
+  inOrg?: boolean;
+  /** Leaves the chat for a form in the builder. */
+  onOpenForm?: (campaignId: string, formId: string, view: FormView) => void;
   /**
    * A prompt sent here from another page — a bento tile, a task, a header
    * question. Null when the user navigated directly.
@@ -95,7 +163,7 @@ export function Agent({
      with a conversation, spikes to 296ms. The composer now owns its text and
      exposes it through this handle, which the page reads only when it needs
      the text (on send) or sets it (seeding a suggestion). */
-  const draftApi = useRef<{ get: () => string; set: (t: string) => void }>({ get: () => "", set: () => {} });
+  const draftApi = useRef<ComposerHandle>({ get: () => "", set: () => {} });
   /* The job description and the filters the composer carries into a search. */
   const [jd, setJd] = useState<Jd | null>(null);
   const [filters, setFilters] = useState<Values>({});
@@ -106,7 +174,246 @@ export function Agent({
     const fresh = Object.keys(brief).filter((k) => !(k in filters));
     setFiltersOpen({ initial: { ...brief, ...filters }, prefilled: fresh });
   }, [filters]);
-  const [turns, setTurns] = useState<Turn[]>([]);
+  /* The thread survives leaving the chat (for the form builder, say) and
+     coming back: it is restored from the session, every restored turn
+     already answered. */
+  const [restored] = useState<ReadonlySet<number>>(() => new Set(savedTurns().map((t) => t.id)));
+  /* Connected: a turn that began before this visit is a restored one, so its answered questions replay. */
+  const mountedAt = useRef(Date.now());
+  const [turns, setTurns] = useState<Turn[]>(() => savedTurns().map((t) => ({
+    ...t, mode: t.mode as ModeId, kind: t.kind as MomentKind, stage: -1,
+  })));
+  /* Connected: the transcript is the server's chat, replayed from its events. */
+  const live = useLiveChat();
+  useEffect(() => {
+    if (LIVE) void resumeChat();
+  }, []);
+  const liveTurns = useMemo<Turn[]>(
+    () =>
+      live.turns.map((lt, i) => ({
+        id: i + 1, said: lt.said, mode: "agent", stage: -1, startedAt: lt.startedAt, thoughtMs: null,
+        replyIndex: 0, kind: "reply", liveKey: lt.key,
+      })),
+    [live.turns],
+  );
+  const shown = LIVE ? liveTurns : turns;
+  /* The rail's week, from the server's home overview. Gains only: a dip is not news. */
+  /* A search that starts, brings its first people or ends moves "Found": the week is read again for each. */
+  const searchSig = live.turns
+    .flatMap((t) => t.searches.map((x) => `${x.runId}:${x.status}:${(x.items?.length ?? 0) > 0 ? "people" : "none"}`))
+    .join("|");
+  const [week, setWeek] = useState<readonly Stat[]>([]);
+  const [weekState, setWeekState] = useState<"loading" | "failed" | "ready">("loading");
+  const [weekAsk, setWeekAsk] = useState(0);
+  useEffect(() => {
+    if (!LIVE) return;
+    let current = true;
+    homeOverview(7)
+      .then((h) => {
+        if (!current) return;
+        const gain = (p: { current: number; previous: number }) => Math.max(0, p.current - p.previous);
+        setWeek([
+          { id: "found", label: "Found", value: h.found.current, hue: "violet", delta: gain(h.found), spark: h.found.series.map((d) => d.count) },
+          { id: "replies", label: "Replies", value: h.replies.current, hue: "blue", delta: gain(h.replies), spark: [] },
+          { id: "interviews", label: "Interviews", value: h.interviews.current, hue: "sage", delta: gain(h.interviews), spark: [] },
+        ]);
+        setWeekState("ready");
+      })
+      /* A refresh that fails after the week was shown keeps what is on screen; only a
+         week that never arrived says so. */
+      .catch(() => { if (current) setWeekState((s) => (s === "ready" ? s : "failed")); });
+    return () => {
+      current = false;
+    };
+  }, [live.turns.length, weekAsk, searchSig]);
+  /* What the agent just did moves these numbers: read them again behind what is shown. */
+  useEffect(() => onInvalidate((effects) => {
+    if (effects.has("pipeline") || effects.has("campaign") || effects.has("candidates") || effects.has("sourcing")) setWeekAsk((n) => n + 1);
+  }), []);
+  /* Past chats for the rail, refreshed whenever a chat starts or changes. The server names a chat when
+     its first message lands and moves it up when a turn ends, so those two are read again too. */
+  const sentCount = live.turns.filter((t) => t.runId !== null).length;
+  const settledCount = live.turns.filter((t) => t.status === "done" || t.status === "failed").length;
+  const [chats, setChats] = useState<readonly Brief[] | undefined>(undefined);
+  const [chatsFailed, setChatsFailed] = useState(false);
+  const [chatsAsk, setChatsAsk] = useState(0);
+  useEffect(() => {
+    if (!LIVE) return;
+    let current = true;
+    agentApi
+      .conversations()
+      .then(({ conversations }) => {
+        if (!current) return;
+        setChats(conversations.map(briefOf));
+        setChatsFailed(false);
+      })
+      .catch(() => current && setChatsFailed(true));
+    return () => {
+      current = false;
+    };
+  }, [live.conversationId, live.turns.length, sentCount, settledCount, chatsAsk]);
+  /* The open chat is named from its first message at once, rather than "New chat" until the server's own
+     name is read; that name replaces this one on the next read. */
+  const railChats = useMemo<readonly Brief[] | undefined>(() => {
+    const id = live.conversationId;
+    const first = live.turns[0]?.said;
+    if (!LIVE || !chats || !id || !first) return chats;
+    const mine = chats.find((c) => c.id === id);
+    if (!mine) return [{ id, title: titleFromMessage(first), campaign: "", when: "1m", mode: "agent" }, ...chats];
+    return mine.title === UNTITLED ? chats.map((c) => (c.id === id ? { ...c, title: titleFromMessage(first) } : c)) : chats;
+  }, [chats, live.conversationId, live.turns]);
+  /* ── SEARCHING PAST CHATS ──
+     The search button under the composer and "/" open the History dialog, which is where chats are
+     searched and opened (⌘K stays the console's quick find, wherever focus is). Connected, the chats are
+     read before the dialog has anything to search: if they have not arrived, or failed, they are asked
+     for again and the dialog opens when they land, for a few seconds, so a late answer does not open it
+     under someone who has moved on. */
+  const [findAsk, setFindAsk] = useState(0);
+  const findUntil = useRef(0);
+  const openFind = useCallback(() => {
+    if (LIVE && !railChats) {
+      findUntil.current = Date.now() + 5000;
+      if (chatsFailed) setChatsAsk((n) => n + 1);
+      return;
+    }
+    setFindAsk((n) => n + 1);
+  }, [railChats, chatsFailed]);
+  useEffect(() => {
+    if (railChats && findUntil.current > Date.now()) {
+      findUntil.current = 0;
+      setFindAsk((n) => n + 1);
+    }
+  }, [railChats]);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey || e.isComposing || e.defaultPrevented) return;
+      const el = e.target instanceof HTMLElement ? e.target : null;
+      /* A slash typed into a field is a slash; so is one meant for a dialog that is already open. */
+      if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
+      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
+      e.preventDefault();
+      openFind();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [openFind]);
+  /* Which three ideas the row under the composer shows: the next three each visit and each new chat. */
+  const [visit, setVisit] = useState(nextVisit);
+  useEffect(() => {
+    /* Connected, the transcript is the server's: the local thread is empty and must not wipe the answered questions kept per turn. */
+    if (LIVE) return;
+    saveTurns(turns.map(({ id, said, mode, kind, replyIndex, thoughtMs, startedAt }) => ({ id, said, mode, kind, replyIndex, thoughtMs, startedAt })));
+  }, [turns]);
+  /* ── THE CAMPAIGN'S JOB DESCRIPTION AND FILTERS, LIVE ──
+     The prototype's two dialogs, on the campaign in focus. The description goes to the agent as a message
+     (its own job description flow: read, role spec, approve, search, narrated under the turn); the filters
+     are saved on the campaign and read by its next search, over the role spec. A person who only follows the
+     campaign sees both and changes neither. */
+  const liveCampaignId = LIVE && campaignIsCurrent && UUID.test(campaign.id) ? campaign.id : "";
+  const liveSpec = useCampaignSpec(liveCampaignId);
+  const liveRow = useCampaignRow(liveCampaignId);
+  const mayChange = useMayChangeCampaign(liveCampaignId || null);
+  const toast = useToast();
+  const [liveFiltersOpen, setLiveFiltersOpen] = useState(false);
+  const focused = liveCampaignId !== "";
+  /* With no campaign in focus the job description and the filters are for the NEXT message: the description is
+     attached to it (and starts a campaign), the filters go with it as a line and are saved on the campaign it
+     makes. They show as chips in the composer until sent. */
+  const [nextJd, setNextJd] = useState<Jd | null>(null);
+  const [nextFilters, setNextFilters] = useState<Values>({});
+  const next = useRef({ jd: nextJd, filters: nextFilters, focused });
+  next.current = { jd: nextJd, filters: nextFilters, focused };
+  const [filtersFocus, setFiltersFocus] = useState<{ category: string; n: number } | null>(null);
+  const [liveFiltersInit, setLiveFiltersInit] = useState<{ initial: Values; prefilled: readonly string[] }>({ initial: {}, prefilled: [] });
+  const onLiveJd = useCallback(() => setJdOpen(true), []);
+  const specNow = liveSpec.approved ?? liveSpec.latest;
+  const filtersBase = useMemo<Values>(
+    () => (specNow ? valuesFromSpec(specNow.spec) : valuesFromSetup(liveRow?.setup)),
+    [specNow, liveRow?.setup],
+  );
+  const filtersNow = useMemo<Values>(
+    () => withSaved(filtersBase, liveRow?.setup?.filters as Values | undefined),
+    [filtersBase, liveRow?.setup?.filters],
+  );
+  const liveJdText = (specNow?.jdText ?? liveRow?.setup?.jd ?? "").trim();
+  const liveJd = useMemo<Jd | null>(() => (liveJdText ? jdFromText("Job description", liveJdText) : null), [liveJdText]);
+  /* Opens the filters on the campaign in focus, or for the next one. Pre-filled from what the brief already
+     says (`fromBrief`), and scrolled to the group that was asked for. */
+  const openLiveFilters = useCallback((text: string, category?: string) => {
+    if (focused) setLiveFiltersInit({ initial: filtersNow, prefilled: [] });
+    else {
+      const brief = fromBrief([text, nextJd?.text ?? ""].join("\n"));
+      const fresh = Object.keys(brief).filter((k) => !(k in nextFilters));
+      setLiveFiltersInit({ initial: { ...brief, ...nextFilters }, prefilled: fresh });
+    }
+    setFiltersFocus(category ? { category, n: Date.now() } : null);
+    setLiveFiltersOpen(true);
+  }, [focused, filtersNow, nextJd, nextFilters]);
+  const onLiveFilters = useCallback(() => openLiveFilters(""), [openLiveFilters]);
+  const nextFiltersWords = useMemo(() => summariseFilters(nextFilters), [nextFilters]);
+  const slots = slotsFor({
+    focused, campaignJd: liveJd, campaignFilters: activeCount(filtersNow),
+    nextJd, nextFilters: activeCount(nextFilters),
+  });
+  /* The draft is one conversation's: moving to another chat (or to a new one) empties the composer, the slots
+     and the strip. The first resume of the chat on arrival, and the first message making its conversation,
+     keep what is there. */
+  const seenConversation = useRef<string | null>(null);
+  useEffect(() => {
+    if (!LIVE) return;
+    const prev = seenConversation.current;
+    seenConversation.current = live.conversationId;
+    if (keepsDraft(prev, live.conversationId)) return;
+    draftApi.current.set("");
+    setNextJd(null);
+    setNextFilters({});
+  }, [live.conversationId]);
+  const config = useRailConfig(
+    campaign, campaignIsCurrent, inOrg,
+    LIVE ? { onJd: onLiveJd, onFilters: onLiveFilters, next: { jd: nextJd !== null, filters: nextFiltersWords } } : undefined,
+  );
+  /* Filters that were set for the next campaign are saved on it once it exists: the list of campaigns is read
+     again while they wait, and the first campaign that was not there when the message went is theirs. */
+  const allRows = useCampaignRows();
+  const pendingFilters = useRef<{ values: Values; known: ReadonlySet<string>; at: number } | null>(null);
+  const allRowsRef = useRef(allRows);
+  allRowsRef.current = allRows;
+  const [watching, setWatching] = useState(false);
+  useEffect(() => {
+    const p = pendingFilters.current;
+    if (!p) return;
+    if (Date.now() - p.at > 30 * 60_000) { pendingFilters.current = null; setWatching(false); return; }
+    const made = allRows.find((r) => !p.known.has(r.id) && UUID.test(r.id));
+    if (!made) return;
+    pendingFilters.current = null;
+    setWatching(false);
+    filtersApi.save(made.id, p.values).then(
+      () => { refreshCampaign(made.id); toast(`Filters saved on ${made.name}. Its searches use them.`, "done"); },
+      () => toast(`Couldn't save the filters on ${made.name}. Set them from the Filters row.`, "error"),
+    );
+  }, [allRows, toast]);
+  useEffect(() => {
+    if (!watching) return;
+    const id = window.setInterval(() => refreshCampaignList(), 6000);
+    return () => window.clearInterval(id);
+  }, [watching]);
+  /* Archiving is quiet and can be taken back: the chat leaves the list and a toast offers it again. */
+  const archiveChat = useCallback(
+    (id: string) =>
+      api("PATCH", `/v1/conversations/${id}`, { archived: true }).then(() => {
+        setChatsAsk((n) => n + 1);
+        toast("Chat archived", "done", {
+          label: "Undo",
+          onClick: () => {
+            api("PATCH", `/v1/conversations/${id}`, { archived: false }).then(
+              () => setChatsAsk((n) => n + 1),
+              () => toast("Couldn't bring that chat back. Try again.", "error"),
+            );
+          },
+        });
+      }),
+    [toast],
+  );
   const [activeBrief, setActiveBrief] = useState<string | null>(null);
   /* Shortlist and reject, shared by the transcript's cards, the ranked list
      and every profile, so a verdict made in one place shows in all three. */
@@ -127,7 +434,12 @@ export function Agent({
   }, []);
   const [matchesOpen, setMatchesOpen] = useState(false);
   const [profile, setProfile] = useState<{ id: string; ids: readonly string[] } | null>(null);
-  const onVerdict = useCallback((id: string, v: Verdict | null) => {
+  /* Connected: the ranked list belongs to one campaign's matches, and shortlisting or passing
+     is a call to the server, with the reason for a pass asked first. */
+  const [listCampaign, setListCampaign] = useState<string | null>(null);
+  const [passing, setPassing] = useState<string | null>(null);
+  const sets = useCandidateSets();
+  const setVerdict = useCallback((id: string, v: Verdict | null) => {
     setVerdicts((all) => {
       const next = { ...all };
       if (v) next[id] = v;
@@ -135,9 +447,76 @@ export function Agent({
       return next;
     });
   }, []);
-  const nextId = useRef(1);
-  /* Whether the transcript should follow new content. See `nudge`. */
+  const onVerdict = useCallback((id: string, v: Verdict | null) => {
+    if (!LIVE) return setVerdict(id, v);
+    const cid = campaignOfCandidate(id);
+    if (!cid) return;
+    if (v === "shortlisted") {
+      setVerdict(id, v);
+      agentApi.shortlist(cid, [id]).catch(() => setVerdict(id, null));
+    } else if (v === "rejected") setPassing(id);
+    // Undoing isn't offered by the server for a shortlist or a pass, so a press on a decided person changes nothing.
+  }, [setVerdict]);
+  const passWith = useCallback((reason: string | undefined) => {
+    const id = passing;
+    setPassing(null);
+    const cid = id ? campaignOfCandidate(id) : null;
+    if (!id || !cid) return;
+    setVerdict(id, "rejected");
+    agentApi.reject(cid, [id], reason).catch(() => setVerdict(id, null));
+  }, [passing, setVerdict]);
+  /* What was already decided about the people in view, from the server, once per campaign. */
+  const decidedFor = useRef(new Set<string>());
+  useEffect(() => {
+    if (!LIVE) return;
+    for (const cid of campaignIds()) {
+      if (decidedFor.current.has(cid)) continue;
+      decidedFor.current.add(cid);
+      agentApi.decisions(cid).then((d) => {
+        setVerdicts((all) => {
+          const next = { ...all };
+          for (const id of d.passed) next[id] = "rejected";
+          for (const id of d.shortlisted) next[id] = "shortlisted";
+          return next;
+        });
+      }).catch(() => decidedFor.current.delete(cid));
+    }
+  }, [sets]);
+  /* The full profile of whoever is open: the list gives the header and the fit, this the history. */
+  useEffect(() => {
+    if (!LIVE || !profile) return;
+    const set = setOfCandidate(profile.id);
+    if (!set) return;
+    let current = true;
+    /* Someone already on a board or found by name: their own candidate row has the history. */
+    if (set.key !== set.campaignId || !set.campaignId) {
+      getCandidate(profile.id).then((d) => { if (current) updateCandidate(candidateFromDetail(d)); }).catch(() => {});
+      return () => { current = false; };
+    }
+    const cid = set.campaignId;
+    agentApi.matchProfile(cid, profile.id).then((mp) => {
+      const base = set.candidates.find((c) => c.id === profile.id);
+      if (!current || !base) return;
+      updateCandidate(candidateFromMatch(
+        { personId: profile.id, fullName: base.name, headline: base.headline, currentTitle: mp.profile.currentTitle, currentCompanyName: mp.profile.currentCompanyName,
+          city: mp.profile.city, linkedinUrl: mp.profile.linkedinUrl, profileImageUrl: mp.profileImageUrl, yearsOfExperience: mp.profile.yearsOfExperience, source: "ours",
+          stage: mp.stage ?? "judged", score: mp.score, tier: mp.tier, knockedOut: null, judgement: mp.judgement },
+        { criteria: set.criteria, profile: mp },
+      ));
+    }).catch(() => {});
+    return () => { current = false; };
+  }, [profile?.id]);
+  const liveSet: CandidateSet | null = LIVE && listCampaign ? getSet(listCampaign) : null;
+  const idsOfSetWith = (id: string): readonly string[] => {
+    const cid = campaignOfCandidate(id);
+    return (cid ? getSet(cid)?.candidates.map((c) => c.id) : null) ?? [id];
+  };
+  const nextId = useRef(Math.max(0, ...savedTurns().map((t) => t.id)) + 1);
+  /* Whether the transcript follows new content, the follower's frame, and
+     the log's last scroll position. See `nudge`. */
   const pinned = useRef(true);
+  const follow = useRef(0);
+  const lastTop = useRef(0);
   const streamRef = useRef<HTMLDivElement>(null);
   /* The transcript's own scrollport — the composer sits outside it. */
   const logRef = useRef<HTMLDivElement>(null);
@@ -154,8 +533,8 @@ export function Agent({
      motion on screen was not being animated at all.
 
      `flipFrom` is the composer's viewport top read immediately BEFORE the
-     state change, and `exitAt` is where the heading and the suggestion list
-     were sitting at that same instant. Both are refs rather than state: they
+     state change, and `exitAt` is where the heading block (the heading and
+     the suggestion list) was sitting at that same instant. Both are refs rather than state: they
      are written during an event and consumed in the layout effect that runs
      from it, and a render in between would be a render showing the old
      layout. */
@@ -167,7 +546,7 @@ export function Agent({
      carries its own viewport-delta would travel the distance twice. */
   const flipField = useRef<{ h: number; r: string } | null>(null);
   const flipKids = useRef<Map<Element, { x: number; y: number }> | null>(null);
-  const exitAt = useRef<{ intro: number; recs: number } | null>(null);
+  const exitAt = useRef<{ intro: number } | null>(null);
   /* True while the landing-state blocks are on their way out. They stay
      mounted for it — an element cannot be animated away after it has already
      been removed from the tree, which is why they used to vanish between one
@@ -178,7 +557,7 @@ export function Agent({
      the autosize effect both key on it, and a `const` below them is a
      use-before-declaration. It is derived, not state — `turns` is the single
      source of truth for whether a conversation exists. */
-  const started = turns.length > 0;
+  const started = shown.length > 0;
   const sendRef = useRef<HTMLButtonElement>(null);
   const areaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -200,7 +579,8 @@ export function Agent({
    * point, and firing it off on one click takes the edit away at the exact
    * moment the recruiter knows something the suggestion does not.
    */
-  const seed = useCallback((prompt: string) => {
+  const seed = useCallback((raw: string) => {
+    const prompt = tidySeed(raw);
     draftApi.current.set(prompt);
     const el = areaRef.current;
     if (!el) return;
@@ -218,22 +598,14 @@ export function Agent({
   /* Hovering an idea previews it in the empty composer as ghost text. */
   const [preview, setPreview] = useState<string | null>(null);
 
-  /* The background mark shows only in the default view: nothing typed,
-     nothing previewed. Written straight onto the element, because the draft
-     lives in the composer so typing never re-renders this page. */
-  const markRef = useRef<HTMLSpanElement>(null);
-  const onIdle = useCallback((idle: boolean) => {
-    const el = markRef.current;
-    if (el) el.dataset.idle = idle ? "1" : "";
-  }, []);
-
   /* ── PICKING AN IDEA TYPES IT IN ──
      Rather than the whole sentence appearing at once, it writes itself into
      the composer over a fraction of a second, so the hand-off from card to
      field is something you watch happen. Only the composer re-renders per
      frame. Reduced motion gets the plain seed. */
   const typing = useRef(0);
-  const seedTyped = useCallback((prompt: string) => {
+  const seedTyped = useCallback((raw: string) => {
+    const prompt = tidySeed(raw);
     cancelAnimationFrame(typing.current);
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { seed(prompt); return; }
     const el = areaRef.current;
@@ -281,6 +653,8 @@ export function Agent({
   const send = useCallback(() => {
     const said = draftApi.current.get().trim();
     if (!said) return;
+    /* Too long for the agent: the composer says by how much and has Send off, and Enter does the same. */
+    if (LIVE && chatOver(said)) return;
 
     /* ── MEASURE THE OLD LAYOUT WHILE IT IS STILL THE LAYOUT ──
        Only on the FIRST send: that is the one that rearranges the page. Every
@@ -290,7 +664,7 @@ export function Agent({
        `offsetTop` for the two departing blocks rather than a viewport rect —
        they are re-anchored against their own offset parent on the way out, so
        an offset is the number that survives them leaving the flow. */
-    if (turns.length === 0) {
+    if (shown.length === 0) {
       const root = composerRef.current;
       if (root) {
         const box = root.getBoundingClientRect();
@@ -310,18 +684,39 @@ export function Agent({
         flipKids.current = kids;
       }
       const intro = streamRef.current?.querySelector<HTMLElement>(".orc-intro");
-      const recs = streamRef.current?.querySelector<HTMLElement>(".orc-recs");
-      exitAt.current = { intro: intro?.offsetTop ?? 0, recs: recs?.offsetTop ?? 0 };
+      exitAt.current = { intro: intro?.offsetTop ?? 0 };
       setExiting(true);
     }
     /* Optimistic: the turn is on screen before anything else happens. Standard
        practice for a composer and worth 100-300ms of perceived latency even
        when, as here, there is no request to wait for. */
-    const id = nextId.current++;
+    const id = LIVE ? shown.length + 1 : nextId.current++;
     /* Measured BEFORE the state change, because sending empties the composer
        and the button can shift as the field collapses back to one row. */
     const r = sendRef.current?.getBoundingClientRect();
     if (r) setFlight({ id, x: r.left + r.width / 2, y: r.top + r.height / 2 });
+    if (LIVE) {
+      pinned.current = true;
+      /* A campaign the recruiter picked travels with the message; otherwise the
+         server works out which one is meant from the text and the chat. */
+      sendMessage(said, campaignIsCurrent && UUID.test(campaign.id) ? campaign.id : undefined);
+      draftApi.current.set("");
+      /* What was set for "the next message" went with it. The filters are saved on the campaign it makes. */
+      if (!next.current.focused) {
+        const set = next.current.filters;
+        if (activeCount(set) > 0) {
+          pendingFilters.current = {
+            values: Object.fromEntries(Object.entries(set).filter(([id, v]) => activeCount({ [id]: v }) > 0)),
+            known: new Set(allRowsRef.current.map((r) => r.id)),
+            at: Date.now(),
+          };
+          setWatching(true);
+        }
+        setNextJd(null);
+        setNextFilters({});
+      }
+      return;
+    }
     const kind = classify(said);
     pinned.current = true;
     setTurns((t) => [
@@ -352,88 +747,304 @@ export function Agent({
        a search to run rather than the instant the brief was typed. */
     const key = SCOPED.find((k) => k === campaign.id);
     if (key && kind === "reply") deploy(mode === "sourcing" ? "Sourcing" : "Outreach", campaign.name, key);
-  }, [mode, deploy, campaign]);
+  }, [mode, deploy, campaign, campaignIsCurrent, shown.length]);
+
+  const sendNow = useRef(send);
+  sendNow.current = send;
+
+  /* A button that names what it does ("Ask for times", "Find the drop-off") acts: its words go as a message,
+     as if typed, rather than waiting as a draft that has to be found and sent. */
+  const sendText = useCallback((raw: string, forCampaign?: string) => {
+    const said = tidySeed(raw).trim();
+    if (!said) return;
+    if (!LIVE || chatOver(said)) { seed(raw); return; }
+    pinned.current = true;
+    sendMessage(said, forCampaign ?? (campaignIsCurrent && UUID.test(campaign.id) ? campaign.id : undefined));
+  }, [seed, campaign, campaignIsCurrent]);
+
+  /* The job description from the dialog goes to the agent as the message, so the same flow a pasted one starts
+     runs: it is read, the role spec drafted and approved, and the search begins, each step shown under the turn. */
+  const sendJd = useCallback((jd: Jd) => {
+    const att: Attachment = {
+      id: "jd", name: jd.name, origin: "file", size: jd.text.length, status: "ready", text: jd.text, docKind: "job_description",
+    };
+    const { text } = composeMessage("", [att], { campaignName: campaign.name });
+    if (!text) return;
+    pinned.current = true;
+    sendMessage(text, liveCampaignId || undefined);
+  }, [campaign.name, liveCampaignId]);
+  const readJdFile = useCallback(
+    (file: File) => attachmentApi.read(file, typeOf(file)).then((r) => r.text),
+    [],
+  );
+
+  const saveFilters = useCallback(
+    (values: Values) =>
+      filtersApi.save(liveCampaignId, diffFilters(filtersBase, values)).then(() => {
+        refreshCampaign(liveCampaignId);
+        toast("Filters saved. The next search uses them.", "done");
+      }),
+    [liveCampaignId, filtersBase, toast],
+  );
+
+  /* ── A FILE DROPPED ANYWHERE ON THE PAGE, OR PASTED, IS ATTACHED ──
+     The composer holds the attachments; these listeners only hand it what arrived. A dialog that is open
+     keeps its own drops (the job description's), and nothing here lets the browser open a dropped file. */
+  const [dragging, setDragging] = useState(false);
+  useEffect(() => {
+    if (!LIVE) return;
+    let depth = 0;
+    const hasFiles = (e: DragEvent) => !!e.dataTransfer && Array.from(e.dataTransfer.types).includes("Files");
+    const modal = () => !!document.querySelector('[role="dialog"][aria-modal="true"]');
+    const enter = (e: DragEvent) => { if (hasFiles(e) && !modal()) { depth += 1; setDragging(true); } };
+    const over = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = modal() ? "none" : "copy";
+    };
+    const leave = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      depth = Math.max(0, depth - 1);
+      if (!depth) setDragging(false);
+    };
+    const drop = (e: DragEvent) => {
+      depth = 0;
+      setDragging(false);
+      if (!hasFiles(e)) return;
+      const handled = e.defaultPrevented;
+      e.preventDefault();
+      if (handled || modal()) return;
+      draftApi.current.attach?.(Array.from(e.dataTransfer?.files ?? []));
+    };
+    const paste = (e: ClipboardEvent) => {
+      if (e.defaultPrevented || modal()) return;
+      const el = e.target instanceof HTMLElement ? e.target : null;
+      if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
+      const out = readClipboard(e.clipboardData);
+      if (out.kind === "text") return;
+      e.preventDefault();
+      draftApi.current.paste?.(out);
+    };
+    window.addEventListener("dragenter", enter);
+    window.addEventListener("dragover", over);
+    window.addEventListener("dragleave", leave);
+    window.addEventListener("drop", drop);
+    document.addEventListener("paste", paste);
+    return () => {
+      window.removeEventListener("dragenter", enter);
+      window.removeEventListener("dragover", over);
+      window.removeEventListener("dragleave", leave);
+      window.removeEventListener("drop", drop);
+      document.removeEventListener("paste", paste);
+    };
+  }, []);
 
   const deploySourcing = useCallback(() => {
     const key = SCOPED.find((k) => k === campaign.id);
     if (key) deploy("Sourcing", campaign.name, key);
   }, [deploy, campaign]);
 
-  /* A sourcing run grows long after its turn was added, so it asks for the
-     newest content to be brought into view. Only when the reader is already
-     near the bottom: someone who scrolled up to reread is not yanked back. */
-  /* `pinned` is cleared only by the reader's own intent — a wheel or touch
-     upward — never by a scroll event, because a smooth programmatic scroll
-     passes through positions far from the bottom on its way there. */
-  /* ── WHICHEVER THING SCROLLS ──
-     At full height the log is its own scrollport. Below 1000px tall the
-     viewport lock comes off and the PAGE scrolls instead, with the composer
-     stuck to the foot of the window — so "follow" means bringing the end of
-     the transcript to just above the composer, by scrolling the page. */
-  const overflow = useCallback((): number => {
-    const log = logRef.current;
-    const comp = composerRef.current;
-    const last = log?.lastElementChild;
-    if (!log || !comp || !last) return 0;
-    if (getComputedStyle(log).overflowY !== "visible") {
-      return log.scrollHeight - log.scrollTop - log.clientHeight;
-    }
-    /* The composer is sticky at the foot of the window, so the end of the
-       transcript should sit just above where the composer RESTS on screen —
-       the window's bottom minus its height — not above where it sits in flow. */
-    return last.getBoundingClientRect().bottom - (window.innerHeight - comp.offsetHeight) + 16;
-  }, []);
+  /* ── FOLLOWING THE BOTTOM OF THE TRANSCRIPT ──
+     The log is the page's only scrollport: the shell is locked to the window
+     at every size the two columns fit, and the composer sits under the log
+     rather than floating over it. So "follow" means one thing, scrolling the
+     log, and one mechanism does it.
 
+     It used to be three: a smooth `scrollTo` on every `turns` change (which
+     fires on each stage tick, whether or not the reader had scrolled away), a
+     `nudge` from every moment that grew, and a ResizeObserver calling the
+     same `nudge` — plus a page-scroll branch for windows under 1000px tall.
+     Each restarted the others' smooth scroll from a new target, so the
+     transcript stuttered down, overshot and settled back.
+
+     Now there is one follower, a per-frame ease toward the bottom. Growth
+     while it runs only moves its target, so a reply that arrives in steps
+     still reads as one glide. It runs only while `pinned`: the reader is at
+     (or within 64px of) the bottom. Scrolling up unpins it, coming back down
+     re-pins it. Reduced motion jumps instead of easing. */
+  const pageGap = useCallback((): number => {
+    const last = logRef.current?.querySelector(":scope > article.orc-turn:last-of-type");
+    const comp = composerRef.current;
+    if (!last || !comp) return 0;
+    return last.getBoundingClientRect().bottom - (window.innerHeight - comp.offsetHeight) + 56;
+  }, []);
   const nudge = useCallback(() => {
     if (!pinned.current) return;
-    requestAnimationFrame(() => {
-      const log = logRef.current;
-      if (!log) return;
-      if (getComputedStyle(log).overflowY !== "visible") {
-        log.scrollTo({ top: log.scrollHeight, behavior: "smooth" });
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    /* ── GROWTH OF A FEW LINES IS FOLLOWED AT ONCE, BEFORE IT IS PAINTED ──
+       A phase line arriving or a card appearing is tens of pixels: easing toward it left the newest line
+       closer than 56px to the composer for a few frames. Called from the resize observer, which runs after
+       layout and before paint, a small distance is closed on the spot, so no frame shows the newest line
+       nearer than its clearance. Only a long jump (a whole answer arriving) glides. */
+    const log0 = logRef.current;
+    if (log0) {
+      const paged0 = getComputedStyle(log0).overflowY === "visible";
+      const d0 = paged0 ? pageGap() : log0.scrollHeight - log0.clientHeight - log0.scrollTop;
+      if (d0 >= 1 && d0 <= 240) {
+        if (paged0) window.scrollBy(0, d0);
+        else { log0.scrollTop += d0; lastTop.current = log0.scrollTop; }
         return;
       }
-      const d = overflow();
-      if (d > 4) window.scrollBy({ top: d, behavior: "smooth" });
-    });
-  }, [overflow]);
+    }
+    if (follow.current) return;
+    const step = () => {
+      const log = logRef.current;
+      if (!log || !pinned.current) { follow.current = 0; return; }
+      /* Stacked under 1100px wide the page scrolls instead, with the
+         composer stuck to the foot of the window: follow by bringing the
+         end of the transcript to just above it. */
+      const paged = getComputedStyle(log).overflowY === "visible";
+      const d = paged ? pageGap() : log.scrollHeight - log.clientHeight - log.scrollTop;
+      if (d < 1) { follow.current = 0; return; }
+      const by = reduce || d <= 240 ? d : Math.max(1, Math.ceil(d * 0.18));
+      if (paged) window.scrollBy(0, by);
+      else { log.scrollTop += by; lastTop.current = log.scrollTop; }
+      follow.current = requestAnimationFrame(step);
+    };
+    follow.current = requestAnimationFrame(step);
+  }, [pageGap]);
 
-  /* ── STAY AT THE BOTTOM WHILE THE PAGE MOVES UNDER THE LOG ──
-     Two things change the log's geometry without a new turn: a run growing
-     inside its turn, and the live band arriving at the foot of the page,
-     which takes ~180px off the log's height in one step. Either one used to
-     leave the newest block — the Run search button, typically — under the
-     composer. One observer on the log's box and on its content covers both. */
   useEffect(() => {
     const log = logRef.current;
     if (!log) return;
-    const unpin = (e: WheelEvent | TouchEvent) => {
+    const unpin = (e: WheelEvent | TouchEvent | KeyboardEvent) => {
       if (e instanceof WheelEvent && e.deltaY >= 0) return;
+      if (e instanceof KeyboardEvent && !["ArrowUp", "PageUp", "Home"].includes(e.key)) return;
       pinned.current = false;
     };
-    const repin = () => {
-      if (overflow() < 60) pinned.current = true;
+    const onScroll = () => {
+      const top = log.scrollTop;
+      const d = log.scrollHeight - log.clientHeight - top;
+      /* Near the bottom pins. Moving UP unpins, unless it is the browser
+         clamping the position because content above got shorter — that
+         leaves the reader at the bottom, which the first test catches. */
+      /* A move up that lands exactly on the bottom is the browser clamping
+         to content that just got shorter, not the reader. The position from
+         before it is kept, because the resize handler puts it back. */
+      if (top < lastTop.current - 1 && d < 1 && pinned.current) return;
+      if (d < 64) pinned.current = true;
+      else if (top < lastTop.current - 1) pinned.current = false;
+      lastTop.current = top;
     };
-    const stream = streamRef.current ?? log;
-    stream.addEventListener("wheel", unpin, { passive: true });
-    stream.addEventListener("touchmove", unpin, { passive: true });
-    log.addEventListener("scroll", repin, { passive: true });
-    window.addEventListener("scroll", repin, { passive: true });
-    const ro = new ResizeObserver(() => nudge());
+    /* The page-scrolling (stacked) layout's equivalent of `onScroll`. */
+    let lastY = window.scrollY;
+    const onPageScroll = () => {
+      const y = window.scrollY;
+      if (getComputedStyle(log).overflowY === "visible") {
+        if (pageGap() < 64) pinned.current = true;
+        else if (y < lastY - 1) pinned.current = false;
+      }
+      lastY = y;
+    };
+    log.addEventListener("wheel", unpin, { passive: true });
+    log.addEventListener("touchmove", unpin, { passive: true });
+    log.addEventListener("keydown", unpin);
+    log.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("scroll", onPageScroll, { passive: true });
+    /* ── WHILE PINNED, ONLY THE NEWEST TURN MOVES THE TRANSCRIPT ──
+       Two things used to shove the transcript around with the reader
+       sitting at the bottom.
+
+       An EARLIER turn changing height (a run still finishing after the
+       next brief was sent) pushed everything below it down, and the
+       follower then glided it back up. Its change is now absorbed in the
+       scroll position before the frame is painted, so the bottom stays
+       put.
+
+       The NEWEST turn getting shorter: the form flow answers a question by
+       collapsing its card to one line and then, a beat later, asking the
+       next one. Bottom-anchored, that dropped the transcript ~300px and
+       lifted it back for every answer. The lost height is held as padding
+       under the turn instead, the next growth spends the hold first, and
+       whatever is left is eased away once the turn is idle.
+
+       Both read the scroll position from before the change (`lastTop`):
+       by the time this runs the browser may already have clamped it. */
+    const heights = new WeakMap<Element, number>();
+    let hold = 0;
+    let basePad = 0;
+    let release = 0;
+    let ease = 0;
+    const setHold = (h: number) => {
+      if (hold === 0 && h > 0) basePad = parseFloat(getComputedStyle(log).paddingBottom) || 0;
+      hold = Math.max(0, h);
+      log.style.paddingBottom = hold > 0 ? `${basePad + hold}px` : "";
+    };
+    const letGo = () => {
+      /* Not while the turn is still working: its next block is coming. */
+      if (log.querySelector(".orc-mark.is-working")) { release = window.setTimeout(letGo, 400); return; }
+      cancelAnimationFrame(ease);
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { setHold(0); return; }
+      const from = hold;
+      const t0 = performance.now();
+      const tick = (t: number) => {
+        const k = Math.min(1, (t - t0) / 280);
+        setHold(from * (1 - k) ** 3);
+        if (k < 1 && hold > 0) ease = requestAnimationFrame(tick);
+        else setHold(0);
+      };
+      ease = requestAnimationFrame(tick);
+    };
+    const onResize = (entries: ResizeObserverEntry[]) => {
+      const turns = log.querySelectorAll<HTMLElement>(":scope > article.orc-turn");
+      const newest = turns[turns.length - 1];
+      let above = 0;
+      let own = 0;
+      for (const e of entries) {
+        const el = e.target as HTMLElement;
+        if (!el.matches("article.orc-turn")) continue;
+        const h = el.offsetHeight;
+        const was = heights.get(el);
+        heights.set(el, h);
+        if (was === undefined) continue;
+        if (el === newest) own += h - was;
+        else above += h - was;
+      }
+      const live = log.closest(".orc-stream.is-live") !== null
+        && getComputedStyle(log).overflowY !== "visible";
+      if (live && pinned.current && (above !== 0 || own < -1)) {
+        let top = lastTop.current + above;
+        if (own < -1) {
+          cancelAnimationFrame(ease);
+          setHold(hold - own);
+          window.clearTimeout(release);
+          release = window.setTimeout(letGo, 900);
+        }
+        log.scrollTop = top;
+        top = log.scrollTop;
+        lastTop.current = top;
+      }
+      if (live && own > 1 && hold > 0) {
+        cancelAnimationFrame(ease);
+        setHold(hold - own);
+        /* Something arrived and did not fill the space: settle soon, before
+           the reader has started on it, rather than under their eyes. */
+        window.clearTimeout(release);
+        if (hold > 0) release = window.setTimeout(letGo, 250);
+      }
+      nudge();
+    };
+    const ro = new ResizeObserver(onResize);
     ro.observe(log);
     const watchKids = () => Array.from(log.children).forEach((k) => ro.observe(k));
     watchKids();
     const mo = new MutationObserver(watchKids);
     mo.observe(log, { childList: true });
     return () => {
-      stream.removeEventListener("wheel", unpin);
-      stream.removeEventListener("touchmove", unpin);
-      log.removeEventListener("scroll", repin);
-      window.removeEventListener("scroll", repin);
+      log.removeEventListener("wheel", unpin);
+      log.removeEventListener("touchmove", unpin);
+      log.removeEventListener("keydown", unpin);
+      log.removeEventListener("scroll", onScroll);
+      window.removeEventListener("scroll", onPageScroll);
       ro.disconnect();
       mo.disconnect();
+      window.clearTimeout(release);
+      cancelAnimationFrame(ease);
+      log.style.paddingBottom = "";
+      cancelAnimationFrame(follow.current);
+      follow.current = 0;
     };
-  }, [nudge, overflow]);
+  }, [nudge, pageGap]);
 
   /* Walks the running turn through its stages, then answers. Intervals rather
      than one long timeout so each stage is legible, and cleared on unmount so
@@ -547,7 +1158,7 @@ export function Agent({
        happen to overlap, they are one shape change expressed in four places,
        and any drift between them shows up as a part arriving early. */
     const TIMING = {
-      duration: 750,
+      duration: 280,
       easing: "cubic-bezier(0.6, 0.28, 0.44, 1)",
       fill: "none" as const,
     };
@@ -600,29 +1211,16 @@ export function Agent({
     return () => anims.forEach((a) => a.cancel());
   }, [started]);
 
-  /* ── THE LANDING COMPOSER SITS ON THE CONFIGURATION PANEL'S BASELINE ──
-     Measured, not derived: the rail's panels change height with their
-     content and the window, so the gap under the heading and the ideas is
-     sized so the composer field's bottom edge lands exactly on the bottom
-     edge of the rail's Configuration panel. Landing only, and only when the
-     rail is beside the column (not stacked under it on narrow screens). The
-     send animation measures its start after this, so the dock is unchanged. */
-  const [landPush, setLandPush] = useState(0);
-  /* And the heading sits on the line of the rail's first label ("Last 7
-     days"), which moves with the window because the rail centres itself on
-     tall screens. Measured in the same pass so the composer's push can
-     account for the heading moving in the same frame. */
-  const [headDrop, setHeadDrop] = useState(0);
+  /* ── THE RAIL IS FIXED; THE COMPOSER MEETS IT ──
+     The rail is anchored to the foot of the page (its last panel ends on the line the docked composer's input
+     starts on) and is the same in every state, so nothing moves it. At rest the composer's top is on the top
+     of its Configuration panel: that line is read from the rail, where it has come to rest (its panels rise
+     into place when the page mounts, so the rise is taken off), and handed to the page's grid as
+     `--config-top`. It is measured again whenever a panel arrives or changes size. The heading stays where the
+     page starts. */
+  const [configTop, setConfigTop] = useState<number | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
-    if (started) return;
-    /* ── WHERE THINGS WILL REST, NOT WHERE THEY ARE MID-ENTRANCE ──
-       The rail's panels rise into place when the page mounts. A rect taken
-       during that rise includes the animation's translate, so arriving from
-       another page seated the composer too low and a later re-measure moved
-       it up in front of the user. Offsets would ignore the transform but the
-       rail is sticky, and offsets report its un-stuck position. So: take the
-       rect, and subtract the vertical translate currently applied by any
-       ancestor of the panel, which is exactly what the entrance adds. */
     const shift = (el: HTMLElement) => {
       let ty = 0;
       for (let n: HTMLElement | null = el; n && n !== document.body; n = n.parentElement) {
@@ -631,47 +1229,33 @@ export function Agent({
       }
       return ty;
     };
-    const restingBottom = (el: HTMLElement) => el.getBoundingClientRect().bottom - shift(el);
-    const restingTop = (el: HTMLElement) => el.getBoundingClientRect().top - shift(el);
     const measure = () => {
-      const cfg = document.querySelector<HTMLElement>(".rail-config");
-      const field = composerRef.current?.querySelector<HTMLElement>(".orc-composer-field");
-      if (!cfg || !field) return;
-      if (cfg.getBoundingClientRect().left < field.getBoundingClientRect().right) { setLandPush(0); setHeadDrop(0); return; }
-      const style = getComputedStyle(logRef.current ?? field);
-      const appliedDrop = parseFloat(style.getPropertyValue("--head-drop")) || 0;
-      const label = document.querySelector<HTMLElement>(".rail-sec-title");
-      const head = streamRef.current?.querySelector<HTMLElement>(".orc-intro-h");
-      /* Text on text: the heading's glyph box, not its line box, meets the
-         label's, so both are offset by their half-leading. */
-      const glyphTop = (el: HTMLElement) => {
-        const c = getComputedStyle(el);
-        return restingTop(el) + (parseFloat(c.lineHeight) - parseFloat(c.fontSize)) / 2;
-      };
-      const drop = label && head ? Math.round(glyphTop(label) - (glyphTop(head) - appliedDrop)) : 0;
-      /* Never pulled up past the column's own top padding. */
-      const nextDrop = Math.max(-24, drop);
-      setHeadDrop((cur) => (Math.abs(nextDrop - cur) > 1 ? nextDrop : cur));
-      /* Idempotent: the push currently IN THE DOM is subtracted to get the
-         field's unpushed position, and the push is set to the exact target.
-         Adding a delta to the state instead double-counted whenever two
-         measurements ran before a re-render (the observer's first callback
-         and this effect), and the composer overshot by the whole gap. */
-      const applied = parseFloat(style.getPropertyValue("--land-push")) || 0;
-      const fieldRest = restingBottom(field) - applied - appliedDrop + nextDrop;
-      const target = Math.max(0, Math.round(restingBottom(cfg) - fieldRest));
-      setLandPush((cur) => (Math.abs(target - cur) > 1 ? target : cur));
+      const page = rootRef.current;
+      const cfg = document.querySelector<HTMLElement>(".orc-rail .rail-config");
+      if (!page || !cfg) { setConfigTop(null); return; }
+      const top = cfg.getBoundingClientRect().top - shift(cfg) - page.getBoundingClientRect().top;
+      const next = Math.max(0, Math.round(top));
+      setConfigTop((cur) => (cur !== null && Math.abs(cur - next) <= 1 ? cur : next));
     };
     measure();
     const ro = new ResizeObserver(measure);
-    const cfg = document.querySelector(".rail-config");
-    if (cfg) ro.observe(cfg);
-    if (streamRef.current) ro.observe(streamRef.current);
+    const rail = document.querySelector<HTMLElement>(".orc-rail");
+    if (rail) {
+      ro.observe(rail);
+      rail.querySelectorAll(":scope > section").forEach((el) => ro.observe(el));
+    }
+    if (rootRef.current) ro.observe(rootRef.current);
+    const mo = rail ? new MutationObserver(() => { measure(); rail.querySelectorAll(":scope > section").forEach((el) => ro.observe(el)); }) : null;
+    if (rail) mo?.observe(rail, { childList: true });
     window.addEventListener("resize", measure);
     document.fonts?.ready.then(measure).catch(() => {});
+    /* The panels' entrance is a short rise: once more when it has ended. */
+    const settle = window.setTimeout(measure, 700);
     return () => {
       ro.disconnect();
+      mo?.disconnect();
       window.removeEventListener("resize", measure);
+      window.clearTimeout(settle);
     };
   }, [started, mode]);
 
@@ -685,31 +1269,57 @@ export function Agent({
      removed on the same tick it finishes animating. */
   useEffect(() => {
     if (!exiting) return;
-    const id = window.setTimeout(() => setExiting(false), 780);
+    const id = window.setTimeout(() => setExiting(false), 320);
     return () => window.clearTimeout(id);
   }, [exiting]);
 
-  /* ── KEEP THE NEWEST TURN IN VIEW ──
-     This scrolled the WINDOW, on the reasoning that the page was the scroller
-     and the stream's own overflow was a phantom. Both halves stopped being
-     true: the shell is viewport-locked now, so the window does not scroll at
-     all, and the transcript is a real scrollport with the composer docked
-     beneath it. Scrolling the window was therefore a no-op and the newest
-     reply stayed off the bottom of the log.
+  /* ── A NEW TURN IS FOLLOWED ONCE ──
+     Keyed on the NUMBER of turns, not on `turns`: the array is replaced on
+     every stage tick, and following on each of those is what kept dragging
+     a reader who had scrolled up back to the bottom. Sending is the one
+     moment the reader has asked to see the end, so it re-pins.
 
-     `scrollHeight` on the log, not `scrollIntoView` on the turn: the log's
-     top is masked, and scrolling an element into view can land it under that
-     fade. The bottom is unmasked precisely because it is where the newest
-     thing lives. */
-  useEffect(() => {
-    if (turns.length === 0) return;
+     A thread restored from the session lands at its end with no glide. */
+  const turnCount = shown.length;
+  const seenCount = useRef(-1);
+  useLayoutEffect(() => {
     const log = logRef.current;
-    if (!log) return;
-    log.scrollTo({ top: log.scrollHeight, behavior: "smooth" });
+    const first = seenCount.current < 0;
+    seenCount.current = turnCount;
+    if (!log || turnCount === 0) return;
+    if (first) { log.scrollTop = log.scrollHeight; lastTop.current = log.scrollTop; return; }
+    pinned.current = true;
     nudge();
-  }, [turns, nudge]);
+  }, [turnCount, nudge]);
 
   const contextFor = mode === "sourcing" ? SOURCING_CONTEXT : [];
+
+  /* Leaves the conversation for a blank one. Resuming is the default, so this is the one way
+     back to the landing: it clears the thread, what was decided in it, and the open panels. */
+  const startNew = () => {
+    setActiveBrief(null);
+    clearThread();
+    setTurns([]);
+    /* A draft left in the composer belongs to the chat that was left: it is not carried into the next message.
+       That is the words, the files, and the job description and filters that were set for it. */
+    draftApi.current.set("");
+    setNextJd(null);
+    setNextFilters({});
+    setJdOpen(false);
+    setLiveFiltersOpen(false);
+    /* A new chat is not about the campaign the last one was: its slots start empty. */
+    onNewChat?.();
+    if (LIVE) {
+      newChat();
+      clearSets();
+      decidedFor.current.clear();
+      setVerdicts({});
+    }
+    setMatchesOpen(false);
+    setProfile(null);
+    setVisit(nextVisit());
+    areaRef.current?.focus();
+  };
 
 
 
@@ -721,12 +1331,30 @@ export function Agent({
   useEffect(() => {
     if (handoff === null) return;
     seed(handoff);
+    /* An explicit "ask the agent" goes out at once: the composer commits the
+       seeded text on its own render, so send on the next frame. */
+    if (handoffSend) requestAnimationFrame(() => sendNow.current());
     onHandoffTaken();
+    // `send` is read through a ref so a new identity does not re-run this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [handoff, onHandoffTaken, seed]);
 
   return (
     <ConnectorsProvider>
-    <div className="orc">
+    {/* One layout for every kind of turn. The form flow used to switch the
+        page to a different grid (`is-guided`) while it was the last turn,
+        so the column changed width and the composer changed position each
+        time a turn of another kind followed it. */}
+    <div
+      className={orcClass(started)}
+      ref={rootRef}
+      style={configTop !== null ? { ["--config-top" as string]: `${configTop}px` } : undefined}
+    >
+      {dragging && (
+        <div className="orc-drop" aria-hidden="true">
+          <div className="orc-drop-in">Drop to attach<small>PDF, Word, text or an image, up to 10 MB</small></div>
+        </div>
+      )}
       <div className="orc-main">
 
         {/* ── TWO STATES, AND THE CLASS SAYS WHICH ──
@@ -739,24 +1367,20 @@ export function Agent({
           className={`orc-stream${started ? " is-live" : ""}${exiting ? " is-morphing" : ""}`}
           ref={streamRef}
         >
+          {/* The mark, faint, behind the heading and the composer. It takes no room and goes when a message does. */}
+          <span className="orc-wm" aria-hidden="true"><Mark /></span>
           {/* The transcript owns the scroll, not the column: the composer has
               to stay put while the messages move under it. */}
-          {/* The mark, very faint, behind the landing view. It is the brand
-              saying whose surface this is before anything is typed, and it
-              fades out with the heading when a conversation starts. */}
-          {(!started || exiting) && (
-            <span ref={markRef} className={`orc-bgmark${exiting ? " is-out" : ""}`} aria-hidden="true" data-idle="1">
-              <Mark />
-            </span>
-          )}
-          <div className="orc-log" ref={logRef} style={!started ? { ["--land-push" as string]: `${landPush}px`, ["--head-drop" as string]: `${headDrop}px`, minHeight: 0 } : undefined}>
-          {started && turns.map((t) => (
+          <div className="orc-log" ref={logRef}>
+          {started && shown.map((t) => (
             <TurnView
               key={t.id}
               turn={t}
+              restored={LIVE ? t.startedAt < mountedAt.current : restored.has(t.id)}
               flyFrom={flight?.id === t.id ? flight : null}
               onFlown={clearFlight}
               onAnswer={seed}
+              onChoose={sendText}
               sourcingProps={{
                 verdicts,
                 onVerdict,
@@ -770,14 +1394,26 @@ export function Agent({
                 verdicts,
                 onVerdict,
                 openProfile: (cid: string, ids?: readonly string[]) =>
-                  setProfile({ id: cid, ids: ids ?? CANDIDATES.map((c) => c.id) }),
-                openList: () => { setProfile(null); setMatchesOpen(true); },
-                deploy: (role, cid) => deploy(role, campaignName(cid), cid),
+                  setProfile({ id: cid, ids: ids ?? (LIVE ? idsOfSetWith(cid) : CANDIDATES.map((c) => c.id)) }),
+                openList: (cid?: string) => {
+                  setProfile(null);
+                  if (LIVE) setListCampaign(cid ?? campaignIds().at(-1) ?? null);
+                  setMatchesOpen(true);
+                },
+                deploy: (role, cid) => (LIVE ? null : deploy(role, campaignName(cid as CampaignKey), cid as CampaignKey)),
                 undeploy,
                 seed,
+                send: sendText,
                 onGrow: nudge,
                 prefs,
                 setPref,
+                /* The campaign in the sidebar is the one open, whether it was
+                   picked this session or is the console's starting scope: a
+                   form request with no campaign named uses it, and says so
+                   with a Change link. */
+                campaign: { id: campaign.id, name: campaign.name },
+                openForm: onOpenForm,
+                openCampaign: onOpenCampaign,
               }}
             />
           ))}
@@ -811,16 +1447,6 @@ export function Agent({
                       that is the only honest place to put a colour break. */}
                   Superhyre <span className="orc-intro-mark">Agent</span>
                 </h1>
-                {/* Ideas to start from, ABOVE the composer: they are what you
-                    read before you write, and placing them here also rests
-                    the composer lower on the landing page. They leave with
-                    the heading when a brief is sent. */}
-                <Recs
-                  mode={mode}
-                  onPick={seedTyped}
-                  onPreview={setPreview}
-                  disabled={exiting}
-                />
               </div>
             )}
           </div>
@@ -831,53 +1457,95 @@ export function Agent({
             mode={mode}
             onMode={setMode}
             context={contextFor}
-            jd={jd}
-            filterCount={activeCount(filters)}
+            jd={LIVE ? slots.jd : jd}
+            filterCount={LIVE ? slots.filters : activeCount(filters)}
+            {...(LIVE && focused ? { campaignName: campaign.name } : {})}
+            {...(LIVE && !focused
+              ? {
+                  brief: {
+                    onClearJd: () => setNextJd(null),
+                    filtersLine: filtersLine(nextFilters),
+                    onClearFilters: () => setNextFilters({}),
+                  },
+                }
+              : {})}
             onOpenJd={() => setJdOpen(true)}
-            onOpenFilters={openFilters}
+            onOpenFilters={LIVE ? openLiveFilters : openFilters}
             onSend={send}
             sendRef={sendRef}
             areaRef={areaRef}
             rootRef={composerRef}
             sending={flight !== null}
             preview={preview}
-            onIdle={onIdle}
+            below={
+              /* The ideas and the search of past chats, under the field: part of the composer's own block, so
+                 it docks with it. Connected they are three full sentences, one under the other; they step
+                 aside while a brief is written (the composer shows what it says instead) and in a long chat. */
+              LIVE
+                ? !started
+                  ? (
+                    <IdeaList
+                      focusName={focused ? campaign.name : null}
+                      onPick={seedTyped}
+                      onAsk={(p) => sendText(p)}
+                      onPreview={setPreview}
+                      onFind={openFind}
+                    />
+                  )
+                  : null
+                : <IdeaChips mode={mode} visit={visit} onPick={seedTyped} onPreview={setPreview} onFind={openFind} />
+            }
           />
 
-
+          {/* Stacked under 1100px the history panel, where New lives beside the page, is a
+              screen below the conversation. This puts the way to a fresh chat where the
+              conversation is. Hidden by CSS wherever the rail sits beside it. */}
+          {LIVE && started && (
+            <button type="button" className="rail-new orc-newchat" onClick={startNew}>
+              <Plus size={12} weight="bold" aria-hidden="true" />
+              New chat
+            </button>
+          )}
         </div>
       </div>
 
-      {/* ── THE FEED IS A BAND ACROSS THE FOOT OF THE PAGE ──
-          It sat inside the heading block of the left column, which framed it
-          as a feature of the conversation. It is not: it reports on work
-          running across every campaign, so it belongs under BOTH columns
-          rather than beside one.
-
-          As a row of the page grid it spans the full width and inherits the
-          page's own side margins — which is what "full width with spacing
-          from the ends" means here. The band is not wider than the page; it
-          is exactly as wide as the page, which nothing else on this screen
-          is. */}
-      <Campaigns
-        scope="all"
-        onOpenBrief={seed}
-        deployed={deployed}
-        onDeploy={deploy}
-        reserve={started}
-      />
-
       <Rail
         campaign={campaign}
-        activeBriefId={activeBrief}
-        onNewBrief={() => {
-          setActiveBrief(null);
-          setTurns([]);
-          setMatchesOpen(false);
-          setProfile(null);
-          areaRef.current?.focus();
-        }}
+        agents={
+          /* The agents this session deployed live in the rail, beside the
+             conversation that started them. They used to be a band across
+             the foot of the page, which took 269px from both columns, pushed
+             the rail's last panel under it on a laptop screen, and arrived
+             seconds after a send, moving the composer when it did. */
+          LIVE ? <WatchList /> : <Campaigns scope="all" onOpenBrief={seed} deployed={deployed} onDeploy={deploy} />
+        }
+        {...(LIVE
+          ? {
+              briefs: railChats ?? [],
+              history: railChats ? "ready" : chatsFailed ? "failed" : "loading",
+              onRetryHistory: () => setChatsAsk((n) => n + 1),
+              onRenameBrief: (id: string, title: string) =>
+                api("PATCH", `/v1/conversations/${id}`, { title }).then(() => setChatsAsk((n) => n + 1)),
+              onArchiveBrief: archiveChat,
+            }
+          : {})}
+        {...(LIVE
+          ? {
+              stats: week,
+              statsState: weekState,
+              onRetryStats: () => { setWeekState("loading"); setWeekAsk((n) => n + 1); },
+              canStartNew: started,
+              ...(config ? { config } : {}),
+            }
+          : {})}
+        activeBriefId={LIVE ? live.conversationId : activeBrief}
+        findAsk={findAsk}
+        onNewBrief={startNew}
         onPickBrief={(id) => {
+          if (LIVE) {
+            void openChat(id);
+            return;
+          }
           setActiveBrief(id);
           /* Seeds the brief's title rather than pretending to load a
              transcript that was never stored. */
@@ -889,20 +1557,56 @@ export function Agent({
         }}
       />
 
-      <JdDialog
-        open={jdOpen}
-        onClose={() => setJdOpen(false)}
-        current={jd}
-        onApply={setJd}
-        onRemove={() => setJd(null)}
-      />
-      <FiltersDialog
-        open={filtersOpen !== null}
-        onClose={() => setFiltersOpen(null)}
-        initial={filtersOpen?.initial ?? EMPTY}
-        prefilled={filtersOpen?.prefilled ?? []}
-        onApply={setFilters}
-      />
+      {LIVE ? (
+        <>
+          <JdDialog
+            open={jdOpen}
+            onClose={() => setJdOpen(false)}
+            current={focused ? liveJd : nextJd}
+            onApply={focused ? sendJd : setNextJd}
+            {...(!focused && nextJd ? { onRemove: () => setNextJd(null) } : {})}
+            read={readJdFile}
+            viewOnly={focused && !mayChange}
+            lead={focused
+              ? (liveJd
+                ? "Choose another and the agent reads it again, drafts the role spec and searches."
+                : "The agent reads it, drafts the role spec and starts finding people.")
+              : "It goes with your next message, and the agent starts a campaign from it."}
+          />
+          <FiltersDialog
+            open={liveFiltersOpen}
+            onClose={() => setLiveFiltersOpen(false)}
+            initial={liveFiltersInit.initial}
+            prefilled={liveFiltersInit.prefilled}
+            onApply={focused
+              ? saveFilters
+              : (values: Values) => {
+                  setNextFilters(Object.fromEntries(Object.entries(values).filter(([id, v]) => activeCount({ [id]: v }) > 0)));
+                }}
+            live
+            readOnly={focused && !mayChange}
+            focus={filtersFocus}
+            {...(focused ? {} : { lead: "For the campaign you start next: they go with your next message and are saved on it." })}
+          />
+        </>
+      ) : (
+        <>
+          <JdDialog
+            open={jdOpen}
+            onClose={() => setJdOpen(false)}
+            current={jd}
+            onApply={setJd}
+            onRemove={() => setJd(null)}
+          />
+          <FiltersDialog
+            open={filtersOpen !== null}
+            onClose={() => setFiltersOpen(null)}
+            initial={filtersOpen?.initial ?? EMPTY}
+            prefilled={filtersOpen?.prefilled ?? []}
+            onApply={setFilters}
+          />
+        </>
+      )}
 
       <RankedMatches
         open={matchesOpen}
@@ -911,10 +1615,16 @@ export function Agent({
         onVerdict={onVerdict}
         activeId={profile?.id ?? null}
         onOpen={(id, ids) => setProfile({ id, ids })}
+        {...(LIVE ? { set: liveSet } : {})}
+      />
+      <PassReasonDialog
+        who={passing ? (candidateById(passing)?.name.split(" ")[0] ?? "them") : null}
+        onClose={() => setPassing(null)}
+        onPass={passWith}
       />
 
       <ProfileSidebar
-        candidate={profile ? CANDIDATES.find((c) => c.id === profile.id) ?? null : null}
+        candidate={profile ? (LIVE ? candidateById(profile.id) : CANDIDATES.find((c) => c.id === profile.id)) ?? null : null}
         onClose={() => setProfile(null)}
         {...(() => {
           if (!profile) return {};
@@ -928,6 +1638,11 @@ export function Agent({
         verdict={profile ? verdicts[profile.id] : undefined}
         onVerdict={onVerdict}
         scrim={!matchesOpen}
+        canDecide={!LIVE || !profile || setOfCandidate(profile.id)?.campaignId != null}
+        {...(() => {
+          const set = LIVE && profile ? setOfCandidate(profile.id) : null;
+          return set ? { criteria: { text: set.criteria.map((c) => c.text), short: set.criteria.map((c) => c.short) } } : {};
+        })()}
       />
     </div>
     </ConnectorsProvider>
@@ -937,13 +1652,17 @@ export function Agent({
 /* ── a turn ──────────────────────────────────────────────────────────────── */
 
 function TurnView({
-  turn, flyFrom, onFlown, onAnswer, sourcingProps, momentCtx,
+  turn, restored = false, flyFrom, onFlown, onAnswer, onChoose, sourcingProps, momentCtx,
 }: {
   turn: Turn;
+  /** Came back from an earlier visit: shown as it was left, not replayed. */
+  restored?: boolean;
   flyFrom: { x: number; y: number } | null;
   onFlown: () => void;
   /** A clarifying question's options seed the composer; they never act. */
   onAnswer: (text: string) => void;
+  /** A press on one of the agent's own choices (which client, which campaign) sends it. */
+  onChoose?: (text: string) => void;
   sourcingProps: Omit<React.ComponentProps<typeof SourcingRun>, "onBusy">;
   /** Everything a Moment may do, minus its own busy flag. */
   momentCtx: Omit<MomentCtx, "onBusy">;
@@ -953,7 +1672,10 @@ function TurnView({
      phases, idle while it waits for Run search, then working again. */
   const selfRun = turn.kind !== "reply";
   const [busy, setBusy] = useState(selfRun);
-  const running = selfRun ? busy : turn.stage >= 0;
+  const liveTurn = useLiveChat().turns.find((t) => t.key === turn.liveKey);
+  const running = liveTurn
+    ? liveTurn.status === "sending" || liveTurn.status === "working"
+    : selfRun ? busy : turn.stage >= 0;
   /* Built once per turn, so the moment's effects that depend on the context
      do not re-run on every Agent render. The functions inside are stable
      callbacks; the verdicts read through a ref so shortlisting elsewhere
@@ -965,16 +1687,25 @@ function TurnView({
     get verdicts() { return ctxRef.current.verdicts; },
     onVerdict: (id, v) => ctxRef.current.onVerdict(id, v),
     openProfile: (id, ids) => ctxRef.current.openProfile(id, ids),
-    openList: () => ctxRef.current.openList(),
+    openList: (cid) => ctxRef.current.openList(cid),
     deploy: (role, cid) => ctxRef.current.deploy(role, cid),
     undeploy: (key) => ctxRef.current.undeploy(key),
     seed: (text) => ctxRef.current.seed(text),
+    send: (text, cid) => {
+      const act = ctxRef.current.send;
+      if (act) act(text, cid);
+      else ctxRef.current.seed(text);
+    },
     onGrow: () => ctxRef.current.onGrow(),
     get prefs() { return ctxRef.current.prefs; },
     setPref: (k, v) => ctxRef.current.setPref(k, v),
+    get campaign() { return ctxRef.current.campaign; },
+    openForm: (c, f, v) => ctxRef.current.openForm?.(c, f, v),
+    openCampaign: (id) => ctxRef.current.openCampaign?.(id),
     onBusy: setBusy,
   }), []);
   const mark = useRef<HTMLSpanElement>(null);
+  const turnInfo = useMemo(() => ({ id: turn.id, restored }), [turn.id, restored]);
 
   /* ── THE FOCAL MOMENT, as a FLIP ──
      The mark's final position is its ordinary layout position in this turn.
@@ -1036,43 +1767,30 @@ function TurnView({
   return (
     <article className="orc-turn">
       <Prompt text={turn.said} />
+      <FormLinkChips text={turn.said} />
 
       <div className="orc-answer">
-        {/* The mark, which is the agent. It stays STILL while the brief runs;
-            a ring sweeps around it instead.
-
-            It used to rotate in stepped thirds. Spinning a logo is the
-            cheapest possible loader and it fights what a logo is for — an
-            identity that tumbles reads as a throbber rather than a presence.
-            The motion moved to a ring outside it: an arc whose dash length
-            compresses and expands as it travels, so the orbit has a pulse
-            instead of being a uniform circle going round. The mark sits
-            inside it unmoved, and is still the same element that flew in from
-            the send button. */}
+        {/* The mark, which is the agent. It stays still: what the turn is doing is said, line by line, beside it,
+            and that is where the loader is. It is the same element that flew in from the send button. */}
         <span ref={mark} className={`orc-mark${running ? " is-working" : ""}`} aria-hidden="true">
-          {running && (
-            <svg className="orc-orbit" viewBox="0 0 32 32">
-              {/* pathLength normalises the circumference so the dash values
-                  are percentages independent of r. A calc() resolving to a
-                  bare number is invalid for stroke-dasharray and fails
-                  silently — the same trap documented at .glow-ring. */}
-              <circle cx="16" cy="16" r="14" pathLength={100} />
-            </svg>
-          )}
           <Mark />
         </span>
 
         <div className="orc-answer-body">
-          {turn.kind === "sourcing" ? (
+          {liveTurn ? (
+            <LiveMomentProvider value={ctx}>
+              <LiveTurnBody turn={liveTurn} onAnswer={onAnswer} {...(onChoose ? { onChoose } : {})} />
+            </LiveMomentProvider>
+          ) : turn.kind === "sourcing" ? (
             <SourcingRun {...sourcingProps} onBusy={setBusy} />
           ) : turn.kind !== "reply" ? (
-            <Moment kind={turn.kind} ctx={ctx} />
+            <TurnContext.Provider value={turnInfo}>
+              <Moment kind={turn.kind} ctx={ctx} />
+            </TurnContext.Provider>
           ) : running ? (
             <p className="orc-stage" aria-live="polite">
+              <Loader size="sm" />
               {stages[turn.stage]}
-              <span className="orc-stage-dots" aria-hidden="true">
-                <i /><i /><i />
-              </span>
             </p>
           ) : (
             <Reply
@@ -1112,32 +1830,52 @@ function Mark() {
  * The field's resting height, in lines of its own leading.
  *
  * `LINE_H` mirrors `.orc-input`'s computed `line-height` (14.5px type at 1.5).
- * Stated as two numbers rather than one so the intent — THREE LINES — survives
+ * Stated as two numbers rather than one so the intent — TWO LINES — survives
  * a change to the type size, and so the mismatch is visible if the CSS moves.
+ *
+ * It was three, which made the composer the largest thing on the landing; two
+ * say "write a sentence" and it grows with the text, up to MAX_LINES.
  */
-const REST_LINES = 3;
+const REST_LINES = 2;
 const LINE_H = 22;
+/** The most lines the field grows to before it scrolls: a brief longer than this is read in the field, not in the layout. */
+const MAX_LINES = 6;
+
+/** What the page can ask of the composer: the draft as it will be sent, setting it, and what was dropped or pasted. */
+type ComposerHandle = {
+  get: () => string;
+  set: (t: string) => void;
+  attach?: (files: File[]) => void;
+  paste?: (out: PasteOutcome) => void;
+};
 
 function Composer({
   api, mode, onMode, context, jd, filterCount, onOpenJd, onOpenFilters, onSend,
-  sendRef, areaRef, rootRef, sending, started, preview, onIdle,
+  sendRef, areaRef, rootRef, sending, started, preview, below, campaignName, brief,
 }: {
-  /** True while the field is empty and nothing is being previewed. */
-  onIdle?: (idle: boolean) => void;
+  /** The campaign in focus, which a job description and the filters act on at once. Absent: they wait for the next message. */
+  campaignName?: string;
+  /**
+   * With no campaign in focus: what is set for the NEXT message. The job description is attached to it, and the
+   * filters go with it as one short line. Both show as chips in the composer, to take off.
+   */
+  brief?: { onClearJd: () => void; filtersLine: string | null; onClearFilters: () => void };
+  /** What sits under the field and travels with it: the ideas and the search of past chats. */
+  below?: React.ReactNode;
   /** An idea being hovered, shown as ghost text while the field is empty. */
   preview: string | null;
   /** True once a brief has been sent; the field then rests at one line. */
   started: boolean;
   /** How the page reads and sets the draft without owning it. */
-  api: React.MutableRefObject<{ get: () => string; set: (t: string) => void }>;
+  api: React.MutableRefObject<ComposerHandle>;
   mode: ModeId;
   onMode: (m: ModeId) => void;
   context: readonly { id: string; label: string; Icon: typeof ArrowUp; hint: string }[];
   jd: Jd | null;
   filterCount: number;
   onOpenJd: () => void;
-  /** Opens the filters, pre-filled from what the draft already says. */
-  onOpenFilters: (draft: string) => void;
+  /** Opens the filters, pre-filled from what the draft already says; `category` scrolls the dialog to that group. */
+  onOpenFilters: (draft: string, category?: string) => void;
   onSend: () => void;
   /* Non-nullable element type: `useRef<HTMLButtonElement>(null)` yields
      `RefObject<HTMLButtonElement>`, and React 18's LegacyRef will not accept
@@ -1159,10 +1897,81 @@ function Composer({
   /* The page's handle on the draft. `get` reads a ref so it is never stale. */
   const draftNow = useRef(draft);
   draftNow.current = draft;
-  api.current = { get: () => draftNow.current, set: setDraft };
 
-  const idle = !draft && !preview;
-  useEffect(() => { onIdle?.(idle); }, [idle, onIdle]);
+  /* ── FILES AND LONG TEXT ──
+     Dropped, pasted or picked, each is a chip with its name and size, read on the server (PDF, Word, text,
+     images) and sent as the content of the message. A long paste becomes a chip too, "Pasted text, N words",
+     rather than filling the field. A path that came through as text is not put in the box. */
+  const [atts, setAtts] = useState<Attachment[]>([]);
+  const attsNow = useRef(atts);
+  attsNow.current = atts;
+  const [note, setNote] = useState<{ text: string; picker: boolean } | null>(null);
+  const [viewing, setViewing] = useState<string | null>(null);
+  const picker = useRef<HTMLInputElement>(null);
+  const uid = useRef(0);
+
+  const fresh = () => `a${Date.now().toString(36)}${(uid.current += 1)}`;
+  const addFiles = (files: File[]) => {
+    if (!LIVE || !files.length) return;
+    setNote(null);
+    let room = MAX_ATTACHMENTS - attsNow.current.length;
+    const refused: string[] = [];
+    for (const f of files) {
+      const why = fileRefusal(f);
+      if (why) { refused.push(why); continue; }
+      if (room <= 0) { refused.push(`Up to ${MAX_ATTACHMENTS} files go in one message.`); break; }
+      room -= 1;
+      const id = fresh();
+      const name = f.name || "Pasted image";
+      setAtts((a) => [...a, { id, name, origin: "file", size: f.size, status: "reading", text: "" }]);
+      attachmentApi.read(f, typeOf(f)).then(
+        (r) => setAtts((a) => a.map((x) => (x.id === id ? { ...x, status: "ready", text: r.text, docKind: r.kind, ...(r.truncated ? { note: "Only the start fits in a message." } : {}) } : x))),
+        (err: unknown) => setAtts((a) => a.map((x) => (x.id === id ? { ...x, status: "failed", note: messageOf(err) } : x))),
+      );
+    }
+    if (refused.length) setNote({ text: refused[0] ?? "", picker: false });
+  };
+  const addPasted = (text: string) => {
+    setNote(null);
+    if (attsNow.current.length >= MAX_ATTACHMENTS) { setNote({ text: `Up to ${MAX_ATTACHMENTS} files go in one message.`, picker: false }); return; }
+    setAtts((a) => [...a, { id: fresh(), name: "Pasted text", origin: "pasted", size: text.length, status: "ready", text }]);
+  };
+  const takePaste = (out: PasteOutcome) => {
+    if (out.kind === "files") addFiles(out.files);
+    else if (out.kind === "path") setNote({ text: PATH_NOTE, picker: true });
+    else if (out.kind === "long") addPasted(out.text);
+  };
+  const dropAtt = (id: string) => {
+    if (id === "next-jd") { brief?.onClearJd(); return; }
+    setAtts((a) => a.filter((x) => x.id !== id));
+    setViewing((v) => (v === id ? null : v));
+  };
+
+  /* With no campaign in focus, the job description set from its dialog is one more attachment, and the filters
+     are a line at the end of the message; both are consumed by the send. */
+  const nextJd: Attachment | null = !campaignName && jd
+    ? { id: "next-jd", name: jd.name, label: `Job description: ${jd.name}`, origin: "file", size: jd.text.length, status: "ready", text: jd.text, docKind: "job_description" }
+    : null;
+  const items = nextJd ? [nextJd, ...atts] : atts;
+  const itemsNow = useRef(items);
+  itemsNow.current = items;
+  const compose = (typed: string, list: readonly Attachment[]) =>
+    composeMessage(typed, list, campaignName
+      ? { campaignName }
+      : { newCampaign: true, tail: brief?.filtersLine ?? null });
+  const composed = compose(draft, items);
+  /* What is sent is what is typed and what was attached, as one message; clearing the field clears the files. */
+  api.current = {
+    get: () => compose(draftNow.current, itemsNow.current).text,
+    set: (t: string) => {
+      setDraft(t);
+      if (!t) { setAtts([]); setNote(null); }
+    },
+    attach: addFiles,
+    paste: takePaste,
+  };
+  const reading = atts.some((a) => a.status === "reading");
+  const withText = items.filter((a) => a.status === "ready").length;
 
   /* The mirror does not scroll itself — it sits behind a textarea that does,
      so it has to be moved by the same amount or the underlines drift off the
@@ -1184,9 +1993,9 @@ function Composer({
 
      ── AND IT HAS A FLOOR, SET HERE RATHER THAN IN CSS ──
      `rows={1}` left the field 22px tall at rest, which made the composer read
-     as a search box rather than as somewhere you write a brief — and a brief
-     is several lines, so the resting size should say so. The floor is three
-     lines of the field's own 21.75px leading, rounded up.
+     as a search box rather than as somewhere you write a brief, so the
+     resting size should say so. The floor is REST_LINES lines of the field's
+     own 21.75px leading, rounded up.
 
      It lives in this expression and not as a CSS `min-height` because this
      effect writes `style.height` directly: two owners for one dimension is how
@@ -1211,13 +2020,13 @@ function Composer({
 
     el.style.height = "auto";
     /* ── THE FLOOR MOVES WITH THE STATE, THE CEILING DOES NOT ──
-       Three lines at rest, because a brief is several lines and the field
+       Two lines at rest, because a brief is more than a word and the field
        should say so before one is written. One line once a transcript exists:
        the conversation is the subject then and the field is the instrument,
        so it gives the room back. Either way the autosize still grows it the
        moment the draft needs more. */
     const floor = (started ? 1 : REST_LINES) * LINE_H;
-    const target = Math.max(floor, Math.min(el.scrollHeight, 168));
+    const target = Math.max(floor, Math.min(el.scrollHeight, MAX_LINES * LINE_H));
     el.style.height = `${target}px`;
 
     /* ── THE HEIGHT IS SET HERE, BUT NO LONGER ANIMATED HERE ──
@@ -1236,17 +2045,40 @@ function Composer({
        the textarea the right size for its text. */
   }, [draft, areaRef, started]);
 
-  const ready = draft.trim().length > 0;
+  const size = chatLength(draft);
+  /* Connected, the agent takes a message of this length at most. Past it Send is off, and the count
+     shows only once the end is near so it is not a number to watch while writing a normal one. */
+  const over = LIVE && chatOver(draft);
+  const near = LIVE && size >= CHAT_LIMIT * 0.85;
+  const ready = (size > 0 || withText > 0) && !over && !reading;
+  const filterChip = !campaignName && brief?.filtersLine && filterCount > 0
+    ? { count: filterCount, onOpen: () => onOpenFilters(draft), onRemove: brief.onClearFilters }
+    : undefined;
+  const hasAttached = items.length > 0 || !!filterChip;
+  /* What the brief says so far, from the words and from the files, shown instead of the ideas while there is any. */
+  const sayingSomething = draft.trim().length > 0 || items.some((a) => a.status === "ready");
 
   return (
+    <>
     <div className="orc-composer" ref={rootRef}>
-      <div className="orc-composer-field">
+      <div className={`orc-composer-field${hasAttached ? " has-attached" : ""}`} data-tour="composer">
         {/* The travelling ring. §4.4: this belongs to the CLASS "a field you
             are about to type into", so quick find, the switcher's search and
             this all light the same way. The CSS trigger existed for a while
             before this line did, which is a reminder that a selector matching
             nothing fails silently. */}
         <BorderGlow />
+        {/* What is attached is inside the box, at its top: the box grows to hold it, and its top (the line the
+            rail ends on) moves with it. */}
+        {hasAttached && (
+          <AttachChips
+            items={items}
+            cut={composed.cut}
+            onView={setViewing}
+            onRemove={dropAtt}
+            filters={filterChip}
+          />
+        )}
         {/* ── THE BRIEF SHOWS ITS OWN STRUCTURE ──
             A mirror of the textarea's text, sitting directly behind it, with
             the spans `brief.read` RECOGNISED underlined in their facet's
@@ -1294,7 +2126,10 @@ function Composer({
           spellCheck={false}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder={preview && !draft ? preview : started
+          placeholder={preview && !draft ? preview : LIVE
+            /* Connected there is one wording: the agent is briefed in words, whatever the state. */
+            ? "Brief the agent…"
+            : started
             /* Docked, the field shares its line with five controls; the long
                prompt wrapped to two lines and made the bar taller. */
             ? (mode === "sourcing" ? "Brief the agent…" : "Ask the agent…")
@@ -1305,16 +2140,27 @@ function Composer({
           onKeyDown={(e) => {
             /* Enter sends, Shift-Enter breaks the line. The convention every
                composer uses, and the one people try first. */
-            if (e.key === "Enter" && !e.shiftKey) {
+            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
               e.preventDefault();
-              onSend();
+              if (!over && !reading) onSend();
             }
+          }}
+          onPaste={(e) => {
+            if (!LIVE) return;
+            const out = readClipboard(e.clipboardData);
+            if (out.kind === "text") return;
+            e.preventDefault();
+            takePaste(out);
           }}
         />
         </div>
 
         <div className="orc-composer-row">
-          <div className="orc-modes" role="radiogroup" aria-label="Mode">
+          {/* The job description by name and the filters by count: the same controls the prototype's
+              composer has, connected. The description goes to the campaign in focus (or starts the next
+              one) and the filters are the campaign's own, read by its next search. There is no mode
+              connected: the agent is briefed in words. */}
+          {!LIVE && <div className="orc-modes" role="radiogroup" aria-label="Mode">
             {MODES.map((m) => (
               <button
                 key={m.id}
@@ -1328,7 +2174,7 @@ function Composer({
                 <span className="orc-chip-l">{m.label}</span>
               </button>
             ))}
-          </div>
+          </div>}
 
           {/* Sourcing-only. The slots are not decoration — they are the two
               things that change what a sourcing run returns, so they sit on the
@@ -1337,27 +2183,29 @@ function Composer({
               Each opens its own dialog and, once set, says so in place: the
               JD by name, the filters by count. Docked, they shrink to their
               icons with the count as a badge. */}
-          {context.length > 0 && (
+          {(LIVE || context.length > 0) && (
             <div className="orc-slots">
               <button
                 type="button"
                 className={`orc-gslot orc-ctx${jd ? " is-on" : ""}`}
+                data-tour="jd-slot"
                 title={jd ? `Job description: ${jd.name}` : "Attach a job description"}
                 onClick={onOpenJd}
               >
                 <span className="orc-ctx-ico" aria-hidden="true">
                   {jd ? <Check size={12} weight="bold" /> : <FileText size={14} weight="bold" />}
                 </span>
-                <span className="orc-chip-l">{jd ? "JD attached" : "Job description"}</span>
+                <span className="orc-chip-l orc-chip-name">{jd ? (LIVE ? jd.name : "JD attached") : "Job description"}</span>
               </button>
               <button
                 type="button"
                 className={`orc-gslot orc-ctx${filterCount ? " is-on" : ""}`}
+                data-tour="filters-slot"
                 title={filterCount ? `${filterCount} filters set` : "Set filters"}
                 onClick={() => onOpenFilters(draft)}
               >
-                <span className="orc-ctx-ico" aria-hidden="true"><FunnelSimple size={14} weight="bold" /></span>
-                <span className="orc-chip-l">{filterCount ? "Filters" : "Set filters"}</span>
+                <span className="orc-ctx-ico" aria-hidden="true">{LIVE ? <SlidersHorizontal size={14} weight="bold" /> : <FunnelSimple size={14} weight="bold" />}</span>
+                <span className="orc-chip-l">{filterCount ? "Filters" : LIVE ? "Filters" : "Set filters"}</span>
                 {filterCount > 0 && <b className="orc-ctx-n" key={filterCount}>{filterCount}</b>}
               </button>
             </div>
@@ -1376,6 +2224,31 @@ function Composer({
             />
           )}
 
+          {/* The picker is reached from the job description slot and from the note on a pasted path: there is
+              no separate pin. Files can also be dropped on the page or pasted. */}
+          {LIVE && (
+            <input
+              ref={picker}
+              type="file"
+              multiple
+              hidden
+              accept={ATTACH_ACCEPT}
+              onChange={(e) => { addFiles(Array.from(e.target.files ?? [])); e.target.value = ""; }}
+            />
+          )}
+
+          {near && (
+            <span
+              className={`orc-count t-caption${over ? " is-over" : ""}`}
+              title={`${size.toLocaleString("en-IN")} of ${CHAT_LIMIT.toLocaleString("en-IN")} characters`}
+              aria-live="polite"
+            >
+              {over
+                ? <>{(size - CHAT_LIMIT).toLocaleString("en-IN")} too long<span className="sr-only">: the most is {CHAT_LIMIT.toLocaleString("en-IN")} characters</span></>
+                : `${size.toLocaleString("en-IN")} / ${CHAT_LIMIT.toLocaleString("en-IN")}`}
+            </span>
+          )}
+
           <button
             ref={sendRef}
             type="button"
@@ -1388,6 +2261,44 @@ function Composer({
           </button>
         </div>
       </div>
+
+      {/* Under the input, in a block of its own: the page's grid gives it its own row, so what is here (a note,
+          the ideas, what the brief says) can be as tall as it needs without the rail having to make room. */}
+      <div className="orc-composer-below">
+        {note && (
+          <p className="orc-attach-note" role="status">
+            <span>{note.text}</span>
+            {note.picker && <button type="button" onClick={() => { setNote(null); picker.current?.click(); }}>Choose a file</button>}
+          </p>
+        )}
+
+        {/* While a brief is being written (words, or a file attached) the line under the composer says what
+            of it has been understood; otherwise it holds the ideas. */}
+        {LIVE && sayingSomething
+          ? <BriefSignals text={[draft, ...items.filter((a) => a.status === "ready").map((a) => a.text)].join("\n")} onOpen={(category) => onOpenFilters(draft, category)} />
+          : below}
+      </div>
+
+      {(() => {
+        const open = atts.find((a) => a.id === viewing && a.origin === "pasted");
+        return (
+          <Dialog open={!!open} onClose={() => setViewing(null)} label="Pasted text" size="md">
+            <div className="orc-paste-view">
+              <header><h2 style={{ margin: 0 }}>Pasted text</h2></header>
+              <textarea
+                aria-label="Pasted text"
+                value={open?.text ?? ""}
+                onChange={(e) => { const text = e.target.value; setAtts((a) => a.map((x) => (x.id === viewing ? { ...x, text, size: text.length } : x))); }}
+              />
+              <footer>
+                <button type="button" className="src-btn is-quiet mo-small" onClick={() => viewing && dropAtt(viewing)}>Remove</button>
+                <span className="sp" />
+                <button type="button" className="src-btn is-primary mo-small" onClick={() => setViewing(null)}>Done</button>
+              </footer>
+            </div>
+          </Dialog>
+        );
+      })()}
 
       {/* One line, and only the mode's own description. The stage list used to
           be appended here, which pinned ~80 characters of grey text to the
@@ -1434,6 +2345,7 @@ function Composer({
           used to sit here are gone. */}
 
     </div>
+    </>
   );
 }
 
@@ -1462,7 +2374,7 @@ function TuneMenu({
     return () => { document.removeEventListener("mousedown", away); document.removeEventListener("keydown", esc); };
   }, [open]);
 
-  const Current = MODES.find((m) => m.id === mode)!.Icon;
+  const Current = LIVE ? null : MODES.find((m) => m.id === mode)!.Icon;
 
   return (
     <div className="orc-tune-wrap" ref={wrap}>
@@ -1471,22 +2383,24 @@ function TuneMenu({
         className={`orc-tune${open ? " is-open" : ""}${set ? " is-set" : ""}`}
         aria-haspopup="menu"
         aria-expanded={open}
-        title="Mode, job description and filters"
+        title={LIVE ? "Job description and filters" : "Mode, job description and filters"}
         onClick={() => setOpen((o) => !o)}
       >
-        <Current size={14} weight="bold" aria-hidden="true" />
+        {!LIVE && Current && <Current size={14} weight="bold" aria-hidden="true" />}
         <SlidersHorizontal size={14} weight="bold" aria-hidden="true" />
         {set > 0 && <b className="orc-tune-n" key={set}>{set}</b>}
       </button>
       {open && (
         <div className="orc-tune-pop" role="menu">
-          <div className="orc-tune-modes" role="radiogroup" aria-label="Mode">
-            {MODES.map((m) => (
-              <button key={m.id} type="button" role="radio" aria-checked={mode === m.id} className={`orc-tune-mode${mode === m.id ? " is-on" : ""}`} onClick={() => onMode(m.id)}>
-                <m.Icon size={14} weight={mode === m.id ? "fill" : "regular"} aria-hidden="true" />{m.label}
-              </button>
-            ))}
-          </div>
+          {!LIVE && (
+            <div className="orc-tune-modes" role="radiogroup" aria-label="Mode">
+              {MODES.map((m) => (
+                <button key={m.id} type="button" role="radio" aria-checked={mode === m.id} className={`orc-tune-mode${mode === m.id ? " is-on" : ""}`} onClick={() => onMode(m.id)}>
+                  <m.Icon size={14} weight={mode === m.id ? "fill" : "regular"} aria-hidden="true" />{m.label}
+                </button>
+              ))}
+            </div>
+          )}
           <button type="button" role="menuitem" className="orc-tune-item" onClick={() => { setOpen(false); onOpenJd(); }}>
             <span className="orc-ctx-ico" aria-hidden="true">{jd ? <Check size={12} weight="bold" /> : <FileText size={14} weight="bold" />}</span>
             <span className="orc-tune-l"><b>Job description</b><small>{jd ? jd.name : "Rank against the role as written"}</small></span>

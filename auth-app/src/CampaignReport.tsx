@@ -1,12 +1,14 @@
 import { ArrowRight, Sparkle } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
 import { ServiceMark } from "./connectors";
+import type { CampaignChartData, ChannelRow } from "./liveReports";
 import type { ChannelStat, MomentCtx } from "./moments";
-import { CARRIER, CHANNEL_LABEL, CHANNEL_STATS } from "./moments";
+import { CARRIER, CHANNEL_LABEL, CHANNEL_STATS, act } from "./moments";
 import type { CampaignKey, Scope } from "./orchestrator";
 import { FLEET, SCOPED, campaignName, sourcedFor, stepsFor } from "./orchestrator";
 import { Area, Funnel, Ring, Spark } from "./viz";
 import "./campaign.css";
+import "./liveReports.css";
 
 /**
  * CampaignReport — a campaign in charts, inside the conversation.
@@ -25,6 +27,11 @@ import "./campaign.css";
  */
 
 export function CampaignReport({ scope, ctx }: { scope: Scope; ctx: MomentCtx }) {
+  return <CampaignCharts data={fixtureCharts(scope)} ctx={ctx} />;
+}
+
+/** The demo's fixtures as the charts' data: the same figures, the same sentences. */
+function fixtureCharts(scope: Scope): CampaignChartData {
   const days = sourcedFor(scope);
   const steps = stepsFor(scope);
   const keys: readonly CampaignKey[] = scope === "all" ? SCOPED : [scope];
@@ -38,100 +45,154 @@ export function CampaignReport({ scope, ctx }: { scope: Scope; ctx: MomentCtx })
     { label: "Sourced", n: sourced, sub: `${last7 - prev7 >= 0 ? "+" : ""}${last7 - prev7} vs last week`, up: last7 >= prev7, spark: days.map((d) => d.n) },
     { label: "Contacted", n: n("contacted").n, sub: `${pct(n("contacted").n, sourced)} of sourced` },
     { label: "Replied", n: n("replied").n, sub: `${pct(n("replied").n, n("contacted").n)} reply rate` },
-    { label: "Interviews", n: n("interviews").n, sub: `${pct(n("interviews").n, n("replied").n)} of replies` },
+    { label: "Interviews", n: n("interviews").n, sub: `${pct(n("interviews").n, n("contacted").n)} of people contacted` },
   ];
 
   const best = [...channels].filter((c) => c.sent > 0).sort((a, b) => b.replied / b.sent - a.replied / a.sent)[0]!;
   const email = channels.find((c) => c.channel === "gmail")!;
   const faster = email.medianHours && best.medianHours ? Math.round(email.medianHours / best.medianHours) : 0;
 
+  return {
+    kpis,
+    ...(scope === "all"
+      ? {
+          byCampaign: SCOPED.map((k) => {
+            const d = sourcedFor(k);
+            const s = stepsFor(k);
+            return {
+              id: k,
+              name: campaignName(k),
+              meta: `${FLEET.filter((a) => a.campaignId === k).length} agents`,
+              spark: d.map((x) => x.n),
+              found: d.reduce((a, x) => a + x.n, 0),
+              reply: { value: s.find((x) => x.id === "replied")!.n, max: s.find((x) => x.id === "contacted")!.n },
+            };
+          }),
+        }
+      : {}),
+    series: [{ id: "sourced", label: "Sourced", title: "Sourced per day", note: `last 14 days · ${sourced} total`, noun: "sourced", days }],
+    steps,
+    works: {
+      sub: "reply rate and median time to reply, by channel",
+      stats: channels,
+      find: `${CHANNEL_LABEL[best.channel]} gets the best reply rate at ${pct(best.replied, best.sent)}${faster > 1 ? `, and people answer about ${faster}× faster there than by email` : ""}.`,
+      empty: null,
+      note: null,
+      acts: [
+        { label: `Follow up on ${CHANNEL_LABEL[best.channel]}`, seed: `Reach out again on ${CHANNEL_LABEL[best.channel]} to everyone who hasn't replied`, primary: true },
+        { label: "Find the drop-off", seed: "Where are we losing people?" },
+      ],
+    },
+  };
+}
+
+/**
+ * The charts themselves, from data: the demo hands them its fixtures, a connected console its
+ * campaign's real figures. Nothing in here knows which.
+ */
+export function CampaignCharts({ data, ctx }: { data: CampaignChartData; ctx: MomentCtx }) {
+  const [tab, setTab] = useState(0);
+  const series = data.series[Math.min(tab, data.series.length - 1)];
+  const { works } = data;
+
   return (
     <div className="cr">
       <div className="cr-kpis">
-        {kpis.map((k, i) => (
+        {data.kpis.map((k, i) => (
           <div key={k.label} className="cr-kpi" style={{ animationDelay: `${i * 60}ms` }}>
             <span className="cr-kpi-l">{k.label}</span>
             <Count n={k.n} />
-            <span className={`cr-kpi-s${k.up === false ? " is-down" : k.up ? " is-up" : ""}`}>{k.sub}</span>
+            {k.sub && <span className={`cr-kpi-s${k.up === false ? " is-down" : k.up ? " is-up" : ""}`}>{k.sub}</span>}
             {k.spark && <div className="cr-kpi-spark"><Spark data={k.spark} hue="brand" w={90} h={22} /></div>}
           </div>
         ))}
       </div>
 
-      {scope === "all" && (
+      {data.byCampaign && (
         <section className="cr-card">
           <h4>By campaign</h4>
           <ul className="cr-camps">
-            {SCOPED.map((k) => {
-              const d = sourcedFor(k);
-              const s = stepsFor(k);
-              const c = s.find((x) => x.id === "contacted")!.n;
-              const r = s.find((x) => x.id === "replied")!.n;
-              return (
-                <li key={k}>
-                  <span className="cr-camp-n">
-                    <b>{campaignName(k)}</b>
-                    <span>{FLEET.filter((a) => a.campaignId === k).length} agents</span>
-                  </span>
-                  <Spark data={d.map((x) => x.n)} hue="brand" w={120} h={26} />
-                  <span className="cr-camp-v"><b>{d.reduce((a, x) => a + x.n, 0)}</b> sourced</span>
+            {data.byCampaign.map((c) => (
+              <li key={c.id}>
+                <span className="cr-camp-n">
+                  <b>{c.name}</b>
+                  <span>{c.meta}</span>
+                </span>
+                {c.spark.some((v) => v > 0) && <Spark data={c.spark} hue="brand" w={120} h={26} />}
+                <span className="cr-camp-v"><b>{c.found}</b> {data.foundWord ?? "sourced"}</span>
+                {c.reply ? (
                   <span className="cr-camp-ring">
-                    <Ring value={r} max={c} hue="sage" size={34} width={4} />
-                    <span><b>{pct(r, c)}</b> reply</span>
+                    <Ring value={c.reply.value} max={c.reply.max} hue="sage" size={34} width={4} />
+                    <span><b>{pct(c.reply.value, c.reply.max)}</b> reply</span>
                   </span>
-                </li>
-              );
-            })}
+                ) : (
+                  <span className="cr-camp-ring"><span>No one contacted yet</span></span>
+                )}
+              </li>
+            ))}
           </ul>
         </section>
       )}
 
-      <section className="cr-card">
-        <div className="cr-card-h">
-          <h4>Sourced per day</h4>
-          <span>last 14 days · {sourced} total</span>
-        </div>
-        <Area data={days} hue="brand" accent="var(--accent-fill)" h={150} labels={5} noun="sourced" />
-      </section>
+      {series && (
+        <section className="cr-card">
+          <div className="cr-card-h">
+            <h4>{series.title}</h4>
+            <span>{series.note}</span>
+            {data.series.length > 1 && (
+              <div className="lr-seg" role="group" aria-label="What to chart">
+                {data.series.map((s, i) => (
+                  <button key={s.id} type="button" aria-pressed={i === tab} onClick={() => setTab(i)}>{s.label}</button>
+                ))}
+              </div>
+            )}
+          </div>
+          <Area data={series.days} hue="brand" accent="var(--accent-fill)" h={150} labels={5} noun={series.noun} />
+        </section>
+      )}
 
       <section className="cr-card">
         <div className="cr-card-h">
           <h4>Funnel</h4>
           <span>each stage over the one before it</span>
         </div>
-        <Funnel stages={steps} />
+        {data.funnelEmpty ? <p className="lr-plain">{data.funnelEmpty}</p> : <Funnel stages={data.steps} />}
       </section>
 
       <section className="cr-card">
         <div className="cr-card-h">
           <h4>What works</h4>
-          <span>reply rate and median time to reply, by channel</span>
+          <span>{works.sub}</span>
         </div>
-        <Channels stats={channels} />
-        <p className="cr-find">
-          <Sparkle size={13} weight="fill" aria-hidden="true" />
-          {CHANNEL_LABEL[best.channel]} gets the best reply rate at {pct(best.replied, best.sent)}
-          {faster > 1 ? `, and people answer about ${faster}× faster there than by email` : ""}.
-        </p>
+        {works.stats.length > 0 && <Channels stats={works.stats} />}
+        {works.empty && <p className="lr-plain">{works.empty}</p>}
+        {works.find && (
+          <p className="cr-find">
+            <Sparkle size={13} weight="fill" aria-hidden="true" />
+            {works.find}
+          </p>
+        )}
+        {works.note && <p className="lr-plain is-quiet">{works.note}</p>}
         <div className="mo-acts">
-          <button type="button" className="src-btn is-primary mo-small" onClick={() => ctx.seed(`Reach out again on ${CHANNEL_LABEL[best.channel]} to everyone who hasn't replied`)}>
-            Follow up on {CHANNEL_LABEL[best.channel]}<ArrowRight size={13} weight="bold" aria-hidden="true" />
-          </button>
-          <button type="button" className="src-btn is-quiet mo-small" onClick={() => ctx.seed("Where are we losing people?")}>
-            Find the drop-off
-          </button>
+          {works.acts.map((a) => (
+            <button key={a.label} type="button" className={`src-btn ${a.primary ? "is-primary" : "is-quiet"} mo-small`} onClick={() => act(ctx, a.seed)}>
+              {a.label}{a.primary && <ArrowRight size={13} weight="bold" aria-hidden="true" />}
+            </button>
+          ))}
         </div>
       </section>
     </div>
   );
 }
 
-function Channels({ stats }: { stats: readonly ChannelStat[] }) {
+function Channels({ stats }: { stats: readonly ChannelRow[] }) {
   const [grown, setGrown] = useState(false);
   useEffect(() => { const id = requestAnimationFrame(() => setGrown(true)); return () => cancelAnimationFrame(id); }, []);
   const max = Math.max(...stats.map((s) => (s.sent ? s.replied / s.sent : 0)), 0.01);
+  /* A time to reply is only drawn when the records have one for some channel. */
+  const timed = stats.some((s) => s.medianHours !== null);
   return (
-    <ul className="cr-ch">
+    <ul className={`cr-ch${timed ? "" : " is-short"}`}>
       {stats.map((s) => {
         const rate = s.sent ? s.replied / s.sent : 0;
         return (
@@ -139,7 +200,7 @@ function Channels({ stats }: { stats: readonly ChannelStat[] }) {
             <span className="cr-ch-n"><ServiceMark id={CARRIER[s.channel]} size={18} />{CHANNEL_LABEL[s.channel]}</span>
             <span className="cr-ch-bar"><i style={{ transform: `scaleX(${grown ? rate / max : 0})` }} /></span>
             <span className="cr-ch-v"><b>{pct(s.replied, s.sent)}</b> · {s.replied}/{s.sent}</span>
-            <span className="cr-ch-t">{s.medianHours ? `${s.medianHours}h` : "no replies"}</span>
+            {timed && <span className="cr-ch-t">{s.medianHours ? `${s.medianHours}h` : "no replies"}</span>}
           </li>
         );
       })}
@@ -159,7 +220,8 @@ function mergeChannels(keys: readonly CampaignKey[]): ChannelStat[] {
   });
 }
 
-const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : "0%");
+// A share over 100% means the base missed people who joined later (added by hand); show none.
+const pct = (a: number, b: number) => (b && a <= b ? `${Math.round((a / b) * 100)}%` : "–");
 
 function Count({ n }: { n: number }) {
   const [shown, setShown] = useState(0);

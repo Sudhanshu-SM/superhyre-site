@@ -54,3 +54,63 @@ describe("questionFor", () => {
     expect(questionFor("outreach", "reach out", ctx())?.remember).toBeUndefined();
   });
 });
+
+describe("the form flow", () => {
+  const withAnswers = (answers: Record<string, string>, campaign?: { id: string; name: string }) =>
+    ({ ...ctx(), answers, campaign: campaign ?? null });
+
+  it("asks which campaign first when none is named", () => {
+    const said = "make a screening form";
+    expect(classify(said)).toBe("form");
+    const q = questionFor("form", said, ctx());
+    expect(q?.id).toBe("form-campaign");
+    expect(q?.preset).toBeUndefined();
+    expect(q?.options.at(-1)?.id).toBe("new");
+    expect(q?.options.some((o) => o.id === "gtm-ae")).toBe(false);
+  });
+
+  it("then asks the role kind, the sub-type and the ideal hire", () => {
+    const said = "make a screening form";
+    const a: Record<string, string> = { campaign: "backend-snr" };
+    const q1 = questionFor("form", said, withAnswers(a));
+    expect(q1?.id).toBe("form-family");
+    expect(q1?.options[0]?.id).toBe("engineering");
+    Object.assign(a, q1!.apply(["engineering"]).answers);
+    const q2 = questionFor("form", said, withAnswers(a));
+    expect(q2?.id).toBe("form-sub");
+    Object.assign(a, q2!.apply(["backend"]).answers);
+    const q3 = questionFor("form", said, withAnswers(a));
+    expect(q3?.id).toBe("form-ideal");
+    expect(q3?.input?.optional).toBe(true);
+    expect(q3?.options).toEqual([]);
+    Object.assign(a, q3!.apply([""]).answers);
+    expect(questionFor("form", said, withAnswers(a))).toBeNull();
+  });
+
+  it("presets the campaign the recruiter has open", () => {
+    const q = questionFor("form", "make a screening form", withAnswers({}, { id: "design-lead", name: "Design Lead" }));
+    expect(q?.id).toBe("form-campaign");
+    expect(q?.preset).toBe("design-lead");
+    expect(q?.options[0]?.id).toBe("design-lead");
+    expect(q?.options[0]?.meta).toMatch(/^Current, /);
+  });
+
+  it("skips the campaign question when the message names one", () => {
+    expect(questionFor("form", "make a form for Platform SRE", ctx())?.id).toBe("form-family");
+  });
+
+  it("asks for the role in words, never the sub-type, for something else", () => {
+    const said = "make a screening form";
+    const q = questionFor("form", said, withAnswers({ campaign: "backend-snr", family: "other" }));
+    expect(q?.id).toBe("form-role");
+    expect(q?.input).toBeDefined();
+    const next = questionFor("form", said, withAnswers({ campaign: "backend-snr", family: "other", roleText: "Firmware engineer" }));
+    expect(next?.id).toBe("form-ideal");
+  });
+
+  it("asks a new campaign's name before anything else", () => {
+    const q = questionFor("form", "make a screening form", withAnswers({ campaign: "new" }));
+    expect(q?.id).toBe("form-new-name");
+    expect(q?.apply(["Staff Data Engineer"]).answers).toEqual({ newName: "Staff Data Engineer" });
+  });
+});

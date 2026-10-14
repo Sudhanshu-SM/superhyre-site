@@ -3,7 +3,16 @@ import {
 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import type { CandidateDetail } from "./api/candidates";
+import { getCandidate } from "./api/candidates";
+import { LIVE } from "./api/client";
 import { Avatar, Career, FitRow, Logo, Summary, Verdicts } from "./CandidateBits";
+import { openerNow, restoreFocus, trapTab } from "./components/focusTrap";
+import { ContactSideLine } from "./ContactsFetch";
+import { useContacts } from "./contactsFetch";
+import { plainText } from "./displayText";
+import { statusKey } from "./chatCards";
+import { statusProps } from "./statusTones";
 import type { Candidate, Job, Verdict } from "./sourcing";
 
 /**
@@ -28,12 +37,43 @@ export type ProfileSidebarProps = {
   onVerdict: (id: string, v: Verdict | null) => void;
   /** Dim and block the page behind. Off when the opener stays interactive. */
   scrim?: boolean;
+  /** What this person was ranked on, when it isn't the demo's three. */
+  criteria?: { text: readonly string[]; short: readonly string[] };
+  /** False for someone who belongs to no campaign here, where shortlisting and passing have no meaning. */
+  canDecide?: boolean;
+  /** What the opener adds under the header's actions (a campaign page puts the person's stage there). */
+  extra?: React.ReactNode;
 };
 
 const EXIT_MS = 240;
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const STAGE_LABEL: Readonly<Record<string, string>> = {
+  shortlisted: "Shortlisted", outreach: "In outreach", replied: "Replied", interviewing: "Interviewing", hired: "Hired", passed: "Passed",
+};
+
+/**
+ * With the API, a candidate already in the workspace also has its own row:
+ * the contacts this workspace holds, where they are in each campaign, and
+ * the team's notes. Anyone else (a match not saved yet) has none.
+ */
+function useWorkspaceRow(id: string, inWorkspace: boolean, refresh = 0): CandidateDetail | null {
+  const [detail, setDetail] = useState<CandidateDetail | null>(null);
+  const loadedFor = useRef<string | null>(null);
+  useEffect(() => {
+    /* Another person clears what was shown; the same person read again (contact details just arrived) keeps it
+       until the new answer replaces it. */
+    if (loadedFor.current !== id) { setDetail(null); loadedFor.current = null; }
+    if (!LIVE || !inWorkspace || !UUID.test(id)) return;
+    let gone = false;
+    getCandidate(id).then((d) => { if (!gone) { loadedFor.current = id; setDetail(d); } }, () => {});
+    return () => { gone = true; };
+  }, [id, inWorkspace, refresh]);
+  return detail;
+}
+
 export function ProfileSidebar({
-  candidate, onClose, onPrev, onNext, position, verdict, onVerdict, scrim = true,
+  candidate, onClose, onPrev, onNext, position, verdict, onVerdict, scrim = true, criteria, canDecide = true, extra,
 }: ProfileSidebarProps): JSX.Element | null {
   /* The last candidate stays rendered through the exit animation. */
   const [shown, setShown] = useState<Candidate | null>(candidate);
@@ -46,7 +86,7 @@ export function ProfileSidebar({
   useEffect(() => {
     if (candidate) {
       if (!shown) {
-        returnTo.current = document.activeElement;
+        returnTo.current = openerNow();
         setDir("none");
       } else if (candidate.id !== shown.id) {
         const was = lastIndex.current;
@@ -63,7 +103,7 @@ export function ProfileSidebar({
     const id = window.setTimeout(() => {
       setShown(null);
       setLeaving(false);
-      (returnTo.current as HTMLElement | null)?.focus?.({ preventScroll: true });
+      restoreFocus(returnTo.current as HTMLElement | null);
     }, EXIT_MS);
     return () => window.clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -81,12 +121,14 @@ export function ProfileSidebar({
       if (e.key === "Escape") { e.preventDefault(); e.stopImmediatePropagation(); onClose(); }
       if (e.key === "ArrowRight" && onNext) { e.preventDefault(); e.stopImmediatePropagation(); onNext(); }
       if (e.key === "ArrowLeft" && onPrev) { e.preventDefault(); e.stopImmediatePropagation(); onPrev(); }
+      /* A sheet with a scrim is modal: Tab goes round inside it, not into the page behind. */
+      if (e.key === "Tab" && scrim && panelRef.current) trapTab(panelRef.current, e);
     };
     /* Capture phase: a list open behind this sheet listens for the same keys,
        and the sheet in front must get them first. */
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [candidate, onClose, onNext, onPrev]);
+  }, [candidate, onClose, onNext, onPrev, scrim]);
 
   if (!shown) return null;
 
@@ -120,6 +162,9 @@ export function ProfileSidebar({
           dir={dir}
           verdict={shown.id === candidate?.id ? verdict : undefined}
           onVerdict={(v) => onVerdict(shown.id, v)}
+          criteria={criteria}
+          canDecide={canDecide}
+          extra={extra}
         />
       </aside>
     </div>,
@@ -139,15 +184,34 @@ const SECTIONS = [
 type SectionId = (typeof SECTIONS)[number]["id"];
 
 function Profile({
-  c, dir, verdict, onVerdict,
+  c, dir, verdict, onVerdict, criteria, canDecide, extra,
 }: {
   c: Candidate;
   dir: string;
   verdict?: Verdict;
   onVerdict: (v: Verdict | null) => void;
+  criteria?: { text: readonly string[]; short: readonly string[] };
+  canDecide: boolean;
+  extra?: React.ReactNode;
 }) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const actsRef = useRef<HTMLDivElement>(null);
+  const [fetched, setFetched] = useState(0);
+  const row = useWorkspaceRow(c.id, c.inWorkspace === true, fetched);
+  /* Their contact details can be asked for on the campaign they are on (not passed): the same figures the
+     Shortlisted table shows. When something arrives, their own row is read again so the value appears. */
+  const contactCampaign = row?.campaigns.find((x) => x.stage !== "passed")?.id ?? null;
+  const contacts = useContacts(contactCampaign);
+  const theirs = row ? contacts.ofCandidate(row.candidate.id) : undefined;
+  const arrived = `${theirs?.email === "found"}-${theirs?.phone === "found"}`;
+  const arrivedSeen = useRef(arrived);
+  useEffect(() => {
+    if (arrivedSeen.current === arrived) return;
+    arrivedSeen.current = arrived;
+    setFetched((n) => n + 1);
+  }, [arrived]);
+  const email = row ? row.candidate.primaryEmail ?? row.candidate.workEmail ?? row.candidate.email2 : null;
+  const phone = row ? row.candidate.primaryPhone ?? row.candidate.phone2 : null;
   const [active, setActive] = useState<SectionId>("overview");
   const [dock, setDock] = useState(false);
   /* Set while a tab press is scrolling, so the spy does not flicker through
@@ -199,11 +263,15 @@ function Profile({
           <div className="ps-who-top">
             <Avatar name={c.name} hue={c.hue} size={52} />
             <div className="ps-who-id">
-              <h2 className="ps-name">{c.name}</h2>
+              <h2 className="ps-name">{plainText(c.name)}</h2>
               <p className="ps-headline">{c.headline}</p>
             </div>
             <div className="ps-socials">
-              <span className="ps-social is-li" title="LinkedIn"><LinkedinLogo size={18} weight="fill" aria-label="LinkedIn" /></span>
+              {c.linkedinUrl ? (
+                <a className="ps-social is-li" href={c.linkedinUrl} target="_blank" rel="noreferrer" title="LinkedIn"><LinkedinLogo size={18} weight="fill" aria-label={`${c.name} on LinkedIn`} /></a>
+              ) : (
+                <span className="ps-social is-li" title="LinkedIn"><LinkedinLogo size={18} weight="fill" aria-label="LinkedIn" /></span>
+              )}
               {c.github && <span className="ps-social" title="GitHub"><GithubLogo size={18} weight="fill" aria-label="GitHub" /></span>}
             </div>
           </div>
@@ -212,63 +280,101 @@ function Profile({
             {c.openToWork && <span className="ps-otw">Open to work</span>}
           </p>
           <p className="ps-orgs">
-            <span><Logo name={c.current.name} hue={c.current.hue} />{c.current.name}</span>
-            <span><Logo name={c.school.name} hue={c.school.hue} />{c.school.name}</span>
+            {c.current.name && <span><Logo name={c.current.name} hue={c.current.hue} />{c.current.name}</span>}
+            {c.school.name && <span><Logo name={c.school.name} hue={c.school.hue} />{c.school.name}</span>}
           </p>
           <div ref={actsRef} className="ps-acts">
-            <Verdicts verdict={verdict} onVerdict={onVerdict} name={c.name} />
+            {canDecide && <Verdicts verdict={verdict} onVerdict={onVerdict} name={c.name} />}
           </div>
+          {extra && <div className="ps-extra">{extra}</div>}
         </header>
 
         <div className="ps-tabs-wrap">
-          <Tabs tabs={SECTIONS} active={active} onPick={jump} label="Profile sections" />
+          <Tabs
+            tabs={SECTIONS.filter((s) => s.id === "overview" || (s.id === "experience" ? c.jobs.length > 0 : s.id === "education" ? c.schools.length > 0 : Object.keys(c.skills).length > 0 || !!c.github))}
+            active={active}
+            onPick={jump}
+            label="Profile sections"
+          />
         </div>
 
         <section data-sec="overview" className="ps-sec">
-          <Summary text={c.summary} marks={c.highlights} />
-          <div className="ps-glance">
-            <div>
-              <p className="ps-k">Fit</p>
-              <FitRow meets={c.meets} />
+          {c.summary && <Summary text={c.summary} marks={c.highlights} />}
+          {(c.meets.length > 0 || c.jobs.length > 0) && (
+            <div className="ps-glance">
+              {c.meets.length > 0 && (
+                <div>
+                  <p className="ps-k">Fit</p>
+                  <FitRow meets={c.meets} unscored={c.scored === false} {...(criteria ? { criteria: criteria.text, short: criteria.short } : {})} />
+                </div>
+              )}
+              {c.jobs.length > 0 && (
+                <div>
+                  <p className="ps-k">Career <span>· {c.totalYears} yrs{c.avgTenure ? `, ${c.avgTenure} avg tenure` : ""}</span></p>
+                  <Career c={c} labels />
+                </div>
+              )}
             </div>
-            <div>
-              <p className="ps-k">Career <span>· {c.totalYears} yrs, {c.avgTenure} avg tenure</span></p>
-              <Career c={c} labels />
-            </div>
-          </div>
+          )}
           <dl className="ps-facts">
-            <div><dt>Status</dt><dd><span className="ps-status">Not contacted</span></dd></div>
+            {row ? (
+              <div><dt>Status</dt><dd>{row.campaigns.length ? row.campaigns.map((x, i) => (
+                <span key={`${x.name}-${i}`}>{i > 0 && ", "}<span {...statusProps(STAGE_LABEL[statusKey(x.stage, x.step)] ?? x.stage)}>{STAGE_LABEL[statusKey(x.stage, x.step)] ?? x.stage}</span> in {x.name}</span>
+              )) : "Not in a campaign yet"}</dd></div>
+            ) : (
+              <div><dt>Status</dt><dd><span {...statusProps("Not contacted")} className="ps-status st">Not contacted</span></dd></div>
+            )}
             <div><dt>Current</dt><dd>{c.headline}</dd></div>
+            {row && <div><dt>Email</dt><dd><ContactSideLine campaignId={contactCampaign} kind="email" candidateId={row.candidate.id} name={c.name} value={email} /></dd></div>}
+            {row && <div><dt>Phone</dt><dd><ContactSideLine campaignId={contactCampaign} kind="phone" candidateId={row.candidate.id} name={c.name} value={phone} /></dd></div>}
             <div><dt>Open to work</dt><dd>{c.openToWork ? "Yes, says so on the profile" : "Not stated"}</dd></div>
           </dl>
-          <h3 className="ps-h">About</h3>
-          <p className="ps-about">{c.about}</p>
+          {c.about && (
+            <>
+              <h3 className="ps-h">About</h3>
+              <p className="ps-about">{c.about}</p>
+            </>
+          )}
+          {row && row.notes.length > 0 && (
+            <>
+              <h3 className="ps-h">Notes <span>· {row.notes.length}</span></h3>
+              {row.notes.map((n) => (
+                <p key={n.id} className="ps-about">
+                  {n.body}{n.authorName && <span className="ps-note-by"> {n.authorName}</span>}
+                </p>
+              ))}
+            </>
+          )}
         </section>
 
-        <section data-sec="experience" className="ps-sec">
-          <h3 className="ps-h">Experience <span>· {c.totalYears} years total</span></h3>
-          <ol className="ps-jobs">
-            {c.jobs.map((j) => <JobBlock key={j.org.name} job={j} />)}
-          </ol>
-        </section>
+        {c.jobs.length > 0 && (
+          <section data-sec="experience" className="ps-sec">
+            <h3 className="ps-h">Experience {c.totalYears > 0 && <span>· {c.totalYears} years total</span>}</h3>
+            <ol className="ps-jobs">
+              {c.jobs.map((j, i) => <JobBlock key={`${j.org.name}${i}`} job={j} />)}
+            </ol>
+          </section>
+        )}
 
-        <section data-sec="education" className="ps-sec">
-          <h3 className="ps-h">Education</h3>
-          <ul className="ps-schools">
-            {c.schools.map((s) => (
-              <li key={s.org.name}>
-                <Logo name={s.org.name} hue={s.org.hue} size={40} />
-                <div>
-                  <p className="ps-job-org">{s.org.name}</p>
-                  <p className="ps-job-role">{s.degree}</p>
-                  <p className="ps-job-d">{s.years}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
+        {c.schools.length > 0 && (
+          <section data-sec="education" className="ps-sec">
+            <h3 className="ps-h">Education</h3>
+            <ul className="ps-schools">
+              {c.schools.map((s) => (
+                <li key={s.org.name}>
+                  <Logo name={s.org.name} hue={s.org.hue} size={40} />
+                  <div>
+                    <p className="ps-job-org">{s.org.name}</p>
+                    {s.degree && <p className="ps-job-role">{s.degree}</p>}
+                    {s.years && <p className="ps-job-d">{s.years}</p>}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
-        <section data-sec="skills" className="ps-sec is-last">
+        <section data-sec="skills" className={`ps-sec is-last${Object.keys(c.skills).length || c.github ? "" : " is-empty"}`}>
           {c.github && (
             <div className="ps-gh-card">
               <GithubLogo size={18} weight="fill" aria-hidden="true" />
@@ -276,7 +382,7 @@ function Profile({
               <ArrowUpRight size={15} aria-hidden="true" className="ps-gh-go" />
             </div>
           )}
-          <h3 className="ps-h">Skill map</h3>
+          {Object.keys(c.skills).length > 0 && <h3 className="ps-h">Skill map</h3>}
           {Object.entries(c.skills).map(([group, list]) => (
             <div key={group} className="ps-skill-group">
               <p className="ps-k">{group}</p>
@@ -288,12 +394,12 @@ function Profile({
         </section>
       </div>
 
-      <div className={`ps-dock${dock ? " is-on" : ""}`}>
+      <div className={`ps-dock${dock && canDecide ? " is-on" : ""}`}>
         <span className="ps-dock-who">
           <Avatar name={c.name} hue={c.hue} size={28} />
-          <b>{c.name}</b>
+          <b>{plainText(c.name)}</b>
         </span>
-        <Verdicts verdict={verdict} onVerdict={onVerdict} name={c.name} />
+        {canDecide && <Verdicts verdict={verdict} onVerdict={onVerdict} name={c.name} />}
       </div>
     </div>
   );

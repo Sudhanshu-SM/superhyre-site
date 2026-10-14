@@ -1,13 +1,24 @@
 import { CaretRight, MagnifyingGlass, Plus, X } from "@phosphor-icons/react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
   BRIEFS, CAMPAIGN_CONFIG, CAMPAIGN_STATS, CHANNELS, COLLABORATORS, MODES,
 } from "./orchestrator";
+import { ConnectorLogo, isConnectorId } from "./ConnectorLogo";
+import { Loader } from "./components/Loader";
+import { useFocusTrap } from "./components/focusTrap";
 import { ROUTES } from "./nav";
+import { LoadFailed } from "./ui";
 import { Counter } from "./viz";
-import type { Brief, Channel, ModeId } from "./orchestrator";
+import { railSlots } from "./railConfig";
+import type { ConfigRow, RailSlot } from "./railConfig";
+import { RailDialogs } from "./RailDialogs";
+import type { RailConfig } from "./useRailConfig";
+import type { Brief, ModeId, Stat } from "./orchestrator";
 import type { Campaign } from "./workspaces";
+
+export type { ConfigRow } from "./railConfig";
 
 /**
  * Rail — the orchestrator's right column: how the campaign is moving, how it
@@ -70,14 +81,42 @@ import type { Campaign } from "./workspaces";
  * BriefGroup). Remove all remaining colour and the rail still reads.
  */
 export function Rail({
-  campaign, activeBriefId, onNewBrief, onPickBrief,
+  campaign, agents, briefs = BRIEFS, stats = CAMPAIGN_STATS, statsState = "ready", onRetryStats, config,
+  activeBriefId, onNewBrief, onPickBrief, canStartNew,
+  history = "ready", onRetryHistory, onRenameBrief, onArchiveBrief, findAsk = 0,
 }: {
+  /** Opens the history's search each time it goes up: the page's own search button and "/" are asking for it. */
+  findAsk?: number;
+  /** Renaming and archiving, where chats live on the server. */
+  onRenameBrief?: (id: string, title: string) => Promise<void>;
+  onArchiveBrief?: (id: string) => Promise<void>;
+  /** Live chats arrive from the server: until then the panel says so instead of showing anything else. */
+  history?: "loading" | "failed" | "ready";
+  onRetryHistory?: () => void;
   campaign: Campaign;
+  /** The week's movement; the fixture figures when the console isn't connected. */
+  stats?: readonly Stat[];
+  /** Connected, the week arrives from the server: until then the panel holds its place, and if it never comes it says so. */
+  statsState?: "loading" | "failed" | "ready";
+  onRetryStats?: () => void;
+  /** What the setup panel says, drawn from the workspace's own data; the prototype's fixtures when absent. */
+  config?: Pick<RailConfig, "scope" | "rows"> & Partial<Pick<RailConfig, "layout" | "inOrg" | "go" | "dialog">>;
+  /** Connected, a chat that is already under way can be left for a new one from the history panel. */
+  canStartNew?: boolean;
+  /** The chats to list; the fixture briefs when the console isn't connected. */
+  briefs?: readonly Brief[];
+  /** The agents at work, rendered by the page that deploys them. It sits ABOVE the week: the rail is anchored to
+      the foot of the page, so a panel that comes and goes is the one at its top and nothing under it moves. */
+  agents?: ReactNode;
   activeBriefId: string | null;
   onNewBrief: () => void;
   onPickBrief: (id: string) => void;
 }) {
   const [historyOpen, setHistoryOpen] = useState(false);
+  useEffect(() => { if (findAsk > 0) setHistoryOpen(true); }, [findAsk]);
+  const recentFew = briefs === BRIEFS ? RECENT_FEW : briefs.slice(0, HISTORY_SLOTS);
+  const rows = config?.rows ?? CONFIG;
+  const slots = railSlots(config?.layout ?? "campaign", rows, { inOrg: config?.inOrg ?? true, ...(config?.go ? { go: config.go } : {}) });
 
   return (
     /* Root is `orc-rail`, not `rail`: App.tsx already renders
@@ -85,44 +124,56 @@ export function Rail({
        paints a peach gradient and clips overflow, and it would have painted
        straight over this one. The `rail-*` children are unambiguous and keep
        the short prefix. */
-    <aside className="orc-rail" aria-label={`Progress and setup for ${campaign.name}`}>
+    <aside className="orc-rail" aria-label={`Progress and setup for ${config?.scope ?? campaign.name}`}>
+      {/* ── THE RAIL DOES NOT MOVE ──
+          Three panels of fixed height: the week (90px), the configuration (seven rows, always the same seven) and the
+          history (three slots and its "View all" row). Whatever arrives, is missing or is still on its way fills a
+          place that was already there, so nothing above or below shifts. The agents at work are the one thing that
+          comes and goes, and they sit above the week: the rail is anchored to the foot of the page, so they grow
+          upward and the three panels stay exactly where they were. */}
+      {agents}
+
       {/* ── 1. how it is moving ────────────────────────────────────────────── */}
       <section className="rail-sec">
         <div className="rail-sec-head">
           {/* The heading IS the measurement window, which is why it is a date
-              range rather than the word "Stats". The header this replaced spent
-              a whole strip on `TRAILING 7 DAYS` next to `org_candidates ·
-              outreach_queue`; the window still has to be stated — a bare `+6`
-              is unreadable, six since when — but it does not need a row of its
-              own. Seven is not a guess: `spark` carries seven trailing values
-              and `delta` is documented as the trailing week. */}
-          <h2 className="rail-sec-title">Last 7 days</h2>
+              range rather than the word "Stats". The window still has to be
+              stated — a bare `+6` is unreadable, six since when — but it does
+              not need a row of its own. Seven is not a guess: `spark` carries
+              seven trailing values and `delta` is documented as the trailing
+              week. The week is the whole workspace's, while the panel below it
+              is the campaign in focus: it says so. */}
+          <h2 className="rail-sec-title">Last 7 days, all campaigns</h2>
         </div>
 
+        {/* Always 90px: loading, failed and arrived are the same box, so the column does not change height when the
+            week lands, and says so quietly if it never does rather than vanishing. */}
+        {statsState === "loading" ? (
+          <div className="rail-panel rail-stats-wait">
+            <Loader size="sm" label="Loading the week" />
+          </div>
+        ) : statsState === "failed" ? (
+          <div className="rail-panel rail-stats-wait">
+            <LoadFailed compact what="The week" {...(onRetryStats ? { onRetry: onRetryStats } : {})} />
+          </div>
+        ) : stats.length === 0 ? (
+          <div className="rail-panel rail-stats-wait">
+            <p className="rail-hist-note">Nothing to count yet. The week fills in as the agent works.</p>
+          </div>
+        ) : (
         <dl className="rail-panel rail-stats">
-          {CAMPAIGN_STATS.map((s) => (
+          {stats.map((s) => (
             <div className="rail-stat" key={s.id}>
               <dt className="rail-stat-label">{s.label}</dt>
               <dd className="rail-stat-figure">
-                {/* Counts up on mount. The rail's three numbers are the first
-                    thing a recruiter looks at, and watching them land is the
-                    surface's most repeatable satisfying moment — it animates
-                    to the true figure, so nothing is implied that is not so.
-                    `.rail-stat-value` must carry tabular-nums or the row
-                    jitters for the duration; it does. */}
-                <span className="rail-stat-value"><Counter value={s.value} /></span>
-                {/* Nothing at all when the change is zero. A `0` suffix in
-                    tabular figures sits flush against the value and reads as
-                    part of it (24 then 0 is 240 at a glance), and spelling out
-                    "no change" spends nine characters of ink on the one state
-                    that wants no attention. Absence is the quietest honest
-                    encoding of "nothing happened".
+                {/* Counts up on mount, to the true figure, so nothing is implied that is not so. `.rail-stat-value`
+                    carries tabular-nums or the row jitters for the duration.
 
-                    The visible glyph is aria-hidden and the words are carried
-                    separately, so a screen reader hears "Shortlisted, 24, up 6
-                    this week" instead of "24 plus 6". The `Delta` chip this
-                    replaces had a TrendUp/TrendDown icon with no text
-                    alternative at all, so this is a net gain, not a cost. */}
+                    Nothing at all when the change is zero: a `0` suffix in tabular figures sits flush against the
+                    value and reads as part of it (24 then 0 is 240 at a glance). The visible glyph is aria-hidden
+                    and the words are carried separately, so a screen reader hears "Shortlisted, 24, up 6 this
+                    week" instead of "24 plus 6". */}
+                <span className="rail-stat-value"><Counter value={s.value} /></span>
                 {s.delta !== 0 && (
                   <span className={`rail-stat-chg${s.delta < 0 ? " is-down" : ""}`}>
                     <span className="sr-only">
@@ -135,136 +186,175 @@ export function Rail({
             </div>
           ))}
         </dl>
-
-        {/* Rendered only when something is falling, and styled as text rather
-            than as the bordered pill the header used. It is still a button,
-            because it still acts — it seeds the composer with the question —
-            and a control that acts should not be an anchor. "Link" here
-            describes the treatment, not the element.
-
-            The label is the sentence rather than a verb like "Investigate": you
-            can tell what you will get before clicking, and the agent gets a
-            brief worth answering. */}
+        )}
       </section>
 
       {/* ── 2. configuration ───────────────────────────────────────────────── */}
-      {/* ── LEARNED FROM THE REFERENCE, AND THE LESSON IS SUBTRACTION ──
-          The reference's config card has no rule between its rows, no heading
-          weight on the word "Configuration", and no action beside it. Ours had
-          all three: hairline dividers, a 13px semibold heading with the
-          campaign name under it, and a Manage link.
-
-          Every one of those was defensible on its own and the stack of them is
-          what made the column feel busy. A dividing line between two rows that
-          are already 40px apart is ink spent on a separation the spacing has
-          already made; the section label only has to be findable, not
-          emphatic; and Manage was a second route to a page the nav already
-          reaches. What is left is the pairing that carries the information —
-          label left, value right — which is what the reference is actually
-          made of. */}
+      {/* ── SEVEN ROWS, ALWAYS, AND EACH ONE A BUTTON ──
+          No rule between rows and no heading weight on the word "Configuration": label left, value right is what
+          carries the information. What changed in this pass is that the rows no longer come and go with the data.
+          They are a fixed list (see railSlots): a field that is not set says "Not set" in muted text, a read that is
+          on its way is a skeleton bar in the same place, and the Channels row is always two lines tall. Each row is
+          one 40px target (Channels, 60px) that goes where its name says: a page, or the dialog that sets it. */}
       <section className="rail-sec">
-        <dl className="rail-panel rail-config">
-          <p className="rail-panel-label">Configuration</p>
-          {CONFIG.map((r) => (
-            <div className="rail-config-row" key={r.label}>
-              <dt className="rail-config-label">{r.label}</dt>
-              <dd className="rail-config-value">
-                {/* Two renderings, because these are two different things. A
-                    set field is text; an unset one is a link phrased as the
-                    action that would set it. Styling a blank would have been
-                    the third option and the worst — it tells the reader the
-                    row exists without telling them it is theirs to fill. */}
-                {r.marks && (
-                  <span className="rail-config-marks">
-                    {r.marks.map((c) => (
-                      /* The brand colour is inline because it is DATA — it
-                         lives on the channel fixture beside the mark it
-                         belongs to, the way the campaign facet colours do.
-                         Four brand hexes in the stylesheet would be four
-                         tokens that mean nothing to the design system. */
-                      <span
-                        className="rail-config-mark"
-                        key={c.id}
-                        style={{ color: c.brand }}
-                        role="img"
-                        aria-label={c.name}
-                        title={`${c.name} \u2014 ${c.detail}`}
-                      >
-                        <c.Icon size={13} weight="fill" aria-hidden="true" />
-                      </span>
-                    ))}
-                  </span>
-                )}
-                {r.value !== undefined
-                  ? r.value
-                  : r.action && (
-                      <a className="rail-config-act" href={r.action.href}>{r.action.label}</a>
-                    )}
-              </dd>
-            </div>
-          ))}
-        </dl>
+        <div className="rail-panel rail-config" data-tour="configuration">
+          <header className="rail-config-head">
+            <p className="rail-panel-label">Configuration</p>
+            {/* Which scope it describes. Connected, the page is sometimes about one campaign and sometimes about
+                the workspace, and the rows alone cannot say which. */}
+            {config && <span className="rail-config-scope" title={config.scope}>{config.scope}</span>}
+          </header>
+          <ul className="rail-config-rows">
+            {slots.map((slot) => <li key={slot.key}><ConfigSlot slot={slot} /></li>)}
+          </ul>
+        </div>
       </section>
 
-      {/* ── 3. history, behind one row ──────────────────────────────────────── */}
-      {/* The four briefs used to sit inline, grouped Recent and Earlier, which
-          cost ~180px of the column to show four rows of something a recruiter
-          consults occasionally. As a single row it costs 48px and says the one
-          fact worth knowing at rest — how many there are — with the list one
-          click away.
-
-          A dialog rather than an expanding panel: the full history grows
-          without bound, and a column that can push its own neighbours off the
-          fold is not a column. The popup gets the room to show every brief,
-          which the rail never could. */}
+      {/* ── 3. history ──────────────────────────────────────────────────────── */}
+      {/* Three slots and the "View all" row, always. An empty slot is a faint line, so a person with one chat and a
+          person with ninety have the same panel, and it ends on the line the composer's input starts on. */}
       <section className="rail-sec">
-        <div className="rail-panel rail-hist">
-          <p className="rail-panel-label">History</p>
-
-          {/* FOUR, not all seven, and not one summary row either.
-              The pattern the research names for a space-constrained column is
-              three-to-five recent items plus a clear route to the rest — and
-              both extremes fail differently. All seven is the ~180px list this
-              replaced. A single "History 7 ›" row, which the previous pass
-              shipped, tells you a count and nothing you can act on: the useful
-              content of a history is WHAT the recent briefs were, and that is
-              exactly what a count omits.
-
-              An ordered list, because the order is the meaning — reverse
-              chronological — and a screen reader should convey it. */}
-          <ol className="rail-briefs is-inline">
-            {RECENT_FEW.map((b) => (
-              <BriefRow key={b.id} brief={b} activeBriefId={activeBriefId} onPickBrief={onPickBrief} />
-            ))}
-          </ol>
-
-          {/* Only when something is actually hidden. With four of four shown
-              this control would open a dialog containing the same four rows,
-              which is a lie about there being more. */}
-          {BRIEFS.length > RECENT_FEW.length && (
-            <button
-              type="button"
-              className="rail-more"
-              onClick={() => setHistoryOpen(true)}
-              aria-haspopup="dialog"
-            >
-              View all {BRIEFS.length}
-              <CaretRight size={11} weight="bold" aria-hidden="true" />
-            </button>
+        <div className="rail-panel rail-hist" data-tour="history">
+          {/* Connected, a chat that was left open is reopened where it stopped, and the history dialog only shows
+              the way to a fresh chat once there are chats to list. So the way to one has to be here, always, or
+              someone with three chats could never start a fourth. The row holds its height whether or not the
+              control shows. */}
+          {canStartNew !== undefined ? (
+            <div className="rail-hist-head">
+              <p className="rail-panel-label">History</p>
+              {canStartNew && (
+                <button type="button" className="rail-new" onClick={onNewBrief}>
+                  <Plus size={12} weight="bold" aria-hidden="true" />
+                  New
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="rail-hist-head">
+              <p className="rail-panel-label">History</p>
+            </div>
           )}
+
+          <div className="rail-hist-body">
+            {history === "loading" ? (
+              <>
+                <div className="rail-hist-wait"><Loader size="sm" label="Loading your chats" block /></div>
+              </>
+            ) : history === "failed" ? (
+              <div className="rail-hist-wait">
+                <LoadFailed compact what="Your chats" {...(onRetryHistory ? { onRetry: onRetryHistory } : {})} />
+              </div>
+            ) : (
+              <ol className="rail-briefs is-inline">
+                {Array.from({ length: HISTORY_SLOTS }, (_, i) => {
+                  const b = recentFew[i];
+                  if (b) return <BriefRow key={b.id} brief={b} activeBriefId={activeBriefId} onPickBrief={onPickBrief} />;
+                  return (
+                    <li key={`empty-${i}`} className="rail-brief-slot" aria-hidden={briefs.length > 0 || i > 0 ? "true" : undefined}>
+                      {briefs.length === 0 && i === 0
+                        ? <span className="rail-brief-slot-note">No chats yet. They will be listed here.</span>
+                        : <span className="rail-brief-slot-line" />}
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+          </div>
+
+          {/* The whole row opens the full list (search, rename, archive). Always there, so the panel's height is
+              one number; with nothing to list it is a quiet, inert line. */}
+          <button
+            type="button"
+            className="rail-more"
+            onClick={() => setHistoryOpen(true)}
+            aria-haspopup="dialog"
+            disabled={history !== "ready" || briefs.length === 0}
+          >
+            <span>{briefs.length > 0 && history === "ready" ? `View all ${briefs.length}` : "View all"}</span>
+            <CaretRight size={11} weight="bold" aria-hidden="true" />
+          </button>
         </div>
       </section>
 
       {historyOpen && (
         <HistoryDialog
+          briefs={briefs}
+          {...(onRenameBrief ? { onRename: onRenameBrief } : {})}
+          {...(onArchiveBrief ? { onArchive: onArchiveBrief } : {})}
           activeBriefId={activeBriefId}
           onClose={() => setHistoryOpen(false)}
           onNewBrief={() => { setHistoryOpen(false); onNewBrief(); }}
           onPickBrief={(id) => { setHistoryOpen(false); onPickBrief(id); }}
         />
       )}
+      {config?.dialog && <RailDialogs dialog={config.dialog} />}
     </aside>
   );
+}
+
+/** How many chats the rail lists inline, always: empty slots are drawn as faint lines. */
+export const HISTORY_SLOTS = 3;
+
+/**
+ * One Configuration row: the whole 40px (Channels, 60px) is one link or button. The label sits left; the value, the
+ * brand marks and the second line sit right. Never a text link inside a row: there is one target, and it is all of it.
+ */
+function ConfigSlot({ slot }: { slot: RailSlot }) {
+  const body = (
+    <>
+      <span className="rail-config-label">{slot.label}</span>
+      <span className="rail-config-value">
+        {slot.loading ? (
+          <span className="rail-skel" aria-hidden="true" />
+        ) : (
+          <span className="rail-config-line">
+            {slot.marks && (
+              <span className="rail-config-marks">
+                {slot.marks.map((c) => (
+                  /* The brand colour is inline because it is DATA: it lives on the channel beside the mark it
+                     belongs to. A brand hex each in the stylesheet would be tokens that mean nothing to the design
+                     system. */
+                  <span
+                    className="rail-config-mark"
+                    key={c.id}
+                    style={{ ["--mark" as string]: c.brand, ["--mark-dark" as string]: c.brandDark } as CSSProperties}
+                    role="img"
+                    aria-label={c.name}
+                    title={c.detail ? `${c.name} \u00b7 ${c.detail}` : c.name}
+                  >
+                    {isConnectorId(c.id)
+                      ? <ConnectorLogo id={c.id} size={14} decorative />
+                      : <c.Icon size={13} weight="fill" aria-hidden="true" />}
+                  </span>
+                ))}
+              </span>
+            )}
+            <span className={`rail-config-text${slot.empty ? " is-empty" : ""}`}>{slot.value}</span>
+          </span>
+        )}
+        {slot.twoLine && (
+          <span className="rail-config-note">
+            {slot.loading ? (
+              <span className="rail-skel is-short" aria-hidden="true" />
+            ) : (
+              <>
+                {slot.offer && slot.offer.length > 0 && (
+                  <span className="rail-config-offer">
+                    {slot.offer.map((id) => <ConnectorLogo key={id} id={id} size={13} decorative />)}
+                  </span>
+                )}
+                {slot.note ?? "\u00a0"}
+              </>
+            )}
+          </span>
+        )}
+      </span>
+    </>
+  );
+  const cls = `rail-row${slot.twoLine ? " is-two" : ""}`;
+  return "href" in slot.go
+    ? <a className={cls} href={slot.go.href} aria-label={slot.name} {...(slot.loading ? { "aria-busy": true } : {})}>{body}</a>
+    : <button type="button" className={cls} onClick={slot.go.onClick} aria-label={slot.name} {...(slot.loading ? { "aria-busy": true } : {})}>{body}</button>;
 }
 
 /* ── the history dialog ─────────────────────────────────────────────────────
@@ -273,8 +363,11 @@ export function Rail({
    one way to dismiss a floating thing rather than two.                       */
 
 function HistoryDialog({
-  activeBriefId, onClose, onNewBrief, onPickBrief,
+  briefs, activeBriefId, onClose, onNewBrief, onPickBrief, onRename, onArchive,
 }: {
+  onRename?: (id: string, title: string) => Promise<void>;
+  onArchive?: (id: string) => Promise<void>;
+  briefs: readonly Brief[];
   activeBriefId: string | null;
   onClose: () => void;
   onNewBrief: () => void;
@@ -282,6 +375,9 @@ function HistoryDialog({
 }) {
   const [query, setQuery] = useState("");
   const input = useRef<HTMLInputElement>(null);
+  const dialog = useRef<HTMLDivElement>(null);
+  /* Tab stays inside it, and focus goes back to what opened it. */
+  useFocusTrap(dialog, true);
 
   /* Escape closes it. Bound on the document rather than the dialog, so it
      works before anything inside has taken focus. */
@@ -300,7 +396,7 @@ function HistoryDialog({
      Re-grouping the FILTERED set rather than filtering the two prebuilt groups
      matters when a query matches nothing recent: the group header has to
      disappear with its rows, not sit above an empty space. */
-  const { recent, earlier, total } = useMemo(() => searchBriefs(BRIEFS, query), [query]);
+  const { recent, earlier, total } = useMemo(() => searchBriefs(briefs, query), [briefs, query]);
 
   return createPortal(
     <>
@@ -316,7 +412,7 @@ function HistoryDialog({
           convention `Nav.tsx` already established for its switcher popover. */}
       <div className="pal-scrim" onClick={onClose} aria-hidden="true" />
 
-      <div className="hist" role="dialog" aria-modal="true" aria-label="Brief history">
+      <div className="hist" role="dialog" aria-modal="true" aria-label="Brief history" ref={dialog} tabIndex={-1}>
         <header className="hist-head">
           <h2 className="hist-title">History</h2>
           <button type="button" className="rail-new" onClick={onNewBrief}>
@@ -350,17 +446,17 @@ function HistoryDialog({
               header stating what the list plainly shows. */}
           {query.trim().length > 0 && (
             <span className="hist-find-count" aria-live="polite">
-              {total} of {BRIEFS.length}
+              {total} of {briefs.length}
             </span>
           )}
         </div>
 
         <div className="hist-body">
           {recent.length > 0 && (
-            <BriefGroup label="Recent" briefs={recent} activeBriefId={activeBriefId} onPickBrief={onPickBrief} />
+            <BriefGroup label="Recent" briefs={recent} activeBriefId={activeBriefId} onPickBrief={onPickBrief} onRename={onRename} onArchive={onArchive} />
           )}
           {earlier.length > 0 && (
-            <BriefGroup label="Earlier" briefs={earlier} activeBriefId={activeBriefId} onPickBrief={onPickBrief} />
+            <BriefGroup label="Earlier" briefs={earlier} activeBriefId={activeBriefId} onPickBrief={onPickBrief} onRename={onRename} onArchive={onArchive} />
           )}
           {/* Names the query back, so the reader can see they typed what they
               meant before they conclude the brief is gone. */}
@@ -380,20 +476,51 @@ function HistoryDialog({
    One group (Recent or Earlier) and its rows.                               */
 
 function BriefGroup({
-  label, briefs, activeBriefId, onPickBrief,
+  label, briefs, activeBriefId, onPickBrief, onRename, onArchive,
 }: {
   label: string;
   briefs: readonly Brief[];
   activeBriefId: string | null;
   onPickBrief: (id: string) => void;
+  onRename?: ((id: string, title: string) => Promise<void>) | undefined;
+  onArchive?: ((id: string) => Promise<void>) | undefined;
 }) {
+  const [editing, setEditing] = useState<string | null>(null);
+  const [title, setTitle] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
+  const run = (id: string, work: Promise<void>) => {
+    setBusy(id);
+    setFailed(null);
+    work.then(() => { setBusy(null); setEditing(null); }, () => { setBusy(null); setFailed(id); });
+  };
   return (
     <>
       <p className="rail-micro">{label}</p>
       <ol className="rail-briefs">
-        {briefs.map((b) => (
-          <BriefRow key={b.id} brief={b} activeBriefId={activeBriefId} onPickBrief={onPickBrief} />
-        ))}
+        {briefs.map((b) =>
+          editing === b.id && onRename ? (
+            <li key={b.id} className="rail-brief-edit">
+              <form onSubmit={(e) => { e.preventDefault(); if (title.trim()) run(b.id, onRename(b.id, title.trim())); }}>
+                <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={120} aria-label="Chat name" autoFocus
+                  onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); setEditing(null); } }} />
+                <button type="submit" className="rail-more" disabled={busy === b.id || !title.trim()}>Save</button>
+              </form>
+            </li>
+          ) : (
+            <BriefRow key={b.id} brief={b} activeBriefId={activeBriefId} onPickBrief={onPickBrief}>
+              {(onRename || onArchive) && (
+                /* Shown when the row is pointed at or focused, so the same two words are not repeated down the
+                   list; a change that didn't save keeps them on screen with the line saying so. */
+                <span className={`rail-brief-acts${failed === b.id ? " is-shown" : ""}`}>
+                  {failed === b.id && <span className="rail-brief-err">Didn't save.</span>}
+                  {onRename && <button type="button" className="rail-more" onClick={() => { setEditing(b.id); setTitle(b.title); }}>Rename</button>}
+                  {onArchive && <button type="button" className="rail-more" disabled={busy === b.id} onClick={() => run(b.id, onArchive(b.id))}>Archive</button>}
+                </span>
+              )}
+            </BriefRow>
+          ),
+        )}
       </ol>
     </>
   );
@@ -408,11 +535,13 @@ function BriefGroup({
  * caller and became a duplication the moment the rail showed briefs too.
  */
 function BriefRow({
-  brief: b, activeBriefId, onPickBrief,
+  brief: b, activeBriefId, onPickBrief, children,
 }: {
   brief: Brief;
   activeBriefId: string | null;
   onPickBrief: (id: string) => void;
+  /** Row actions beside the brief, in the history dialog. */
+  children?: ReactNode;
 }) {
   const mode = MODE_BY_ID[b.mode];
   const on = b.id === activeBriefId;
@@ -444,6 +573,7 @@ function BriefRow({
         <span className="rail-brief-camp">{b.campaign}</span>
         <span className="rail-brief-when">{b.when}</span>
       </button>
+      {children}
     </li>
   );
 }
@@ -520,7 +650,7 @@ for (const b of BRIEFS) {
  * earlier.
  */
 function isRecent(b: Brief): boolean {
-  return b.when.endsWith("h") || b.when === "Yesterday";
+  return b.when.endsWith("m") || b.when.endsWith("h") || b.when === "Yesterday";
 }
 
 /**
@@ -581,35 +711,6 @@ const OTHERS = COLLABORATORS.filter((p) => p.id !== OWNER?.id);
  * reading "Unassigned" is honest where a row reading the second collaborator's
  * name would be a quiet lie.
  */
-export type ConfigRow = {
-  label: string;
-  /** Configured. A fact, in --ink. */
-  value?: string;
-  /**
-   * Not configured. The reference's best idea: the value position holds the
-   * ACTION that would fill it, in --ink-2, rather than a blank or a dash.
-   *
-   * `href` is mandatory and that is the honesty constraint — an affordance
-   * that reads as a control has to go somewhere. Both of these point at real
-   * routes the hash router honours, so the row takes you to the page where the
-   * field would be set even though nothing here can set it inline.
-   */
-  action?: { label: string; href: string };
-  /**
-   * Brand marks rendered before the value.
-   *
-   * Only the CONNECTED channels appear, which is what makes the marks need no
-   * on/off encoding of their own — every logo present is a logo that works.
-   * Dimming the two disconnected ones instead would have put the state in an
-   * opacity, and an opacity low enough to read as "off" is an opacity below
-   * the contrast floor for a glyph that still means something.
-   *
-   * The `2 of 4` stays beside them, because the marks can only say what IS
-   * connected and the row's real question is whether anything is missing.
-   */
-  marks?: readonly Channel[];
-};
-
 export const CONFIG: readonly ConfigRow[] = [
   { label: "Owner", value: OWNER?.name ?? "Unassigned" },
   {
@@ -627,13 +728,13 @@ export const CONFIG: readonly ConfigRow[] = [
     label: "Channels",
     ...(CONNECTED > 0
       ? { marks: CONNECTED_CHANNELS, value: `${CONNECTED} of ${CHANNELS.length}` }
-      : { action: { label: "Connect a channel", href: `#${ROUTES.integrations.path}` } }),
+      : { action: { label: "Connect a channel", href: `#${ROUTES.settings.path}/connections` } }),
   },
   {
     label: "ATS job",
     ...(CAMPAIGN_CONFIG.atsJob
       ? { value: CAMPAIGN_CONFIG.atsJob }
-      : { action: { label: "Link ATS job", href: `#${ROUTES.integrations.path}` } }),
+      : { action: { label: "Link ATS job", href: `#${ROUTES.settings.path}/connections` } }),
   },
   {
     label: "Intake",

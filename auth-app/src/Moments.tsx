@@ -1,12 +1,20 @@
 import {
-  ArrowCounterClockwise, ArrowRight, ArrowsOutSimple, CalendarBlank, Check, CheckCircle, SlackLogo, Sparkle,
+  ArrowCounterClockwise, ArrowRight, ArrowSquareOut, ArrowsOutSimple, CalendarBlank, Check, CheckCircle, ClipboardText,
+  Eye, ShareFat, SlackLogo, Sparkle,
 } from "@phosphor-icons/react";
+import { FormPreviewDialog } from "./ApplyForm";
+import type { Form, Question } from "./campaign";
+import { answerable, missedMustHaves, mustHaveOf, mustHaves, responsesFor } from "./campaign";
+import type { Family, RoleFacts } from "./formKit";
+import { builtAround, draftForm, draftNameAlts, estMinutes, familyConflict, idealDomain, idealMustHaves, roleTitle, shortTitle, subLabel, tintOf, titleCase } from "./formKit";
+import { addCampaignStub, campaignById, ensureDraft, liveForms, retryDraft, useForm, useFormMeta } from "./formsStore";
 import { AgentStrip, AgentsOverview } from "./AgentsOverview";
 import type { AgentView } from "./AgentsOverview";
 import { CampaignReport } from "./CampaignReport";
 import { Clarified } from "./Clarify";
 import { criteriaFor } from "./clarify";
 import { CompareDialog, verdictFor } from "./CompareDialog";
+import { Loader } from "./components/Loader";
 import { ActionButton } from "./ui";
 import "./compare.css";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -14,15 +22,17 @@ import { Avatar, FitMark, Verdicts } from "./CandidateBits";
 import { ConnectGate, ServiceMark, useConnectors } from "./connectors";
 import type { MomentCtx, MomentKind } from "./moments";
 import {
-  ASSIGN_PHASES, CAMPAIGN_PHASES, COMPARE_PHASES, DIGEST_PHASES, INTAKE, INTAKE_PHASES, LEAK_PHASES, PAST,
+  ASSIGN_PHASES, CAMPAIGN_PHASES, COMPARE_PHASES, DIGEST_PHASES, FORM_STATUS_PHASES, INTAKE, INTAKE_PHASES, LEAK_PHASES, PAST,
   REDISCOVER_PHASES, REPORT_PHASES, RUN_LOG, SCHEDULE_PHASES, SLOTS, STATUS_PHASES, WEEK,
-  campaignIn, campaignLabel, candidatesIn, roleIn,
+  campaignIn, campaignLabel, candidatesIn, formCampaignIn, roleIn,
 } from "./moments";
 import type { CampaignKey, PipelineRole, Scope } from "./orchestrator";
 import { FLEET, PIPELINE, RUN_LABEL, RUN_RANK, SCOPED, campaignName } from "./orchestrator";
 import { Outreach } from "./Outreach";
 import { CANDIDATES } from "./sourcing";
+import type { Phase } from "./sourcing";
 import { Staged } from "./Staged";
+import { ClientMoment, NewCampaignMoment } from "./ClientMoments";
 
 /**
  * Moment — the reply for every brief that is not sourcing and not plain
@@ -50,6 +60,10 @@ function Body({ kind, ctx }: { kind: MomentKind; ctx: MomentCtx }): JSX.Element 
     case "intake": return <Intake ctx={ctx} />;
     case "digest": return <Digest ctx={ctx} />;
     case "campaign": return <Campaign ctx={ctx} />;
+    case "form": return <FormDraft ctx={ctx} />;
+    case "form-status": return <FormStatus ctx={ctx} />;
+    case "client": return <ClientMoment ctx={ctx} />;
+    case "campaign-new": return <NewCampaignMoment ctx={ctx} />;
     default: return null;
   }
 }
@@ -143,15 +157,15 @@ function Assign({ ctx }: { ctx: MomentCtx }) {
   const chipRef = useRef<HTMLSpanElement>(null);
   const flown = useRef(false);
 
-  /* ── THE CHIP FLIES TO THE BAND, THEN THE AGENT IS DEPLOYED ──
-     A clone of the chip travels from the receipt to where the live band
-     sits, and the deploy lands as it arrives, so the band's new column is
+  /* ── THE CHIP FLIES TO THE RAIL, THEN THE AGENT IS DEPLOYED ──
+     A clone of the chip travels from the receipt to the Agents panel in the
+     rail, and the deploy lands as it arrives, so the new row there is
      visibly the thing that left the conversation. */
   const land = useCallback(() => {
     if (flown.current) return;
     flown.current = true;
     const chip = chipRef.current;
-    const target = document.querySelector(".feed-list, .feed, .feed-reserve");
+    const target = document.querySelector(".rail-ag-list, .rail-ag-empty, .rail-agents");
     const done = () => setKey(ctx.deploy(role, camp));
     if (!chip || !target || window.matchMedia("(prefers-reduced-motion: reduce)").matches) { done(); return; }
     const a = chip.getBoundingClientRect();
@@ -245,9 +259,9 @@ function Assign({ ctx }: { ctx: MomentCtx }) {
               return (
                 <p key={s} className="src-phase" style={{ cursor: "default" }}>
                   <span className="src-phase-icon" aria-hidden="true">
-                    {live ? <span className="src-spin" /> : <CheckCircle size={16} />}
+                    {live ? <Loader size="sm" /> : <CheckCircle size={16} />}
                   </span>
-                  <span className={live ? "src-shimmer" : undefined}>{s}</span>
+                  <span>{s}</span>
                 </p>
               );
             })}
@@ -700,6 +714,279 @@ function Digest({ ctx }: { ctx: MomentCtx }) {
           <button type="button" className="src-btn is-quiet mo-small" onClick={() => ctx.seed("What has outreach done on backend this week?")}>See the replies</button>
           <button type="button" className="src-btn is-quiet mo-small" onClick={() => ctx.seed("How are all my agents doing?")}>Check every agent</button>
         </div>
+      </Staged>
+    </div>
+  );
+}
+
+/* ════════════════════════════════ form ═════════════════════════════════════ */
+
+const DEPT_FOR: Record<Family, string> = {
+  engineering: "Engineering", sales: "Go to market", design: "Design", other: "Operations",
+};
+
+const joinAnd = (xs: readonly string[]) =>
+  xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`;
+
+/** What the role said, for the line under "Read the role spec": its must-haves and the terms around them. */
+const roleLine = (f: RoleFacts, source: "spec" | "setup" | "none") => {
+  const bits = [
+    f.musts.length ? `Must-haves: ${f.musts.map((m) => m.text).join(", ")}` : "",
+    f.yearsMin ? `${f.yearsMin}+ years` : "",
+    f.maxNoticeDays !== undefined ? (f.maxNoticeDays === 0 ? "Immediate joiners" : `Notice up to ${f.maxNoticeDays} days`) : "",
+  ].filter(Boolean);
+  return `${source === "spec" ? "Role spec" : "Campaign"}: ${bits.join(", ") || "no must-haves yet"}`;
+};
+
+/** "Yes", or the first accepted choice and how many more. `range`: a run of three or more neighbouring choices reads "Immediate to 60 days". */
+const needs = (q: Question, range = false) => {
+  const ok = mustHaveOf(q) ?? [];
+  const opts = q.options ?? [];
+  const at = ok.map((o) => opts.indexOf(o)).sort((x, y) => x - y);
+  if (range && ok.length > 2 && at[0]! >= 0 && at.every((x, i) => x === at[0]! + i)) return `${opts[at[0]!]} to ${opts[at[at.length - 1]!]}`;
+  return ok.length > 1 ? `${ok[0]} +${ok.length - 1}` : ok[0] ?? "";
+};
+
+/** With the API: the draft is made, and saved, before its card is drawn, from the campaign's role spec. */
+export type LiveDraft = {
+  form: Form;
+  facts: RoleFacts | null;
+  /** Where the must-haves came from. */
+  source: "spec" | "setup" | "none";
+};
+
+/**
+ * A screening form drafted from the answers to the form questions. The
+ * draft goes into the forms store at once (as a draft: nothing is sent), so
+ * the builder opens on the same form and the card here follows its edits.
+ * Given `live`, the form is already made and saved, and the card says what it was drawn from.
+ */
+export function FormDraft({ ctx, live: given }: { ctx: MomentCtx; live?: LiveDraft }) {
+  const a = ctx.answers ?? {};
+  const [made] = useState(() => {
+    if (given) return { form: given.form, created: null as string | null };
+    const key = `${ctx.said}|${JSON.stringify(a)}`;
+    let created: string | null = null;
+    let campaignId: string;
+    if (a.campaign === "new") {
+      const name = (a.newName ?? "").trim() || "New role";
+      created = name;
+      /* The store memoises stubs by name, so a second render makes none. */
+      campaignId = addCampaignStub({ name, department: DEPT_FOR[(a.family as Family) ?? "other"] }).id;
+    } else {
+      campaignId = a.campaign ?? formCampaignIn(ctx.said)!;
+    }
+    const roleText = a.roleText ?? (a.campaign === "new" ? a.newName : undefined);
+    const fam = (a.family as Family) ?? "other";
+    const campName0 = campaignById(campaignId)?.name ?? "New role";
+    const base = `${roleText?.trim() ? titleCase(roleText) : roleTitle(campName0)} screening`;
+    /* If the campaign already has "<Role> screening", the draft takes the
+       sub-type (when the campaign name doesn't already say it), else
+       "…, second draft". Never a date, never "(2)". */
+    const form = ensureDraft(key, () => draftForm({
+      campaignId, family: fam, sub: a.sub, roleText, ideal: a.ideal,
+    }), draftNameAlts(base, fam, a.sub, campName0));
+    return { form, created };
+  });
+  const live: Form = useForm(made.form.id) ?? made.form;
+  const [preview, setPreview] = useState(false);
+  const saved = useFormMeta(live.id);
+
+  const camp = campaignById(live.campaign);
+  const campName = camp?.name ?? made.created ?? live.campaign;
+  const qs = answerable(live);
+  const must = mustHaves(live);
+  const rest = qs.filter((q) => !mustHaveOf(q));
+  const min = estMinutes(live);
+  const tint = tintOf(live);
+  const also = [...new Set(rest.map(shortTitle).filter(Boolean))].slice(0, 3);
+  const around = builtAround(a.ideal ?? "");
+
+  /* Counts come from the draft as it was made, so the phase lines don't
+     change under the recruiter if they edit and come back. */
+  const n0 = answerable(made.form).length;
+  const m0 = mustHaves(made.form).length;
+  const min0 = estMinutes(made.form);
+  const fromLine = idealMustHaves(a.ideal ?? "", (a.family as Family) ?? "other");
+  const domain = idealDomain(a.ideal ?? "");
+  const clash = familyConflict(live.campaign, (a.family as Family) ?? "other");
+  const phases: readonly Phase[] = useMemo(() => [
+    {
+      id: "f-read", live: "Thinking…", done: given?.source === "spec" ? "Read the role spec" : "Read the campaign brief", ms: 900,
+      steps: [
+        camp ? `${campName}: ${camp.department}, ${camp.location}` : "A new campaign, so I started from the role",
+        ...(given?.facts ? [roleLine(given.facts, given.source)] : []),
+        a.ideal ? `Your line: “${a.ideal}”` : given?.facts ? "" : "No line about the ideal hire, so I worked from the campaign",
+      ].filter(Boolean),
+      says: "",
+    },
+    {
+      id: "f-pick", live: "Choosing questions", done: domain ? `Chose ${n0} questions, one on ${domain.label.split(" or ")[0]} as you asked` : `Chose ${n0} questions`, ms: 1100,
+      steps: answerable(made.form).slice(0, 4).map((q) => q.title).concat(domain ? [domain.question] : []).filter((t, i, xs) => xs.indexOf(t) === i),
+      says: "",
+    },
+    {
+      id: "f-must", live: "Setting must-haves",
+      /* Say back what the line became, so the recruiter sees it was used. */
+      done: fromLine.length
+        ? `Turned your line into ${fromLine.length} must-have${fromLine.length === 1 ? "" : "s"}: ${joinAnd(fromLine.map((m) => m.label))}`
+        : given?.source && given.source !== "none" ? `Marked ${m0} must-haves from the ${given.source === "spec" ? "role spec" : "campaign"}` : `Marked ${m0} must-haves`,
+      ms: 700,
+      steps: mustHaves(made.form).map((q) => q.title),
+      says: `Here's a first draft for ${campName}: ${n0} questions, about ${min0} minutes for a candidate. Must-haves flag a response for you to look at. Nobody is turned down automatically.${
+        made.created ? ` I've set up ${made.created} as a draft campaign. Finish its brief whenever you're ready.` : ""}${clash ? ` ${clash}` : ""}`,
+    },
+    // Fixed for the turn.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], []);
+
+  const formName = live.name || `${live.title ?? campName} screening`;
+  /* The sub-type is a fact about the form, not part of its name. */
+  const sub = subLabel((a.family as Family) ?? "other", a.sub);
+
+  return (
+    <div className="src mo is-formflow">
+      <Staged phases={phases} onBusy={ctx.onBusy} onGrow={ctx.onGrow}>
+        <article className="mo-card mo-form" aria-label={`Form draft: ${formName}`}
+          style={{ ["--mo-form-wash" as string]: tint.wash, ["--mo-form-fill" as string]: tint.fill }}>
+          <header className="mo-form-h">
+            <p className="mo-form-eyebrow t-caption">
+              <span className="mo-form-mark" aria-hidden="true"><ClipboardText size={14} weight="bold" /></span>
+              Screening form, {live.status === "draft" ? "draft" : "live"}
+            </p>
+            <h3 className="mo-form-title t-title-sm">{formName}</h3>
+            <p className="mo-form-meta t-body-sm">
+              <span>For {campName}</span>
+              {sub && <span>{sub}</span>}
+              <span>{qs.length} questions</span>
+              <span>About {min} min</span>
+            </p>
+          </header>
+
+          <div className="mo-form-b">
+            <p className="mo-form-sub t-label">Must-haves</p>
+            {must.length ? (
+              <ul className="mo-form-must">
+                {must.slice(0, 3).map((q) => (
+                  <li key={q.id}>
+                    <CheckCircle size={15} weight="fill" aria-hidden="true" />
+                    <span className="t-body">{q.title}</span>
+                    <span className="mo-form-need">Must be {needs(q, !!given)}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mo-form-none t-body-sm">No must-haves yet. You can mark any yes/no or single-choice question as one in the builder.</p>
+            )}
+            {must.length > 3 && <p className="mo-form-none t-body-sm">And {must.length - 3} more in the builder.</p>}
+            {also.length > 0 && <p className="mo-form-also t-body-sm">Also asks about {joinAnd(also)}.</p>}
+            {around && <p className="mo-form-around t-body-sm"><span>Built around:</span> {around}</p>}
+          </div>
+
+          <footer className="mo-form-f">
+            {saved.save === "error" && (
+              <p className="mo-form-none t-body-sm" role="alert">
+                This draft isn't saved yet. {saved.error}{" "}
+                <button type="button" className="lt-link" onClick={() => void retryDraft(live.id)}>Try again</button>
+              </p>
+            )}
+            <div className="mo-acts">
+              <button type="button" className="src-btn is-primary mo-small" onClick={() => ctx.openForm?.(live.campaign, live.id, "build")}>
+                <ArrowSquareOut size={14} aria-hidden="true" />Open in builder
+              </button>
+              <button type="button" className="src-btn is-quiet mo-small" onClick={() => setPreview(true)}>
+                <Eye size={14} aria-hidden="true" />Preview
+              </button>
+              <button type="button" className="src-btn is-quiet mo-small" onClick={() => ctx.openForm?.(live.campaign, live.id, "share")}>
+                <ShareFat size={14} aria-hidden="true" />Share
+              </button>
+            </div>
+          </footer>
+        </article>
+        <FormPreviewDialog form={live} open={preview} onClose={() => setPreview(false)}
+          link={given ? (saved.status === "live" ? saved.publicLink : null) : undefined} />
+      </Staged>
+    </div>
+  );
+}
+
+/* ════════════════════════════════ form responses ═══════════════════════════ */
+
+/** One form's line in the status list: its name, how it is doing, and the way into its responses. */
+export type FormStatusRow = {
+  id: string;
+  name: string;
+  /** Under the name: the campaign in the demo, the form's state with the API. */
+  sub: React.ReactNode;
+  /** How it is doing, in words. */
+  said: React.ReactNode;
+  /** The way into its responses; a form nobody can answer yet has none. */
+  onOpen?: () => void;
+  /** The way into its builder: every form has one, answered or not. */
+  onBuild?: () => void;
+  /** Under the whole line: the link to share, who answered. */
+  more?: React.ReactNode;
+};
+
+/** The list the status reply is made of; the demo and the connected chat draw it the same way. */
+export function FormStatusList({ rows, className }: { rows: readonly FormStatusRow[]; className?: string }) {
+  return (
+    <ul className={`mo-fstat${className ? ` ${className}` : ""}`}>
+      {rows.map((r) => (
+        <li key={r.id}>
+          <span className="mo-fstat-name">
+            <b>{r.name}</b>
+            <span className="t-body-sm">{r.sub}</span>
+          </span>
+          <span className="mo-fstat-n t-body-sm">{r.said}</span>
+          {r.onOpen && (
+            <button type="button" className="src-btn is-quiet mo-small" onClick={r.onOpen}>
+              Open responses<ArrowRight size={13} aria-hidden="true" />
+            </button>
+          )}
+          {r.onBuild && (
+            <button type="button" className="src-btn is-quiet mo-small" onClick={r.onBuild}>
+              Open the form
+            </button>
+          )}
+          {r.more}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Response counts per live form, with a way into each one's responses. */
+function FormStatus({ ctx }: { ctx: MomentCtx }) {
+  const [rows] = useState(() => liveForms().map((f) => {
+    const all = responsesFor(f);
+    return { f, n: all.length, missed: all.filter((r) => missedMustHaves(f, r.answers).length > 0).length, camp: campaignById(f.campaign)?.name ?? f.campaign };
+  }).sort((x, y) => y.n - x.n));
+  const total = rows.reduce((t, r) => t + r.n, 0);
+  return (
+    <div className="src mo">
+      <Staged phases={FORM_STATUS_PHASES} onBusy={ctx.onBusy} onGrow={ctx.onGrow}>
+        {rows.length === 0 ? (
+          <p className="src-para">No form is live yet, so there are no responses. Publish one from its builder and send it with your outreach.</p>
+        ) : (
+          <>
+            <p className="src-para">
+              {total} {total === 1 ? "response" : "responses"} across {rows.length} live {rows.length === 1 ? "form" : "forms"}.
+            </p>
+            <FormStatusList rows={rows.map((r) => ({
+              id: r.f.id,
+              name: r.f.name,
+              sub: r.camp,
+              said: (
+                <>
+                  <span className="t-num-sm">{r.n}</span> of <span className="t-num-sm">{r.f.sent}</span> answered
+                  {r.missed > 0 && <>, <span className="t-num-sm">{r.missed}</span> missed a must-have</>}
+                </>
+              ),
+              onOpen: () => ctx.openForm?.(r.f.campaign, r.f.id, "responses"),
+            }))} />
+          </>
+        )}
       </Staged>
     </div>
   );

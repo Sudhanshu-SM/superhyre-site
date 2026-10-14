@@ -52,6 +52,45 @@
      strip that was its only user.) */
   --word: "Space Grotesk", "Inter", system-ui, sans-serif;
 
+  /* TYPE: the only place font sizes are defined. Pick a role, not a size.
+     Inter carries all text; Space Grotesk (--word) only for titles of 16px
+     and up and numbers of 20px and up. Line heights sit on a 4px grid,
+     weights are 400/500/600, and nothing visible is under 12px.
+
+     Role map (the same on every page; the sign-in surface above line ~1626
+     is out of scope):
+       caption 12      timestamps, IST times, axis ticks, counts in tabs,
+                       tags, conversion notes, stat deltas
+       label 13/500    table headers, tab labels, nav rows, group headings
+                       (sentence case, --ink-2), funnel stage names, small buttons
+       body-sm 13      the line under a name, asides, crumbs, page meta,
+                       stat labels, captions under bars
+       body 14         rows, activity entries, cells, menus, inputs, panel lines
+       body-strong 14  names in rows, buttons
+       body-lg 16      call notes, quotes, empty states, composer and email text
+       title-sm 16     card or panel titles (Hires, Activity, Funnel)
+       title 20        section headings (Overview)
+       title-lg 24     page titles (campaign name, Contacts, Campaigns)
+       num-sm 14       inline counts, group counts
+       num-md 20       funnel numbers, secondary stats
+       num-lg 28       KPI tiles
+       display 36      Home greeting only */
+  --fs-12: .75rem; --fs-13: .8125rem; --fs-14: .875rem; --fs-16: 1rem; --fs-20: 1.25rem; --fs-24: 1.5rem; --fs-28: 1.75rem; --fs-36: 2.25rem;
+  --lh-16: 1rem; --lh-20: 1.25rem; --lh-24: 1.5rem; --lh-28: 1.75rem; --lh-32: 2rem; --lh-44: 2.75rem;
+  --type-caption:     400 var(--fs-12)/var(--lh-16) var(--ui);   --track-caption: 0;
+  --type-label:       500 var(--fs-13)/var(--lh-16) var(--ui);   --track-label: -0.003em;
+  --type-body-sm:     400 var(--fs-13)/var(--lh-20) var(--ui);   --track-body-sm: -0.003em;
+  --type-body:        400 var(--fs-14)/var(--lh-20) var(--ui);   --track-body: -0.006em;
+  --type-body-strong: 500 var(--fs-14)/var(--lh-20) var(--ui);   --track-body-strong: -0.006em;
+  --type-body-lg:     400 var(--fs-16)/var(--lh-24) var(--ui);   --track-body-lg: -0.011em;
+  --type-title-sm:    600 var(--fs-16)/var(--lh-24) var(--word); --track-title-sm: -0.005em;
+  --type-title:       600 var(--fs-20)/var(--lh-28) var(--word); --track-title: -0.01em;
+  --type-title-lg:    600 var(--fs-24)/var(--lh-32) var(--word); --track-title-lg: -0.015em;
+  --type-num-sm:      500 var(--fs-14)/var(--lh-20) var(--ui);   --track-num-sm: 0;
+  --type-num-md:      500 var(--fs-20)/var(--lh-24) var(--word); --track-num-md: -0.01em;
+  --type-num-lg:      500 var(--fs-28)/var(--lh-32) var(--word); --track-num-lg: -0.015em;
+  --type-display:     500 var(--fs-36)/var(--lh-44) var(--word); --track-display: -0.02em;
+
   /* ── added here ──────────────────────────────────────────────────── */
 
   /* CONTRAST BUDGET, measured against the surface each one sits on.
@@ -104,6 +143,7 @@
      6.34 on the peach, which is the tightest surface it lands on. Chroma
      stays in Primer's tint range, so it still reads warm rather than grey. */
   --ink-2: #5c524b;        /* 7.60:1 white, 6.98 console, 6.34 peach */
+  --ink-3: #776d66;        /* 5.04:1 white, 4.70:1 #f7f7f5. Tertiary TEXT only */
 
   /* ── colour system, revision 27 ──────────────────────────────────────────
      Rewritten after measuring three reference screenshots pixel by pixel
@@ -180,6 +220,17 @@
   --c-rose-text: #b84054;   --c-rose-fill: #c64c60;
 
   --accent-deep: #b8400f;  /* burnt end of the accent */
+
+  /* ── THE ONE PRIMARY BUTTON ──
+     Every filled action in the console (New campaign, Add client, Save, Confirm, Add candidates, Publish) wears
+     these four, so the product has one orange button, not two. White on the fill is 4.52:1 (the bright
+     --accent is 3.51:1 and is never a button), hover deepens it to 5.56:1, and a button that cannot be pressed
+     yet is a quiet neutral, never a faded orange (which turns brown on a dark page). Dark values: theme.css. */
+  --btn-fill: var(--accent-fill);
+  --btn-fill-hover: #b8400f;
+  --btn-ink: #ffffff;
+  --btn-off-fill: #ebe8e4;
+  --btn-off-ink: #6c625b;
 
   /* ── nav surfaces ──
      At :root, not on `.con`, because the campaign switcher renders through a
@@ -475,6 +526,9 @@ body {
   background: var(--page);
   color: var(--ink);
   font-family: var(--serif);
+  /* The serif's default figures are old-style, where a 1 is a small-cap I ("T1 Co" read "Tı Co"). Lining
+     figures are a feature of the face, so every use of it (headlines, answers, names) takes them. */
+  font-variant-numeric: lining-nums;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
@@ -1314,12 +1368,23 @@ body {
 .btn:disabled { cursor: not-allowed; opacity: 0.55; }
 
 .btn-solid {
-  background: var(--accent);
-  color: #fff;
-  border: 1px solid var(--accent);
+  background: var(--btn-fill);
+  color: var(--btn-ink);
+  border: 1px solid var(--btn-fill);
   box-shadow: 0 8px 22px rgba(234, 90, 30, 0.3);
 }
 .btn-solid:hover:not(:disabled) { filter: brightness(1.07); }
+/* The sign-in's primary button, as every primary button in the console is (ui.css): one that is working keeps its
+   fill at full strength with its ring, since half an orange under white text over sand is 2.6:1; one that cannot be
+   pressed yet is the quiet neutral, never a faded orange. */
+.btn-solid:disabled:is([aria-busy="true"], :has(> .ldr)) { opacity: 1; cursor: progress; }
+.btn-solid:disabled:not([aria-busy="true"]):not(:has(> .ldr)) {
+  opacity: 1;
+  background: var(--btn-off-fill);
+  border-color: transparent;
+  color: var(--btn-off-ink);
+  box-shadow: none;
+}
 
 .btn-outline {
   background: #fff;
@@ -1329,8 +1394,6 @@ body {
 }
 .btn-outline:hover:not(:disabled) { background: #f6f6f6; border-color: var(--ink-2); }
 
-.btn .spin { animation: spin 700ms linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
 
 /* Divider between the two auth paths. */
 .or {
@@ -1527,11 +1590,9 @@ body {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
   }
-  /* The one loop that must survive: it is the sole indication that a sign-in
-     is still in flight, so it slows down instead of stopping. */
-  .btn .spin { animation: spin 1.6s linear infinite !important; animation-duration: 1.6s !important; }
-  /* Pulsing a skeleton is pure decoration; the shape alone communicates it. */
-  .skeleton { animation: none !important; }
+  /* The one loop that must survive: the loader is the sole indication that something is still in flight, so
+     it breathes slowly instead of stopping. */
+  .ldr .ldr-ring { animation-duration: 2.4s !important; animation-iteration-count: infinite !important; }
   /* Tactile press is spatial by definition. */
   .btn:active:not(:disabled) { transform: none; }
 }
@@ -1567,60 +1628,14 @@ body {
   place-items: center;
   background: var(--page);
 }
-
-/* The ring is a conic gradient masked to an annulus, not a border with one
-   coloured side. A one-sided border spins a visible seam; the mask sweeps
-   opacity smoothly all the way round, so there is no hard edge chasing the
-   logo. */
-.boot-mark {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 76px;
-  height: 76px;
-  color: var(--logo, #f97316);
-}
-
-.boot-mark svg {
-  width: 30px;
-  height: 30px;
-  display: block;
-}
-
-.boot-mark::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: conic-gradient(from 0deg, transparent 0deg, currentColor 300deg, transparent 360deg);
-  /* Annulus: paint everything, then punch the middle out. Two masks composited
-     rather than a 3px border, so the stroke stays even at every angle. */
-  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
-  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px));
-  opacity: 0.5;
-  animation: boot-spin 900ms linear infinite;
-}
-
-@keyframes boot-spin {
-  to { transform: rotate(1turn); }
-}
-
-/* The mark itself breathes rather than spinning: a rotating logo at this size
-   turns the glyph into a smear, and the four points are the whole
-   recognisability of it. */
-@media (prefers-reduced-motion: no-preference) {
-  .boot-mark svg { animation: boot-pulse 1400ms var(--ease-in-out) infinite; }
-  @keyframes boot-pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50%      { opacity: 0.72; transform: scale(0.94); }
-  }
-}
-
-/* Reduced motion keeps the ring but stops it moving: a static annulus still
-   reads as "waiting" without animating anything. */
-@media (prefers-reduced-motion: reduce) {
-  .boot-mark::before { animation: none; opacity: 0.35; }
-}
+/* Someone who has signed in here before is about to be given the console, whose surface is white in the light
+   theme: their first paint is that surface (index.html says so on <html>), so nothing changes colour when the
+   shell arrives. The dark theme's page is the same colour either way. */
+html[data-surface="app"]:not([data-theme="dark"]) .boot { background: #ffffff; }
+/* The body's own sand (above, `body { background: var(--page) }`) is the sign-in's ground: for someone who has
+   signed in before it must not appear at all, not even for the frame between the boot loader and the session
+   check. (index.html says the same before this stylesheet has arrived.) */
+html[data-surface="app"]:not([data-theme="dark"]) body { background: #ffffff; }
 
 /* ═══════════════════════════ console ═══════════════════════════
 
@@ -1865,12 +1880,16 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 54px;
+  /* 60 tall with 8px below it: the logo row is the panel's roof and reads as one band, with the organisation
+     switcher set 8px under it (and 4px of its own block on top, so 12px to the box). The rail keeps its old 48
+     (see .is-railed below). */
+  height: 60px;
+  margin-bottom: 8px;
   flex: none;
   /* Left pad is --nav-pad so the mark sits on the same axis as every icon
      below it. The row is not centred in the rail: centring would move the mark
      during the collapse, and nothing is allowed to move. */
-  padding: 0 var(--nav-pad);
+  padding: 8px var(--nav-pad) 0;
 }
 
 .nav-brand {
@@ -1958,9 +1977,9 @@ body {
      space rather than as a gap between two boxes. */
   gap: 10px;
   flex: none;
-  /* 16 below, up from 12: this is the boundary between the panel's head and
-     its nav, and it is carried by space alone. */
-  padding: 0 var(--nav-pad) 16px;
+  /* 18 below, and the body adds its 2: 20px from the row to Home, the boundary between the head and the nav
+     carried by space alone (42px controls above it). */
+  padding: 0 var(--nav-pad) 18px;
 }
 
 /* The quick-find trigger.
@@ -2001,7 +2020,7 @@ body {
   align-items: center;
   flex: 1 1 auto;
   min-width: 0;
-  height: 34px;
+  height: 42px;
   padding: 0;
   border: 1px solid var(--nav-notch);
   border-radius: var(--r-pill);
@@ -2225,7 +2244,7 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--ink-2);
-  font: 400 13px/1 var(--ui);
+  font: 400 14px/1 var(--ui);
 }
 
 /* The shortcut, stated rather than hidden: a palette nobody knows the key for
@@ -2239,16 +2258,17 @@ body {
      That token means "lifted" now and would paint white on white. */
   background: var(--nav-panel);
   color: var(--ink-2);
-  font: 500 10px/1.3 var(--ui);
-  letter-spacing: 0.02em;
+  font: var(--type-caption);
+  font-weight: 500;
+  letter-spacing: var(--track-caption);
 }
 
 .nav-bell {
   position: relative;
   display: inline-grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
+  width: 42px;
+  height: 42px;
   flex: none;
   padding: 0;
   /* No resting border. It had one, and two outlined shapes sitting side by
@@ -2276,15 +2296,16 @@ body {
 
 .nav-bell:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
-/* #DC2626, not the palette's #E57373: white on that is 2.99:1 and this is
-   9.5px text, the smallest type on the surface. White on #DC2626 is 4.83:1.
-   A count nobody can read is a dot with extra steps. */
+/* The brand fill, not an alarm red: unread notices are news, not trouble.
+   White on --accent-fill is 4.52:1, readable at this weight and size. */
 .nav-bell-badge {
   position: absolute;
-  top: -4px;
-  right: -4px;
-  min-width: 18px;
-  height: 18px;
+  /* Inside the row's own top edge (it used to ride 4px above it, level with Quick find's border line), and
+     the bell's left side is well clear of the pill: the count is the one thing at the corner. */
+  top: 1px;
+  right: -2px;
+  min-width: 20px;
+  height: 20px;
   display: grid;
   place-items: center;
   padding: 0 4px;
@@ -2302,9 +2323,9 @@ body {
      white because the panel used to be, and a white ring on the off-white
      ground is a visible outline rather than a gap. */
   border: 2px solid var(--nav-panel);
-  background: #DC2626;
+  background: var(--accent-fill);
   color: #fff;
-  font: 600 9.5px/1 var(--ui);
+  font: 600 var(--fs-12)/1 var(--ui);
   font-variant-numeric: tabular-nums;
 }
 
@@ -2344,13 +2365,14 @@ body {
    position a function of how many children happen to be open. */
 .nav-body {
   flex: 1 1 auto;
+  /* No padding above: the tools row's 18px and the first section's 2px are the 20px before Home. */
   padding: 0 0 14px;
   min-height: 0;
   overflow: hidden auto;
   overscroll-behavior: contain;
 }
 
-.nav-sec { padding: 4px var(--nav-pad); }
+.nav-sec { padding: 2px var(--nav-pad); }
 
 .nav-sec-label {
   margin: 6px 0 4px;
@@ -2380,7 +2402,8 @@ body {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  /* 2, down from 3: the fills still part (a selected row beside a hovered one stays two shapes). */
+  gap: 2px;
 }
 
 .nav-row {
@@ -2394,8 +2417,9 @@ body {
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: var(--ink);
-  font: 400 13px/1.2 var(--ui);
+  /* A softer neutral at rest; the ink arrives on hover and on the current page. */
+  color: var(--ink-2);
+  font: 400 15px/1.2 var(--ui);
   /* Inter is cut with generous default tracking so it holds up at body sizes;
      at 13px in a 232px column that reads loose and cost real width — the
      campaign name started truncating the moment the face changed. -0.011em is
@@ -2424,7 +2448,7 @@ body {
    current page is the one thing in the panel standing off the ground. That
    contrast only works while hover stays flat — give both a shadow and neither
    means anything. */
-.nav-row:hover { background: var(--nav-hover); }
+.nav-row:hover { background: var(--nav-hover); color: var(--ink); }
 
 .nav-row:focus-visible { outline: 2px solid var(--focus); outline-offset: -1px; }
 
@@ -2434,6 +2458,7 @@ body {
 .nav-row.is-active {
   background: var(--nav-active);
   box-shadow: var(--e1);
+  color: var(--ink);
   font-weight: 500;
 }
 
@@ -2468,8 +2493,14 @@ body {
   transition: color var(--t);
 }
 
+/* A 1.5px line at the 20px size (Phosphor draws "regular" at 16 of 256 units, which is 1.25px here). */
+.nav-ico :where(path, rect, circle, line, polyline, polygon, ellipse) { stroke-width: 19.2; }
+
 .nav-row.is-active .nav-ico,
 .nav-row-group.is-within[aria-expanded="false"] .nav-ico { color: #ad3b0c; }
+
+/* The row that is waiting for the campaign list: the ring where its folder will be, at the icon's own width. */
+.nav-ico-wait { display: inline-grid; place-items: center; }
 
 .nav-label {
   flex: 1 1 auto;
@@ -2563,10 +2594,10 @@ body {
 
 .nav-sub-row {
   display: block;
-  padding: 6px 9px;
+  padding: 5px 9px;
   border-radius: 7px;
   color: var(--ink-2);
-  font: 400 12.5px/1.2 var(--ui);
+  font: 400 14px/1.2 var(--ui);
   letter-spacing: -0.011em;
   text-decoration: none;
   white-space: nowrap;
@@ -2594,7 +2625,7 @@ body {
   /* 22, up from 18. This is the only boundary in the sidebar carried by space
      alone — there is no rule above it — so the gap has to be unambiguous or
      the campaign block reads as a continuation of the main nav. */
-  margin-top: 22px;
+  margin-top: 14px;
   padding-top: 0;
   /* And air underneath, so the last child is not touching the foot divider. */
   padding-bottom: 6px;
@@ -2668,11 +2699,11 @@ body {
 .nav-scope-link {
   flex: 1 1 auto;
   min-width: 0;
-  min-height: 36px;
+  min-height: 34px;
 }
 
 /* 600 is the whole marker, and nothing else in the sidebar is 600. */
-.nav-scope-link .nav-label { font-weight: 600; color: var(--ink); }
+.nav-scope-link .nav-label { font-weight: 500; color: var(--ink); }
 .nav-scope-link .nav-ico { color: var(--accent-deep); }
 
 /* Hover belongs to the link, not the wrapper: the wrapper also holds the menu
@@ -2988,10 +3019,10 @@ body {
    12.5px at --ink-2 puts them a step below. The ramp now reads scope (600,
    --ink) > top-level (400, --ink) > scoped children (400, --ink-2), and the
    current page climbs back to --ink so it still wins wherever it sits. */
-.nav-campaign-list .nav-row { min-height: 34px; }
+.nav-campaign-list .nav-row { min-height: 32px; }
 
 .nav-campaign-list .nav-label {
-  font-size: 12.5px;
+  font-size: 14px;
   color: var(--ink-2);
 }
 
@@ -3045,14 +3076,16 @@ body {
 
 /* 12 below, up from 10. The trigger is one line now, so the block is shorter;
    giving a couple of pixels back keeps the head from closing up. */
-.nav-ws-block { position: relative; flex: none; padding: 0 var(--nav-pad) 12px; }
+/* The switcher is 52px tall: 12px above it (the head's 8 and 4 of its own) and 14 below before Quick find. */
+.nav-ws-block { position: relative; flex: none; padding: 4px var(--nav-pad) 14px; }
 
 .nav-ws-trigger {
   display: flex;
   align-items: center;
   width: 100%;
   min-width: 0;
-  padding: 5px 0;
+  min-height: 52px;
+  padding: 4px 0;
   border: none;
   border-radius: 9px;
   background: transparent;
@@ -3071,14 +3104,18 @@ body {
 .nav-ws-chip {
   display: grid;
   place-items: center;
-  width: 26px;
-  height: 26px;
+  box-sizing: border-box;
+  width: 28px;
+  height: 28px;
   flex: none;
-  margin: 0 calc((var(--nav-icon-box) - 26px) / 2);
-  border-radius: 7px;
+  /* Centred on the icon axis (the rail depends on it); 14px to the name, not a hair. */
+  margin: 0 14px 0 calc((var(--nav-icon-box) - 28px) / 2);
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+  border-radius: 8px;
   background: var(--nav-active);
   color: #ad3b0c;
-  font: 600 12px/1 var(--ui);
+  font: 600 13px/1 var(--ui);
 }
 
 /* Single line. .nav-ws-text and .nav-ws-hint are gone with the second line —
@@ -3089,7 +3126,7 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font: 500 12.5px/1.3 var(--ui);
+  font: 500 15px/1.3 var(--ui);
   letter-spacing: -0.011em;
   color: var(--ink);
 }
@@ -3102,9 +3139,9 @@ body {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 8px;
+  gap: 4px;
   flex: none;
-  padding: 8px var(--nav-pad) 12px;
+  padding: 6px var(--nav-pad) 10px;
   border-top: 1px solid var(--nav-rule);
   /* Part of the ground. As --nav-surface it was a white band laid across the
      panel, which put a plane boundary where there is no boundary. */
@@ -3170,14 +3207,14 @@ body {
   letter-spacing: -0.011em;
 }
 
-.nav-me-name { font: 500 12.5px/1.3 var(--ui); color: var(--ink); }
+.nav-me-name { font: 500 14px/1.3 var(--ui); color: var(--ink); }
 
 /* The organisation, on the account row. This is the tenant — the boundary the
    account belongs to — and the account row is where it belongs: the workspace
    switcher above used to display it, which was a category error (see
    workspaces.ts). Quieter than the name because it answers "which account",
    not "who". */
-.nav-me-org { font: 400 11px/1.3 var(--ui); color: var(--ink-2); }
+.nav-me-org { font: var(--type-caption); color: var(--ink-2); }
 
 /* Still used inside the account menu, where the email is the detail. */
 .nav-me-mail { font: 400 11px/1.3 var(--ui); color: var(--ink-2); }
@@ -3289,6 +3326,9 @@ body {
 .nav-me-pop-out:hover:not(:disabled) { background: #fdf0ef; color: #AE5757; }
 .nav-me-pop-out:hover:not(:disabled) > svg { color: #AE5757; }
 .nav-me-pop-out:focus-visible { outline: 2px solid var(--focus); outline-offset: -1px; }
+/* "Take the tour" is not a way out: it hovers like any other menu row. */
+.nav-me-pop-out.is-tour:hover:not(:disabled) { background: var(--nav-hover); color: var(--ink); }
+.nav-me-pop-out.is-tour:hover:not(:disabled) > svg { color: var(--ink); }
 .nav-me-pop-out:disabled { opacity: 0.5; cursor: not-allowed; }
 
 
@@ -3558,6 +3598,13 @@ body {
   margin: 0;
 }
 
+/* A page that is a heading and one state (not found, not allowed, a load that failed, a page not
+   built yet, a report with nothing in it) centres that state across the whole content column, as
+   every other page's empty state is. A 620px reading column has no visible edge, so a picture
+   centred inside it reads as off to the left of an otherwise empty page. Text keeps its measure. */
+.con-page:has(> .es, > .an-none) { max-width: none; }
+.con-page:has(> .es, > .an-none) > :not(.es, .an-none) { max-width: 620px; }
+
 /* ── console headings ──
    the UI face, not the serif, and not the pixel face either.
 
@@ -3639,37 +3686,6 @@ body {
   font: 400 13.5px/1.6 var(--ui);
   color: var(--ink-2);
 }
-
-/* Unbuilt page. Reads as a note, not as a broken feature. */
-.con-soon {
-  padding: 18px 20px;
-  border: 1px dashed #e2d3c4;
-  border-radius: 14px;
-  background: #fffaf5;
-  max-width: 60ch;
-}
-
-.con-soon-head {
-  margin: 0 0 6px;
-  font: 500 14.5px/1.3 var(--ui);
-  color: var(--ink);
-}
-
-.con-soon-body {
-  margin: 0;
-  font: 400 13.5px/1.6 var(--ui);
-  color: var(--ink-2);
-}
-
-.con-soon-body code {
-  padding: 2px 6px;
-  border-radius: 5px;
-  background: #f4eae0;
-  font: 500 12.5px/1 ui-monospace, "SF Mono", Menlo, monospace;
-  color: #ad3b0c;
-  white-space: nowrap;
-}
-
 
 /* ═══════════════════════════ extension page ═══════════════════════════
 
@@ -3847,49 +3863,9 @@ body {
 
 /* ── pipeline ── */
 
-.ex-stages { margin: 0; display: grid; gap: 7px; }
-
-.ex-stage {
-  display: grid;
-  grid-template-columns: 96px minmax(0, 1fr) 44px;
-  gap: 12px;
-  align-items: center;
-}
-
-.ex-stage-name {
-  font: 400 13px/1.3 var(--ui);
-  color: var(--ink-2);
-  text-transform: capitalize;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ex-stage-bar {
-  margin: 0;
-  height: 9px;
-  border-radius: 5px;
-  background: #f1e8df;
-  overflow: hidden;
-}
-
 /* Measured against the TRACK it sits on (#f1e8df), not the panel, because that
    is the boundary the eye has to resolve. 0.42 was 2.39 and failed 1.4.11;
    0.52 measures 3.05. */
-.ex-stage-fill {
-  display: block;
-  height: 100%;
-  border-radius: 5px;
-  background: rgba(58, 35, 23, 0.52);
-}
-
-.ex-stage-n {
-  margin: 0;
-  text-align: right;
-  font: 500 13px/1.3 var(--ui);
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-}
 
 /* ── table ── */
 
@@ -3934,7 +3910,7 @@ body {
 
 /* Every text cell truncates rather than wrapping the row to two lines: the
    full value is on the cell's title attribute. */
-.ex-cell-name, .ex-cell-role, .ex-cell-place, .ex-cell-owner {
+.ex-cell-name, .ex-cell-role, .ex-cell-owner {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3942,27 +3918,8 @@ body {
 
 .ex-table th:nth-child(1), .ex-cell-name  { width: 22%; }
 .ex-table th:nth-child(2), .ex-cell-role  { width: 27%; }
-.ex-table th:nth-child(3), .ex-cell-place { width: 15%; }
-.ex-cell-contact { width: 78px; }
-.ex-cell-stage   { width: 106px; }
+.ex-table th:nth-child(3) { width: 15%; }
 .ex-cell-when    { width: 84px; white-space: nowrap; color: var(--ink-2); font-variant-numeric: tabular-nums; }
-
-.ex-name-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--ink);
-  font-weight: 500;
-  text-decoration: none;
-  border-bottom: 1px solid transparent;
-}
-
-.ex-name-link:hover { border-bottom-color: var(--ink-2); }
-.ex-name-link:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 3px; }
-.ex-name-link svg { flex: none; color: var(--ink-2); }
-
-.ex-cell-contact { display: table-cell; }
-.ex-cell-contact svg { color: var(--ink-2); margin-right: 5px; vertical-align: -2px; }
 
 .ex-stage-tag {
   display: inline-block;
@@ -4019,28 +3976,6 @@ body {
 
 /* ── install ── */
 
-.ex-install {
-  margin: 26px 0 0;
-  padding: 22px;
-  border: 1px solid var(--nav-edge-panel);
-  border-radius: 14px;
-  background: var(--nav-surface);
-}
-
-.ex-install-title {
-  margin: 0 0 7px;
-  font: 500 17px/1.3 var(--ui);
-  letter-spacing: -0.008em;
-  color: var(--ink);
-}
-
-.ex-install-body {
-  margin: 0 0 16px;
-  max-width: 56ch;
-  font: 400 14.5px/1.55 var(--ui);
-  color: var(--ink-2);
-}
-
 /* .ex-cta is BACK. It went with the store link when the listing pointed at
    someone else's item (7bfd4a0): three manual load-unpacked steps replaced it
    because an accent button implies one click does it, and it was not one
@@ -4051,62 +3986,10 @@ body {
    4.17:1 — legal for large text, not for the 4.5:1 body floor it was set in.
    --accent-fill with white type is 4.52:1, the same pairing .orc-new uses, so
    the app has one filled-button convention rather than two. */
-.ex-cta {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  min-height: 42px;
-  padding: 0 18px;
-  border: 0;
-  border-radius: var(--r-field);
-  background: var(--accent-fill);
-  color: #fff;
-  font: 600 14.5px/1 var(--ui);
-  letter-spacing: -0.011em;
-  text-decoration: none;
-  transition: background-color var(--t-dim);
-}
 
 /* Shade only, and darker rather than lighter — the button deepens under the
    cursor instead of glowing. Nothing translates; press joins the shared 60ms
    scale group below rather than declaring its own. */
-.ex-cta:hover { background: var(--accent-text); }
-.ex-cta:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-
-.ex-install-foot {
-  margin: 14px 0 0;
-  font: 400 12.5px/1.5 var(--ui);
-  color: var(--ink-2);
-}
-
-.ex-install-foot code {
-  padding: 2px 5px;
-  border-radius: 4px;
-  background: #f4ece4;
-  font: 500 11.5px/1 ui-monospace, "SF Mono", Menlo, monospace;
-  color: #ad3b0c;
-  overflow-wrap: anywhere;
-}
-
-.ex-hint {
-  margin: 16px 0 0;
-  max-width: 64ch;
-  font: 400 13px/1.55 var(--ui);
-  color: var(--ink-2);
-}
-
-.ex-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: #ad3b0c;
-  font-weight: 500;
-  text-decoration: none;
-  border-bottom: 1px solid rgba(173, 59, 12, 0.4);
-}
-
-.ex-link:hover { border-bottom-color: #ad3b0c; }
-.ex-link:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 3px; }
 
 /* ── notes ── */
 
@@ -4119,6 +4002,9 @@ body {
 }
 
 .ex-note-bad { border-color: #e8c9b4; background: #fff6ef; }
+
+/* a quiet note under a picture: centred, on the page rather than in a tinted box */
+.ex-note.has-art { display: grid; justify-items: center; gap: 4px; padding: 8px 16px 20px; border: 0; background: none; text-align: center; }
 
 .ex-note-head {
   margin: 0 0 5px;
@@ -4141,12 +4027,7 @@ body {
   border-radius: 6px;
   background: #f2e9e0;
 }
-
-.ex-sk-label { width: 68%; height: 11px; }
-.ex-sk-value { width: 46%; height: 29px; border-radius: 7px; }
 .ex-sk-note  { width: 58%; height: 12px; }
-.ex-sk-title { width: 160px; height: 15px; margin-bottom: 14px; }
-.ex-sk-chart { height: 92px; border-radius: 8px; }
 
 @media (prefers-reduced-motion: no-preference) {
   .ex-sk { animation: ex-pulse 1400ms var(--ease-in-out) infinite; }
@@ -4523,7 +4404,7 @@ body {
 @media (pointer: coarse) {
   /* Height only on the full-width controls: setting `width` would shrink them
      back to a 44px square. */
-  .nav-ws-trigger { min-height: 44px; }
+  .nav-ws-trigger { min-height: 52px; }
   .nav-me-pop-out { min-height: 44px; }
   /* The scope row's menu button is 22px so the campaign name beside it keeps
      its width. Growing the box on touch would push that name back out, so the
@@ -4541,14 +4422,13 @@ body {
   .nav-sub-row { padding-block: 12px; }
   /* The nudge is hidden on mobile (drawer block), so it needs no touch size.
      These four are new and all start below 44px. */
-  .nav-bell { width: 40px; height: 40px; }
-  .nav-find { height: 40px; }
+  .nav-bell { width: 44px; height: 44px; }
+  .nav-find { height: 44px; }
   .nav-me-row { min-height: 44px; }
   /* Extension page. The segmented controls are the only small hit areas the
      dashboard adds. The install CTA that also sat here is gone with the store
      link; the step list it became has no hit area to enlarge. */
   .ex-seg-btn { min-height: 44px; padding-inline: 14px; }
-  .ex-name-link { padding-block: 4px; }
   .pager-btn { width: 44px; height: 44px; }
   .dl-media { min-height: 44px; padding-inline: 10px; }
 }
@@ -4728,6 +4608,8 @@ body {
   /* Nearer the top on a phone: 14vh of a short viewport with a keyboard open
      leaves the list with nowhere to be. */
   .pal { top: 8vh; max-height: min(74vh, 520px); }
+  /* Keyboard hints mean nothing without a keyboard, and the Esc chip took the room the placeholder needs. */
+  .pal-kbd, .pal-foot { display: none; }
 }
 
 /* ═══════════════════════════ orchestrator (Home) ═══════════════════════════
@@ -4927,6 +4809,29 @@ body {
      left/right balance is a separate question from the Agent page's. */
   --orc-inset-l: 64px;
   --orc-inset-r: 56px;
+}
+
+/* ── THE AGENT PAGE'S GEOMETRY, ONE LAYOUT FOR EVERY STATE ──
+   One row: the foot band is gone (the agents are in the rail), so nothing is
+   reserved for it and the rail starts on the page's own top line.
+
+   The tracks scale with the window instead of holding desktop constants
+   down to 1101px. At 1280 the old constants (112px right margin, 72px
+   gutter, 340px rail, insets derived from a clamp) left the conversation
+   about 420px wide, which is what the form flow's own layout override was
+   working around, for the form flow only. Now every turn gets the same
+   ~580-600px column at 1280, 1366 and 1440, and it stops growing at wider
+   windows as the insets take the extra. */
+.orc {
+  grid-template-rows: minmax(0, 1fr);
+  row-gap: 0;
+  --band-reserve: 0px;
+  --rail-top: var(--page-top);
+  grid-template-columns: minmax(0, 1fr) clamp(300px, calc(100vw - 1040px), 340px);
+  column-gap: clamp(32px, calc((100vw - 1280px) / 4 + 32px), 72px);
+  padding-right: clamp(32px, calc((100vw - 1280px) / 2 + 32px), 112px);
+  --orc-inset-l: clamp(40px, calc((100vw - 1440px) / 2 + 48px), 152px);
+  --orc-inset-r: clamp(24px, calc((100vw - 1440px) / 6 + 32px), 80px);
 }
 
 .orc-main {
@@ -5138,73 +5043,13 @@ body {
 .orc-mark svg { width: 17px; height: 17px; }
 
 /* ── THE MARK DOES NOT MOVE ──
-   It used to rotate in stepped thirds (`@keyframes orc-turn`, deleted with
-   this). Spinning the logo is the cheapest loader there is, and it works
-   against what a logo is: an identity that tumbles reads as a throbber. The
-   mark is the agent's presence, so it holds still and the work happens
-   around it. */
+   It used to rotate in stepped thirds, then sit inside a travelling ring. Spinning the logo is the cheapest
+   loader there is, and it works against what a logo is: an identity that tumbles reads as a throbber. The mark
+   is the agent's presence, so it holds still; what the turn is doing is said beside it (PhaseTimeline), and the
+   one loader (components/Loader) lives on those lines. `.is-working` only tells the transcript's follower the
+   turn is not finished. */
 
 .orc-mark { position: relative; }
-
-.orc-mark.is-working { width: 32px; height: 32px; }
-.orc-mark.is-working svg.orc-orbit + svg { width: 17px; height: 17px; }
-
-/* The orbit. An arc that travels around the mark while its own length
-   compresses and expands, so the ring pulses rather than reading as a uniform
-   circle rotating — that pulse is what makes it feel like effort.
-
-   Two animations on one element, deliberately: `orc-orbit-turn` moves it and
-   `orc-orbit-breathe` changes its length, and they run at different periods
-   (1.15s against 1.9s) so the pattern does not resolve into a single
-   repeating gesture. One animation doing both would need every keyframe to
-   specify both properties, and the two rhythms could then never drift. */
-/* (0,2,0) beats `.orc-mark svg`'s (0,1,1): without this the generic rule's
-   17px width/height won, and the ring drew as a small arc in the corner of
-   the 32px mark instead of a circle around it — the "17px" figure below is
-   for the MARK's icon, not this ring, and the two were colliding. */
-.orc-mark .orc-orbit {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-
-.orc-orbit circle {
-  fill: none;
-  stroke: var(--accent);
-  stroke-width: 2;
-  stroke-linecap: round;
-  transform-origin: 50% 50%;
-  animation:
-    orc-orbit-turn 1.15s linear infinite,
-    orc-orbit-breathe 1.9s ease-in-out infinite;
-}
-
-@keyframes orc-orbit-turn {
-  from { transform: rotate(-90deg); }
-  to { transform: rotate(270deg); }
-}
-
-/* 10% of the circumference at its shortest, 42% at its longest. Both dash
-   values are stated in every frame: interpolating a two-value dasharray needs
-   the lists to be the same length, and omitting the gap makes the whole
-   declaration invalid rather than inheriting it. */
-@keyframes orc-orbit-breathe {
-  0%, 100% { stroke-dasharray: 10 90; }
-  50% { stroke-dasharray: 42 58; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  /* The ring stops travelling and holds a short arc. Still visibly "working",
-     because the arc is incomplete, without anything in motion — an
-     intentional alternative rather than hiding the indicator. */
-  .orc-orbit circle {
-    animation: none;
-    stroke-dasharray: 26 74;
-    transform: rotate(-90deg);
-  }
-}
 
 .orc-answer-body { min-width: 0; flex: 1 1 auto; padding-top: 3px; }
 
@@ -5215,28 +5060,6 @@ body {
   margin: 0;
   font: 400 13.5px/1.4 var(--ui);
   color: var(--ink-2);
-}
-
-/* Three dots that fill in sequence. The only decoration on this surface, and
-   it is carrying information: it says the stage is still running, which the
-   static label alone cannot. */
-.orc-stage-dots { display: inline-flex; gap: 3px; }
-
-.orc-stage-dots i {
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: var(--ink-2);
-  opacity: 0.25;
-  animation: orc-dot 1.2s ease-in-out infinite;
-}
-
-.orc-stage-dots i:nth-child(2) { animation-delay: 0.15s; }
-.orc-stage-dots i:nth-child(3) { animation-delay: 0.3s; }
-
-@keyframes orc-dot {
-  0%, 100% { opacity: 0.25; }
-  50%      { opacity: 0.9; }
 }
 
 /* ═══════════════════ the landing state, and its typography ══════════════════
@@ -5666,6 +5489,11 @@ body {
 }
 
 .orc-stream.is-live .orc-log > :first-child { margin-top: auto; }
+
+/* The follower in Agent.tsx owns the log's scroll position. Browser scroll
+   anchoring adjusting it as well, whenever a turn above the fold changed
+   height, was a second hand on the same wheel. */
+.orc-stream.is-live .orc-log { overflow-anchor: none; }
 
 /* ── THE COMPOSER DOCKS AND SHRINKS ──
    Its resting height is three lines, because a brief is several lines and the
@@ -6152,8 +5980,8 @@ body {
   margin-left: auto;
   border: none;
   border-radius: 50%;
-  background: var(--accent-deep);
-  color: #fff;
+  background: var(--btn-fill);
+  color: var(--btn-ink);
   cursor: pointer;
   transition: background var(--t), box-shadow var(--t), opacity var(--t);
 }
@@ -6219,7 +6047,7 @@ body {
 }
 
 .orc-page-h.is-greet {
-  margin-left: 16px;
+  margin-left: 0;
   font-size: 30px;
   line-height: 1.15;
   letter-spacing: -0.022em;
@@ -6251,7 +6079,7 @@ body {
   padding: 0 13px;
   border: 0;
   border-radius: var(--r-field);
-  background: var(--accent-fill);
+  background: var(--btn-fill);
   /* The house exception: there is no --ink-inverse, and --nav-surface names a
      plane rather than type. See .tk-filter's old note for the argument. */
   color: #fff;
@@ -6262,7 +6090,7 @@ body {
   transition: background-color var(--t-dim);
 }
 
-.orc-new:hover { background: var(--accent-text); }
+.orc-new:hover { background: var(--btn-fill-hover); }
 
 .orc-new:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
@@ -6351,7 +6179,7 @@ body {
 }
 
 .ov-link:hover { color: var(--accent-text); }
-.ov-link.is-warn { color: var(--c-rose-text); }
+.ov-link.is-warn { color: #8a6a12; }
 .ov-link:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
 
 /* ── the headline number ──
@@ -6701,7 +6529,7 @@ body {
   white-space: nowrap;
 }
 
-.ov-camp-q.is-stale { color: var(--c-rose-text); font-weight: 600; }
+.ov-camp-q.is-stale { color: #8a6a12; font-weight: 500; }
 
 /* ── scoped to one campaign ──
    One row where there were three, so the card has slack its siblings do not.
@@ -9487,6 +9315,8 @@ body {
    filling space it should be admitting is empty; the sentence names which
    filter produced the emptiness, which is the only thing the recruiter needs
    in order to undo it. */
+.tk-empty.has-art { display: grid; justify-items: center; text-align: center; }
+.tk-empty.has-art > p { margin: 0; }
 .tk-empty {
   margin: 0;
   padding: 24px 10px 20px;
@@ -9765,7 +9595,7 @@ body {
   padding: 0 10px 0 8px;
   border: none;
   border-radius: var(--r-pill);
-  background: var(--accent-fill);
+  background: var(--btn-fill);
   /* The one literal in this file, and the house exception: white text on
      --accent-fill is the pair that was measured at 4.52:1. */
   color: #fff;
@@ -9921,7 +9751,7 @@ body {
    body floor at 11px. The sign is also in the text (U+2212) and the words are
    in the `.sr-only` beside it, so this passes the remove-all-colour test: the
    figure still reads as a fall with the hue gone. */
-.rail-stat-chg.is-down { color: var(--c-rose-text); }
+.rail-stat-chg.is-down { color: var(--ink-2); }
 
 /* The question the numbers just raised, rendered as text rather than as the
    bordered accent pill the header used.
@@ -9956,6 +9786,7 @@ body {
    The lesson is about the shape of the mistake, not the number: a rule that
    only works because a DIFFERENT rule is compensating for it is not working.
    The panel owns its padding; rows own their rhythm. */
+.rail-config-rows { margin: 0; }
 .rail-config {
   margin: 0;
   /* Config rows are plain flex rows with no horizontal padding of their own —
@@ -10062,7 +9893,90 @@ body {
    out-ranking the figure it annotates. */
 .rail-config-mark svg { width: 14px; height: 14px; }
 
-.rail-config-mark { display: inline-grid; place-items: center; }
+.rail-config-mark { display: inline-grid; place-items: center; color: var(--mark); }
+/* The brand's own colour is data (Rail.tsx sets --mark and --mark-dark inline), so the theme cannot rewrite it:
+   the dark card gets the mark's dark value, and Slack's aubergine and Notion's black stay visible. */
+:root[data-theme="dark"] .rail-config-mark { color: var(--mark-dark, var(--mark)); }
+
+/* ── connected: which scope the panel describes, and what is missing under a value ──
+   The panel is about one campaign when one was chosen and about the workspace
+   when none was, and the rows alone cannot say which, so the name sits opposite
+   the panel's own label. Quiet, one line, cut with an ellipsis (the full name is
+   its tooltip): the label is the heading, this is only the address.
+
+   A note is the second line of a value: what is missing and the link that fixes
+   it, or the sentence that says who to ask. --ink-2 at 11.5px, a step under the
+   value it qualifies, so a row still reads as a fact first. */
+.rail-config-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  margin: 0 0 9px;
+  padding-left: var(--row-inset, 0px);
+}
+.rail-config-head .rail-panel-label { margin: 0; padding-left: 0; flex: none; }
+.rail-config-scope {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 400 11.5px/1.3 var(--ui);
+  letter-spacing: -0.011em;
+  color: var(--ink-2);
+}
+.rail-config-note {
+  display: block;
+  margin-top: 2px;
+  font: 400 11.5px/1.35 var(--ui);
+  letter-spacing: -0.011em;
+  color: var(--ink-2);
+}
+button.rail-config-act {
+  padding: 0;
+  border-width: 0 0 1px;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+/* ── a value on its way ──
+   The loader stands where the value goes; the panel keeps the height the figures will have. */
+.rail-stats-wait {
+  display: grid;
+  place-items: center;
+  min-height: var(--rail-stat-h);
+}
+
+/* The week couldn't be read: the panel keeps the height the figures would have. */
+.rail-stats-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 68px;
+  margin: 0;
+  font: 400 12.5px/1.35 var(--ui);
+  letter-spacing: -0.011em;
+  color: var(--ink-2);
+}
+
+/* The history panel's head holds the room for its New control, shown or not. */
+.rail-hist-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 25px;
+  margin: -2px 0 2px;
+}
+.rail-hist-head .rail-panel-label { margin: 0; }
+
+/* The same control, in the conversation's own column, for when the rail is a screen away. */
+.orc-newchat { display: none; }
+@media (max-width: 1100px) {
+  .orc-newchat { display: inline-flex; position: absolute; top: 16px; right: 0; z-index: 3; }
+}
 
 /* ── history, inline ── */
 .rail-hist {
@@ -10108,6 +10022,25 @@ body {
 }
 
 .rail-more:hover { color: var(--accent-deep); }
+
+/* What the history says before or instead of its rows: loading, failed, empty. */
+.rail-hist-note {
+  margin: 8px 8px 0;
+  font: 400 12.5px/1.45 var(--ui);
+  color: var(--ink-2);
+}
+.rail-hist-note .rail-more { margin: 0; }
+
+/* History dialog row actions: quiet text, beside the row they act on. */
+.rail-brief-acts { display: flex; gap: 12px; align-items: center; padding: 0 8px 6px 34px; }
+.rail-brief-acts .rail-more { margin: 0; }
+.rail-brief-err { font: 400 12px/1.35 var(--ui); color: var(--ink-2); }
+.rail-brief-edit form { display: flex; gap: 8px; align-items: center; padding: 6px 8px; }
+.rail-brief-edit input {
+  flex: 1; min-width: 0; padding: 6px 8px; border: 1px solid var(--hairline); border-radius: 8px;
+  font: 400 13px/1.35 var(--ui); color: var(--ink); background: #fff;
+}
+.rail-brief-edit .rail-more { margin: 0; }
 .rail-more:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
 /* ── the history dialog ──
@@ -11002,6 +10935,12 @@ body {
 
 .rep-opt:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
+/* Answered: the one that was pressed keeps its tint, the others step back, and none can be pressed again. */
+.rep-opt:disabled { cursor: default; }
+.rep-opt:disabled:not([aria-pressed="true"]) { opacity: 0.55; }
+.rep-opt:disabled:not([aria-pressed="true"]):hover { background: var(--nav-surface); border-color: var(--hairline); color: var(--ink); }
+.rep-opt[aria-pressed="true"] { background: var(--accent-tint); border-color: var(--accent); color: var(--accent-text); }
+
 /* ── the card ────────────────────────────────────────────────────────────────
    White on the ground, one hairline, and NO resting shadow. This is Tier 2 in
    local-loudness.md: the composer is Tier 0 and owns the only real shadow on
@@ -11081,8 +11020,8 @@ body {
      put this label around 2.5:1; and a shadow that answered the pointer would
      be the button claiming it works. The lock, the caption and aria-disabled
      carry the unavailability instead. */
-  background: var(--accent-fill);
-  color: #fff;
+  background: var(--btn-fill);
+  color: var(--btn-ink);
   font: 600 12.5px/1 var(--ui);
   letter-spacing: -0.011em;
   cursor: not-allowed;
@@ -11431,7 +11370,6 @@ body {
 .orc-mode:active,
 .orc-slot:active,
 .orc-new:active,
-.ex-cta:active,
 .rail-brief:active,
 .rail-new:active {
   transform: scale(0.985);
@@ -11477,7 +11415,6 @@ body {
   .orc-mode:active,
   .orc-slot:active,
   .orc-new:active,
-  .ex-cta:active,
   .rail-brief:active,
   .rail-new:active {
     transform: none;
@@ -11494,59 +11431,25 @@ body {
    column counts live with the grid that owns them, so only the rail's own
    placement belongs here. */
 
-/* ── BELOW ~990px TALL THE COLUMN GENUINELY DOES NOT FIT ──
-   The rail needs 753px (40px inset + 713px of panels) and the band takes
-   233 more with its gap and margin, so 986px of window is the floor. Above
-   it everything fits and the viewport lock is right: nothing scrolls, and
-   the band is always in view at the foot.
+/* ── THE AGENT PAGE IS LOCKED TO THE WINDOW AT EVERY HEIGHT ──
+   This used to unlock below 1000px tall: rows sized to content, the shell
+   grew past the viewport and the PAGE scrolled, with a sticky composer. That
+   is every laptop (1440x900, 1366x768, 1280x800), and it is where the
+   transcript ran "further down than it should" and bobbed: the page and the
+   log took turns being the scroller, the composer rode the end of the
+   content instead of the foot of the window, and the form flow switched to a
+   third layout on top.
 
-   Below it, something has to give, and the honest choice is the page. The
-   lock exists to keep the band glanceable — it was never a promise that the
-   console fits any window, and holding it at 960px means the rail's last
-   panel crossing into the band, which is the one outcome ruled out. So the
-   lock comes off: rows size to content, the shell grows past the viewport,
-   and the page scrolls like a page. The band is then below the fold, which
-   is a cost, but a reachable band under a whole rail beats a clipped rail
-   over a pinned one.
-
-   1000px rather than 986 so the switch happens before the last few pixels
-   of clearance are gone, not exactly as they run out. */
+   The reason to unlock was the band at the foot of the page, which no longer
+   exists — the agents moved into the rail. With it gone the conversation
+   needs no minimum height: the log is the only scrollport, the composer
+   stays under it, and the rail scrolls on its own when it is taller than
+   the window. Other pages keep the unlock. */
 @media (max-height: 1000px) {
   .con-body { height: auto; min-height: 100dvh; overflow: visible; }
-
-  .orc { grid-template-rows: auto auto; }
-
-  /* The internal scrollports were consequences of the lock. Without it they
-     would each be a small window onto their own content inside a page that
-     is already scrolling — two scrollbars for one overflow. */
-  .orc-stream,
-  .orc-stream.is-live .orc-log {
-    overflow: visible;
-    -webkit-mask-image: none;
-    mask-image: none;
-  }
-
-  /* ── AND THE LOG HAS TO GROW, OR IT SPILLS UNDER THE COMPOSER ──
-     Unclipped, the log kept its `flex: 1 1 0` height, so a transcript taller
-     than that box drew straight through the composer below it — measured
-     with a sourcing run: log box 558px, content 689px, the Run search button
-     rendered beneath the field. Sized to its content instead, the page takes
-     the overflow, and the composer sticks to the foot of the viewport so it
-     stays where a chat composer is expected while the page scrolls. */
-  .orc-stream.is-live .orc-log { flex: none; min-height: 0; }
-
-  /* (0,2,0), to beat `.orc-stream.is-live { overflow: hidden }` — the
-     `.orc-stream` override above is (0,1,0) and lost to it, and a clipping
-     ancestor is exactly what stops `position: sticky` from sticking. */
-  .orc-stream.is-live { overflow: visible; }
-
-  .orc-stream.is-live .orc-composer {
-    position: sticky;
-    bottom: 0;
-    z-index: 2;
-    padding-bottom: 14px;
-    background: linear-gradient(to bottom, transparent 0, var(--orc-ground) 14px);
-  }
+}
+@media (min-width: 1101px) {
+  .con-body:has(.orc) { height: 100dvh; min-height: 0; overflow: hidden; }
 }
 
 @media (max-width: 1100px) {
@@ -11569,11 +11472,15 @@ body {
      clipped to one. */
   .orc {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto auto;
+    grid-template-rows: auto auto;
+    row-gap: 22px;
+    padding-right: 32px;
   }
 
   .orc > .orc-main { grid-row: 1; grid-column: 1; }
-  .orc > .orc-rail { grid-row: 2; grid-column: 1; padding-top: 0; }
+  /* Stacked, the rail lines up with the conversation above it: the stream's own left inset, so
+     "Last 7 days" and its panels don't sit on the window's edge. */
+  .orc > .orc-rail { grid-row: 2; grid-column: 1; padding-top: 0; margin-left: var(--orc-inset-l, 40px); }
   .orc > .feed,
   .orc > .feed-reserve { grid-row: 3; grid-column: 1; margin-left: 0; }
 
@@ -11593,6 +11500,28 @@ body {
   .orc-rail {
     border-left: none;
     border-top: 1px solid var(--nav-rule);
+  }
+
+  /* Stacked, the page scrolls: the log sizes to its content and the
+     composer sticks to the foot of the window over it. */
+  .orc-stream.is-live { overflow: visible; }
+  .orc-stream.is-live .orc-log { flex: 1 0 auto; min-height: 0; }
+  /* A short chat is still a screen: the stream fills what is left of the window under the phone's 62px bar and the
+     log takes the slack, so the composer is docked at the foot of the window and the rail follows underneath,
+     instead of the composer riding up to sit under two lines at 45 or 67 percent. (Exactly the window, not more:
+     the follower scrolls the page to keep the transcript's end above the composer, and a stream taller than the
+     window would have it scroll the composer off its dock.) */
+  .orc-stream.is-live { min-height: calc(100dvh - 62px); }
+  @media (min-width: 900px) {
+    /* The sidebar is beside the page and the bar is not drawn. */
+    .orc-stream.is-live { min-height: 100dvh; }
+  }
+  .orc-stream.is-live .orc-composer {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    padding-bottom: 14px;
+    background: linear-gradient(to bottom, transparent 0, var(--orc-ground) 14px);
   }
 }
 
@@ -11832,4 +11761,241 @@ body {
 }
 @media (prefers-reduced-transparency: reduce) {
   .con.is-glass .nav { background: var(--nav-panel); -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+
+/* ── task rows follow their CARD, not the window ──
+   The 640px rule above keyed off the viewport, so on a 1440 laptop the card
+   was ~465px wide yet still kept pills and the hidden "Ask the agent" gutter
+   beside the title, squeezing titles to one word per line. Same layout, now
+   triggered by the card's own width. */
+.tk { container-type: inline-size; }
+@container (max-width: 620px) {
+  .tk-row { grid-template-columns: auto auto minmax(0, 1fr); row-gap: 7px; }
+  .tk-mark { grid-column: 1; grid-row: 1; }
+  .tk-body { grid-column: 2 / -1; grid-row: 1; }
+  .tk-chips { grid-column: 2; grid-row: 2; align-self: center; flex-wrap: wrap; }
+  .tk-ask { grid-column: 3; grid-row: 2; justify-self: end; align-self: center; }
+}
+
+/* ── rail: same voice as the rest of the console ──
+   Every other page labels sections in sentence case at 13-14px and edges its
+   cards with the neutral page hairline. The rail kept uppercase tracked
+   micro-labels and peach borders, which made the Agent page read as a
+   different product. Brought in line. */
+.rail-sec-title,
+.rail-panel-label {
+  font: 600 13px/1.3 var(--ui);
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: var(--ink);
+}
+.rail-panel { border-color: var(--hairline); }
+
+/* ── THE RAIL SCROLLS ON ITS OWN WHEN IT IS TALLER THAN THE WINDOW ──
+   The page never scrolls on the Agent page, so a rail with an Agents panel
+   added does not fit a 768px window, and it scrolls inside its column. Its
+   scrollbar sits in the page's right margin, not over the panels. */
+@media (min-width: 1101px) {
+  .orc-rail {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    margin-right: -14px;
+    padding-right: 14px;
+    padding-bottom: 24px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(26, 22, 20, 0.16) transparent;
+  }
+}
+
+/* ── agents at work ──
+   One card per agent, the same 16px-edged white card on a warm hairline.
+   The card's height does not depend on what the agent is doing: the doing
+   line holds two lines whatever its length, so a step changing never moves
+   the panels below it. Orange is spent on two things only, the word Running
+   and a running agent's bar. */
+.rail-ag-sum { color: var(--ink-2); }
+
+.rail-ag-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rail-ag-item { animation: rail-ag-in 320ms var(--ease-out) both; }
+
+@keyframes rail-ag-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.rail-ag,
+.rail-ag-empty {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  background: var(--nav-surface);
+}
+
+.rail-ag {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  text-align: left;
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color var(--t-dim), box-shadow var(--t-dim);
+}
+.rail-ag:hover {
+  border-color: #e2dbd4;
+  box-shadow: 0 1px 2px rgba(26, 22, 20, 0.04), 0 6px 14px -8px rgba(26, 22, 20, 0.14);
+}
+.rail-ag:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.rail-ag-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.rail-ag-role { color: var(--ink); }
+.rail-ag-state { flex: none; color: var(--ink-2); }
+.rail-ag.is-running .rail-ag-state { color: var(--accent-text); }
+.rail-ag.is-done .rail-ag-state { color: var(--c-sage-text); }
+
+.rail-ag-camp {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--ink-2);
+}
+
+.rail-ag-now {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  height: calc(2 * var(--lh-20));
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+}
+
+.rail-ag-bar {
+  display: block;
+  height: 4px;
+  margin-top: 10px;
+  border-radius: 2px;
+  background: var(--sub);
+  overflow: hidden;
+}
+.rail-ag-bar > i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transform-origin: left center;
+  transition: transform 1s linear;
+}
+.rail-ag.is-done .rail-ag-bar > i { background: var(--c-sage-fill); }
+
+.rail-ag-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  margin-top: 6px;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.rail-ag-meta > span { white-space: nowrap; }
+.rail-ag-meta > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+.rail-ag-empty { color: var(--ink-2); }
+
+.rail-ag-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+.rail-ag-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent-text);
+  cursor: pointer;
+  transition: color var(--t-dim);
+}
+.rail-ag-link:hover { color: var(--accent-deep); }
+.rail-ag-link:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .rail-ag-item { animation: none; }
+  .rail-ag-bar > i { transition: none; }
+}
+
+/* Home header: the scope selector and New campaign share one height and
+   shape, so the pair reads as one control row. */
+.orc-page-r .tk-sel.is-lg { height: 40px; padding: 0 14px 0 16px; border-radius: var(--r-pill); border-color: #e6e1dc; background: #fff; }
+.orc-page-r .tk-sel.is-lg > .tk-sel-i { font-size: 13px; }
+.orc-page-r .cg-new { height: 40px; }
+
+/* ── type roles: one utility class per role (tokens in :root) ── */
+.t-caption { font: var(--type-caption); letter-spacing: var(--track-caption); }
+.t-label { font: var(--type-label); letter-spacing: var(--track-label); }
+.t-body-sm { font: var(--type-body-sm); letter-spacing: var(--track-body-sm); }
+.t-body { font: var(--type-body); letter-spacing: var(--track-body); }
+.t-body-strong { font: var(--type-body-strong); letter-spacing: var(--track-body-strong); }
+.t-body-lg { font: var(--type-body-lg); letter-spacing: var(--track-body-lg); }
+.t-title-sm { font: var(--type-title-sm); letter-spacing: var(--track-title-sm); }
+.t-title { font: var(--type-title); letter-spacing: var(--track-title); }
+.t-title-lg { font: var(--type-title-lg); letter-spacing: var(--track-title-lg); }
+.t-num-sm { font: var(--type-num-sm); letter-spacing: var(--track-num-sm); }
+.t-num-md { font: var(--type-num-md); letter-spacing: var(--track-num-md); }
+.t-num-lg { font: var(--type-num-lg); letter-spacing: var(--track-num-lg); }
+.t-display { font: var(--type-display); letter-spacing: var(--track-display); }
+[class*="t-num"] { font-variant-numeric: tabular-nums; }
+@media (max-width: 767px) { input, textarea, select { font-size: var(--fs-16); } }
+
+/* Another tab switched workspace and this one is catching up. */
+.tab-notice {
+  position: fixed; left: 50%; bottom: 24px; z-index: 1000; translate: -50% 0;
+  max-width: calc(100vw - 32px); margin: 0; padding: 10px 14px; border-radius: 10px;
+  background: #1f1a17; color: #fff; font: var(--type-label); box-shadow: 0 10px 30px -8px rgba(0, 0, 0, 0.45);
+}
+
+/* An unknown link landed on Home. */
+.con-lost { margin: 0 0 12px; font: var(--type-body-sm); color: var(--ink-2, #5a5a5a); }
+
+/* ── a short window: the account card is never the thing that gets cut ──
+   The panel is exactly the window tall; the body scrolls, the foot does not. The head keeps its spacing at every
+   height (a laptop window is where it read as cramped): what gives is the gap above the campaign tree, and under
+   640px the account card is one line (its second line, the organisation, is in the menu). */
+@media (min-width: 900px) and (max-height: 800px) {
+  .nav-campaign { margin-top: 6px; }
+}
+@media (min-width: 900px) and (max-height: 640px) {
+  .nav-me-org { display: none; }
+  .nav-foot { gap: 2px; padding-top: 4px; padding-bottom: 8px; }
+}
+
+/* The collapsed rail keeps its compact head: the extra air is for the full panel. */
+@media (min-width: 900px) {
+  .nav.is-railed .nav-head { height: 48px; padding-top: 0; margin-bottom: 0; }
+  .nav.is-railed .nav-ws-block { padding-top: 0; padding-bottom: 8px; }
+  .nav.is-railed .nav-ws-trigger { min-height: 0; }
+  .nav.is-railed .nav-tools { padding-bottom: 12px; }
+  .nav.is-railed .nav-find { height: 34px; }
+  .nav.is-railed .nav-bell { width: 34px; height: 34px; }
+  .nav.is-railed .nav-body { padding-top: 0; }
 }

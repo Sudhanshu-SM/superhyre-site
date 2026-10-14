@@ -1,0 +1,338 @@
+[
+  {
+    "name": "empty-tasks.png",
+    "folder": "A-everyday-empty-states",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "empty-tasks-delegated.png",
+    "folder": "A-everyday-empty-states",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "empty-campaigns.png",
+    "folder": "A-everyday-empty-states",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "empty-candidates.png",
+    "folder": "A-everyday-empty-states",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "empty-search.png",
+    "folder": "A-everyday-empty-states",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "empty-shortlist.png",
+    "folder": "A-everyday-empty-states",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "empty-passed.png",
+    "folder": "A-everyday-empty-states",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "empty-hires.png",
+    "folder": "A-everyday-empty-states",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "empty-calls.png",
+    "folder": "A-everyday-empty-states",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "empty-clients.png",
+    "folder": "A-everyday-empty-states",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "empty-forms.png",
+    "folder": "A-everyday-empty-states",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "empty-responses.png",
+    "folder": "A-everyday-empty-states",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "empty-schedules.png",
+    "folder": "A-everyday-empty-states",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "empty-sent.png",
+    "folder": "A-everyday-empty-states",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "empty-memory.png",
+    "folder": "A-everyday-empty-states",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "empty-dnc.png",
+    "folder": "A-everyday-empty-states",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "empty-notifications.png",
+    "folder": "A-everyday-empty-states",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "empty-agent-activity.png",
+    "folder": "A-everyday-empty-states",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "empty-chat-history.png",
+    "folder": "A-everyday-empty-states",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "empty-analytics.png",
+    "folder": "A-everyday-empty-states",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "empty-replies.png",
+    "folder": "A-everyday-empty-states",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "empty-extension.png",
+    "folder": "A-everyday-empty-states",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "empty-integrations.png",
+    "folder": "A-everyday-empty-states",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "empty-approvals.png",
+    "folder": "A-everyday-empty-states",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "empty-no-matches.png",
+    "folder": "A-everyday-empty-states",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "sourcing-working.png",
+    "folder": "A-everyday-empty-states",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "agent-welcome.png",
+    "folder": "A-everyday-empty-states",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "err-network.png",
+    "folder": "B-system-states",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "err-404.png",
+    "folder": "B-system-states",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "err-no-access.png",
+    "folder": "B-system-states",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "err-server.png",
+    "folder": "B-system-states",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "err-session.png",
+    "folder": "B-system-states",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "err-rate-limit.png",
+    "folder": "B-system-states",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "err-connector.png",
+    "folder": "B-system-states",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "form-closed.png",
+    "folder": "B-system-states",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "form-thanks.png",
+    "folder": "B-system-states",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "campaign-paused.png",
+    "folder": "B-system-states",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "su-invite-expired.png",
+    "folder": "C-signup-side-screens",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "su-work-email.png",
+    "folder": "C-signup-side-screens",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "su-site-unreadable.png",
+    "folder": "C-signup-side-screens",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "su-workspace-setup.png",
+    "folder": "C-signup-side-screens",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  },
+  {
+    "name": "moment-first-hire.png",
+    "folder": "D-milestones",
+    "width": 2048,
+    "height": 2048,
+    "background": "transparent",
+    "format": "PNG RGBA"
+  }
+]

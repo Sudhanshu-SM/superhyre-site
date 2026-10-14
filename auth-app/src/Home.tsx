@@ -1,12 +1,22 @@
 import { CaretDown, Plus } from "@phosphor-icons/react";
 import { useCallback } from "react";
-import { CampaignsCard, ConversionCard, ProgressCard, SourcedCard } from "./Overview";
+import { LIVE } from "./api/client";
+import type { CampaignRow } from "./campaignsData";
+import { retryCampaigns, useCampaignRows, useCampaignsFailed, useCampaignsReady } from "./campaignStore";
+import { LoadFailed } from "./ui";
+import { CampaignsList, InsightsCard, TodayCard, WeekCard, startNewCampaign } from "./HomeCards";
+import { ComingUpCard } from "./HomeComing";
+import { browserZone } from "./schedulesView";
+import { retryHome, useHomeFailed, useHomeReady } from "./homeStore";
 import type { Scope } from "./orchestrator";
+import { Loader } from "./components/Loader";
+import { useWarmup } from "./warmup";
 import { SCOPED, campaignName } from "./orchestrator";
-import { Tasks } from "./Tasks";
+import { useCan } from "./can";
+import { useSession, visibleCampaigns } from "./roleStore";
 
 /**
- * Home — today's work on the left, the numbers on the right.
+ * Home — the day's work and the market on top, the week and campaigns below.
  *
  * ── A FIXED OVERVIEW, NOT A CONFIGURABLE ONE ────────────────────────────────
  * The tile gallery is gone: no sizes, no hues, no reordering, no `localStorage`
@@ -20,15 +30,14 @@ import { Tasks } from "./Tasks";
  * everybody needs none of that, and it can be composed rather than tiled.
  *
  * ── THE COMPOSITION ────────────────────────────────────────────────────────
- * Two columns, 50/50. The task list on the left because the guidance is that
- * "the top-left is prime real estate" and this page's question is what should
- * I do now — the list answers it; the numbers are why.
+ * A bento sized by relevance. The top row is the day: Tasks (7 of 12
+ * columns, "what should I do now") beside the Market tile (5), both stretched
+ * to fill the screen. The bottom row is the context, in a shorter band of the
+ * same 7 | 5 split: Your week under Tasks, Active campaigns under Market. The
+ * two rows share one vertical line, which is what makes the grid read calm.
  *
- * The right column is three equal cards whose combined height equals the
- * list's. They are grid rows in a stretched track rather than three cards with
- * heights of their own, so the two columns stay level by construction: no card
- * knows the list's height and none has to be told it. Sourced is not one of
- * the three — it is a full-width banner below both columns; see Overview.tsx.
+ * On a desktop window the page never scrolls; a list longer than its tile
+ * scrolls inside the tile instead (home.css). Below 1240px the tiles stack.
  *
  * ── THE SCOPE IS ONE PIECE OF STATE WITH TWO ENTRY POINTS ───────────────────
  * The campaign filter appears twice — once in the page header, once in the task
@@ -43,29 +52,50 @@ import { Tasks } from "./Tasks";
  */
 
 export function Home({
-  onBrief, name, scope, onScope,
+  onBrief, name, scope, onScope, onOpenCampaign, timeZone,
 }: {
+  /** Opens a campaign's Overview (sets it as the current campaign first). */
+  onOpenCampaign: (r: CampaignRow) => void;
   /** Hands a prompt to the Agent page and navigates there. */
   onBrief: (prompt: string) => void;
   /** First name for the greeting; Console derives it and falls back. */
   name: string;
   scope: Scope;
   onScope: (s: Scope) => void;
+  /** The person's own zone, as their profile has it; the browser's where it is not given. */
+  timeZone?: string;
 }) {
   /* Stable, so Tasks does not re-render on every Home render for a callback
      that never changes. */
   const brief = useCallback((prompt: string) => onBrief(prompt), [onBrief]);
+  const canCreate = useCan("campaign.create");
+  const warm = useWarmup();
+  const homeReady = useHomeReady();
+  const campaignsReady = useCampaignsReady();
+  const ready = LIVE ? homeReady && campaignsReady : warm;
+  const homeFailed = useHomeFailed();
+  const campaignsFailed = useCampaignsFailed();
+  const failed = homeFailed || campaignsFailed;
+  /* The scope menu offers the campaigns this person can see; on fixtures, the seeded set. */
+  const rows = useCampaignRows();
+  const session = useSession();
+  const scopes = LIVE
+    ? visibleCampaigns(rows, session).filter((r) => r.status === "active").map((r) => ({ id: r.id, name: r.name }))
+    : SCOPED.map((k) => ({ id: k, name: campaignName(k) }));
 
   return (
     <div className="orc is-solo">
-      <div className="orc-main">
+      <div className={`orc-main${ready && failed ? " is-failed" : ""}`}>
         <header className="orc-page is-greet">
           {/* GREETED, NOT TITLED. "Home" labelled the route, which the sidebar
               already does — the nav item is highlighted and says Home, so the
               heading was the second telling of the least interesting fact on
               the page. A greeting spends the same pixels on something only
               this page can say. */}
-          <h1 className="orc-page-h is-greet">Hello {name}</h1>
+          <div className="hm-greet">
+            <h1 className="orc-page-h is-greet hm-hello">Hello {name}</h1>
+            <p className="hm-date">{new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}</p>
+          </div>
 
           <div className="orc-page-r">
             {/* Scopes the WHOLE page, which is why it sits in the page header
@@ -79,8 +109,8 @@ export function Home({
                 aria-label="Scope the overview to one campaign"
               >
                 <option value="all">All campaigns</option>
-                {SCOPED.map((k) => (
-                  <option key={k} value={k}>{campaignName(k)}</option>
+                {scopes.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
               <CaretDown size={12} weight="bold" aria-hidden="true" />
@@ -97,29 +127,36 @@ export function Home({
                 this hands the composer a seeded prompt and navigates there,
                 which is a real action with a real destination — the same move
                 the task rows make with "Ask the agent". */}
-            <button
-              type="button"
-              className="orc-new"
-              onClick={() => brief("Start a new campaign. The role is ")}
-            >
-              <Plus size={13} weight="bold" aria-hidden="true" />
-              New campaign
-            </button>
+            {/* One "New campaign" everywhere: same look and the same dialog as
+                the Campaigns page, so the button never means two things. */}
+            {/* Admins create campaigns; a recruiter does not see the button. */}
+            {canCreate && (
+              <button
+                type="button"
+                className="cg-new"
+                onClick={startNewCampaign}
+              >
+                <span className="cg-new-ico" aria-hidden="true"><Plus size={14} weight="bold" /></span>
+                <span className="cg-new-l">New campaign</span>
+              </button>
+            )}
           </div>
         </header>
 
-        <div className="orc-stream">
-          <div className="ov">
-            <Tasks onOpen={brief} hero today scope={scope} onScope={onScope} />
-
-            <div className="ov-stack">
-              <ConversionCard scope={scope} />
-              <ProgressCard scope={scope} />
-              <CampaignsCard scope={scope} />
+        <div className="orc-stream" aria-busy={!ready}>
+          {ready && failed ? (
+            <LoadFailed what="Your day" onRetry={() => { retryHome(); retryCampaigns(); }} />
+          ) : ready ? (
+            <div className={`hm-bento${LIVE ? " is-three" : ""}`}>
+              <TodayCard scope={scope} onOpen={brief} />
+              <InsightsCard onAsk={brief} />
+              <WeekCard scope={scope} />
+              <CampaignsList scope={scope} onOpen={onOpenCampaign} />
+              {/* What the agent has set up for later: reminders and follow-ups, the next five. Live only: it reads
+                  the schedule routes, which the prototype's fixtures do not have. */}
+              {LIVE && <ComingUpCard scope={scope} timeZone={timeZone ?? browserZone()} />}
             </div>
-          </div>
-
-          <SourcedCard scope={scope} />
+          ) : <Loader size="lg" label="Loading your home" block />}
         </div>
       </div>
     </div>

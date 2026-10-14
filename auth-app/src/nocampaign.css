@@ -1,0 +1,124 @@
+/* A campaign page with no campaign chosen (NoCampaign.tsx). */
+
+.nc-page { display: grid; place-items: center; min-height: min(640px, 80vh); }
+
+.nc {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 420px);
+  gap: 40px;
+  align-items: center;
+  max-width: 680px;
+  padding: 8px 0 40px;
+}
+
+.nc-art { width: 180px; height: 140px; overflow: visible; }
+.nc-art-back { fill: var(--accent-tint); stroke: var(--accent-line); stroke-width: 1.5; }
+.nc-art-sheet { fill: var(--surface, #fff); stroke: var(--hairline); stroke-width: 1.5; }
+.nc-art-line { fill: none; stroke: var(--hairline); stroke-width: 3; stroke-linecap: round; }
+.nc-art-front {
+  fill: var(--surface, #fff);
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 5;
+}
+.nc-art-trail {
+  fill: none;
+  stroke: var(--ink-3);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-dasharray: 2 6;
+}
+.nc-art-head { fill: none; stroke: var(--ink-3); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.nc-art-spark { fill: var(--accent); }
+
+/* The folder settles in, and the sparkle breathes once: a welcome, not a loop. */
+.nc-art-folder { transform-origin: 104px 90px; animation: nc-settle 700ms var(--ease-out) both; }
+.nc-art-spark { transform-origin: 150px 28px; animation: nc-spark 900ms var(--ease-out) 300ms both; }
+.nc-art-trail { animation: nc-trail 1100ms var(--ease-out) 200ms both; }
+@keyframes nc-settle { from { transform: translateY(6px) rotate(-2deg); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes nc-spark { 0% { transform: scale(0); } 60% { transform: scale(1.15); } 100% { transform: scale(1); } }
+@keyframes nc-trail { from { stroke-dashoffset: 40; opacity: 0; } to { stroke-dashoffset: 0; opacity: 1; } }
+
+.nc-h {
+  margin: 0;
+  font: var(--type-title-lg);
+  letter-spacing: var(--track-title-lg);
+  color: var(--ink);
+}
+.nc-lede {
+  margin: 8px 0 0;
+  font: var(--type-body-lg);
+  letter-spacing: var(--track-body-lg);
+  color: var(--ink-2);
+}
+
+.nc-list { list-style: none; margin: 20px 0 0; padding: 0; display: grid; gap: 2px; }
+.nc-list li { animation: nc-rise 420ms var(--ease-out) both; animation-delay: calc(var(--i) * 45ms + 150ms); }
+@keyframes nc-rise { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+.nc-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  margin: 0 -12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  transition: background var(--t) var(--ease-out);
+}
+.nc-row:hover { background: var(--page-2); }
+.nc-row:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.nc-row-main { flex: 1 1 auto; min-width: 0; display: grid; gap: 2px; }
+.nc-row-name {
+  font: var(--type-body-strong);
+  letter-spacing: var(--track-body-strong);
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nc-row-sub { font: var(--type-body-sm); color: var(--ink-3); }
+.nc-row-go { flex: none; color: var(--ink-3); transition: transform var(--t) var(--ease-out), color var(--t); }
+.nc-row:hover .nc-row-go { transform: translateX(3px); color: var(--accent-deep); }
+
+.nc-actions { display: flex; align-items: center; gap: 16px; margin-top: 20px; }
+.nc-actions .ct-btn { display: inline-flex; align-items: center; gap: 6px; }
+.nc-link {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: var(--type-body-strong);
+  color: var(--accent-text);
+  cursor: pointer;
+}
+.nc-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+@media (max-width: 720px) {
+  .nc { grid-template-columns: 1fr; gap: 16px; }
+  .nc-art { width: 140px; height: 110px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nc-art-folder, .nc-art-spark, .nc-art-trail, .nc-list li { animation: none; }
+}
+
+/* ── the sidebar's campaign row when none is chosen ── */
+.nav-scope-pick {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 36px;
+  border: 1px dashed var(--accent-line);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+.nav-scope-pick .nav-label { color: var(--ink-2); font-weight: 500; }
+.nav-scope-pick .nav-ico { color: var(--accent-deep); }
+.nav-scope-pick:hover { background: var(--nav-hover); border-color: var(--accent); }
+.nav-scope-pick:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.nav-scope-caret { margin-left: auto; color: var(--ink-3); flex: none; }

@@ -1,0 +1,106 @@
+/* ═════════ roles: admin and recruiter (RoleBits.tsx) ═════════
+   Warm whites, warm hairlines, 16px soft cards, orange only where it acts.
+   All text on the type-scale tokens; nothing under 12px. */
+
+/* ── account menu: viewing as ── */
+.rl-view { margin: 0 2px 6px; padding: 2px 6px 8px; border-bottom: 1px solid var(--nav-rule, #efe9e3); }
+.rl-view-l { margin: 4px 0 6px; color: var(--ink-2); }
+.rl-seg { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 2px; border-radius: 10px; background: #f5f0eb; }
+.rl-seg button {
+  height: 30px; border: 0; border-radius: 8px; background: none; cursor: pointer;
+  font: var(--type-label); letter-spacing: var(--track-label); color: var(--ink-2);
+  transition: background-color 160ms, color 160ms, box-shadow 160ms;
+}
+.rl-seg button:hover { color: var(--ink); }
+.rl-seg button.is-on { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgba(58, 35, 23, 0.1), 0 0 0 1px #ece5de; }
+.rl-seg button:focus-visible, .rl-who button:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.rl-who { display: grid; gap: 2px; margin-top: 6px; }
+.rl-who button {
+  display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 6px; border: 0; border-radius: 8px;
+  background: none; cursor: pointer; text-align: left;
+  font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2);
+}
+.rl-who button:hover { background: #faf6f2; color: var(--ink); }
+.rl-who button.is-on { background: #fff7f1; color: var(--ink); }
+.rl-who button.is-on span:last-child { font-weight: 500; }
+.rl-view-n { margin: 6px 0 0; color: var(--ink-2); }
+
+/* ── dialogs: assign, confirm ── */
+.rl-dlg { display: flex; flex-direction: column; max-height: min(640px, calc(100dvh - 48px)); }
+.rl-dlg-h { padding: 24px 56px 14px 24px; }
+.rl-dlg-h h2 { margin: 0 0 6px; color: var(--ink); }
+.rl-dlg-h p, .rl-dlg-b { margin: 0; color: var(--ink-2); }
+.rl-dlg-b b { color: var(--ink); font-weight: 500; }
+.rl-dlg.is-confirm .rl-dlg-h { padding-bottom: 22px; }
+.rl-pick { flex: 1; min-height: 0; overflow-y: auto; margin: 0; padding: 4px 16px 12px; list-style: none; display: grid; gap: 2px; }
+.rl-pick-i {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px;
+  min-height: 56px; padding: 8px 10px; border-radius: 12px; cursor: pointer; transition: background-color 160ms;
+}
+.rl-pick-i:hover { background: #fbf8f6; }
+.rl-pick-i.is-owner { cursor: default; }
+.rl-pick-i input { position: absolute; opacity: 0; pointer-events: none; }
+.rl-pick-i:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: -2px; }
+.rl-pick-t { display: grid; gap: 2px; min-width: 0; }
+.rl-pick-t b { color: var(--ink); }
+.rl-pick-t small { color: var(--ink-2); }
+.rl-box {
+  display: grid; place-items: center; width: 20px; height: 20px; border: 1px solid #ddd5cd; border-radius: 6px;
+  background: #fff; color: #fff; transition: background-color 160ms, border-color 160ms;
+}
+.rl-pick-i.is-on .rl-box { border-color: transparent; background: var(--accent); }
+.rl-pick-i.is-owner .rl-box { border-color: #ece5de; background: #f7f3ef; color: var(--ink-2); }
+.rl-dlg-f { display: flex; align-items: center; gap: 8px; padding: 14px 16px 14px 24px; border-top: 1px solid #f1ebe5; background: #fcfbfa; border-radius: 0 0 16px 16px; }
+.rl-dlg-f > :first-child { flex: 1; margin: 0; color: var(--ink-2); }
+/* ── why pass ── */
+.pr-reasons { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 24px 12px; }
+.pr-note { display: grid; gap: 6px; padding: 0 24px 18px; }
+.pr-note input { font: var(--type-body); letter-spacing: var(--track-body); padding: 9px 11px; border: 1px solid var(--line, #e7e0d8); border-radius: 10px; background: #fff; }
+.pr-note input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ct-btn.rl-danger { border-color: transparent; background: #b4442a; color: #fff; }
+.ct-btn.rl-danger:hover { background: #a03b23; }
+
+/* ── not on this campaign ── */
+.rl-away { display: grid; place-items: center; min-height: min(560px, calc(100dvh - 120px)); padding: 24px; }
+.rl-away-c {
+  display: grid; justify-items: center; gap: 10px; max-width: 420px; padding: 32px 32px 28px; text-align: center;
+  border: 1px solid #efe8e1; border-radius: 16px; background: #fff;
+  box-shadow: inset 0 1px 0 #fff, 0 1px 2px rgba(58, 35, 23, 0.03), 0 12px 30px -16px rgba(58, 35, 23, 0.16);
+}
+.rl-away-c h1 { margin: 6px 0 0; color: var(--ink); }
+.rl-away-c p { margin: 0 0 8px; color: var(--ink-2); }
+.rl-away-c p b { color: var(--ink); font-weight: 500; }
+
+/* ── campaigns ── */
+.cg-empty-sub { margin: 0; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); }
+
+/* ── candidates: delete (admin only; the controls are not rendered for a recruiter) ── */
+.ct-act-in { display: inline-flex; align-items: center; gap: 4px; }
+.ct-del {
+  display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 50%;
+  background: none; color: var(--ink-2); cursor: pointer; opacity: 0;
+  transition: opacity 160ms, background-color 160ms, color 160ms;
+}
+.ct-row:hover .ct-del, .ct-row:focus-within .ct-del, .ct-del:focus-visible { opacity: 1; }
+.ct-del:hover { background: rgba(58, 35, 23, 0.05); color: var(--ink); }
+.ct-del:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+@media (hover: none) { .ct-del { opacity: 1; } }
+/* Deleting is decided in the confirm step, which carries the warning; the button itself stays calm. */
+.ct-dock .ct-btn.ct-dock-del:hover { background: #fff; }
+.cp-head-act { position: absolute; right: 60px; top: 24px; display: flex; gap: 6px; }
+.cp-head-act .cp-edit { position: static; }
+.cp-edit.cp-del { width: 30px; padding: 0; justify-content: center; color: var(--ink-2); }
+.cp-edit.cp-del:hover { color: var(--ink); }
+@media (max-width: 560px) { .cp-head-act { position: static; margin-top: 8px; } }
+
+/* ── your work on this campaign: the Hires card's list, a touch denser so
+   five rows fit the same card ── */
+.rl-work .hp-body { padding-top: 8px; }
+.rl-work .pr { min-height: 40px; padding-top: 4px; padding-bottom: 4px; }
+.rl-work .pr-t small { color: var(--ink-2); }
+.rl-work .pr-t small .rl-up { color: #3f7d2a; }
+.rl-work .hp-list { margin: 0; padding: 0; list-style: none; }
+
+/* the Completed tab adds width to the Campaigns bar: on narrower desktops
+   the search gives up a little so the sort stays on the same line */
+@media (min-width: 900px) and (max-width: 1439px) { .cg-bar .cg-search { flex-basis: 200px; } }

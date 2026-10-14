@@ -2,6 +2,9 @@ import type { CampaignKey, PipelineRole } from "./orchestrator";
 import { campaignName } from "./orchestrator";
 import type { Phase, Verdict } from "./sourcing";
 import { CANDIDATES } from "./sourcing";
+import { CAMPAIGN_ROWS } from "./campaignsData";
+import type { FormView } from "./formsStore";
+import { campaignById, listCampaignStubs } from "./formsStore";
 
 /**
  * Moments — every special reply the agent can give beyond sourcing, and the
@@ -14,7 +17,11 @@ import { CANDIDATES } from "./sourcing";
 
 export type MomentKind =
   | "sourcing" | "outreach" | "status" | "assign" | "report" | "compare"
-  | "schedule" | "leak" | "rediscover" | "intake" | "digest" | "campaign" | "reply";
+  | "schedule" | "leak" | "rediscover" | "intake" | "digest" | "campaign" | "form" | "form-status" | "reply"
+  | "client" | "campaign-new";
+
+/** Moments that walk through steps (one row per answer, keys to pick). */
+export const GUIDED: ReadonlySet<MomentKind> = new Set<MomentKind>(["form", "client", "campaign-new"]);
 
 /**
  * Which moment a brief gets. Ordered from most to least specific, because a
@@ -23,7 +30,21 @@ export type MomentKind =
  */
 export function classify(said: string): MomentKind {
   const s = said.toLowerCase();
+  /* A client to add: "add a client", "new client", "add Acme as a client".
+     First, because a company's name can contain any other trigger word. */
+  if (/\bnew client\b/.test(s) || /\b(add|create|onboard|register|set ?up|sign)\b[^.?!]*\bas (a |our |the )?(new )?client\b/.test(s)
+    || /\b(add|create|onboard|register|set ?up)\s+(a\s+|another\s+)?(new\s+)?client\b/.test(s)) return "client";
   if (/sourc/.test(s)) return "sourcing";
+  /* A form to make, not responses to read: "how are the form responses
+     going" is a status question and falls through. */
+  if (!/\bresponses?\b/.test(s) && (
+    /\b(create|make|build|draft|set ?up|start|new|need|want|write|put together)\b[^.?!]*\b(form|questionnaire)s?\b/.test(s) ||
+    /\b(screening|hiring|application) (form|questions)\b/.test(s))) return "form";
+  /* Responses to a form: counts per live form, never the agents dialog. */
+  if (/\bforms?\b/.test(s) && /\bresponses?\b/.test(s) && !/report|summary of|receipt/.test(s)) return "form-status";
+  /* A campaign to set up, not one to chart: the verb sits right before it. */
+  if (/\b(create|start|set ?up|launch|open|add|spin up|kick off|begin|make)\s+(a\s+|an\s+|another\s+)?(new\s+)?(hiring\s+)?campaign\b/.test(s)
+    || /^\s*new campaign\b/.test(s)) return "campaign-new";
   if (/\bcompare\b|\bvs\.?\b|versus/.test(s)) return "compare";
   if (/schedul|\bbook\b|calendar|find a time/.test(s)) return "schedule";
   /* Questions before actions: "how is the outreach going" is about outreach,
@@ -49,6 +70,33 @@ export function campaignIn(said: string): CampaignKey | null {
   return null;
 }
 
+/** Keywords for campaigns a form request may name without its full name. */
+const FORM_CAMPAIGN_WORDS: readonly [string, RegExp][] = [
+  ["backend-snr", /backend|back-end/],
+  ["platform-sre", /\bsre\b|platform/],
+  ["ios-mid", /\bios\b|mobile/],
+  ["design-lead", /design lead|design/],
+  ["gtm-ae", /\bae\b|account exec|enterprise/],
+  ["ds-applied", /data scien|applied data/],
+  ["fin-controller", /controller|finance/],
+];
+
+/**
+ * The campaign a form request names, if any: its full name first (including
+ * campaigns started from chat), then a keyword. Separate from campaignIn,
+ * which only knows the three campaigns the agents run on.
+ */
+export function formCampaignIn(said: string): string | null {
+  const s = said.toLowerCase();
+  const all = [...CAMPAIGN_ROWS.map((r) => r.id), ...listCampaignStubs().map((c) => c.id)];
+  for (const id of all) {
+    const name = campaignById(id)?.name.toLowerCase();
+    if (name && s.includes(name)) return id;
+  }
+  for (const [id, re] of FORM_CAMPAIGN_WORDS) if (re.test(s)) return id;
+  return null;
+}
+
 /** The agent role a brief names, if any. */
 export function roleIn(said: string): PipelineRole | null {
   const s = said.toLowerCase();
@@ -71,7 +119,7 @@ export function candidatesIn(said: string): string[] {
 /* ── channels and connectors ─────────────────────────────────────────────── */
 
 export type ChannelId = "gmail" | "whatsapp" | "linkedin";
-export type ServiceId = "gmail" | "outlook" | "magnifi" | "linkedin";
+export type ServiceId = "gmail" | "outlook" | "magnifi" | "linkedin" | "slack" | "notion";
 
 export type ConnState = "disconnected" | "connecting" | "choosing" | "connected" | "expired" | "failed";
 
@@ -113,6 +161,15 @@ export const SERVICES: Record<ServiceId, Service> = {
     id: "linkedin", name: "LinkedIn", channel: "LinkedIn", mark: "in", fill: "#0a66c2", ink: "#ffffff",
     signIn: "Checking the SuperHyre extension…", identity: "via the SuperHyre extension",
   },
+  /* Where the agent posts updates and files notes. Not outreach carriers: nothing in CARRIER points here. */
+  slack: {
+    id: "slack", name: "Slack", channel: "Slack", mark: "S", fill: "#611f69", ink: "#ffffff",
+    signIn: "Waiting for Slack sign-in…", identity: "Acme Hiring",
+  },
+  notion: {
+    id: "notion", name: "Notion", channel: "Notion", mark: "N", fill: "#191918", ink: "#ffffff",
+    signIn: "Waiting for Notion sign-in…", identity: "Hiring notes",
+  },
 };
 
 /** Which service carries each outreach channel. */
@@ -138,6 +195,8 @@ export const INITIAL_CONNECTIONS: Record<ServiceId, ConnState> = {
   outlook: "connected",
   magnifi: "disconnected",
   linkedin: "connected",
+  slack: "disconnected",
+  notion: "disconnected",
 };
 
 /** How each candidate can be reached. A missing channel has no contact on file. */
@@ -214,6 +273,10 @@ export const OUTREACH_WRITE: readonly Phase[] = [
     steps: ["One personal line per person, taken from their current role", "WhatsApp drafts use the approved first-contact template", "LinkedIn notes kept under 300 characters"],
     says: "Each draft opens with one specific thing from that person's work. Review them one at a time, or approve all if they read right.",
   },
+];
+
+export const FORM_STATUS_PHASES: readonly Phase[] = [
+  { id: "fs-read", live: "Counting responses", done: "Counted responses on every live form", ms: 700, steps: ["Live forms only. Drafts have no link yet."], says: "" },
 ];
 
 export const STATUS_PHASES: readonly Phase[] = [
@@ -331,12 +394,19 @@ export type MomentCtx = {
   verdicts: Readonly<Record<string, Verdict>>;
   onVerdict: (id: string, v: Verdict | null) => void;
   openProfile: (id: string, ids?: readonly string[]) => void;
-  openList: () => void;
+  /** Opens the ranked list (for a campaign, when several are in the chat). */
+  openList: (campaignId?: string) => void;
   /** Deploys an agent into the live band; returns its key so it can be undone. */
-  deploy: (role: PipelineRole, campaignId: CampaignKey) => string | null;
+  deploy: (role: PipelineRole, campaignId: CampaignKey | string) => string | null;
   undeploy: (key: string) => void;
   /** Puts a sentence in the composer. Never sends. */
   seed: (text: string) => void;
+  /**
+   * Sends a sentence as the person's next message, for a button that names what it does ("Ask for times",
+   * "Find the drop-off"): it acts instead of leaving a draft in the composer. Where nothing can be sent (the
+   * demo) it seeds. `campaignId` is the campaign the button is about, when it knows.
+   */
+  send?: (text: string, campaignId?: string) => void;
   onGrow: () => void;
   onBusy: (busy: boolean) => void;
   /** Answers to clarifying questions that don't rewrite the request. */
@@ -344,7 +414,22 @@ export type MomentCtx = {
   /** Session preferences remembered from earlier answers. */
   prefs: Readonly<Record<string, string>>;
   setPref: (key: string, value: string) => void;
+  /** The campaign the recruiter has open in the console, only if they picked it this session. */
+  campaign?: { id: string; name: string } | null;
+  /** Leaves the chat for the form builder. */
+  openForm?: (campaignId: string, formId: string, view: FormView) => void;
+  /** Leaves the chat for a campaign, making it the current one. */
+  openCampaign?: (campaignId: string) => void;
 };
+
+/**
+ * A button that names its action ("Ask for times", "Find the drop-off") does it: the words go as a message
+ * where the chat can send them, and wait in the composer where it can't (the demo).
+ */
+export function act(ctx: Pick<MomentCtx, "seed" | "send">, text: string, campaignId?: string | null): void {
+  if (ctx.send) ctx.send(text, campaignId ?? undefined);
+  else ctx.seed(text);
+}
 
 /* ── campaigns a candidate is in ─────────────────────────────────────────────
    Some profiles sit in more than one campaign, and the same person ranks on

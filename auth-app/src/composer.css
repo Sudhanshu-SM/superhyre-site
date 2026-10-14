@@ -95,6 +95,12 @@
 
 .orc .orc-composer .orc-send { width: 32px; height: 32px; }
 
+/* The length of a message, once it is near the most the agent takes. Quiet until it is over. */
+.orc .orc-composer .orc-count { margin-left: auto; color: var(--ink-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.orc .orc-composer .orc-count.is-over { color: #a2552f; }
+/* The send button already takes the free space to its left; the count sits against it, not mid-row. */
+.orc .orc-composer .orc-count + .orc-send { margin-left: 0; }
+
 /* ── docked: one line, icons only ── */
 
 .orc .orc-stream.is-live .orc-composer .orc-composer-row { gap: 6px; }
@@ -186,7 +192,7 @@
   place-items: center;
   border-radius: var(--r-pill);
   background: var(--accent-fill);
-  font: 600 10.5px/1 var(--ui);
+  font: 600 var(--fs-12)/1 var(--ui);
   color: #fff;
   animation: cb-pop 300ms var(--ease-out);
 }
@@ -230,8 +236,8 @@
   transform: scale(0.3);
   transition: opacity 200ms var(--ease-out), transform 260ms var(--ease-out);
 }
-.fd-row-h { font: 400 11.5px/1.4 var(--ui); color: var(--ink-2); }
-.fd-from { display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; border-radius: var(--r-pill); background: var(--accent-tint); font: 500 10.5px/1 var(--ui); color: var(--accent-text); }
+.fd-row-h { font: var(--type-caption); color: var(--ink-2); }
+.fd-from { display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; border-radius: var(--r-pill); background: var(--accent-tint); font: 500 var(--fs-12)/1 var(--ui); color: var(--accent-text); }
 
 /* chips */
 .fd-chips { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -500,14 +506,12 @@
    the composer, shrank the transcript and made it re-lay out and scroll —
    measured as 150–230ms keystrokes with a chart on screen. Floating them
    just above the field keeps them visible and takes them out of layout. */
-/* Its containing block. Only where the composer is not already sticky: below
-   1000px tall it is `position: sticky` (access.css), which positions the
-   gauge just as well, and overriding it with `relative` un-stuck the
-   composer and cost 150ms+ per keystroke. */
-@media (min-height: 1001px) and (min-width: 1101px) {
+/* Its containing block. Beside the rail the composer is never sticky (the
+   log scrolls above it at every window height), so `relative` is safe. */
+@media (min-width: 1101px) {
   .orc .orc-stream.is-live .orc-composer { position: relative; }
 }
-@media (min-height: 1001px) and (min-width: 1101px) {
+@media (min-width: 1101px) {
 .orc .orc-stream.is-live .orc-composer .orc-gauge {
   position: absolute;
   left: 14px;
@@ -524,21 +528,16 @@
   animation: src-in 220ms var(--ease-out) both;
 }
 }
-/* Below that the page scrolls under a sticky composer, and a floating chip
-   row over the transcript repaints what is beneath it on every key — so the
-   gauge stays in flow there, as it was. */
+/* Stacked under 1100px the page scrolls under a sticky composer, and a
+   floating chip row over the transcript repaints what is beneath it on every
+   key, so the gauge stays in flow there. */
 
-/* Finished turns that are scrolled out of view skip layout and paint. The
-   newest turn is always rendered, because it is the one being watched and
-   the one the send flight lands in. */
-/* `article:not(:last-of-type)`, not `:not(:last-child)`: while the landing
-   heading leaves it is still the log's last child, which made the brand-new
-   turn "not last", gave it a 640px placeholder height, and threw the send
-   animation's starting point off by 84px. */
-.orc-log > article.orc-turn:not(:last-of-type) {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 640px;
-}
+/* No `content-visibility: auto` on finished turns. Its 640px placeholder
+   stood in for any turn scrolled out of view, so the log's scrollHeight
+   changed by hundreds of pixels as turns entered and left the viewport, and
+   a restored thread (rendered off screen from the start) measured wrong
+   until each turn had been seen once. The transcript went up and down on
+   its own. */
 
 /* ── A NARROW COMPOSER KEEPS ITS ROW ON ONE LINE ──
    Beside the rail the resting composer can be ~430px wide, and modes, two
@@ -674,7 +673,7 @@
    cards and the Run search button. Padding on the right, pulled back out
    with an equal negative margin, moves the scrollbar into the gutter while
    the content keeps its width. */
-@media (min-height: 1001px) and (min-width: 1101px) {
+@media (min-width: 1101px) {
   .orc .orc-stream.is-live .orc-log {
     margin-right: -22px;
     padding-right: 22px;
@@ -750,3 +749,27 @@
   paint-order: stroke fill;
   transition: color 200ms var(--ease-out);
 }
+
+/* ── live filters and job description ─────────────────────────────────────── */
+.jd-problem { margin: 0; font: 400 13px/1.45 var(--ui); color: var(--ink-2); }
+/* Someone who follows the campaign reads its filters; the controls do not answer. */
+.fd-list.is-readonly input,
+.fd-list.is-readonly button { pointer-events: none; }
+.jd-view {
+  margin: 0; max-height: 46vh; overflow: auto; padding: 14px 16px; border-radius: 14px; background: var(--page-2);
+  font: 400 13.5px/1.6 var(--ui); color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere;
+}
+
+/* ── the basics first, the rest on request ───────────────────────────────── */
+.fd-body.is-basic { grid-template-columns: minmax(0, 1fr); }
+.fd-more-row { padding: 10px 0 22px; }
+.fd-more, .fd-fewer {
+  display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px;
+  border: 1px solid var(--hairline); border-radius: var(--r-pill, 999px); background: #fff;
+  font: 500 13px/1 var(--ui); color: var(--ink-2); cursor: pointer;
+  transition: color var(--t), border-color var(--t), background-color var(--t);
+}
+.fd-more:hover, .fd-fewer:hover:not(:disabled) { color: var(--ink); border-color: var(--rule); }
+.fd-more:focus-visible, .fd-fewer:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.fd-fewer { margin-top: 10px; justify-self: start; }
+.fd-fewer:disabled { opacity: 0.5; cursor: default; }

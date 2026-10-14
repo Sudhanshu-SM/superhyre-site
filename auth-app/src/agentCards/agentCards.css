@@ -1,0 +1,118 @@
+/* The chat's cards and narration (src/agentCards). Built on the reply vocabulary (.rep-*) in access.css and the
+   turn's (.lt-*) in agentLive.css; only what those lack lives here. */
+
+/* ── what the run is doing ── */
+.pt, .pt-first {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 5px;
+  font: var(--type-body-sm);
+  letter-spacing: var(--track-body-sm);
+}
+.pt-first { display: flex; align-items: center; gap: 8px; color: var(--ink-2); }
+
+.pt-line {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px;
+  min-height: 20px;
+  color: var(--ink-2);
+}
+.pt-ico { display: inline-grid; place-items: center; height: 20px; color: var(--ink-3); }
+.pt-line.is-running { color: var(--ink); }
+.pt-line.is-done .pt-ico { color: var(--ink-3); }
+.pt-text { min-width: 0; overflow-wrap: anywhere; }
+.pt-label { color: inherit; }
+.pt-note { margin-left: 8px; color: var(--ink-3); }
+.pt-line.is-failed { color: var(--ink-2); }
+.pt .lt-stop { margin-left: 0; align-self: start; }
+/* The outcome of a search, kept in view when its lines fold away. */
+.pt-verdict {
+  display: flex; align-items: center; gap: 8px; margin: 0;
+  font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2);
+}
+.pt-verdict svg { flex: none; color: var(--ink-3); }
+
+.lt-search > .src-results { justify-self: stretch; }
+
+/* ── what the search is doing right now: short lines that rise and fade under the matching line ── */
+.pt-feed {
+  display: flex; flex-direction: column; justify-content: flex-end;
+  gap: 4px; margin: 6px 0 0 26px; padding: 0; list-style: none;
+  min-height: 60px; max-height: 120px; overflow: hidden;
+  /* The oldest line is nearly gone by the time it reaches the top. */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 45%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 45%);
+  font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-3);
+}
+.pt-feed-line {
+  display: flex; align-items: center; gap: 8px; min-height: 18px;
+  animation: pt-feed-rise var(--feed-life, 6s) linear both;
+}
+.pt-feed-line svg { flex: none; color: var(--ink-3); }
+.pt-feed-line span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@keyframes pt-feed-rise {
+  0% { opacity: 0; transform: translateY(8px); }
+  8% { opacity: 1; transform: translateY(0); }
+  70% { opacity: 1; transform: translateY(-6px); }
+  100% { opacity: 0; transform: translateY(-20px); }
+}
+/* Reduced motion: the latest line, standing still. */
+.pt-feed.is-still { min-height: 0; max-height: none; -webkit-mask-image: none; mask-image: none; }
+.pt-feed.is-still .pt-feed-line { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .pt-feed-line { animation: none; }
+}
+
+/* ── a card turning into what it did ── */
+.oc { display: grid; gap: 8px; }
+.oc-sum { margin: 0; font: var(--type-body); letter-spacing: var(--track-body); color: var(--ink); }
+.oc.is-declined .oc-sum { color: var(--ink-3); font: var(--type-body-sm); letter-spacing: var(--track-body-sm); }
+.oc-counts { margin: 0; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); }
+.oc-next { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 0; padding: 0; list-style: none; }
+
+/* ── an approval ── */
+.ap-sec { display: grid; gap: 2px; max-width: 62ch; }
+.ap-sec .lt-affected { padding: 0; }
+.ap-k { font: var(--type-caption); letter-spacing: 0.02em; color: var(--ink-3); }
+.ap-v { margin: 0; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); overflow-wrap: anywhere; }
+.ap-more { justify-self: start; }
+
+/* An email as it will be sent: the words keep their line breaks. */
+.lt-mail-body { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* ── a connection the agent needs ── */
+.cc { display: grid; gap: 10px; }
+.cc-head { display: flex; align-items: center; gap: 10px; }
+.cc-title { margin: 0; font: var(--type-body-strong); letter-spacing: var(--track-body-strong); color: var(--ink); }
+.cc-why { margin: 0; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); max-width: 62ch; }
+.lt-actions .rep-commit, .cc-acts .rep-commit { cursor: pointer; }
+.lt-actions .rep-commit:disabled, .cc-acts .rep-commit:disabled { cursor: default; opacity: 0.7; }
+.cc-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.cc-wait { display: inline-flex; align-items: center; gap: 8px; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); }
+.cc.is-done .cc-title { color: var(--ink); }
+/* The token field a connect card carries where there is no sign-in to open. */
+.cc-token { display: grid; gap: 8px; max-width: 460px; }
+.cc-field { display: grid; gap: 4px; }
+.cc-field-l { font: var(--type-caption); letter-spacing: 0.02em; color: var(--ink-3); }
+
+/* ── #/agent-preview ── */
+.ap-preview { max-width: 720px; margin: 0 auto; padding: 32px 20px 80px; color: var(--ink); font-family: var(--ui); }
+.ap-preview-head h1 { margin: 0 0 12px; font: var(--type-title); letter-spacing: var(--track-title); }
+.ap-preview-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.ap-preview-bar button { padding: 6px 12px; border: 1px solid var(--hairline); border-radius: var(--r-pill); background: var(--nav-surface, #fff); font: var(--type-label); color: var(--ink); cursor: pointer; }
+.ap-preview-bar button.is-on { border-color: var(--ink-3); }
+.ap-preview-bar button:disabled { opacity: 0.5; cursor: default; }
+.ap-preview-n { margin-left: 8px; font: var(--type-caption); color: var(--ink-3); }
+.ap-preview-note { display: flex; align-items: center; gap: 8px; margin: 12px 0 0; font: var(--type-body-sm); color: var(--ink-3); }
+.ap-preview-turn { display: grid; gap: 14px; margin-top: 28px; }
+.ap-preview-said { margin: 0; justify-self: end; max-width: 80%; padding: 10px 14px; border-radius: 16px; background: var(--sub); font: var(--type-body); }
+.ap-preview-body { min-width: 0; }
+
+/* The role spec, read from the approval that asks for it: the panel's own padding, scrolling inside the dialog. */
+.lt-spec { min-height: 0; padding: 24px 48px 24px 24px; overflow-y: auto; }
+.lt-review { margin: 0; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); }
+@media (max-width: 640px) { .lt-spec { padding: 16px; } }

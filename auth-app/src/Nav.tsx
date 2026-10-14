@@ -1,15 +1,32 @@
 import {
-  Bell, Buildings, CaretDown, CaretUpDown, Check, DotsThree, FolderOpen,
+  ArrowClockwise, Bell, Buildings, CaretDown, CaretUpDown, Check, Compass, DotsThree, FolderDashed, FolderOpen,
   MagnifyingGlass, SidebarSimple, SignOut, User,
 } from "@phosphor-icons/react";
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { BorderGlow } from "./glow";
-import { CAMPAIGN_NAV, FOOT_NAV, GROUP_OF, NAV, ROUTES } from "./nav";
+import { Loader } from "./components/Loader";
+import { CAMPAIGN_NAV, FOOT_NAV, GROUP_OF, navFor, navLabel, ROUTES, scopePick } from "./nav";
 import type { Icon } from "@phosphor-icons/react";
 import type { NavItem, NavLeaf, RouteId } from "./nav";
 import { CAMPAIGNS, currentWorkspace, workspacesFor } from "./workspaces";
 import type { Campaign } from "./workspaces";
+import { retryCampaigns, useCampaignRows, useCampaignsFailed, useCampaignsReady } from "./campaignStore";
+import { NotificationsPanel } from "./Notifications";
+import { OrgMark } from "./OrgMark";
+import { RoleSwitch } from "./RoleBits";
+import { CHOICES, setThemeChoice, useThemeChoice } from "./theme";
+import { firstGlyph } from "./ui";
+import { ROLE_LABEL, useSession, visibleCampaigns } from "./roleStore";
+import { standingOf } from "./can";
+import type { Standing } from "./can";
+import { pendingOrgName, readable } from "./api/identity";
+import { isolationLine, workspaceHint } from "./membership";
+import type { OrgRole } from "./api/identity";
+import type { LiveAccount } from "./Console";
+import { requestTour } from "./tour/useTour";
+
+const ORG_ROLE_LABEL: Readonly<Record<OrgRole, string>> = { owner: "Owner", admin: "Admin", recruiter: "Recruiter" };
 
 /**
  * The sidebar.
@@ -42,7 +59,8 @@ import type { Campaign } from "./workspaces";
  * here and it was holding the most prominent slot in the panel.
  */
 
-const ICON = 18;
+/* 20px at a 1.5px line (see .nav-ico in access.css): a little larger and lighter than before. */
+const ICON = 20;
 const WEIGHT = "regular" as const;
 
 /**
@@ -93,20 +111,25 @@ type Props = {
   onOpenPalette: () => void;
   onSignOut: () => void;
   signingOut: boolean;
+  /** The real account and its workspaces. Absent in prototype mode. */
+  live?: LiveAccount;
 };
 
 export function Nav({
   route, onNavigate, openGroups, onToggleGroup,
   railed, onToggleRail, drawerOpen, onCloseDrawer,
   name, email, organizationName, notifications, campaign, onSelectCampaign,
-  onOpenPalette, onSignOut, signingOut,
+  onOpenPalette, onSignOut, signingOut, live,
 }: Props) {
-  const initial = name.trim().charAt(0).toUpperCase() || "?";
+  const initial = firstGlyph(name) || "?";
   const panel = useRef<HTMLDivElement>(null);
 
+  const theme = useThemeChoice();
   const [wsOpen, setWsOpen] = useState(false);
   const [meOpen, setMeOpen] = useState(false);
   const [scopeOpen, setScopeOpen] = useState(false);
+  const [bellOpen, setBellOpen] = useState(false);
+  const bellRef = useRef<HTMLButtonElement>(null);
   const wsRef = useRef<HTMLDivElement>(null);
   const meRef = useRef<HTMLDivElement>(null);
   const scopeRef = useRef<HTMLDivElement>(null);
@@ -119,6 +142,29 @@ export function Nav({
   const workspaces = workspacesFor(name, organizationName);
   const current = currentWorkspace(name, organizationName);
   const orgLevel = workspaces.filter((w) => w.level === "org");
+
+  /* Connected: the personal workspace and the organisation, really switched. */
+  const [wsError, setWsError] = useState<string | null>(null);
+  const liveActive = live?.me.workspaces.find((w) => w.active);
+  const liveOrg = live?.me.workspaces.find((w) => w.kind === "org");
+  const pending = live ? pendingOrgName(live.me) : null;
+  /* "Personal" and the organisation's own name: a workspace is called by what it is, not by whose it is. */
+  const personalName = "Personal";
+  const wsName = live ? (liveActive?.kind === "org" ? liveActive.name : personalName) : current.name;
+
+  /* A recruiter's switcher lists only the campaigns they are on. */
+  const session = useSession();
+  const campaignRows = useCampaignRows();
+  const campaignsReady = useCampaignsReady();
+  const campaignsFailed = useCampaignsFailed();
+  const switchable = useMemo(() => {
+    const ok = new Set(visibleCampaigns(campaignRows, session).map((r) => r.id));
+    const known = new Set(CAMPAIGNS.map((c) => c.id));
+    const made = campaignRows.filter((r) => !known.has(r.id) && ok.has(r.id)).map((r) => ({ id: r.id, name: r.name, role: [r.department, r.location].filter(Boolean).join(" · ") }));
+    return [...made, ...CAMPAIGNS.filter((c) => ok.has(c.id))];
+  }, [campaignRows, session]);
+
+  const pick = scopePick(switchable.length, { ready: campaignsReady, failed: campaignsFailed });
 
   /* Escape closes the drawer. Bound to the document rather than the panel so it
      works no matter where focus sits — including the backdrop, which is not
@@ -145,7 +191,9 @@ export function Nav({
     if (!wsOpen && !meOpen) return;
     const onDown = (e: MouseEvent) => {
       const t = e.target as Node;
-      if (wsOpen && !wsRef.current?.contains(t)) setWsOpen(false);
+      /* The workspace switcher renders in a portal and dismisses itself (see
+         SwitcherPopover); judged from here, a click on its own items is
+         "outside" and would close it before the click lands. */
       if (meOpen && !meRef.current?.contains(t)) setMeOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
@@ -224,16 +272,31 @@ export function Nav({
             <SwitcherPopover
               id={wsMenuId}
               anchor={wsRef}
-              placeholder="Search workspaces"
+              placeholder="Search organisations"
               /* Two divisions, because there are exactly two kinds: the scope
                  that is yours alone and the scopes shared across the tenant.
                  The organisation is named in the closing note rather than as a
                  group label — it is the boundary these belong to, not a
                  heading of peers. */
-              groups={[
+              groups={live ? [
                 {
                   id: "personal",
-                  label: "Personal workspace",
+                  label: "Personal",
+                  items: [{ id: "personal", name: personalName, hint: workspaceHint({ kind: "personal", role: null }), Icon: User, current: liveActive?.kind !== "org" }],
+                },
+                ...(liveOrg || pending ? [{
+                  id: "org",
+                  label: "Organisation",
+                  items: liveOrg ? [{
+                    id: liveOrg.organizationId ?? "org", name: liveOrg.name,
+                    hint: workspaceHint(liveOrg),
+                    Icon: Buildings, logoUrl: liveOrg.logoUrl, current: liveOrg.active,
+                  }] : [{ id: "pending", name: pending ?? "", hint: "Waiting for an admin to approve you", Icon: Buildings, disabled: true }],
+                }] : []),
+              ] : [
+                {
+                  id: "personal",
+                  label: "Personal",
                   items: workspaces.filter((w) => w.level === "user").map((w) => ({
                     id: w.id, name: w.name, hint: w.hint, Icon: User,
                     current: w.id === current.id, disabled: !w.switchable,
@@ -241,17 +304,22 @@ export function Nav({
                 },
                 ...(orgLevel.length > 0 ? [{
                   id: "org",
-                  label: "Org workspaces",
+                  label: "Organisations",
                   items: orgLevel.map((w) => ({
                     id: w.id, name: w.name, hint: w.hint, Icon: Buildings,
                     current: w.id === current.id, disabled: !w.switchable,
                   })),
                 }] : []),
               ]}
-              emptyNote={(q) => <>No workspace matches <strong>{q}</strong>.</>}
-              note={organizationName?.trim() ? `Shared workspaces belong to ${organizationName.trim()}` : undefined}
-              onPick={() => setWsOpen(false)}
-              onClose={() => setWsOpen(false)}
+              emptyNote={(q) => <>Nothing matches <strong>{q}</strong>.</>}
+              note={live ? wsError ?? (liveActive ? isolationLine(liveActive) : undefined) : organizationName?.trim() ? `Everything shared here belongs to ${organizationName.trim()}` : undefined}
+              onPick={(item) => {
+                if (!live || item.current) { setWsOpen(false); return; }
+                setWsError(null);
+                live.switchWorkspace(item.id === "personal" ? null : item.id)
+                  .catch((err: unknown) => setWsError(readable(err)));
+              }}
+              onClose={() => { setWsOpen(false); setWsError(null); }}
             />
           )}
 
@@ -262,12 +330,12 @@ export function Nav({
             aria-expanded={wsOpen}
             aria-haspopup="menu"
             aria-controls={wsOpen ? wsMenuId : undefined}
-            data-label={current.name}
+            data-label={wsName}
           >
             {/* The organisation's own initial, so the chip is identity rather
                 than decoration. */}
             <span className="nav-ws-chip" aria-hidden="true">
-              {current.name.trim().charAt(0).toUpperCase()}
+              <OrgMark name={wsName} fill logoUrl={live && liveActive?.kind === "org" ? liveActive.logoUrl : null} />
             </span>
             {/* One line, not two. The hint ("Your organization" / "Personal
                 workspace") used to sit under the name here and it was the
@@ -276,7 +344,7 @@ export function Nav({
                 name, a solo scope is called "<Person>'s Workspace". The hint
                 still earns its place inside the switcher, where it
                 distinguishes rows from each other. */}
-            <span className="nav-ws-name nav-fade">{current.name}</span>
+            <span className="nav-ws-name nav-fade">{wsName}</span>
             <CaretUpDown className="nav-ws-caret nav-fade" size={14} weight="bold" aria-hidden="true" />
           </button>
         </div>
@@ -291,6 +359,7 @@ export function Nav({
             className="nav-find"
             onClick={onOpenPalette}
             data-label="Quick find"
+            data-tour="quick-find"
           >
             <BorderGlow />
             <MagnifyingGlass className="nav-find-ico" size={15} weight={WEIGHT} aria-hidden="true" />
@@ -298,7 +367,8 @@ export function Nav({
             <kbd className="nav-find-kbd nav-fade" aria-hidden="true">⌘K</kbd>
           </button>
 
-          <button type="button" className="nav-bell" data-label="Notifications"
+          <button ref={bellRef} type="button" className="nav-bell" data-label="Notifications" data-tour="bell"
+            onClick={() => setBellOpen((o) => !o)} aria-expanded={bellOpen}
             aria-label={notifications > 0
               ? `Notifications, ${notifications} unread`
               : "Notifications"}>
@@ -312,10 +382,11 @@ export function Nav({
               </span>
             )}
           </button>
+          <NotificationsPanel anchor={bellRef} open={bellOpen} onClose={() => setBellOpen(false)} live={live} />
         </div>
 
         <nav className="nav-body" aria-label="Main">
-          {NAV.map((section) => (
+          {navFor(standingOf(session)).map((section) => (
             <div className="nav-sec" key={section.id}>
               {section.label && <h2 className="nav-sec-label nav-fade">{section.label}</h2>}
               <ul className="nav-list">
@@ -328,83 +399,136 @@ export function Nav({
                     open={item.kind === "group" ? openGroups[item.id] === true : false}
                     onGroupClick={onGroupClick}
                     onGo={go}
+                    standing={standingOf(session)}
                   />
                 ))}
               </ul>
             </div>
           ))}
 
-          {/* ── the current campaign ──
-              No divider: the whitespace separates it, per the minimalism rule
-              in DESIGN.md §0. The label is quiet and short; the name carries
-              the weight, because the name is the piece of information that says
-              which pipeline the six rows belong to.
+          {/* ── the selected campaign ──
+              No label. The open folder, the name in medium weight and the six
+              rows nested under it on a guide line already say "you are inside
+              this campaign"; a caption saying so was a second telling. The
+              whitespace above separates it from the main nav.
 
               The scope row is its own markup rather than a generic Row: it
               pairs a link with a menu trigger, and a button nested inside an
               anchor is invalid. */}
           <div className="nav-sec nav-campaign">
-            <p className="nav-campaign-label nav-fade">Current campaign</p>
 
             {/* The scope row. An anchor and a button as SIBLINGS, not the
                 generic Row: a menu trigger nested inside a link is a button
                 inside an anchor, which is invalid and unreachable by keyboard
                 in the order a user expects. */}
-            <div className="nav-scope" ref={scopeRef}>
-              <a
-                className={`nav-row nav-scope-link${route === "campaign-overview" ? " is-active" : ""}`}
-                href={`#${ROUTES["campaign-overview"].path}`}
-                aria-current={route === "campaign-overview" ? "page" : undefined}
-                data-label={campaign.name}
-                title={campaign.name}
-                onClick={(e) => {
-                  if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
-                  e.preventDefault();
-                  go("campaign-overview");
-                }}
-              >
-                <FolderOpen className="nav-ico" size={ICON} weight={WEIGHT} aria-hidden="true" />
-                <span className="nav-label nav-fade">{campaign.name}</span>
-              </a>
-
-              <button
-                type="button"
-                className="nav-scope-more nav-fade"
-                onClick={() => { setScopeOpen((v) => !v); setWsOpen(false); setMeOpen(false); }}
-                aria-expanded={scopeOpen}
-                aria-haspopup="menu"
-                aria-controls={scopeOpen ? scopeMenuId : undefined}
-                aria-label={`Options for ${campaign.name}`}
-              >
-                <DotsThree size={16} weight="bold" aria-hidden="true" />
-              </button>
-
-              {scopeOpen && (
-                <SwitcherPopover
-                  id={scopeMenuId}
-                  anchor={scopeRef}
-                  placeholder="Search campaigns"
-                  groups={[{
-                    id: "campaigns",
-                    label: "",
-                    items: CAMPAIGNS.map((c) => ({
-                      id: c.id, name: c.name, hint: c.role, Icon: FolderOpen,
-                      current: c.id === campaign.id,
-                    })),
-                  }]}
-                  emptyNote={(q) => <>No campaign matches <strong>{q}</strong>.</>}
-                  footer={{ label: "View all campaigns", onClick: () => { setScopeOpen(false); go("campaigns"); } }}
-                  onPick={(item) => {
-                    setScopeOpen(false);
-                    const hit = CAMPAIGNS.find((c) => c.id === item.id);
-                    if (hit) onSelectCampaign(hit);
+            {campaign.id ? (
+              <div className="nav-scope" ref={scopeRef}>
+                <a
+                  className="nav-row nav-scope-link"
+                  href={`#${ROUTES["campaign-overview"].path}`}
+                  aria-current={undefined}
+                  data-label={campaign.name}
+                  title={campaign.name}
+                  onClick={(e) => {
+                    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+                    e.preventDefault();
+                    go("campaign-overview");
                   }}
-                  onClose={() => setScopeOpen(false)}
-                />
-              )}
-            </div>
+                >
+                  <FolderOpen className="nav-ico" size={ICON} weight={WEIGHT} aria-hidden="true" />
+                  <span className="nav-label nav-fade">{campaign.name}</span>
+                </a>
 
-            <ul className="nav-list nav-campaign-list">
+                <button
+                  type="button"
+                  className="nav-scope-more nav-fade"
+                  onClick={() => { setScopeOpen((v) => !v); setWsOpen(false); setMeOpen(false); }}
+                  aria-expanded={scopeOpen}
+                  aria-haspopup="menu"
+                  aria-controls={scopeOpen ? scopeMenuId : undefined}
+                  aria-label={`Options for ${campaign.name}`}
+                >
+                  <DotsThree size={16} weight="bold" aria-hidden="true" />
+                </button>
+
+                {scopeOpen && (
+                  <SwitcherPopover
+                    id={scopeMenuId}
+                    anchor={scopeRef}
+                    placeholder="Search campaigns"
+                    groups={[{
+                      id: "campaigns",
+                      label: "",
+                      items: switchable.map((c) => ({
+                        id: c.id, name: c.name, hint: c.role, Icon: FolderOpen,
+                        current: c.id === campaign.id,
+                      })),
+                    }]}
+                    emptyNote={(q) => <>No campaign matches <strong>{q}</strong>.</>}
+                    footer={{ label: "View all campaigns", onClick: () => { setScopeOpen(false); go("campaigns"); } }}
+                    onPick={(item) => {
+                      setScopeOpen(false);
+                      const hit = switchable.find((c) => c.id === item.id);
+                      if (hit) onSelectCampaign(hit);
+                    }}
+                    onClose={() => setScopeOpen(false)}
+                  />
+                )}
+              </div>
+            ) : (
+              /* No campaign chosen (a new organisation, or none they're on): one quiet row that
+                 opens the same switcher, instead of a folder named "Pick a campaign" over six
+                 pages that would all say the same thing. */
+              <div className="nav-scope" ref={scopeRef}>
+                <button
+                  type="button"
+                  className={`nav-row nav-scope-pick${pick.state === "failed" ? " is-failed" : ""}`}
+                  onClick={() => {
+                    if (pick.state === "failed") { retryCampaigns(); return; }
+                    if (!switchable.length) { go("campaigns"); return; }
+                    setScopeOpen((v) => !v); setWsOpen(false); setMeOpen(false);
+                  }}
+                  aria-expanded={switchable.length ? scopeOpen : undefined}
+                  aria-haspopup={switchable.length ? "menu" : undefined}
+                  aria-controls={scopeOpen ? scopeMenuId : undefined}
+                  aria-busy={pick.state === "loading" || undefined}
+                  data-label={pick.state === "failed" ? `${pick.label}. Try again` : pick.label}
+                  title={pick.state === "failed" ? `${pick.label}. Try again` : pick.label}
+                >
+                  {pick.state === "loading"
+                    ? <span className="nav-ico nav-ico-wait" aria-hidden="true"><Loader size="sm" /></span>
+                    : <FolderDashed className="nav-ico" size={ICON} weight={WEIGHT} aria-hidden="true" />}
+                  <span className="nav-label nav-fade">{pick.label}</span>
+                  {switchable.length > 0 && <CaretUpDown className="nav-scope-caret nav-fade" size={14} aria-hidden="true" />}
+                  {pick.state === "failed" && <ArrowClockwise className="nav-scope-caret nav-fade" size={14} aria-hidden="true" />}
+                </button>
+                {scopeOpen && (
+                  <SwitcherPopover
+                    id={scopeMenuId}
+                    anchor={scopeRef}
+                    placeholder="Search campaigns"
+                    groups={[{
+                      id: "campaigns",
+                      label: "",
+                      items: switchable.map((c) => ({
+                        id: c.id, name: c.name, hint: c.role, Icon: FolderOpen,
+                        current: c.id === campaign.id,
+                      })),
+                    }]}
+                    emptyNote={(q) => <>No campaign matches <strong>{q}</strong>.</>}
+                    footer={{ label: "View all campaigns", onClick: () => { setScopeOpen(false); go("campaigns"); } }}
+                    onPick={(item) => {
+                      setScopeOpen(false);
+                      const hit = switchable.find((c) => c.id === item.id);
+                      if (hit) onSelectCampaign(hit);
+                    }}
+                    onClose={() => setScopeOpen(false)}
+                  />
+                )}
+              </div>
+            )}
+
+            {campaign.id && <ul className="nav-list nav-campaign-list">
               {CAMPAIGN_NAV.map((item) => (
                 <Row
                   key={item.id}
@@ -416,7 +540,7 @@ export function Nav({
                   onGo={go}
                 />
               ))}
-            </ul>
+            </ul>}
           </div>
         </nav>
 
@@ -450,6 +574,31 @@ export function Nav({
                   Signed in to <strong>{organizationName?.trim() || "SuperHyre"}</strong>
                 </p>
 
+                {/* The demo's role switch. Connected, the role is the real one. */}
+                {!live && <RoleSwitch />}
+
+                <div className="nav-me-theme" role="radiogroup" aria-label="Appearance">
+                  {CHOICES.map((c) => (
+                    <button
+                      key={c.id} type="button" role="radio" aria-checked={theme === c.id}
+                      className={`nav-me-theme-opt${theme === c.id ? " is-on" : ""}`}
+                      onClick={() => setThemeChoice(c.id)}
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  className="nav-me-pop-out is-tour"
+                  role="menuitem"
+                  onClick={() => { setMeOpen(false); onCloseDrawer(); requestTour(); }}
+                >
+                  <Compass size={15} weight={WEIGHT} aria-hidden="true" />
+                  Take the tour
+                </button>
+
                 <button
                   type="button"
                   className="nav-me-pop-out"
@@ -458,7 +607,7 @@ export function Nav({
                   disabled={signingOut}
                 >
                   <SignOut size={15} weight={WEIGHT} aria-hidden="true" />
-                  {signingOut ? "Signing out" : "Sign out"}
+                  {signingOut ? <><Loader size="sm" tone="inherit" />Signing out</> : "Sign out"}
                 </button>
               </div>
             )}
@@ -480,7 +629,14 @@ export function Nav({
                   email is a detail, and it is one line away in the menu. */}
               <span className="nav-me nav-fade">
                 <span className="nav-me-name">{name}</span>
-                <span className="nav-me-org">{organizationName?.trim() || "No organisation"}</span>
+                <span className="nav-me-org">
+                  {live
+                    ? liveActive?.kind === "org"
+                      ? liveActive.role ? `${ORG_ROLE_LABEL[liveActive.role]} at ${liveActive.name}` : liveActive.name
+                      /* Personal is yours alone: there is no role in it to name. */
+                      : "Personal"
+                    : `${ROLE_LABEL[session.role]} at ${organizationName?.trim() || "no organisation"}`}
+                </span>
               </span>
             </button>
           </div>
@@ -491,7 +647,7 @@ export function Nav({
 }
 
 function Row({
-  item, route, railed, open, onGroupClick, onGo,
+  item, route, railed, open, onGroupClick, onGo, standing,
 }: {
   item: NavItem | NavLeaf;
   route: RouteId;
@@ -499,6 +655,7 @@ function Row({
   open: boolean;
   onGroupClick: (id: string) => void;
   onGo: (id: RouteId) => void;
+  standing?: Standing | null;
 }) {
   if (item.kind === "leaf") {
     const active = route === item.id;
@@ -509,6 +666,7 @@ function Row({
           href={`#${ROUTES[item.id].path}`}
           aria-current={active ? "page" : undefined}
           data-label={item.label}
+          data-tour={`nav-${item.id}`}
           onClick={(e) => {
             /* Left-click navigates in place; the href stays real so
                middle-click, ctrl-click and "copy link" all behave. */
@@ -545,6 +703,7 @@ function Row({
         aria-expanded={expanded}
         aria-controls={`nav-group-${item.id}`}
         data-label={item.label}
+        data-tour={`nav-${item.id}`}
       >
         <item.Icon
           className="nav-ico"
@@ -590,7 +749,7 @@ function Row({
                     onGo(child.id);
                   }}
                 >
-                  {child.label}
+                  {navLabel(child.id, child.label, standing)}
                 </a>
               </li>
             );
@@ -607,6 +766,8 @@ type SwitchItem = {
   name: string;
   hint: string;
   Icon: Icon;
+  /** An organisation's own logo, drawn in place of the glyph when it has one. */
+  logoUrl?: string | null;
   /** Marked with a check and a filled glyph. */
   current?: boolean;
   /** Rendered, dimmed, and refuses the click. Naming a capability is useful;
@@ -823,12 +984,16 @@ function SwitcherPopover({
                       }}
                       onClick={() => { if (!item.disabled) onPick(item); }}
                     >
-                      <item.Icon
-                        className="nav-switch-opt-ico"
-                        size={16}
-                        weight={item.current ? "fill" : WEIGHT}
-                        aria-hidden="true"
-                      />
+                      {item.logoUrl ? (
+                        <span className="nav-switch-opt-ico nav-switch-opt-logo"><OrgMark name={item.name} logoUrl={item.logoUrl} size={28} /></span>
+                      ) : (
+                        <item.Icon
+                          className="nav-switch-opt-ico"
+                          size={16}
+                          weight={item.current ? "fill" : WEIGHT}
+                          aria-hidden="true"
+                        />
+                      )}
                       <span className="nav-switch-opt-text">
                         <span className="nav-switch-opt-name">{item.name}</span>
                         <span className="nav-switch-opt-role">{item.hint}</span>

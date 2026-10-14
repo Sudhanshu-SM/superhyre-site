@@ -1,0 +1,389 @@
+/* A connected chat's turns (LiveTurn.tsx). Built on the reply vocabulary in
+   access.css (.rep-*); only what that vocabulary lacks lives here. */
+
+.lt-focus,
+.lt-note,
+.lt-outcome {
+  font: var(--type-body-sm);
+  letter-spacing: var(--track-body-sm);
+  color: var(--ink-3);
+  margin: 0;
+}
+
+.lt-outcome {
+  color: var(--ink-2);
+}
+
+.lt-link {
+  font: inherit;
+  color: var(--accent-text);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.lt-list {
+  margin: 0;
+  padding-left: 1.1em;
+  display: grid;
+  gap: 6px;
+  max-width: 62ch;
+  font: var(--type-body);
+  letter-spacing: var(--track-body);
+  color: var(--ink);
+}
+
+/* A numbered list: the same column, a little more air between the items. */
+.lt-list-ol { padding-left: 1.4em; gap: 8px; list-style: decimal; }
+.lt-list-ol > li::marker { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+.lt-approval {
+  display: grid;
+  gap: 12px;
+  padding-bottom: 14px;
+}
+
+/* The header runs edge to edge; what is under it is inset to match. */
+.lt-approval > :not(.rep-app):not(.lt-affected) {
+  margin-inline: 15px;
+}
+
+/* The destination's mark in an approval's header: brand colour as data, the way the rail's
+   channel marks carry theirs. The header's text sits 10px after it. */
+.lt-app-mark { display: inline-grid; place-items: center; flex: none; }
+.lt-app-mark.is-slack { color: #611f69; }
+.lt-app-mark.is-notion { color: #191918; }
+
+/* What would go out, exactly as it would read there, set off by a rule rather than a box
+   (the card is already the box). */
+.lt-quote {
+  margin: 0;
+  padding: 2px 0 2px 12px;
+  border-left: 1px solid var(--rule);
+  display: grid;
+  gap: 4px;
+  max-width: 62ch;
+  font: var(--type-body);
+  letter-spacing: var(--track-body);
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.lt-quote p { margin: 0; white-space: pre-wrap; }
+.lt-quote-t { font: var(--type-body-strong); letter-spacing: var(--track-body-strong); }
+.lt-quote-w { font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-3); }
+/* What a remembered note rests on: the recruiter's own words, quietly under the note. */
+.lt-said { margin: 0; max-width: 62ch; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); overflow-wrap: anywhere; }
+
+.lt-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.lt-search {
+  display: grid;
+  gap: 10px;
+  max-width: 72ch;
+  justify-items: start;
+}
+
+.lt-search > .lt-people {
+  justify-self: stretch;
+}
+
+/* the picture sits on the chat's left edge with the words, not centred beside them */
+.lt-art { margin-inline: 0; }
+
+.lt-search-head {
+  font: var(--type-body-strong);
+  letter-spacing: var(--track-body-strong);
+  color: var(--ink);
+  margin: 0;
+}
+
+.lt-people {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  border-top: 1px solid var(--hairline);
+}
+
+.lt-person {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.lt-person-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.lt-person-name {
+  font: var(--type-body-strong);
+  letter-spacing: var(--track-body-strong);
+  color: var(--ink);
+}
+
+/* The name opens the person's profile. */
+.lt-person-open {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: var(--type-body-strong);
+  letter-spacing: var(--track-body-strong);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.lt-person-open:hover,
+.lt-person-open:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.lt-person-open:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 3px; }
+
+.lt-person-meta,
+.lt-person-why,
+.lt-person-done {
+  font: var(--type-body-sm);
+  letter-spacing: var(--track-body-sm);
+  color: var(--ink-2);
+}
+
+.lt-person-why,
+.lt-person-done {
+  color: var(--ink-3);
+}
+
+.lt-person-acts {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+
+@media (max-width: 640px) {
+  .lt-person {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* Keep-sourcing watches in the agent rail (WatchList.tsx). */
+.wl {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.wl-item {
+  display: grid;
+  gap: 2px;
+}
+
+.wl-name {
+  font: var(--type-body-strong);
+  letter-spacing: var(--track-body-strong);
+  color: var(--ink);
+}
+
+.wl-line {
+  font: var(--type-body-sm);
+  letter-spacing: var(--track-body-sm);
+  color: var(--ink-2);
+}
+
+.wl-acts {
+  display: flex;
+  gap: 12px;
+  font: var(--type-body-sm);
+}
+
+.lt-stop { margin-left: 12px; }
+
+/* Agent activity (LIVE) */
+.aa-list { list-style: none; margin: 16px 0 0; padding: 0; display: grid; }
+.aa-row { border-bottom: 1px solid #f1eeeb; }
+/* The whole row opens what it is about, when there is somewhere to go. */
+.aa-open {
+  display: grid;
+  gap: 2px;
+  /* Its words line up with the page's, and the wash on hover reaches a little past them. */
+  width: calc(100% + 16px);
+  padding: 12px 8px;
+  margin: 0 -8px;
+  border: 0;
+  border-radius: var(--r-field);
+  background: none;
+  color: inherit;
+  text-align: left;
+  text-decoration: none;
+  font: inherit;
+  cursor: pointer;
+}
+.aa-open.is-plain { cursor: default; }
+a.aa-open:hover, button.aa-open:hover { background: var(--sub); }
+.aa-open:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.aa-what { font: var(--type-body-strong); }
+.aa-meta, .aa-empty { font: var(--type-body-sm); color: var(--ink-2, #5a5a5a); }
+.aa-empty { display: grid; justify-items: center; gap: 6px; padding: 24px 0 32px; text-align: center; font: var(--type-body); }
+.aa-empty p { margin: 0; max-width: 46ch; }
+
+.lt-more { margin: 8px 0 0; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); }
+
+/* Who an approval is about. */
+.lt-affected {
+  list-style: none;
+  margin: 0;
+  padding: 0 15px;
+  display: grid;
+}
+
+.lt-affected li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--hairline);
+}
+
+.lt-affected-name { font: var(--type-body-strong); letter-spacing: var(--track-body-strong); color: var(--ink); }
+.lt-affected-meta { font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); }
+
+/* What the agent looked up (ChatCards.tsx): one white sheet, hairlines inside, nothing nested. */
+.lk {
+  max-width: 72ch;
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+  background: var(--nav-surface);
+  animation: lk-in 280ms var(--ease-out) both;
+}
+
+@keyframes lk-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+.lk-head { display: grid; gap: 2px; }
+.lk-title { margin: 0; font: var(--type-title-sm); letter-spacing: var(--track-title-sm); color: var(--ink); }
+.lk-title a { color: inherit; text-decoration: none; }
+.lk-title a:hover, .lk-title a:focus-visible { text-decoration: underline; text-underline-offset: 3px; }
+.lk-sub { margin: 0; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-3); }
+.lk > .lt-people { margin-top: 8px; }
+.lk > .lt-note { margin-top: 6px; }
+
+.lk-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  margin: 10px 0 0;
+  font: var(--type-body-sm);
+  letter-spacing: var(--track-body-sm);
+}
+
+/* A campaign's board: the five stages as numbers on one line. */
+.lk-funnel {
+  list-style: none;
+  margin: 12px 0 4px;
+  padding: 12px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  border-top: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.lk-funnel li { display: grid; gap: 2px; min-width: 64px; }
+.lk-funnel b { font: var(--type-num-md); letter-spacing: var(--track-num-md); color: var(--ink); font-variant-numeric: tabular-nums; }
+.lk-funnel span { font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); }
+.lk-funnel .is-quiet b, .lk-funnel .is-quiet span { color: var(--ink-3); }
+
+.lk-lines {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+  font: var(--type-body);
+  letter-spacing: var(--track-body);
+  color: var(--ink);
+}
+
+/* The campaigns: a name, and what it is, on each line. */
+.lk-rows { list-style: none; margin: 8px 0 0; padding: 0; display: grid; border-top: 1px solid var(--hairline); }
+.lk-rows li { border-bottom: 1px solid var(--hairline); }
+.lk-rows li:last-child { border-bottom: 0; }
+
+.lk-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.lk-row-name { font: var(--type-body-strong); letter-spacing: var(--track-body-strong); color: var(--ink); }
+.lk-row-meta { font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-3); text-align: right; }
+.lk-row:hover .lk-row-name, .lk-row:focus-visible .lk-row-name { text-decoration: underline; text-underline-offset: 3px; }
+.lk-row:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 3px; }
+
+@media (max-width: 640px) {
+  .lk-row { flex-direction: column; gap: 2px; }
+  .lk-row-meta { text-align: left; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lk { animation: none; }
+}
+
+/* What an approval would schedule (LiveTurn.tsx): one block per thing, hairlines between,
+   the words that would go out set off by the same rule a Slack post uses. */
+.lt-sched { list-style: none; margin: 0; padding: 0; display: grid; }
+.lt-sched-i {
+  display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 0 10px; padding: 10px 0;
+  border-top: 1px solid var(--hairline);
+}
+.lt-sched-i:first-child { border-top: 0; padding-top: 2px; }
+.lt-sched-ico { display: grid; place-items: center; height: 22px; color: var(--ink-2); }
+.lt-sched-b { display: grid; gap: 6px; min-width: 0; }
+.lt-sched-what { margin: 0; font: var(--type-body-strong); letter-spacing: var(--track-body-strong); color: var(--ink); overflow-wrap: anywhere; }
+.lt-sched-when, .lt-sched-note { margin: 0; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); }
+.lt-sched-note { color: var(--ink-3); }
+
+/* ── the history dialog's row actions ──
+   Rename and Archive belong to the row you are on, so they appear there (pointed at, or reached by
+   keyboard) instead of being spelled out under every chat. Where there is no hover, they stay put. */
+.hist .rail-briefs > li { position: relative; }
+.hist .rail-brief-acts {
+  position: absolute;
+  bottom: 6px;
+  right: 8px;
+  gap: 10px;
+  padding: 0 0 0 18px;
+  background: linear-gradient(90deg, transparent, var(--sub) 18px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--t-dim);
+}
+.hist .rail-briefs > li:hover .rail-brief-acts,
+.hist .rail-briefs > li:focus-within .rail-brief-acts,
+.hist .rail-brief-acts.is-shown { opacity: 1; pointer-events: auto; }
+@media (hover: none) {
+  .hist .rail-brief-acts { position: static; padding: 0 8px 6px 34px; background: none; opacity: 1; pointer-events: auto; }
+}

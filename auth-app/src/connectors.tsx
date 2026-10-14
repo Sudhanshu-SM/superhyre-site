@@ -1,8 +1,16 @@
 import { ArrowRight, Check } from "@phosphor-icons/react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { LIVE } from "./api/client";
+import { ConnectorLogo } from "./ConnectorLogo";
+import { Loader } from "./components/Loader";
+import { gmailStateOf, identityApi } from "./api/identity";
+import type { OrgConnection } from "./api/identity";
+import { CONNECTIONS_HREF } from "./railConfig";
+import { useConnections } from "./connectionsStore";
 import type { ConnState, ServiceId } from "./moments";
 import { INITIAL_CONNECTIONS, SERVICES } from "./moments";
+import { useSession } from "./roleStore";
 import "./moments.css";
 
 /**
@@ -18,14 +26,33 @@ import "./moments.css";
  * State lives in one provider for the whole page: a service connected from
  * an outreach run is connected for the status card, the scheduler and the
  * rail too, the way a real integration would be.
+ *
+ * Connected to the API, Gmail is the real Google connection: its state is
+ * read on mount, and connecting goes to Google's consent screen (the answer
+ * comes back to Settings). Slack and Notion are the organisation's, read from
+ * the same place; they are connected by pasting a token in Settings, so their
+ * "Connect" leaves for Connections rather than signing in on the spot, and
+ * only an admin is offered it. The other services are still simulated.
  */
+
+/** Services that are connected in Settings, not signed in to from the card. */
+export const IN_SETTINGS: readonly ServiceId[] = ["slack", "notion"];
 
 type Ctx = {
   state: Readonly<Record<ServiceId, ConnState>>;
   identity: Readonly<Record<ServiceId, string>>;
   connect: (id: ServiceId) => void;
   choose: (id: ServiceId, choice: string) => void;
+  /** Whether the person can connect it themselves: Slack and Notion belong to the organisation's admins. */
+  mayConnect: (id: ServiceId) => boolean;
+  /** Connecting it opens Settings → Connections, which leaves the chat. */
+  inSettings: (id: ServiceId) => boolean;
 };
+
+/** A Slack or Notion connection as the card's state. */
+export function orgState(c: OrgConnection | null): ConnState {
+  return !c ? "disconnected" : c.status === "connected" ? "connected" : "expired";
+}
 
 const ConnectorsContext = createContext<Ctx | null>(null);
 
@@ -33,17 +60,61 @@ const ConnectorsContext = createContext<Ctx | null>(null);
 const SIGN_IN_MS = 1700;
 
 export function ConnectorsProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<Record<ServiceId, ConnState>>({ ...INITIAL_CONNECTIONS });
+  const [state, setState] = useState<Record<ServiceId, ConnState>>(
+    () => (LIVE ? { ...INITIAL_CONNECTIONS, gmail: "disconnected" } : { ...INITIAL_CONNECTIONS }),
+  );
   const [identity, setIdentity] = useState<Record<ServiceId, string>>(() => ({
     gmail: SERVICES.gmail.identity,
     outlook: SERVICES.outlook.identity,
     magnifi: SERVICES.magnifi.identity,
     linkedin: SERVICES.linkedin.identity,
+    slack: SERVICES.slack.identity,
+    notion: SERVICES.notion.identity,
   }));
+  const role = useSession().role;
+  const known = useConnections();
   const timers = useRef<number[]>([]);
   useEffect(() => () => timers.current.forEach((t) => window.clearTimeout(t)), []);
 
+  /* What is really connected, from the one store the rail and Settings share. Until it has
+     answered (or if it never does) the cards keep offering to connect. */
+  useEffect(() => {
+    if (!LIVE) return;
+    const { google, slack, notion } = known;
+    if (google) {
+      setState((s) => (s.gmail === "connecting" ? s : { ...s, gmail: gmailStateOf(google) }));
+      if (google.accountEmail) setIdentity((i) => ({ ...i, gmail: google.accountEmail ?? i.gmail }));
+    }
+    if (known.status === "ready") {
+      setState((s) => ({ ...s, slack: orgState(slack), notion: orgState(notion) }));
+      setIdentity((i) => ({
+        ...i,
+        slack: slack?.workspaceName ?? slack?.accountName ?? i.slack,
+        notion: notion?.workspaceName ?? notion?.accountName ?? i.notion,
+      }));
+    }
+  }, [known]);
+
+  const mayConnect = useCallback(
+    (id: ServiceId) => !(LIVE && IN_SETTINGS.includes(id)) || role === "admin",
+    [role],
+  );
+  const inSettings = useCallback((id: ServiceId) => LIVE && IN_SETTINGS.includes(id), []);
+
   const connect = useCallback((id: ServiceId) => {
+    if (LIVE && IN_SETTINGS.includes(id)) {
+      /* A token has to be pasted, which happens on the Connections page. The chat is
+         kept (it is reopened where it stopped) so coming back picks up the conversation. */
+      window.location.hash = CONNECTIONS_HREF;
+      return;
+    }
+    if (LIVE && id === "gmail") {
+      setState((s) => ({ ...s, gmail: "connecting" }));
+      identityApi.startGoogle(["gmail", "sheets"])
+        .then(({ url }) => window.location.assign(url))
+        .catch(() => setState((s) => ({ ...s, gmail: "failed" })));
+      return;
+    }
     setState((s) => ({ ...s, [id]: "connecting" }));
     timers.current.push(window.setTimeout(() => {
       setState((s) => ({ ...s, [id]: SERVICES[id].choices ? "choosing" : "connected" }));
@@ -55,7 +126,10 @@ export function ConnectorsProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, [id]: "connected" }));
   }, []);
 
-  const value = useMemo(() => ({ state, identity, connect, choose }), [state, identity, connect, choose]);
+  const value = useMemo(
+    () => ({ state, identity, connect, choose, mayConnect, inSettings }),
+    [state, identity, connect, choose, mayConnect, inSettings],
+  );
   return <ConnectorsContext.Provider value={value}>{children}</ConnectorsContext.Provider>;
 }
 
@@ -68,6 +142,8 @@ export function useConnectors(): Ctx {
 /* ── marks ───────────────────────────────────────────────────────────────── */
 
 export function ServiceMark({ id, size = 22 }: { id: ServiceId; size?: number }) {
+  /* Gmail, Slack and Notion have their own marks; the rest are drawn as the prototype always drew them. */
+  if (id === "gmail" || id === "slack" || id === "notion") return <ConnectorLogo id={id} size={size} decorative />;
   const s = SERVICES[id];
   return (
     <span
@@ -177,7 +253,7 @@ function Row({
   onSkip: () => void;
   onUnskip?: () => void;
 }) {
-  const { state, identity, connect, choose } = useConnectors();
+  const { state, identity, connect, choose, mayConnect, inSettings } = useConnectors();
   const svc = SERVICES[need.service];
   const st = state[need.service];
   const [pick, setPick] = useState<string>(svc.choices?.[0]?.id ?? "");
@@ -216,11 +292,11 @@ function Row({
             <span className="cn-channel">{svc.channel === svc.name ? "" : ` for ${svc.channel}`}</span>
           </p>
           {st === "connecting" ? (
-            <p className="cn-sub"><span className="src-shimmer">{svc.signIn}</span></p>
+            <p className="cn-sub"><Loader size="sm" /> {svc.signIn}</p>
           ) : st === "choosing" ? (
             <p className="cn-sub">Signed in. Which number should messages come from?</p>
           ) : (
-            <p className="cn-sub">{st === "expired" ? `Signed out yesterday. ${need.why}` : need.why}</p>
+            <p className="cn-sub">{st === "expired" ? `Signed out${LIVE ? "" : " yesterday"}. ${need.why}` : need.why}</p>
           )}
         </div>
       </div>
@@ -242,9 +318,14 @@ function Row({
         </div>
       ) : st !== "connecting" ? (
         <div className="cn-acts">
-          <button type="button" className="src-btn is-primary" onClick={() => connect(need.service)}>
-            {st === "expired" ? `Reconnect ${svc.name}` : `Connect ${svc.name}`}
-          </button>
+          {mayConnect(need.service) ? (
+            <button type="button" className="src-btn is-primary" onClick={() => connect(need.service)}>
+              {st === "expired" ? `Reconnect ${svc.name}` : `Connect ${svc.name}`}
+              {inSettings(need.service) ? " in Settings" : ""}
+            </button>
+          ) : (
+            <span className="cn-skipnote">Ask an admin to {st === "expired" ? "reconnect" : "connect"} {svc.name}.</span>
+          )}
           <button type="button" className="cn-link" onClick={onSkip}>{need.skipLabel}</button>
         </div>
       ) : null}

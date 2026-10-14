@@ -1,6 +1,5 @@
-import { CircleNotch } from "@phosphor-icons/react";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
-import { ICON_WEIGHT } from "./Field";
+import { Loader } from "./Loader";
 
 type Props = {
   variant: "solid" | "outline";
@@ -21,7 +20,7 @@ export function Button({ variant, busy, busyLabel, children, disabled, ...rest }
       aria-busy={busy}
       {...rest}
     >
-      {busy && <CircleNotch className="spin" size={18} weight={ICON_WEIGHT} aria-hidden="true" />}
+      {busy && <Loader size="sm" tone="inherit" />}
       {busy && busyLabel ? busyLabel : children}
     </button>
   );

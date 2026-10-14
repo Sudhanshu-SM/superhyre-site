@@ -1,0 +1,758 @@
+[
+ {
+  "name": "beam",
+  "group": "effects",
+  "kind": "glow",
+  "width": 512,
+  "height": 512
+ },
+ {
+  "name": "dots",
+  "group": "effects",
+  "kind": "solid",
+  "width": 512,
+  "height": 512
+ },
+ {
+  "name": "glow",
+  "group": "effects",
+  "kind": "glow",
+  "width": 512,
+  "height": 512
+ },
+ {
+  "name": "spark-l",
+  "group": "effects",
+  "kind": "solid",
+  "width": 512,
+  "height": 512
+ },
+ {
+  "name": "spark-m",
+  "group": "effects",
+  "kind": "solid",
+  "width": 512,
+  "height": 512
+ },
+ {
+  "name": "spark-s",
+  "group": "effects",
+  "kind": "solid",
+  "width": 512,
+  "height": 512
+ },
+ {
+  "name": "trail",
+  "group": "effects",
+  "kind": "solid",
+  "width": 512,
+  "height": 512
+ },
+ {
+  "name": "hero-tablet",
+  "group": "hero",
+  "kind": "solid",
+  "width": 527,
+  "height": 836
+ },
+ {
+  "name": "hero-tablet-b2",
+  "group": "hero",
+  "kind": "solid",
+  "width": 527,
+  "height": 836
+ },
+ {
+  "name": "hero-tablet-b3",
+  "group": "hero",
+  "kind": "solid",
+  "width": 527,
+  "height": 836
+ },
+ {
+  "name": "hero-tablet-b4",
+  "group": "hero",
+  "kind": "solid",
+  "width": 527,
+  "height": 836
+ },
+ {
+  "name": "hero-tablet-eyes-2",
+  "group": "hero",
+  "kind": "soft",
+  "width": 527,
+  "height": 836
+ },
+ {
+  "name": "hero-tablet-eyes-3",
+  "group": "hero",
+  "kind": "soft",
+  "width": 527,
+  "height": 836
+ },
+ {
+  "name": "hero-door",
+  "group": "hero",
+  "kind": "solid",
+  "width": 527,
+  "height": 836
+ },
+ {
+  "name": "hero-idle",
+  "group": "hero",
+  "kind": "solid",
+  "width": 527,
+  "height": 836
+ },
+ {
+  "name": "hero-laptop-sit",
+  "group": "hero",
+  "kind": "solid",
+  "width": 527,
+  "height": 836
+ },
+ {
+  "name": "hero-rise",
+  "group": "hero",
+  "kind": "solid",
+  "width": 527,
+  "height": 836
+ },
+ {
+  "name": "hero-tap",
+  "group": "hero",
+  "kind": "solid",
+  "width": 527,
+  "height": 836
+ },
+ {
+  "name": "hero-think",
+  "group": "hero",
+  "kind": "solid",
+  "width": 527,
+  "height": 836
+ },
+ {
+  "name": "hero-watch",
+  "group": "hero",
+  "kind": "solid",
+  "width": 527,
+  "height": 836
+ },
+ {
+  "name": "power-forms-dim",
+  "group": "powers",
+  "kind": "solid",
+  "width": 320,
+  "height": 320
+ },
+ {
+  "name": "power-forms-lit",
+  "group": "powers",
+  "kind": "solid",
+  "width": 320,
+  "height": 320
+ },
+ {
+  "name": "power-insight-dim",
+  "group": "powers",
+  "kind": "solid",
+  "width": 320,
+  "height": 320
+ },
+ {
+  "name": "power-insight-lit",
+  "group": "powers",
+  "kind": "solid",
+  "width": 320,
+  "height": 320
+ },
+ {
+  "name": "power-memory-dim",
+  "group": "powers",
+  "kind": "solid",
+  "width": 320,
+  "height": 320
+ },
+ {
+  "name": "power-memory-lit",
+  "group": "powers",
+  "kind": "solid",
+  "width": 320,
+  "height": 320
+ },
+ {
+  "name": "power-mind-dim",
+  "group": "powers",
+  "kind": "solid",
+  "width": 320,
+  "height": 320
+ },
+ {
+  "name": "power-mind-lit",
+  "group": "powers",
+  "kind": "solid",
+  "width": 320,
+  "height": 320
+ },
+ {
+  "name": "power-reach-dim",
+  "group": "powers",
+  "kind": "solid",
+  "width": 320,
+  "height": 320
+ },
+ {
+  "name": "power-reach-lit",
+  "group": "powers",
+  "kind": "solid",
+  "width": 320,
+  "height": 320
+ },
+ {
+  "name": "power-voice-dim",
+  "group": "powers",
+  "kind": "solid",
+  "width": 320,
+  "height": 320
+ },
+ {
+  "name": "power-voice-lit",
+  "group": "powers",
+  "kind": "solid",
+  "width": 320,
+  "height": 320
+ },
+ {
+  "name": "seg-1-dim",
+  "group": "powers",
+  "kind": "holes",
+  "width": 320,
+  "height": 320
+ },
+ {
+  "name": "seg-1-lit",
+  "group": "powers",
+  "kind": "holes",
+  "width": 320,
+  "height": 320
+ },
+ {
+  "name": "seg-2-dim",
+  "group": "powers",
+  "kind": "holes",
+  "width": 320,
+  "height": 320
+ },
+ {
+  "name": "seg-2-lit",
+  "group": "powers",
+  "kind": "holes",
+  "width": 320,
+  "height": 320
+ },
+ {
+  "name": "seg-3-dim",
+  "group": "powers",
+  "kind": "holes",
+  "width": 320,
+  "height": 320
+ },
+ {
+  "name": "seg-3-lit",
+  "group": "powers",
+  "kind": "holes",
+  "width": 320,
+  "height": 320
+ },
+ {
+  "name": "seg-4-dim",
+  "group": "powers",
+  "kind": "holes",
+  "width": 320,
+  "height": 320
+ },
+ {
+  "name": "seg-4-lit",
+  "group": "powers",
+  "kind": "holes",
+  "width": 320,
+  "height": 320
+ },
+ {
+  "name": "seg-5-dim",
+  "group": "powers",
+  "kind": "holes",
+  "width": 320,
+  "height": 320
+ },
+ {
+  "name": "seg-5-lit",
+  "group": "powers",
+  "kind": "holes",
+  "width": 320,
+  "height": 320
+ },
+ {
+  "name": "seg-6-dim",
+  "group": "powers",
+  "kind": "holes",
+  "width": 320,
+  "height": 320
+ },
+ {
+  "name": "seg-6-lit",
+  "group": "powers",
+  "kind": "holes",
+  "width": 320,
+  "height": 320
+ },
+ {
+  "name": "cloud",
+  "group": "props",
+  "kind": "glow",
+  "width": 1024,
+  "height": 1024
+ },
+ {
+  "name": "leaf-l",
+  "group": "props",
+  "kind": "solid",
+  "width": 1024,
+  "height": 1024
+ },
+ {
+  "name": "leaf-m",
+  "group": "props",
+  "kind": "solid",
+  "width": 1024,
+  "height": 1024
+ },
+ {
+  "name": "leaf-s",
+  "group": "props",
+  "kind": "solid",
+  "width": 1024,
+  "height": 1024
+ },
+ {
+  "name": "prop-campaign",
+  "group": "props",
+  "kind": "solid",
+  "width": 466,
+  "height": 554
+ },
+ {
+  "name": "prop-client-building",
+  "group": "props",
+  "kind": "solid",
+  "width": 443,
+  "height": 663
+ },
+ {
+  "name": "prop-door",
+  "group": "props",
+  "kind": "solid",
+  "width": 499,
+  "height": 622
+ },
+ {
+  "name": "prop-envelope",
+  "group": "props",
+  "kind": "solid",
+  "width": 504,
+  "height": 350
+ },
+ {
+  "name": "prop-jd",
+  "group": "props",
+  "kind": "solid",
+  "width": 422,
+  "height": 534
+ },
+ {
+  "name": "prop-lamp",
+  "group": "props",
+  "kind": "solid",
+  "width": 340,
+  "height": 550
+ },
+ {
+  "name": "prop-link",
+  "group": "props",
+  "kind": "solid",
+  "width": 470,
+  "height": 283
+ },
+ {
+  "name": "prop-message",
+  "group": "props",
+  "kind": "solid",
+  "width": 524,
+  "height": 320
+ },
+ {
+  "name": "prop-name",
+  "group": "props",
+  "kind": "solid",
+  "width": 534,
+  "height": 372
+ },
+ {
+  "name": "prop-plant",
+  "group": "props",
+  "kind": "solid",
+  "width": 260,
+  "height": 583
+ },
+ {
+  "name": "prop-sofa",
+  "group": "props",
+  "kind": "solid",
+  "width": 586,
+  "height": 402
+ },
+ {
+  "name": "prop-workspace",
+  "group": "props",
+  "kind": "solid",
+  "width": 381,
+  "height": 479
+ },
+ {
+  "name": "sun",
+  "group": "props",
+  "kind": "glow",
+  "width": 1024,
+  "height": 1024
+ },
+ {
+  "name": "field-1",
+  "group": "scenery",
+  "kind": "opaque",
+  "width": 2048,
+  "height": 1024
+ },
+ {
+  "name": "field-2",
+  "group": "scenery",
+  "kind": "opaque",
+  "width": 2048,
+  "height": 1024
+ },
+ {
+  "name": "field-3",
+  "group": "scenery",
+  "kind": "opaque",
+  "width": 2048,
+  "height": 1024
+ },
+ {
+  "name": "field-4",
+  "group": "scenery",
+  "kind": "opaque",
+  "width": 2048,
+  "height": 1024
+ },
+ {
+  "name": "hill-far",
+  "group": "scenery",
+  "kind": "solid",
+  "width": 2048,
+  "height": 1024
+ },
+ {
+  "name": "hill-mid",
+  "group": "scenery",
+  "kind": "solid",
+  "width": 2048,
+  "height": 1024
+ },
+ {
+  "name": "hill-near",
+  "group": "scenery",
+  "kind": "solid",
+  "width": 2048,
+  "height": 1024
+ },
+ {
+  "name": "skyline",
+  "group": "scenery",
+  "kind": "solid",
+  "width": 2048,
+  "height": 1024
+ },
+ {
+  "name": "sprite-ripple-1",
+  "group": "sprites",
+  "kind": "holes",
+  "width": 256,
+  "height": 256
+ },
+ {
+  "name": "sprite-ripple-2",
+  "group": "sprites",
+  "kind": "holes",
+  "width": 256,
+  "height": 256
+ },
+ {
+  "name": "sprite-ripple-3",
+  "group": "sprites",
+  "kind": "holes",
+  "width": 256,
+  "height": 256
+ },
+ {
+  "name": "sprite-ripple-4",
+  "group": "sprites",
+  "kind": "holes",
+  "width": 256,
+  "height": 256
+ },
+ {
+  "name": "sprite-star-pulse-1",
+  "group": "sprites",
+  "kind": "glow",
+  "width": 256,
+  "height": 256
+ },
+ {
+  "name": "sprite-star-pulse-2",
+  "group": "sprites",
+  "kind": "glow",
+  "width": 256,
+  "height": 256
+ },
+ {
+  "name": "sprite-star-pulse-3",
+  "group": "sprites",
+  "kind": "glow",
+  "width": 256,
+  "height": 256
+ },
+ {
+  "name": "sprite-star-pulse-4",
+  "group": "sprites",
+  "kind": "glow",
+  "width": 256,
+  "height": 256
+ },
+ {
+  "name": "sprite-star-pulse-5",
+  "group": "sprites",
+  "kind": "glow",
+  "width": 256,
+  "height": 256
+ },
+ {
+  "name": "sprite-star-pulse-6",
+  "group": "sprites",
+  "kind": "glow",
+  "width": 256,
+  "height": 256
+ },
+ {
+  "name": "sprite-trail-1",
+  "group": "sprites",
+  "kind": "solid",
+  "width": 256,
+  "height": 256
+ },
+ {
+  "name": "sprite-trail-2",
+  "group": "sprites",
+  "kind": "solid",
+  "width": 256,
+  "height": 256
+ },
+ {
+  "name": "sprite-trail-3",
+  "group": "sprites",
+  "kind": "solid",
+  "width": 256,
+  "height": 256
+ },
+ {
+  "name": "sprite-trail-4",
+  "group": "sprites",
+  "kind": "solid",
+  "width": 256,
+  "height": 256
+ },
+ {
+  "name": "sprite-twinkle-1",
+  "group": "sprites",
+  "kind": "solid",
+  "width": 256,
+  "height": 256
+ },
+ {
+  "name": "sprite-twinkle-2",
+  "group": "sprites",
+  "kind": "solid",
+  "width": 256,
+  "height": 256
+ },
+ {
+  "name": "sprite-twinkle-3",
+  "group": "sprites",
+  "kind": "solid",
+  "width": 256,
+  "height": 256
+ },
+ {
+  "name": "sprite-twinkle-4",
+  "group": "sprites",
+  "kind": "solid",
+  "width": 256,
+  "height": 256
+ },
+ {
+  "name": "sprite-typing-1",
+  "group": "sprites",
+  "kind": "solid",
+  "width": 256,
+  "height": 256
+ },
+ {
+  "name": "sprite-typing-2",
+  "group": "sprites",
+  "kind": "solid",
+  "width": 256,
+  "height": 256
+ },
+ {
+  "name": "sprite-typing-3",
+  "group": "sprites",
+  "kind": "solid",
+  "width": 256,
+  "height": 256
+ },
+ {
+  "name": "dial-0",
+  "group": "star-dial",
+  "kind": "holes",
+  "width": 512,
+  "height": 512
+ },
+ {
+  "name": "dial-1",
+  "group": "star-dial",
+  "kind": "holes",
+  "width": 512,
+  "height": 512
+ },
+ {
+  "name": "dial-2",
+  "group": "star-dial",
+  "kind": "holes",
+  "width": 512,
+  "height": 512
+ },
+ {
+  "name": "dial-3",
+  "group": "star-dial",
+  "kind": "holes",
+  "width": 512,
+  "height": 512
+ },
+ {
+  "name": "dial-4",
+  "group": "star-dial",
+  "kind": "holes",
+  "width": 512,
+  "height": 512
+ },
+ {
+  "name": "dial-5",
+  "group": "star-dial",
+  "kind": "holes",
+  "width": 512,
+  "height": 512
+ },
+ {
+  "name": "dial-6",
+  "group": "star-dial",
+  "kind": "holes",
+  "width": 512,
+  "height": 512
+ },
+ {
+  "name": "ring-progress-0",
+  "group": "star-dial",
+  "kind": "holes",
+  "width": 512,
+  "height": 512
+ },
+ {
+  "name": "ring-progress-1",
+  "group": "star-dial",
+  "kind": "holes",
+  "width": 512,
+  "height": 512
+ },
+ {
+  "name": "ring-progress-2",
+  "group": "star-dial",
+  "kind": "holes",
+  "width": 512,
+  "height": 512
+ },
+ {
+  "name": "ring-progress-3",
+  "group": "star-dial",
+  "kind": "holes",
+  "width": 512,
+  "height": 512
+ },
+ {
+  "name": "ring-progress-4",
+  "group": "star-dial",
+  "kind": "holes",
+  "width": 512,
+  "height": 512
+ },
+ {
+  "name": "ripple-1",
+  "group": "star-dial",
+  "kind": "holes",
+  "width": 512,
+  "height": 512
+ },
+ {
+  "name": "ripple-2",
+  "group": "star-dial",
+  "kind": "holes",
+  "width": 512,
+  "height": 512
+ },
+ {
+  "name": "ripple-3",
+  "group": "star-dial",
+  "kind": "holes",
+  "width": 512,
+  "height": 512
+ },
+ {
+  "name": "star-glow",
+  "group": "star-dial",
+  "kind": "glow",
+  "width": 512,
+  "height": 512
+ },
+ {
+  "name": "star",
+  "group": "star-dial",
+  "kind": "solid",
+  "width": 512,
+  "height": 512
+ },
+ {
+  "name": "watch-star",
+  "group": "star-dial",
+  "kind": "holes",
+  "width": 512,
+  "height": 512
+ }
+]

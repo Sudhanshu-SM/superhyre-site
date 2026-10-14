@@ -1,5 +1,4 @@
-import { CircleNotch } from "@phosphor-icons/react";
-import { ICON_WEIGHT } from "./Field";
+import { Loader } from "./Loader";
 
 /**
  * Google's official four-colour "G".
@@ -41,7 +40,7 @@ export function GoogleButton({ busy, disabled, onClick, label }: Props) {
       aria-busy={busy}
     >
       {busy
-        ? <CircleNotch className="spin" size={18} weight={ICON_WEIGHT} aria-hidden="true" />
+        ? <Loader size="sm" tone="inherit" />
         : <GoogleMark />}
       {busy ? "Opening Google" : label}
     </button>

@@ -1,8 +1,11 @@
 import {
-  CaretDown, CaretRight, Copy, Lock, PencilSimple, SlidersHorizontal, Sparkle, Trash,
+  CaretDown, CaretRight, Copy, FileText, Lock, PencilSimple, SlidersHorizontal, Sparkle, Trash,
 } from "@phosphor-icons/react";
 import type { Icon } from "@phosphor-icons/react";
-import { useId, useState } from "react";
+import { useId, useMemo, useState } from "react";
+import { isLongMessage, splitMessage } from "./attachments";
+import "./chat.css";
+import { Prose } from "./ReplyProse";
 import type { Hue, ReplyArtefact, ReplyBlock } from "./orchestrator";
 import type { AgentReply, QuickReply, TraceStep } from "./replies";
 import { Chip } from "./viz";
@@ -105,7 +108,37 @@ export function Prompt({ text }: { text: string }): JSX.Element {
      emphasised" — is not a thing worth emphasising. Do not reintroduce a
      highlight here without something that actually knows which part of the
      sentence carries the intent. */
-  return <p className="rep-prompt">{text}</p>;
+  /* A message that carries files shows its own words and the files' names, not their text; a long one is
+     folded until asked for. The words are the same size as the agent's: one type scale. */
+  const parts = useMemo(() => splitMessage(text), [text]);
+  const [open, setOpen] = useState(false);
+  const said = parts ? parts.said : text;
+  const long = isLongMessage(said);
+  const shown = long && !open ? folded(said) : said;
+  return (
+    <div className="rep-prompt">
+      {said && <p className="rep-prompt-text">{shown}</p>}
+      {parts?.files.map((f, i) => (
+        <span className="rep-prompt-file" key={`${f.name}-${i}`}>
+          <FileText size={13} aria-hidden="true" />
+          <b>{f.name}</b>
+          <small>{f.words.toLocaleString("en-IN")} words</small>
+        </span>
+      ))}
+      {long && (
+        <button type="button" className="rep-prompt-more" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+          {open ? "Show less" : "Show more"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** The start of a long message, cut at a word. */
+function folded(text: string): string {
+  const flat = text.slice(0, 420);
+  const cut = flat.lastIndexOf(" ");
+  return `${(cut > 240 ? flat.slice(0, cut) : flat).trimEnd()}…`;
 }
 
 /* ── the dispatch ─────────────────────────────────────────────────────────── */
@@ -138,7 +171,7 @@ export function Reply({
           paragraphs must be DIRECT children of .rep so its grid gap owns the
           spacing between them rather than a second margin that drifts. */}
       {reply.kind === "prose" &&
-        reply.body.map((para) => <p key={para} className="rep-para">{para}</p>)}
+        <Prose text={reply.body.join("\n\n")} />}
 
       {reply.kind === "question" && (
         <Ask ask={reply.ask} why={reply.why} options={reply.options} onAnswer={onAnswer} />

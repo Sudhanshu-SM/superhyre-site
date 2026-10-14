@@ -1,0 +1,140 @@
+/*
+ * The first-run tour (Tour.tsx, TourIntro.tsx): three introduction slides, then a guided walk. Colours, type and
+ * easing are the console's tokens, so it follows light and dark with everything else.
+ */
+
+/* ── the introduction ── */
+.tr-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(36, 24, 16, 0.5);
+  animation: tr-fade 180ms var(--ease-out) both;
+}
+.tri {
+  display: grid;
+  gap: 18px;
+  width: min(520px, 100%);
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  box-sizing: border-box;
+  padding: 28px 32px 22px;
+  border-radius: 20px;
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: var(--shadow-modal, var(--e3));
+  outline: none;
+  animation: tr-rise 260ms var(--ease-out) both;
+}
+.tri-pic { display: grid; place-items: center; min-height: 150px; animation: tr-fade 240ms var(--ease-out) both; }
+.tri-text { display: grid; gap: 6px; animation: tr-fade 240ms var(--ease-out) both; }
+.tri-title { margin: 0; color: var(--ink); }
+.tri-line { margin: 0; color: var(--ink-2); }
+
+.tri-foot { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; margin-top: 4px; }
+.tri-acts { display: flex; justify-content: flex-end; gap: 8px; }
+.tri-dots { display: flex; justify-self: center; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.tri-dots li {
+  width: 7px;
+  height: 7px;
+  border-radius: 4px;
+  background: var(--rule-strong);
+  transition: width 200ms var(--ease-out), background-color 200ms var(--ease-out);
+}
+.tri-dots li.is-on { width: 20px; background: var(--accent); }
+
+.tr-text {
+  padding: 8px 4px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font: var(--type-label);
+  letter-spacing: var(--track-label);
+  color: var(--ink-2);
+}
+.tr-text:hover { color: var(--ink); }
+.tr-text:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 6px; }
+
+/* ── the drawings: 360 wide, strokes in the brand orange and the console's neutrals ── */
+.trd { display: block; width: 100%; max-width: 400px; height: auto; overflow: visible; }
+.trd-node { fill: var(--accent-tint); stroke: var(--accent-line); stroke-width: 1.2; }
+.trd-node.is-hub { stroke-width: 1.6; }
+.trd-node.is-hire { fill: var(--accent-fill); stroke: none; }
+.trd-glyph { fill: none; stroke: var(--accent-text); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.trd-on-fill .trd-glyph { stroke: #fff; }
+.trd-mark { fill: var(--accent); stroke: var(--accent); stroke-width: 0.6; }
+.trd-line path, .trd-spoke { fill: none; stroke: var(--rule-strong); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.trd-spoke { stroke-dasharray: 1 6; }
+.trd-label { font: var(--type-caption); fill: var(--ink-2); }
+.trd-cap { font: var(--type-caption); fill: var(--ink-3); }
+.trd-strong { font: var(--type-body-strong); fill: var(--ink); }
+.trd-sub { font: var(--type-body-sm); fill: var(--ink-2); }
+.trd-card { fill: var(--card); stroke: var(--rule-strong); stroke-width: 1.2; }
+.trd-yes { fill: var(--accent-fill); }
+.trd-yes-t { font: var(--type-label); fill: #fff; }
+.trd-no { fill: none; stroke: var(--rule-strong); stroke-width: 1.2; }
+.trd-no-t { font: var(--type-label); fill: var(--ink); }
+.trd-pulse { fill: var(--accent); opacity: 0; animation: trd-travel 4.4s var(--ease-in-out) 1.1s infinite; }
+.trd-pop { transform-box: fill-box; transform-origin: center; animation: trd-pop 420ms var(--ease-out) both; animation-delay: calc(var(--i, 0) * 80ms + 80ms); }
+.trd-line, .trd-spoke { animation: tr-fade 420ms var(--ease-out) both; animation-delay: calc(var(--i, 0) * 80ms + 160ms); }
+@keyframes trd-pop { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: none; } }
+@keyframes trd-travel {
+  0% { transform: translateX(0); opacity: 0; }
+  8% { opacity: 1; }
+  92% { opacity: 1; }
+  100% { transform: translateX(288px); opacity: 0; }
+}
+
+/* ── the guided walk ── */
+.tr-root { position: fixed; inset: 0; z-index: 1100; outline: none; }
+/* Takes every click, so nothing on the page behind can be pressed while the tour is up. */
+.tr-block { position: absolute; inset: 0; }
+.tr-veil {
+  position: fixed;
+  pointer-events: none;
+  box-shadow: 0 0 0 2px var(--accent), 0 0 0 100vmax rgba(36, 24, 16, 0.55);
+  transition: left 240ms var(--ease-out), top 240ms var(--ease-out), width 240ms var(--ease-out), height 240ms var(--ease-out), border-radius 240ms var(--ease-out);
+}
+.tr-pop {
+  position: fixed;
+  display: grid;
+  gap: 6px;
+  width: 320px;
+  box-sizing: border-box;
+  padding: 16px 16px 14px;
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: var(--shadow-modal, var(--e3));
+  animation: tr-rise 200ms var(--ease-out) both;
+}
+.tr-pop.is-sheet { width: calc(100vw - 24px); }
+.tr-count { margin: 0; color: var(--ink-3); }
+.tr-title { margin: 0; color: var(--ink); }
+.tr-body { margin: 0; color: var(--ink-2); }
+.tr-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; }
+.tr-acts { display: flex; gap: 8px; }
+
+@keyframes tr-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes tr-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* A phone: the introduction is a sheet along the bottom edge, full width. */
+@media (max-width: 560px) {
+  .tr-scrim { place-items: end stretch; padding: 0; }
+  .tri {
+    width: 100%;
+    max-height: 92dvh;
+    padding: 22px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+    border-radius: 20px 20px 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tr-scrim, .tri, .tri-pic, .tri-text, .tr-pop, .trd-pop, .trd-line, .trd-spoke { animation: none; }
+  .trd-pulse { animation: none; opacity: 0; }
+  .tr-veil, .tri-dots li { transition: none; }
+}

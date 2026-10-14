@@ -10,6 +10,7 @@ import {
   CANDIDATES, CRITERIA, FILTERS, PLAN_PHASES, PREVIEW_COUNT, REASON, RUN_PHASES, TOTAL_MATCHES,
 } from "./sourcing";
 import { Avatar, Career, FitRow, Verdicts } from "./CandidateBits";
+import { Loader } from "./components/Loader";
 import "./sourcing.css";
 
 /**
@@ -238,14 +239,14 @@ export function PhaseBlock({ phase, tookMs, n }: { phase: Phase; tookMs?: number
   if (!done) {
     return (
       <div className="src-phase is-live" aria-live="polite">
-        <span className="src-phase-icon" aria-hidden="true"><span className="src-spin" /></span>
-        <span className="src-shimmer">{fill(phase.live, n)}</span>
-        <Ticker />
+        <span className="src-phase-icon" aria-hidden="true"><Loader size="sm" /></span>
+        <span>{fill(phase.live, n).trim() || "Working on it"}</span>
       </div>
     );
   }
 
-  const secs = Math.max(1, Math.round(tookMs / 1000));
+  /* The time is its own muted token, never part of the sentence. */
+  const secs = `${Math.max(0.1, tookMs / 1000).toFixed(1)}s`;
   return (
     <div className="src-block">
       <button
@@ -258,10 +259,11 @@ export function PhaseBlock({ phase, tookMs, n }: { phase: Phase; tookMs?: number
         <span className="src-phase-icon" aria-hidden="true">
           <CheckCircle size={17} weight="regular" />
         </span>
-        <span>{fill(phase.done, n)} for {secs}s</span>
+        <span>{fill(phase.done, n)}</span>
         {open
           ? <CaretDown size={12} weight="bold" aria-hidden="true" />
           : <CaretRight size={12} weight="bold" aria-hidden="true" />}
+        {phase.timed !== false && <span className="src-took">{secs}</span>}
       </button>
       {open && (
         <ul className="src-steps" id={panel}>
@@ -271,17 +273,6 @@ export function PhaseBlock({ phase, tookMs, n }: { phase: Phase; tookMs?: number
       {phase.says && <Written text={fill(phase.says, n)} />}
     </div>
   );
-}
-
-/** Elapsed seconds while a phase runs. Real time, not a scripted count. */
-function Ticker() {
-  const [s, setS] = useState(0);
-  useEffect(() => {
-    const t0 = Date.now();
-    const id = window.setInterval(() => setS(Math.floor((Date.now() - t0) / 1000)), 250);
-    return () => window.clearInterval(id);
-  }, []);
-  return <span className="src-tick">{s}s</span>;
 }
 
 /**
@@ -311,22 +302,47 @@ export function Written({ text, className = "src-para" }: { text: string; classN
 
 /* ── the proposed search ─────────────────────────────────────────────────── */
 
-function SearchCard({
-  locked, matches, removed, onRemove, onReset, criteria, onCriteria, onRun,
-}: {
-  locked: boolean;
-  matches: number;
-  removed: readonly string[];
-  onRemove: (id: string) => void;
-  onReset: () => void;
+/**
+ * A connected campaign's own search, in place of the demo's editable fixtures: the role spec's
+ * filters and criteria, read-only (the spec is edited in the campaign, not here).
+ */
+export type FixedSearch = {
+  filters: readonly Filter[];
   criteria: readonly string[];
-  onCriteria: (c: readonly string[]) => void;
+  /** What the filters come from, after "I've set these Filters …". */
+  basis: string;
+  /** In the lede's brackets, e.g. "up to 20 new profiles". Omitted when there is no figure to give. */
+  count: string | null;
+  /** A search already ran: the card is its record, with no button. */
+  ran: boolean;
+  ranLine: string;
+  /** What the search can't do right now, in plain words. */
+  note: string | null;
+  /** Absent when there is nothing to run. */
+  run: { label: string; busy?: boolean } | null;
+  /** Opens the campaign, where the spec is edited. */
+  onEdit?: () => void;
+};
+
+export function SearchCard({
+  locked = false, matches = 0, removed = [], onRemove = () => {}, onReset = () => {}, criteria = CRITERIA, onCriteria = () => {}, onRun, fixed,
+}: {
+  locked?: boolean;
+  matches?: number;
+  removed?: readonly string[];
+  onRemove?: (id: string) => void;
+  onReset?: () => void;
+  criteria?: readonly string[];
+  onCriteria?: (c: readonly string[]) => void;
   onRun: () => void;
+  fixed?: FixedSearch;
 }) {
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState("");
-  const live = FILTERS.filter((f) => !removed.includes(f.id));
+  const isLocked = fixed ? fixed.ran : locked;
+  const crit = fixed ? fixed.criteria : criteria;
+  const live = (fixed?.filters ?? FILTERS).filter((f) => !removed.includes(f.id));
   const byId = (id: string): Filter | undefined => live.find((f) => f.id === id);
   const named = ["title", "location", "experience"];
   const more = live.filter((f) => !named.includes(f.id));
@@ -345,23 +361,29 @@ function SearchCard({
   };
 
   return (
-    <section className={`src-search${locked ? " is-locked" : ""}`} aria-label="Proposed search">
+    <section className={`src-search${isLocked ? " is-locked" : ""}`} aria-label="Proposed search">
       <div className="src-panel">
         <div className="src-panel-head">
           <p className="src-panel-lede">
             I've set these
             <span className="src-kw"><FunnelSimple size={14} weight="bold" aria-hidden="true" />Filters</span>
-            based on your brief
-            <span className="src-count">({matches.toLocaleString("en-IN")} matches)</span>
+            {fixed ? fixed.basis : "based on your brief"}
+            {fixed
+              ? fixed.count && <span className="src-count">({fixed.count})</span>
+              : <span className="src-count">({matches.toLocaleString("en-IN")} matches)</span>}
           </p>
-          {!locked && (
-            <button type="button" className="src-link" onClick={() => setEditing((e) => !e)} aria-expanded={editing}>
-              {editing ? "Done" : "Edit filters"}
-            </button>
+          {fixed ? (
+            fixed.onEdit && <button type="button" className="src-link" onClick={fixed.onEdit}>Edit the spec</button>
+          ) : (
+            !locked && (
+              <button type="button" className="src-link" onClick={() => setEditing((e) => !e)} aria-expanded={editing}>
+                {editing ? "Done" : "Edit filters"}
+              </button>
+            )
           )}
         </div>
 
-        {editing && !locked ? (
+        {editing && !locked && !fixed ? (
           <ul className="src-filter-list">
             {live.map((f) => (
               <li key={f.id}>
@@ -380,70 +402,98 @@ function SearchCard({
             {live.length === 0 && <li className="src-empty">No filters. Every profile is in scope.</li>}
           </ul>
         ) : (
-          <p className="src-sentence">
-            {chip("title")}<span>in</span>{chip("location")}<span>with</span>{chip("experience")}
-            <span>of experience</span>
-            {more.length > 0 && (
-              <button
-                type="button"
-                className="src-chip is-more"
-                onClick={() => !locked && setEditing(true)}
-                disabled={locked}
-              >
-                +{more.length} more filter{more.length > 1 ? "s" : ""}
-              </button>
+          <>
+            <p className="src-sentence">
+              {chip("title")}
+              {(!fixed || byId("location")) && <><span>in</span>{chip("location")}</>}
+              {(!fixed || byId("experience")) && <><span>with</span>{chip("experience")}<span>of experience</span></>}
+              {more.length > 0 && (
+                <button
+                  type="button"
+                  className="src-chip is-more"
+                  onClick={() => (fixed ? setEditing((e) => !e) : !locked && setEditing(true))}
+                  disabled={!fixed && locked}
+                  aria-expanded={fixed ? editing : undefined}
+                >
+                  {fixed && editing ? "Hide the rest" : `+${more.length} more filter${more.length > 1 ? "s" : ""}`}
+                </button>
+              )}
+            </p>
+            {fixed && editing && (
+              <ul className="src-filter-list">
+                {more.map((f) => (
+                  <li key={f.id}>
+                    <span className="src-filter-k">{f.label}</span>
+                    <span className="src-chip">{f.value}</span>
+                  </li>
+                ))}
+              </ul>
             )}
-          </p>
+          </>
         )}
       </div>
 
-      <div className="src-panel">
-        <div className="src-panel-head">
-          <p className="src-panel-lede">
-            Ranked by
-            <span className="src-kw"><Sparkle size={14} weight="bold" aria-hidden="true" />Criteria</span>
-          </p>
-          {!locked && !adding && (
-            <button type="button" className="src-link" onClick={() => setAdding(true)}>Add criteria</button>
-          )}
+      {(!fixed || crit.length > 0) && (
+        <div className="src-panel">
+          <div className="src-panel-head">
+            <p className="src-panel-lede">
+              Ranked by
+              <span className="src-kw"><Sparkle size={14} weight="bold" aria-hidden="true" />Criteria</span>
+            </p>
+            {!fixed && !locked && !adding && (
+              <button type="button" className="src-link" onClick={() => setAdding(true)}>Add criteria</button>
+            )}
+          </div>
+          <ul className="src-criteria">
+            {crit.map((c) => (
+              <li key={c} className="src-chip is-crit">
+                {c}
+                {!fixed && !locked && (
+                  <button
+                    type="button"
+                    className="src-x"
+                    aria-label={`Remove ${c}`}
+                    onClick={() => onCriteria(criteria.filter((x) => x !== c))}
+                  >
+                    <X size={11} weight="bold" aria-hidden="true" />
+                  </button>
+                )}
+              </li>
+            ))}
+            {!fixed && adding && (
+              <li>
+                <input
+                  className="src-add"
+                  autoFocus
+                  value={draft}
+                  placeholder="e.g. Has led a team"
+                  onChange={(e) => setDraft(e.target.value)}
+                  onBlur={addCriterion}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") addCriterion();
+                    if (e.key === "Escape") { setDraft(""); setAdding(false); }
+                  }}
+                />
+              </li>
+            )}
+          </ul>
         </div>
-        <ul className="src-criteria">
-          {criteria.map((c) => (
-            <li key={c} className="src-chip is-crit">
-              {c}
-              {!locked && (
-                <button
-                  type="button"
-                  className="src-x"
-                  aria-label={`Remove ${c}`}
-                  onClick={() => onCriteria(criteria.filter((x) => x !== c))}
-                >
-                  <X size={11} weight="bold" aria-hidden="true" />
-                </button>
-              )}
-            </li>
-          ))}
-          {adding && (
-            <li>
-              <input
-                className="src-add"
-                autoFocus
-                value={draft}
-                placeholder="e.g. Has led a team"
-                onChange={(e) => setDraft(e.target.value)}
-                onBlur={addCriterion}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") addCriterion();
-                  if (e.key === "Escape") { setDraft(""); setAdding(false); }
-                }}
-              />
-            </li>
-          )}
-        </ul>
-      </div>
+      )}
 
-      {locked ? (
-        <p className="src-ran"><Check size={13} weight="bold" aria-hidden="true" />Search ran with {live.length} filters and {criteria.length} criteria</p>
+      {fixed ? (
+        <>
+          {fixed.ran && <p className="src-ran"><Check size={13} weight="bold" aria-hidden="true" />{fixed.ranLine}</p>}
+          {fixed.note && <p className="src-note">{fixed.note}</p>}
+          {!fixed.ran && fixed.run && (
+            <div className="src-actions">
+              <button type="button" className="src-btn is-primary" onClick={onRun} disabled={fixed.run.busy}>
+                {fixed.run.label}
+              </button>
+            </div>
+          )}
+        </>
+      ) : locked ? (
+        <p className="src-ran"><Check size={13} weight="bold" aria-hidden="true" />Search ran with {live.length} filters and {crit.length} criteria</p>
       ) : (
         <div className="src-actions">
           <button type="button" className="src-btn is-quiet" onClick={onReset} disabled={!dirty}>
@@ -460,25 +510,63 @@ function SearchCard({
 
 /* ── results ─────────────────────────────────────────────────────────────── */
 
-function Results({
-  matches, verdicts, onVerdict, onOpenProfile, onOpenList,
+/** What a connected campaign's results show, in place of the demo's fixtures. */
+export type ResultsData = {
+  /** The few to show as cards, best first. */
+  candidates: readonly Candidate[];
+  /** People nobody has scored yet: their cards show no one-line read and no fit marks. */
+  unscored?: ReadonlySet<string>;
+  reasons: Readonly<Record<string, string>>;
+  /** What the fit marks stand for, and the column heads for them. */
+  criteria: readonly string[];
+  short: readonly string[];
+  title: string;
+  /** Right of the heading: how many are shown of how many. */
+  count: string;
+  sub: string | null;
+  /** The way into the whole list. */
+  all: string;
+  /** Another search, when there is one to run. */
+  more?: { label: string; busy?: boolean; onClick: () => void } | null;
+};
+
+export function Results({
+  matches, verdicts, onVerdict, onOpenProfile, onOpenList, data,
 }: {
-  matches: number;
+  matches?: number;
   verdicts: Readonly<Record<string, Verdict>>;
   onVerdict: (id: string, v: Verdict | null) => void;
   onOpenProfile: (id: string) => void;
   onOpenList: () => void;
+  data?: ResultsData;
 }) {
-  const shown = CANDIDATES.slice(0, PREVIEW_COUNT);
+  const shown = data ? data.candidates : CANDIDATES.slice(0, PREVIEW_COUNT);
+  const sub = data ? data.sub : "Take a look and tell me what resonates — and whether seniority should factor in.";
+  const foot = (
+    <>
+      <button
+        type="button"
+        className="src-more"
+        onClick={onOpenList}
+        style={{ animationDelay: `${120 + shown.length * 70 + 60}ms` }}
+      >
+        {data ? data.all : `See all ${CANDIDATES.length} ranked profiles`}
+        <ArrowRight size={14} weight="bold" aria-hidden="true" />
+      </button>
+      {data?.more && (
+        <button type="button" className="src-btn is-quiet" onClick={data.more.onClick} disabled={data.more.busy}>
+          {data.more.label}
+        </button>
+      )}
+    </>
+  );
   return (
-    <section className="src-results" aria-label="Profiles for your feedback">
+    <section className="src-results" aria-label={data ? data.title : "Profiles for your feedback"}>
       <div className="src-results-head">
-        <h3>Profiles for your feedback</h3>
-        <span>{shown.length} shown · {matches.toLocaleString("en-IN")} total matches</span>
+        <h3>{data ? data.title : "Profiles for your feedback"}</h3>
+        <span>{data ? data.count : `${shown.length} shown · ${(matches ?? 0).toLocaleString("en-IN")} total matches`}</span>
       </div>
-      <p className="src-results-sub">
-        Take a look and tell me what resonates — and whether seniority should factor in.
-      </p>
+      {sub && <p className="src-results-sub">{sub}</p>}
       <ul className="src-cards">
         {shown.map((c, i) => (
           <li key={c.id} style={{ animationDelay: `${120 + i * 70}ms` }}>
@@ -487,19 +575,16 @@ function Results({
               verdict={verdicts[c.id]}
               onVerdict={(v) => onVerdict(c.id, v)}
               onOpen={() => onOpenProfile(c.id)}
+              {...(data
+                ? data.unscored?.has(c.id)
+                  ? { reason: "", criteria: [] as readonly string[], short: [] as readonly string[] }
+                  : { reason: data.reasons[c.id] ?? "", criteria: data.criteria, short: data.short }
+                : {})}
             />
           </li>
         ))}
       </ul>
-      <button
-        type="button"
-        className="src-more"
-        onClick={onOpenList}
-        style={{ animationDelay: `${120 + shown.length * 70 + 60}ms` }}
-      >
-        See all {CANDIDATES.length} ranked profiles
-        <ArrowRight size={14} weight="bold" aria-hidden="true" />
-      </button>
+      {data ? <div className="src-results-foot">{foot}</div> : foot}
     </section>
   );
 }
@@ -509,14 +594,24 @@ function Results({
  * verdict buttons are the only things inside it that do something else.
  */
 export function CandidateCard({
-  c, verdict, onVerdict, onOpen,
+  c, verdict, onVerdict, onOpen, reason, criteria, short,
 }: {
   c: Candidate;
   verdict?: Verdict;
   onVerdict: (v: Verdict | null) => void;
   onOpen: () => void;
+  /** A connected campaign's own one-line read, its criteria and their column heads; the demo's are the defaults. */
+  reason?: string;
+  criteria?: readonly string[];
+  short?: readonly string[];
 }) {
-  const now = c.jobs[0]!;
+  /* A sourced person known only from a search result has no work history yet:
+     the card then reads the headline the search gave, and drops the career strip. */
+  const now = c.jobs[0];
+  const role = now?.roles[0]?.title;
+  const line = now && role ? `${role} · ${now.org.name}` : c.headline;
+  const text = reason ?? REASON[c.id];
+  const fit = criteria ?? CRITERIA;
   return (
     <article className={`src-card${verdict ? ` is-${verdict}` : ""}`}>
       <button type="button" className="src-card-hit" onClick={onOpen} aria-label={`Open ${c.name}'s profile`} />
@@ -524,8 +619,8 @@ export function CandidateCard({
         <Avatar name={c.name} hue={c.hue} size={38} />
         <div className="src-card-id">
           <p className="src-card-name">{c.name}{c.openToWork && <span className="src-otw">Open to work</span>}</p>
-          <p className="src-card-line">{now.roles[0]!.title} · {now.org.name}</p>
-          <p className="src-card-meta">{c.location}</p>
+          <p className="src-card-line">{line}</p>
+          {c.location && <p className="src-card-meta">{c.location}</p>}
         </div>
       </div>
       {/* A sibling of the identity rather than inside it, so the grid can
@@ -536,16 +631,20 @@ export function CandidateCard({
       </div>
       {/* One sentence of why, instead of a highlighted paragraph: the rest is
           in the profile, one click away. */}
-      <p className="src-card-reason">
-        <Sparkle size={13} weight="fill" aria-hidden="true" />
-        {REASON[c.id]}
-      </p>
+      {text && (
+        <p className="src-card-reason">
+          <Sparkle size={13} weight="fill" aria-hidden="true" />
+          {text}
+        </p>
+      )}
       <div className="src-card-foot">
-        <div className="src-card-career">
-          <span className="src-card-k">{c.totalYears} yrs</span>
-          <Career c={c} />
-        </div>
-        <FitRow meets={c.meets} />
+        {(c.jobs.length > 0 || c.totalYears > 0) && (
+          <div className="src-card-career">
+            {c.totalYears > 0 && <span className="src-card-k">{c.totalYears} yrs</span>}
+            {c.jobs.length > 0 && <Career c={c} />}
+          </div>
+        )}
+        {fit.length > 0 && <FitRow meets={c.meets} {...(criteria ? { criteria, short: short ?? [] } : {})} />}
       </div>
     </article>
   );

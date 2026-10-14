@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { campaignIn, candidatesIn, classify, roleIn } from "../moments";
+import { campaignIn, candidatesIn, classify, formCampaignIn, roleIn } from "../moments";
 
 describe("classify", () => {
   const cases: Array<[string, string]> = [
@@ -18,6 +18,13 @@ describe("classify", () => {
     ["Catch me up on overnight", "digest"],
     ["Reach out again on WhatsApp to everyone who hasn't replied", "outreach"],
     ["Draft answers to the 4 candidates waiting on me", "reply"],
+    ["Create a hiring form for the backend campaign", "form"],
+    ["Make a screening form", "form"],
+    ["I need screening questions for the Design Lead role", "form"],
+    ["Draft an application form for Platform SRE", "form"],
+    ["start screening form", "form"],
+    ["How are the form responses going?", "form-status"],
+    ["Summary of form responses", "report"],
   ];
   it.each(cases)("%s → %s", (said, kind) => expect(classify(said)).toBe(kind));
 });
@@ -27,6 +34,11 @@ describe("extractors", () => {
     expect(campaignIn("how is the SRE outreach")).toBe("platform-sre");
     expect(campaignIn("backend please")).toBe("backend-snr");
     expect(campaignIn("anything")).toBeNull();
+  });
+  it("finds the campaign a form is for", () => {
+    expect(formCampaignIn("form for the enterprise AE role")).toBe("gtm-ae");
+    expect(formCampaignIn("make a form for Platform SRE")).toBe("platform-sre");
+    expect(formCampaignIn("make a form")).toBeNull();
   });
   it("finds the role", () => {
     expect(roleIn("have screening start")).toBe("Screening");

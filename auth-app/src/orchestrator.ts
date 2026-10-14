@@ -4,7 +4,19 @@ import {
   Target, UsersThree, VideoCamera
 } from "@phosphor-icons/react";
 import type { Icon } from "@phosphor-icons/react";
+import { CAMPAIGN_ROWS, repliesWaiting } from "./campaignsData";
 import { CAMPAIGNS } from "./workspaces";
+
+/* "Chase the N candidates waiting on a reply", with N derived from the same
+   funnel the Overview and Pipeline count from, never a typed-in number. */
+const NUM_WORDS = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"];
+const CHASE_COUNT = (() => {
+  const row = CAMPAIGN_ROWS.find((r) => r.id === "backend-snr");
+  return row ? repliesWaiting(row.funnel) : 0;
+})();
+const CHASE_WORD = NUM_WORDS[CHASE_COUNT] ?? String(CHASE_COUNT);
+const CHASE_PEOPLE = CHASE_COUNT === 1 ? "candidate" : "candidates";
+const CHASE = `Chase the ${CHASE_WORD} ${CHASE_PEOPLE} waiting on a reply`;
 
 /**
  * The orchestrator surface: briefs, modes, campaign configuration.
@@ -125,7 +137,7 @@ export const CAMPAIGN_CONFIG = {
 /** Recent briefs. Fixtures — there is no `agent_conversations` table yet. */
 export const BRIEFS: readonly Brief[] = [
   { id: "b1", title: "Staff engineers who have scaled Postgres", campaign: "Senior Backend Engineers", when: "2h", mode: "sourcing" },
-  { id: "b2", title: "Chase the four candidates waiting on a reply", campaign: "Senior Backend Engineers", when: "Yesterday", mode: "agent" },
+  { id: "b2", title: CHASE, campaign: "Senior Backend Engineers", when: "Yesterday", mode: "agent" },
   { id: "b3", title: "SRE leads, Bangalore or remote India", campaign: "Platform SRE", when: "2d", mode: "sourcing" },
   { id: "b4", title: "Summarise every screening call this week", campaign: "iOS Engineers", when: "4d", mode: "agent" },
   /* Enough rows that the rail's list is genuinely TRUNCATED rather than
@@ -168,6 +180,12 @@ export type Channel = {
    * real colours, not a palette assigned to arbitrary strings.
    */
   brand: string;
+  /**
+   * The same mark on the dark theme's card. A colour in a style attribute is the data's and no stylesheet
+   * rewrite reaches it, so the brand states its own dark value: Slack's aubergine and Notion's black are
+   * 1.7:1 and 1.1:1 on a near-black card (invisible), so each is lifted to a tint of itself that holds 3:1.
+   */
+  brandDark: string;
 };
 
 /* Real brand marks, not a generic glyph each. A channel row is answering
@@ -176,10 +194,10 @@ export type Channel = {
    a line of text in settings. Phosphor ships all four, so no new dependency
    and no hand-pasted SVG to go stale. */
 export const CHANNELS: readonly Channel[] = [
-  { id: "slack", name: "Slack", Icon: SlackLogo, connected: true, detail: "#hiring-backend", brand: "#611f69" },
-  { id: "outlook", name: "Outlook", Icon: MicrosoftOutlookLogo, connected: true, detail: "Outreach from your address", brand: "#0078d4" },
-  { id: "teams", name: "Teams", Icon: MicrosoftTeamsLogo, connected: false, detail: "Interview scheduling", brand: "#4f52b2" },
-  { id: "notion", name: "Notion", Icon: NotionLogo, connected: false, detail: "Sync the scorecard", brand: "#191918" },
+  { id: "slack", name: "Slack", Icon: SlackLogo, connected: true, detail: "#hiring-backend", brand: "#611f69", brandDark: "#c993d1" },
+  { id: "outlook", name: "Outlook", Icon: MicrosoftOutlookLogo, connected: true, detail: "Outreach from your address", brand: "#0078d4", brandDark: "#4da3e8" },
+  { id: "teams", name: "Teams", Icon: MicrosoftTeamsLogo, connected: false, detail: "Interview scheduling", brand: "#4f52b2", brandDark: "#9c9ff0" },
+  { id: "notion", name: "Notion", Icon: NotionLogo, connected: false, detail: "Sync the scorecard", brand: "#191919", brandDark: "#ececec" },
 ];
 
 /** Who else is working this campaign. */
@@ -456,10 +474,10 @@ export const REPLY_FIXTURE: Record<ModeId, ReplyArtefact> = {
     ],
   },
   agent: {
-    app: "Outreach", hue: "blue", commit: "Send all four",
+    app: "Outreach", hue: "blue", commit: CHASE_COUNT === 1 ? "Send it" : `Send all ${CHASE_WORD}`,
     blocks: [
-      { kind: "lead", body: "Four candidates have been waiting on a reply. Here is what the agent would send." },
-      { kind: "field", label: "To", value: "4 candidates · Senior Backend Engineers", chip: true },
+      { kind: "lead", body: `${CHASE_WORD.charAt(0).toUpperCase() + CHASE_WORD.slice(1)} ${CHASE_PEOPLE} ${CHASE_COUNT === 1 ? "has" : "have"} been waiting on a reply. Here is what the agent would send.` },
+      { kind: "field", label: "To", value: `${CHASE_COUNT} ${CHASE_PEOPLE} · Senior Backend Engineers`, chip: true },
       { kind: "field", label: "Channel", value: "Outlook, from your address" },
       { kind: "section", title: "What each message does", hue: "blue", items: [
         "Answers the question they actually asked, not a template",
@@ -493,7 +511,7 @@ export const SUGGESTIONS: Record<ModeId, readonly string[]> = {
     "Backend engineers from Series B companies, Go or Rust",
   ],
   agent: [
-    "Chase the four candidates waiting on a reply",
+    CHASE,
     "Summarise every screening call from this week",
     "Draft outreach for everyone shortlisted but not contacted",
   ],

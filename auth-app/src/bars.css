@@ -1,0 +1,100 @@
+/* ═══════════════════════════════════ bars ═════════════════════════════════════
+   One orange series on a pale warm track. Values printed on the bars. */
+
+.bars { --bar: #f07a3e; --bar-hi: var(--accent); --track: #f6f2ee; }
+
+/* ── horizontal ── */
+.bars.is-h { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.bars-row {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) 40px;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  text-align: left;
+  font: inherit;
+  transition: background-color 160ms var(--ease-out);
+}
+.bars-row.is-link { cursor: pointer; }
+.bars-row.is-link:hover { background: rgba(58, 35, 23, 0.035); }
+.bars-row.is-link:hover .bars-fill { background: var(--bar-hi); }
+.bars-row:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.bars-l { font: 400 12.5px/1.2 var(--ui); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bars-track { position: relative; height: 10px; border-radius: 6px; background: var(--track); overflow: hidden; }
+.bars-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--bar);
+  transform-origin: left center;
+  transform: scaleX(var(--k));
+  animation: bars-grow-x 760ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: background-color 160ms var(--ease-out);
+}
+.bars-row.is-muted .bars-fill { background: #d9d2cb; }
+.bars-v { font: 600 13px/1 var(--ui); font-variant-numeric: tabular-nums; color: var(--ink); text-align: right; }
+@keyframes bars-grow-x { from { transform: scaleX(0); } }
+
+/* ── vertical ── */
+.bars.is-v { display: grid; gap: 8px; }
+.bars-plot {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  align-items: end;
+  gap: 6px;
+  height: var(--h);
+  padding-top: 18px;
+  border-bottom: 1px solid #efebe7;
+}
+.bars-col { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+.bars-colbar {
+  width: min(100%, 34px);
+  height: calc(var(--k) * 100%);
+  min-height: 3px;
+  border-radius: 6px 6px 2px 2px;
+  background: var(--bar);
+  transform-origin: bottom center;
+  animation: bars-grow-y 760ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: background-color 160ms var(--ease-out), opacity 160ms var(--ease-out);
+}
+.bars-colv {
+  position: absolute;
+  bottom: calc(var(--k, 0) * 100% + 4px);
+  font: 600 11px/1 var(--ui);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+  opacity: 0;
+  transform: translateY(3px);
+  transition: opacity 160ms var(--ease-out), transform 200ms var(--ease-out);
+}
+.bars-plot:hover .bars-colbar { opacity: 0.55; }
+.bars-col:hover .bars-colbar { opacity: 1; background: var(--bar-hi); }
+.bars-col:hover .bars-colv { opacity: 1; transform: none; }
+.bars-col.is-muted .bars-colbar { background: #e3ddd7; }
+.bars-axis { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 6px; }
+.bars-axis span { font: 400 11px/1 var(--ui); color: var(--ink-3); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@keyframes bars-grow-y { from { transform: scaleY(0); } }
+
+.bars-empty { margin: 4px 0 0; font: 400 12.5px/1.4 var(--ui); color: var(--ink-2); }
+.bars.is-empty .bars-fill, .bars.is-empty .bars-colbar { background: #e7e2dd; }
+
+@media (prefers-reduced-motion: reduce) {
+  .bars-fill, .bars-colbar { animation: none; }
+}
+
+/* Lighter data ink: thinner bars in a soft tint, the latest bar in full
+   accent so the eye lands on "now". */
+.bars { --bar: #f4a37c; }
+.bars-track { height: 7px; }
+.bars-row { padding-block: 7px; }
+.bars-colbar { width: min(100%, 22px); border-radius: 5px 5px 2px 2px; }
+.bars:not(.is-dist) .bars-col:last-child .bars-colbar { background: var(--accent); }
+.bars:not(.is-dist) .bars-col:last-child .bars-colv { opacity: 1; transform: none; }
+/* A distribution labels its tallest bar; the rest show on hover. */
+.bars.is-dist .bars-colv { font-size: 12px; }
+.bars.is-dist .bars-col.is-strong .bars-colv { opacity: 1; transform: none; }

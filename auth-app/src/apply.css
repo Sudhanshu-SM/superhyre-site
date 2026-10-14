@@ -1,0 +1,453 @@
+/* ═══════════════════════════════ candidate form ═══════════════════════════════
+   What a candidate sees. A tinted band behind one white sheet; the role reads
+   like a short article, then the application. Tint values arrive as
+   --fm-* variables (set inline from TINTS), so the builder, the preview
+   dialog and the live page all render from the same rules. */
+
+.fm, .ap {
+  /* A control's edge holds 3:1 on white; --fm-field-line is for rules between things, not around a field. */
+  --ap-edge: #948e88;
+  --ap-edge-hover: #6f6963;
+  --ap-band: #cc4d17; /* the brand orange (--accent-fill), fixed: the heading band is always SuperHyre's */
+  /* The page's rhythm. Every question is a block of its own (a soft card on the page tint, like the editor's).
+     Inside a block a label, its line, and what hangs under the line (help, an error) sit --ap-field-gap apart, and
+     the fields of the contact block --ap-stack-gap apart; one block to the next is --ap-block-gap. A label is
+     always the top of the field inside its own card, never the tail of the one above. */
+  --ap-field-gap: 6px;
+  --ap-stack-gap: 24px;
+  --ap-block-gap: 16px;
+  --ap-pad: 24px;
+  --ap-block-line: #e6e0da;
+  --fm-field-line: #ddd6cf;
+  --fm-field-line-2: #e2ddd8;
+  --fm-field-hover: #cbc2b9;
+  --fm-dot: #bfb5ac;
+}
+
+.ap {
+  position: relative;
+  isolation: isolate;
+  min-height: 100%;
+  padding: 1px 16px 24px;
+  background: var(--fm-bg);
+  color: var(--ink);
+  font-family: var(--ui);
+  transition: background-color 240ms var(--ease-out);
+}
+.ap::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: -1;
+  height: 220px;
+  background: linear-gradient(180deg, var(--fm-band) 0%, var(--fm-bg) 100%);
+  transition: background 240ms var(--ease-out);
+}
+
+/* The form is a column of blocks on the page tint: the heading card, the contact details, then one block per
+   question (and one per section title). 640px of field inside 24px of padding either side of a 688px block. */
+.ap-sheet {
+  position: relative;
+  display: grid;
+  gap: var(--ap-block-gap);
+  max-width: 688px;
+  margin: 40px auto 0;
+  padding: 0;
+}
+.ap-sheet:focus { outline: none; }
+
+/* The heading card: the band, the team's words, the role. */
+.ap-lead,
+.ap-block,
+.ap-sheet-notice {
+  min-width: 0;
+  border: 1px solid var(--ap-block-line);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(49, 42, 35, 0.04);
+}
+.ap-lead { padding: 0 var(--ap-pad) 28px; overflow: hidden; }
+.ap-lead.is-bare { padding-bottom: 0; }
+.ap-lead.is-bare .ap-band:not(.has-progress) { margin-bottom: 0; }
+.ap-lead.is-bare .ap-progress { margin-bottom: 24px; }
+
+/* One question, one block. Focus anywhere inside it gives the block a border in the brand's colour and a faint ring;
+   a problem inside it gives the same in red. Never a thick edge on one side. */
+.ap-block {
+  position: relative;
+  padding: 20px var(--ap-pad) 22px;
+  transition: border-color 150ms, box-shadow 150ms;
+}
+.ap-block:focus-within {
+  border-color: var(--ap-band);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ap-band) 16%, transparent), 0 1px 2px rgba(49, 42, 35, 0.04);
+}
+.ap-block:has(.ap-err) {
+  border-color: var(--c-rose-fill);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--c-rose-fill) 14%, transparent), 0 1px 2px rgba(49, 42, 35, 0.04);
+}
+/* The label keeps its ink while the block shows a problem: the red border and the line below say it. */
+.ap-block:has(.ap-err) .ap-field:focus-within > .ap-label { color: var(--ink); }
+.ap-block.is-section {
+  border-color: color-mix(in srgb, var(--fm-fill) 22%, var(--ap-block-line));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--fm-wash) 55%, #fff), #fff 80%);
+}
+.ap-block.is-note { padding: 32px var(--ap-pad); }
+
+/* ── header ──
+   The heading is a band of the brand orange across the top of the card, white text, the clipboard at its right. */
+.ap-band {
+  position: relative;
+  overflow: hidden;
+  margin: 0 calc(-1 * var(--ap-pad)) 24px;
+  padding: 36px var(--ap-pad) 30px;
+  border-radius: 11px 11px 0 0;
+  background: var(--ap-band);
+  color: #fff;
+}
+/* What follows the band (the team's line, the intro, the role) starts 24px under it. */
+.ap-head > .ap-band { margin-bottom: 24px; }
+.ap-head > .ap-promise, .ap-head > .ap-intro { margin: 0; }
+.ap-head > .ap-promise + .ap-intro { margin-top: 16px; }
+.ap-band > :not(.ap-band-art) { position: relative; z-index: 1; }
+.ap-band-art { position: absolute; right: 28px; bottom: -34px; z-index: 0; width: 172px; height: auto; margin: 0; animation: none; }
+/* Room beside the picture for the title and the line under it. */
+.ap-band:has(.ap-band-art) .ap-h1, .ap-band:has(.ap-band-art) .ap-meta { padding-right: 168px; }
+.ap-h1 { margin: 0 0 8px; font: var(--type-display); font-weight: 600; letter-spacing: var(--track-display); color: var(--ink); text-wrap: balance; }
+/* The form's title, as large as a form's title gets (Google Forms' is 32): 36px on a page, 28px on a phone. */
+.ap-band .ap-h1 { margin-bottom: 10px; font-size: var(--fs-36); line-height: var(--lh-44); color: #fff; }
+.ap-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 0; margin: 0; font: var(--type-body); color: var(--ink-2); }
+.ap-band .ap-meta { font: var(--type-body); color: #fff; }
+.ap-meta > span { white-space: nowrap; }
+.ap-sep { margin: 0 8px; color: var(--ink-3); }
+.ap-band .ap-sep { color: rgba(255, 255, 255, 0.75); }
+.ap-intro { max-width: 62ch; margin: 0; font: var(--type-body); letter-spacing: var(--track-body); color: var(--ink-2); }
+@media (max-width: 559px) {
+  .ap-band-art { display: none; }
+  .ap-band:has(.ap-band-art) .ap-h1, .ap-band:has(.ap-band-art) .ap-meta { padding-right: 0; }
+}
+
+/* ── pages: a thin orange bar under the band, and Back / Next ── */
+.ap-band.has-progress { margin-bottom: 0; }
+.ap-progress { height: 4px; margin: 24px 0 0; border-radius: 2px; background: color-mix(in srgb, var(--ap-band) 16%, #fff); overflow: hidden; }
+.ap-progress > span { display: block; height: 100%; border-radius: 2px; background: var(--ap-band); transition: width 240ms var(--ease-out); }
+.ap-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.ap-back {
+  height: 40px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  font: var(--type-body-strong);
+  letter-spacing: var(--track-body-strong);
+  color: var(--ap-band);
+  cursor: pointer;
+  transition: background-color 150ms;
+}
+.ap-back:hover { background: color-mix(in srgb, var(--ap-band) 8%, #fff); }
+.ap-back:focus-visible { outline: 2px solid var(--ap-band); outline-offset: 2px; }
+.ap-back:disabled { opacity: 0.5; cursor: default; }
+.ap-pageof { margin-left: auto; font: var(--type-body-sm); color: var(--ink-3); }
+.ap-sheet:focus { outline: none; }
+
+/* ── role ── */
+.ap-role { margin-top: 28px; }
+.ap-head + .ap-role { margin-top: 0; }
+.ap-role h2 { margin: 0 0 8px; font: var(--type-title); letter-spacing: var(--track-title); color: var(--ink); }
+.ap-role p { max-width: 62ch; margin: 0; font: var(--type-body); letter-spacing: var(--track-body); color: var(--ink-2); }
+.ap-role ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.ap-role li { position: relative; padding-left: 20px; font: var(--type-body); letter-spacing: var(--track-body); color: var(--ink-2); }
+.ap-role li::before { content: ""; position: absolute; left: 2px; top: 8px; width: 6px; height: 6px; border-radius: 50%; background: var(--fm-fill); }
+
+
+/* ── the application ── */
+/* Same size as the role headings: the rule above separates them, not size. */
+.ap-form-h h2 { margin: 0; font: var(--type-title); letter-spacing: var(--track-title); color: var(--ink); }
+.ap-form-h p { margin: 12px 0 0; font: var(--type-body); color: var(--ink-3); }
+.ap-form-h { margin-bottom: 24px; }
+/* Blocks, one under the other. */
+.ap-fields { display: grid; gap: var(--ap-block-gap); }
+/* One column, like any form: name, email, phone, LinkedIn, then the questions. */
+.ap-who { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--ap-stack-gap); }
+.ap-field.is-wide { grid-column: 1 / -1; }
+
+/* A section's title and what it says, as one block. */
+.ap-section-h h3 { margin: 0; font: var(--type-title); letter-spacing: var(--track-title); color: var(--ink); }
+.ap-section-h p { margin: 12px 0 0; font: var(--type-body); color: var(--ink-2); }
+
+.ap-field { min-width: 0; margin: 0; padding: 0; border: 0; }
+.ap-label { display: block; padding: 0; font: var(--type-body-strong); letter-spacing: var(--track-body-strong); color: var(--ink); }
+.ap-req { font-weight: 400; color: var(--ink-3); }
+.ap-help { margin: 2px 0 0; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-3); }
+.ap-ctl, .ap-scale { margin-top: var(--ap-field-gap); }
+/* Rows of choices: 10px under the question, 12px between one row and the next. */
+.ap-opts { margin-top: 10px; }
+
+/* The field is a line, not a box: no fill, no sides, a 1px neutral rule under it that becomes a 2px brand-orange
+   one on focus (a 1px shadow adds the second pixel, so nothing moves) and a red one when it needs another look. */
+.ap-input {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: 36px;
+  /* The text starts 6px under the top and sits 8px over its line: no empty band between a label and what is typed. */
+  padding: 6px 0 8px;
+  border: 0;
+  border-bottom: 1px solid var(--ap-edge);
+  border-radius: 0;
+  background: transparent;
+  font: var(--type-body);
+  letter-spacing: var(--track-body);
+  color: var(--ink);
+  transition: border-color 150ms, box-shadow 150ms;
+}
+.ap-input:hover { border-bottom-color: var(--ap-edge-hover); }
+.ap-input:focus { outline: none; border-bottom-color: var(--ap-band); box-shadow: 0 1px 0 0 var(--ap-band); }
+.ap-input::placeholder { color: var(--ink-3); }
+.ap input, .ap textarea, .ap select, .ap button { font-family: inherit; }
+.ap-input.is-bad, .ap-input.is-bad:hover { border-bottom-color: var(--c-rose-fill); box-shadow: 0 1px 0 0 var(--c-rose-fill); }
+/* The label follows the focus: it takes the orange while its field is the one being typed in. */
+.ap-field:focus-within > .ap-label { color: var(--ap-band); }
+/* A long answer is the same line, and grows as it is written. */
+.ap-input.is-long { min-height: 36px; padding: 6px 0 8px; line-height: 20px; resize: none; overflow: hidden; }
+.ap-ta { position: relative; }
+.ap-count { position: absolute; right: 0; bottom: -18px; font: var(--type-caption); color: var(--ink-3); }
+.ap-num { position: relative; display: block; width: 200px; max-width: 100%; }
+.ap-num .ap-input { padding-right: 56px; -moz-appearance: textfield; appearance: textfield; }
+.ap-num .ap-input::-webkit-inner-spin-button, .ap-num .ap-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.ap-unit { position: absolute; right: 0; top: 6px; font: var(--type-body); color: var(--ink-3); pointer-events: none; }
+
+/* choices: plain rows, the standard control in brand orange. No boxes, no tints. */
+.ap-opts { display: grid; gap: 12px; }
+.ap-opt {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.ap-opt:has(input:focus-visible) .ap-dot { box-shadow: 0 0 0 3px color-mix(in srgb, var(--ap-band) 22%, transparent); }
+.ap-opts.is-bad .ap-opt:not(.is-on) .ap-dot { border-color: var(--c-rose-fill); }
+.ap-dot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--ap-edge);
+  border-radius: 50%;
+  background: #fff;
+  color: #fff;
+  transition: background-color 150ms, border-color 150ms, box-shadow 150ms;
+}
+.ap-dot.is-box { border-radius: 4px; }
+.ap-opt:hover .ap-dot { border-color: var(--ap-edge-hover); }
+/* One choice: a ring with an orange dot. Several: an orange box with a tick. */
+.ap-opt.is-on .ap-dot { border-color: var(--ap-band); }
+.ap-opt.is-on .ap-dot:not(.is-box)::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--ap-band); }
+.ap-opt.is-on .ap-dot.is-box { background: var(--ap-band); }
+.ap-opt-t { font: var(--type-body); letter-spacing: var(--track-body); color: var(--ink); }
+
+/* scale */
+.ap-scale { display: flex; gap: 8px; }
+.ap-scale-o {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--ap-edge);
+  border-radius: 50%;
+  background: transparent;
+  font: var(--type-body-strong);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background-color 150ms, border-color 150ms, color 150ms;
+}
+.ap-scale-o:hover { border-color: var(--ap-edge-hover); }
+.ap-scale-o.is-on { border-color: var(--ap-band); background: var(--ap-band); color: #fff; }
+.ap-scale-o:has(input:focus-visible) { box-shadow: 0 0 0 3px color-mix(in srgb, var(--ap-band) 22%, transparent); }
+.ap-scale-o.is-bad:not(.is-on) { border-color: var(--c-rose-fill); }
+/* The labels share the boxes' width, so the high label ends under box 5. */
+.ap-scale-w { display: grid; width: max-content; max-width: 100%; margin-top: 10px; }
+.ap-scale-w .ap-scale { margin-top: 0; }
+.ap-scale-ends { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; font: var(--type-body-sm); color: var(--ink-3); }
+.ap-scale-ends span:last-child { text-align: right; }
+
+.ap-err { display: flex; align-items: center; gap: 6px; margin: var(--ap-field-gap) 0 0; font: var(--type-body-sm); color: var(--c-rose-text); }
+
+/* submit */
+.ap-submit-row { margin-top: 32px; }
+.ap-sum { margin: 0 0 12px; font: var(--type-body-sm); color: var(--c-rose-text); }
+.ap-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  min-width: 160px;
+  padding: 0 24px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--fm-fill);
+  font: var(--type-body-strong);
+  letter-spacing: var(--track-body-strong);
+  color: var(--fm-on-fill, #fff);
+  cursor: pointer;
+  transition: filter 150ms, transform 120ms;
+}
+.ap-submit:hover { filter: brightness(0.94); }
+.ap-submit:active { transform: scale(0.98); }
+.ap-submit:focus-visible { outline: none; box-shadow: 0 0 0 3px #fff, 0 0 0 5px var(--fm-fill); }
+/* Busy is the shared loader: the mark with a ring, in the button's own colour. */
+.ap-submit .ldr { margin-right: 8px; }
+
+/* success, closed */
+.ap-done { display: grid; justify-items: start; gap: 0; }
+.ap-done-mark { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: var(--fm-wash); color: var(--fm-text); animation: ap-in 260ms var(--ease-out) both; }
+@keyframes ap-in { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: none; } }
+.ap-done h2 { margin: 20px 0 8px; font: var(--type-title-lg); letter-spacing: var(--track-title-lg); color: var(--ink); outline: none; }
+.ap-done p { max-width: 56ch; margin: 0; font: var(--type-body-lg); color: var(--ink-2); }
+.ap-done .ap-done-note { margin-top: 16px; color: var(--ink-3); }
+.ap-quiet { margin-top: 12px; height: 36px; padding: 0 14px; border: 1px solid var(--ap-edge); border-radius: 6px; background: #fff; font: var(--type-body-strong); color: var(--ink); cursor: pointer; }
+.ap-quiet:hover { background: #fcfaf8; }
+.ap-quiet:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.ap-closed { margin: 0; padding: 24px 0; text-align: center; font: var(--type-body-lg); color: var(--ink-2); }
+/* A failure: the headline, the sentence under it and one way to ask again. */
+.ap-notice-t { margin: 8px 0 0; text-align: center; font: var(--type-title); letter-spacing: var(--track-title); color: var(--ink); }
+.ap-closed.is-under { padding: 6px 0 0; }
+.ap-retry { display: block; margin: 16px auto 0; }
+
+.ap-foot { margin: 24px 0 0; text-align: center; font: var(--type-caption); color: var(--ink-3); }
+.ap-foot p { margin: 0; }
+.ap-foot .ap-made { margin-top: 6px; }
+.ap-made a { color: inherit; text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor 35%, transparent); text-underline-offset: 3px; }
+.ap-made a:hover { color: var(--ink-2); }
+
+/* ── preview dialog ── */
+.ap-dlg { display: grid; grid-template-rows: 44px minmax(0, 1fr); }
+.ap-dlg-bar { display: flex; align-items: center; gap: 12px; padding: 0 64px 0 20px; border-bottom: 1px solid var(--hairline); color: var(--ink-3); }
+.ap-dlg-bar .ab { margin-left: auto; }
+.ap-dlg-scroll { max-height: calc(100vh - 120px); overflow: auto; border-radius: 0 0 var(--r-card) var(--r-card); }
+
+@media (max-width: 767px) {
+  /* The tinted page stays on a phone: it is what makes the blocks read as blocks. */
+  .ap { padding: 0 12px 24px; }
+  .ap::before { height: 160px; }
+  .ap-sheet { margin: 12px auto 0; }
+  .ap-foot { padding: 0 12px; }
+}
+/* 390px: blocks run the page's width, 12px from either edge. */
+@media (max-width: 480px) {
+  .ap { padding: 0 12px 24px; }
+  .ap { --ap-pad: 16px; }
+  .ap-block { padding: 16px var(--ap-pad) 18px; }
+  .ap-lead { padding-bottom: 24px; }
+  .ap-band { padding: 28px var(--ap-pad) 24px; }
+  .ap-h1, .ap-band .ap-h1 { font-size: var(--fs-28); line-height: var(--lh-32); }
+  .ap-submit { width: 100%; }
+  .ap-foot { padding: 0; }
+}
+@media (max-width: 640px) {
+  /* 16px in a field keeps a phone from zooming the page on focus. */
+  .ap-input, .ap-other-in { font-size: var(--fs-16); }
+  .ap-scale-w { display: grid; }
+  .ap-scale { gap: 6px; }
+  .ap-scale-w { width: 100%; }
+  .ap-scale-o { max-width: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ap-done-mark { animation: ap-fade 200ms linear both; }
+  @keyframes ap-fade { from { opacity: 0; } to { opacity: 1; } }
+  .ap-submit:active { transform: none; }
+}
+
+/* The standalone candidate route: the page is the form. */
+.ap-page { min-height: 100vh; min-height: 100dvh; }
+.ap-page > .ap { min-height: 100vh; min-height: 100dvh; }
+
+/* The dialog's close sits inside the 44px strip, centred, as a ghost button. */
+.dg-panel:has(.ap-dlg) .dg-close { top: 6px; right: 12px; background: transparent; }
+.dg-panel:has(.ap-dlg) .dg-close:hover { background: var(--sub); }
+
+/* A send that didn't go through (too many tries, no connection): worth another try, not an error in the answers. */
+.ap-sum.is-calm { color: var(--ink-2); }
+/* The honeypot: off screen and out of the tab order, so only bots fill it. */
+.ap-trap { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+
+
+/* ═══════════════════════ the team's look, and what's new on the page ═══════════════════════ */
+
+/* A workspace brand: its open fonts, loaded from Google Fonts by ApplyForm. */
+.ap.is-branded { font-family: var(--ap-font-body); }
+.ap.is-branded .ap-h1,
+.ap.is-branded .ap-role h2,
+.ap.is-branded .ap-form-h h2,
+.ap.is-branded .ap-section-h h3,
+.ap.is-branded .ap-done h2 { font-family: var(--ap-font-display); }
+
+/* Who is hiring: their logo and name, above the title. */
+.ap-org { display: flex; align-items: center; gap: 10px; margin: 0 0 22px; min-height: 28px; }
+.ap-logo { display: block; max-width: 140px; max-height: 28px; width: auto; height: auto; object-fit: contain; }
+.ap-org-n { font: var(--type-body-strong); letter-spacing: var(--track-body-strong); color: var(--ink-2); }
+/* In the band the name is white, and a logo (drawn for a white page) keeps a white chip behind it. */
+.ap-band .ap-org { margin: 0 0 14px; min-height: 0; }
+.ap-band .ap-org-n { color: #fff; }
+.ap-band .ap-logo { box-sizing: content-box; max-height: 24px; padding: 5px 8px; border-radius: 6px; background: #fff; }
+
+/* The team's promise: a quoted line, set apart by a hairline box in their colour, not a badge or a one-sided bar. */
+.ap-promise { max-width: 62ch; margin: 0; padding: 10px 14px; border: 1px solid var(--fm-line); border-radius: 10px; font: var(--type-body-lg); color: var(--ink); }
+
+/* Phone: +91 sits inside the field until they type their own code. */
+.ap-phone { position: relative; }
+.ap-cc { position: absolute; left: 0; top: 6px; font: var(--type-body); letter-spacing: var(--track-body); color: var(--ink-3); pointer-events: none; }
+.ap-phone:not(.is-own) .ap-input { padding-left: 34px; }
+.ap-help-under { margin-top: var(--ap-field-gap); }
+
+/* Dropdown and date: the browser's own controls, dressed like the other fields. */
+.ap-select { position: relative; }
+.ap-select select { appearance: none; -webkit-appearance: none; padding-right: 28px; cursor: pointer; }
+.ap-select select.is-empty { color: var(--ink-3); }
+.ap-select-caret { position: absolute; right: 0; top: 11px; color: var(--ink-3); pointer-events: none; }
+.ap-date { display: block; width: 220px; max-width: 100%; }
+.ap-date .ap-input { cursor: text; }
+
+/* "Other": the option, then a line for their own words. */
+.ap-other { flex-wrap: wrap; row-gap: 8px; cursor: default; }
+.ap-other-l { display: flex; align-items: center; gap: 12px; cursor: pointer; }
+.ap-other-in { flex: 1 1 220px; height: 32px; margin-left: 4px; font: var(--type-body); }
+.ap-other-in.is-below { margin: var(--ap-field-gap) 0 0; height: 36px; font: var(--type-body); }
+
+/* The details and answers sit in one fieldset. */
+.ap-lock { min-width: 0; margin: 0; padding: 0; border: 0; }
+
+/* Done: a ring, and a tick that draws itself once. */
+.ap-done-mark { width: 64px; height: 64px; overflow: visible; background: none; animation: none; }
+.ap-done-ring { fill: var(--fm-wash); stroke: var(--fm-line); stroke-width: 1.5; transform-origin: 32px 32px; animation: ap-ring 360ms var(--ease-out) both; }
+.ap-done-tick {
+  fill: none;
+  stroke: var(--fm-fill);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 40;
+  stroke-dashoffset: 40;
+  animation: ap-tick 420ms var(--ease-out) 160ms forwards;
+}
+@keyframes ap-ring { from { transform: scale(0.82); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes ap-tick { to { stroke-dashoffset: 0; } }
+
+/* Loading, not found, closed: the team's look around one quiet line. */
+.ap-sheet.ap-sheet-notice { display: block; padding: 40px var(--ap-pad); }
+.ap-sheet-notice .ap-org { justify-content: center; }
+.ap-sheet-notice .ea { margin-top: 12px; }
+.ap-done .ea { margin-inline: 0; margin-bottom: 4px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ap-done-ring { animation: none; }
+  .ap-done-tick { animation: none; stroke-dashoffset: 0; }
+}

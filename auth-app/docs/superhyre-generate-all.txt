@@ -1,0 +1,85 @@
+Generate all of the SuperHyre illustrations listed below in this single run, one image at a time, one after another, until every one is done. This is a long batch and that is expected.
+
+FOUR REFERENCE IMAGES ARE ATTACHED. Match them exactly:
+- Reference 1 (Tara and Hyre): Tara's face, hair and clothes, and Hyre, the floating ivory pebble with the staircase mark and the terracotta seam.
+- Reference 2 (Kabir): Kabir's face, hair and clothes.
+- Reference 3 (Meera): Meera's face, hair, glasses and clothes.
+- Reference 4 (props): the material, the dashed outline style, the candidate cards and the terracotta accent.
+All four share the same light, clay material, colours and soft shadow; every new image must look like part of the same set.
+
+HOW TO RUN THE BATCH
+- Do not stop to ask questions, confirm, summarise or offer options between images. Just make the next one.
+- If you reach the end of a reply before all are done, continue with the next number in your following reply without being asked again.
+- Each image is its own separate image. Never put two or more scenes in one image, never make a grid, sheet or collage.
+- Before each image, write only its number and file name on one line, for example: 7. empty-notifications.png
+
+RULES FOR EVERY IMAGE
+- Make each image separately, one image per output, in the order listed. Never combine several into a grid or sheet.
+- Name each image with its file name.
+- Soft 3D clay illustration in exactly the same style, cast and lighting as the attached reference images. Satin matte clay and bisque porcelain with a faint chalk-dust grain and softly rounded edges. Warm neutral palette only: ivory #F4F1EC, bone #EAE5DD, greige #D9D3CA, warm grey #B8B0A6 for dashed lines and shadows, charcoal #3A3632 only for hair and shoes, muted sage #A7B79A only on plant leaves. Exactly ONE object in terracotta (#E0602A lit, #C87248 in shade): the object named as ACCENT for that image. If Hyre (the floating ivory pebble with a debossed staircase mark) appears, its thin middle seam may also glow terracotta; nothing else is terracotta. One large soft key light from the top left, gentle fill from the right, soft ambient occlusion, no glossy highlights. No floor plane: one wide, very soft warm-grey contact shadow under the group that fades evenly to nothing on every side. Three-quarter view from slightly above, long-lens look, subject centred, generous empty margin, subject fills about 65% of the frame. Fully transparent background (real alpha, no white or off-white box). One image only, not a sheet or grid. Characters match the reference sheet exactly: Tara (late-20s South Asian woman, shoulder-length wavy dark hair, oatmeal knit sweater, sage-grey trousers, white sneakers), Kabir (late-20s South Asian man, short textured dark hair, light stubble, greige overshirt over white tee, charcoal chinos, white sneakers), Meera (mid-40s South Asian woman, silver-streaked low bun, round thin glasses, ivory long top, greige long cardigan, charcoal trousers). Hyre has no face, eyes or limbs. Calm, competent, quietly warm mood.
+- Background: fully transparent, except the two email headers, which are on pure white #FFFFFF.
+- Sizes: HERO = 4:3, 2048x1536. SPOT = 1:1, 1024x1024. BAND = 16:5, 3200x1000, wide and low. TALL = 3:4, 1536x2048. OG = 1.91:1, 1200x630 with the right half left empty. EMAIL = 3:1, 1800x600 on white.
+- Avoid: any text, letters, numbers or logos (other than the staircase mark on Hyre), UI screenshots, app icons, glossy plastic, neon, glow halos, coloured or gradient backgrounds, blue, purple, robots, faces on Hyre, sweat or tears, confetti storms, handshakes, clutter, more than one terracotta object besides Hyre's seam, harsh shadows, a visible floor, cropped edges, photorealism, flat vector, low-poly.
+
+THE IMAGES
+1. empty-forms.png | HERO | ACCENT: the pencil | A tall matte clay clipboard holds a form sheet with three rows of soft raised lines, each with an empty round tick bubble; Tara stands beside it holding a terracotta pencil, about to write the first question; a small plant on two stacked books at the clipboard's foot.
+2. placeholder-news.png | BAND | ACCENT: the chalk stick | A small clay newspaper stand on a low plinth; its folded newspapers are only ghosted outlines drawn in soft warm-grey dashed chalk lines; Tara stands beside it sketching the top page with a terracotta chalk stick; a small plant on books far right; wide, calm, low composition with lots of empty space left and right.
+3. empty-calls.png | HERO | ACCENT: the phone handset | A soft clay headset resting on a short stack of blank ivory candidate cards (each card: an empty circle and three raised lines); beside it a terracotta phone handset whose curled cord trails toward an empty rounded slot drawn in dashes in the shape of a sound waveform; no character.
+4. empty-client-campaigns.png | SPOT | ACCENT: the folder tab | A closed ivory clay folder lying slightly angled, with a terracotta tab on top and a dashed rectangle outline drawn on its cover where papers would be; no character.
+5. onboard-pending-approval.png | HERO | ACCENT: the ticket | Kabir sits upright on a simple clay bench, holding a small terracotta ticket in both hands and looking toward a softly folded clay map standing upright beside the bench (the same map motif as the join screen, with a dashed path); a small round clay wall clock floats near the map; patient, not lounging.
+6. empty-responses-no-form.png | SPOT | ACCENT: the toggle knob | A clay clipboard whose sheet is only ghosted in dashed lines; a small terracotta toggle knob sits on the clipboard's clip, switched off; no character.
+7. empty-notifications.png | SPOT | ACCENT: the bell's clapper bead | A small ivory clay bell lying on its side on a soft round cushion, its clapper a terracotta bead; no character.
+8. empty-history.png | SPOT | ACCENT: the bottom tile | A short neat stack of four blank rounded speech-bubble tiles in ivory and bone, the bottom tile terracotta; no character.
+9. overview-brief-pending.png | SPOT | ACCENT: the bookmark | A job-description sheet lying at a slight angle, half covered in soft raised lines, the lower half blank; a terracotta bookmark ribbon tucked in at the top; no character.
+10. empty-personal-workspace.png | HERO | ACCENT: the key | Kabir at a small personal desk with a little lamp, a plant and a mug; above the desk an empty rounded slot drawn in dashes pinned to a clay board; a terracotta key hangs from the lamp's arm on a short loop.
+11. extension-not-installed.png | HERO | ACCENT: the puzzle piece | A rounded clay frame shaped like a simple browser window with three dots top-left and no content; a terracotta puzzle piece hovering just about to click into its top-right corner; a blank candidate card leaning against the frame; no character.
+12. placeholder-analytics-outreach.png | HERO | ACCENT: the paper plane | A bar chart standing on a small plinth, its four bars drawn only as dashed chalk outlines; a terracotta paper plane unfolding into the shortest bar and filling it from the bottom; no character.
+13. placeholder-analytics-usage.png | HERO | ACCENT: the needle | A semicircular gauge dial drawn in dashed chalk outlines on a plinth, with one solid terracotta needle; Meera adjusts the needle gently with one hand.
+14. placeholder-analytics-projects.png | HERO | ACCENT: the front folder tab | Three folders on three plinths of rising height in a staggered line, drawn as dashed chalk outlines except the front folder, which is solid ivory with a terracotta tab; no character.
+15. placeholder-support.png | HERO | ACCENT: the lifebuoy's rope | Kabir at a small rounded help desk; a clay lifebuoy ring leans against the desk with a terracotta rope wrapped around it; a speech bubble drawn in dashed chalk lines floats above.
+16. placeholder-connector-later.png | SPOT | ACCENT: the plug's prongs | A soft clay plug and a wall socket plate, both drawn mostly as dashed chalk outlines, not yet joined; the plug's two prongs are solid terracotta; no character.
+17. signin-side.png | TALL | ACCENT: the top step | A gentle clay staircase of four broad steps rising to the upper right, shaped like the 2-by-4 staircase mark; Tara and Kabir walking up it side by side, Hyre floating just ahead with a soft glow; the top step terracotta.
+18. onboard-provisioning.png | SPOT | ACCENT: the last block | Hyre floating with a bright glowing seam and three tiny orbiting dots; beneath it small clay blocks assembling into the staircase mark, the last block terracotta and still mid-air; no character.
+19. onboard-welcome.png | HERO | ACCENT: the map pin | Tara arriving at a large unfolded clay map lying flat, stepping onto the spot marked by a terracotta map pin at the end of a dashed path; Hyre greets her at shoulder height with a soft glow.
+20. blocked-personal-email.png | SPOT | ACCENT: the briefcase charm | Two ivory clay envelopes side by side: the left one has a soft fabric padlock tag; the right one has a small terracotta briefcase charm on its flap; no character.
+21. invite-expired.png | SPOT | ACCENT: the last grain of sand | A clay admission ticket gently curled at the edges with its stub torn off, lying beside a small hourglass whose very last falling grain is terracotta; no character.
+22. settings-invite-team.png | HERO | ACCENT: the name card | Meera at a small round table with her own chair and two empty chairs drawn as dashed outlines; she places a terracotta folded name card at one of the empty places.
+23. connect-gmail.png | SPOT | ACCENT: the plug | An ivory clay envelope with a short soft cable lying beside it; the cable's plug is terracotta and not yet inserted; no character.
+24. connect-expired.png | SPOT | ACCENT: the loose plug | The same envelope and cable, the terracotta plug slightly pulled out of a small socket on the envelope, a small slack loop in the cable; no character.
+25. connect-sheets.png | SPOT | ACCENT: the corner fold | A small ivory tile of raised square cells like a spreadsheet, its top-right corner folded over in terracotta; no character.
+26. success-campaign-created.png | SPOT | ACCENT: the seal | A clay pin board with one solid filled index card pinned in place, a round terracotta seal with a raised tick at its corner, four small ivory paper flecks drifting; no character.
+27. success-hired.png | SPOT | ACCENT: the ribbon | A single candidate card standing upright on a small round plinth like a trophy, a terracotta ribbon draped over its top corner; no character.
+28. success-form-published.png | SPOT | ACCENT: the tick seal | A clay clipboard with a solid completed form sheet, a small terracotta tick seal on its clip; no character.
+29. success-outreach-sent.png | SPOT | ACCENT: the lead paper plane | Three folded paper planes flying in a loose V with short dotted trails; the lead plane terracotta, the others ivory; no character.
+30. success-export-ready.png | SPOT | ACCENT: the corner tab | A spreadsheet-like tile of raised squares sliding out of a soft clay tray, with a terracotta corner tab; no character.
+31. success-watch-done.png | SPOT | ACCENT: the top card | Hyre settling down onto a neat stack of filled candidate cards, its seam glow fading; the top card terracotta; no character.
+32. state-404.png | HERO | ACCENT: the map pin | A clay signpost with three blank arrow boards pointing different ways; Kabir beside it reading a folded map that has a terracotta pin in it.
+33. state-error.png | HERO | ACCENT: the clip | A neat stack of candidate cards with one card slipped out and tilted; Tara steadying it calmly with both hands; a terracotta clip on the slipped card.
+34. state-offline.png | SPOT | ACCENT: the plug | A soft clay cable with its plug resting just short of a small socket; the plug terracotta; no character.
+35. state-agent-capacity.png | SPOT | ACCENT: the falling sand | Hyre resting on a small round cushion with its seam dim, a small clay hourglass beside it whose falling sand is terracotta; no character.
+36. state-admin-only.png | SPOT | ACCENT: the key's bow | A closed ivory clay folder with a soft fabric padlock tag; a clay key lies beside it with a terracotta bow; no character.
+37. state-maintenance.png | HERO | ACCENT: the wrench | Meera tightening a small bolt on a clay staircase-mark sculpture with a terracotta wrench, a tidy small toolbox at her feet.
+38. apply-header.png | BAND | ACCENT: the paper plane | A calm wide desk scene: a closed laptop, a mug with a wisp of steam, a small plant on two books, and a terracotta paper plane resting at the desk's edge; no characters; lots of empty space.
+39. apply-thanks.png | HERO | ACCENT: the paper plane | The terracotta paper plane landed in a soft shallow clay tray, a small ivory tick seal beside it; no character.
+40. apply-closed.png | SPOT | ACCENT: the knot | A clay clipboard with a soft fabric ribbon tied across it in a bow, the knot terracotta; no character.
+41. email-invite-header.png | EMAIL | ACCENT: the map pin | A small unfolded clay map with a dashed path ending at a terracotta pin, centred, lots of white space; no character.
+42. email-digest-header.png | EMAIL | ACCENT: nothing else (Hyre's seam is the only terracotta) | Hyre beside a short stack of candidate cards and a small calendar block, soft glow, centred, lots of white space; no character.
+43. og-default.png | OG | ACCENT: the top step | The clay staircase from the sign-in scene with Tara, Kabir and Hyre on the left half only; the right half empty.
+44. og-apply.png | OG | ACCENT: the paper plane | The desk scene with the terracotta paper plane on the left half only; the right half empty.
+45. working-sourcing.png | SPOT | ACCENT: nothing else (Hyre's seam is the only terracotta) | Hyre bright with three tiny orbiting dots; ivory candidate cards rising gently from a shallow tray toward it; no character.
+46. working-matching.png | SPOT | ACCENT: the lowest ring | Hyre above a funnel of three stacked clay rings, two cards passing through the rings; the lowest ring terracotta; no character.
+47. working-documents.png | SPOT | ACCENT: the roller handle | A document sheet being fed into a soft clay roller and coming out the other side as neat raised lines; the roller's handle terracotta; no character.
+48. spot-candidate.png | SPOT | ACCENT: the terracotta part named here | A single ivory candidate card (empty circle and three raised lines) with a terracotta circle, alone, centred, simple, readable at 64 px.
+49. spot-campaign.png | SPOT | ACCENT: the terracotta part named here | An ivory index card pinned to a small clay board with a terracotta pin, alone, centred, simple, readable at 64 px.
+50. spot-client.png | SPOT | ACCENT: the terracotta part named here | A business card standing in a small clay holder, the card terracotta, alone, centred, simple, readable at 64 px.
+51. spot-form.png | SPOT | ACCENT: the terracotta part named here | A clay clipboard with a form sheet, the clip terracotta, alone, centred, simple, readable at 64 px.
+52. spot-call.png | SPOT | ACCENT: the terracotta part named here | A soft rounded clay phone handset in terracotta, alone, centred, simple, readable at 64 px.
+53. spot-task.png | SPOT | ACCENT: the terracotta part named here | A single card with a raised tick mark, the tick terracotta, alone, centred, simple, readable at 64 px.
+54. spot-agent.png | SPOT | ACCENT: the terracotta part named here | Hyre alone, seam softly glowing (the only terracotta), alone, centred, simple, readable at 64 px.
+55. spot-export.png | SPOT | ACCENT: the terracotta part named here | A spreadsheet-like tile of raised squares with a terracotta corner fold, alone, centred, simple, readable at 64 px.
+56. spot-calendar.png | SPOT | ACCENT: the terracotta part named here | A chunky square clay calendar block with ring binding, the binding terracotta, alone, centred, simple, readable at 64 px.
+57. spot-mail.png | SPOT | ACCENT: the terracotta part named here | An ivory envelope with a terracotta seal, alone, centred, simple, readable at 64 px.
+58. spot-team.png | SPOT | ACCENT: the terracotta part named here | Three small folded name cards in a row, the middle one terracotta, alone, centred, simple, readable at 64 px.
+59. spot-lock.png | SPOT | ACCENT: the terracotta part named here | A soft fabric padlock tag on a short loop, the tag terracotta, alone, centred, simple, readable at 64 px.
+
+That is 59 images in total. Start now with number 1 and keep going, one image at a time, until number 59 is done.

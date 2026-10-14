@@ -1,12 +1,20 @@
 import {
-  ArrowRight, Check, DotsThree, MagnifyingGlass, Minus, Plus, SortAscending, X,
+  ArrowRight, Check, DotsThree, MagnifyingGlass, Plus, SortAscending, X,
 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CampaignRow, CampaignStatus } from "./campaignsData";
-import { CAMPAIGN_ROWS, DEPARTMENTS, STATUS_LABEL, TEAM, newCampaign } from "./campaignsData";
-import { Avatar } from "./CandidateBits";
-import { Num, Popover, Toaster, useToast } from "./Contacts";
-import { Dialog } from "./ui";
+import { STATUS_LABEL } from "./campaignsData";
+import { duplicateCampaign, refreshCampaignList, resolveCampaignId, retryCampaigns, setCampaignStatus, useCampaignRows, useCampaignsFailed, useCampaignsReady } from "./campaignStore";
+import { campaignsEmpty } from "./campaignsEmpty";
+import { joinParts, plainText } from "./displayText";
+import { AssignDialog, ConfirmDialog, ReopenDialog } from "./RoleBits";
+import { can, canSetStatus, standingOf, useCan } from "./can";
+import { useSession, visibleCampaigns } from "./roleStore";
+import { Num, Popover, useToast } from "./Contacts";
+import { EmptyArt } from "./EmptyArt";
+import { createdMessage, NewCampaignDialog } from "./NewCampaign";
+import { Loader } from "./components/Loader";
+import { LoadFailed } from "./ui";
 import "./campaigns-page.css";
 
 /**
@@ -28,8 +36,6 @@ type Sort = "updated" | "name" | "progress";
 const FILTERS: readonly { id: Filter; label: string }[] = [
   { id: "all", label: "All" },
   { id: "active", label: "Active" },
-  { id: "paused", label: "Paused" },
-  { id: "draft", label: "Drafts" },
   { id: "closed", label: "Closed" },
 ];
 
@@ -42,13 +48,36 @@ const AGO_ORDER = (s: string): number => {
 };
 
 export function CampaignsPage({ onOpen }: { onOpen: (c: CampaignRow) => void }) {
-  const [rows, setRows] = useState<readonly CampaignRow[]>(CAMPAIGN_ROWS);
+  /* Live rows from the store, narrowed to the campaigns this session may see:
+     all of them for an admin, only the assigned ones for a recruiter. */
+  const allRows = useCampaignRows();
+  const ready = useCampaignsReady();
+  /* A list that failed to load is not an empty one: say so, with a way to ask again. */
+  const failed = useCampaignsFailed();
+  const session = useSession();
+  const rows = useMemo(() => visibleCampaigns(allRows, session), [allRows, session]);
+  const admin = can(standingOf(session), "campaign.create");
+  const [assigning, setAssigning] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<string | null>(null);
+  const [reopening, setReopening] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<Sort>("updated");
   const [creating, setCreating] = useState(false);
-  const [fresh, setFresh] = useState<string | null>(null);
+  const [made, setFresh] = useState<string | null>(null);
+  /* A campaign made here gets its real id when the API answers; follow it. */
+  const fresh = made && resolveCampaignId(made);
   const toast = useToast();
+
+  /* Figures that moved elsewhere (a shortlist made in chat) are read again when the list is opened. */
+  useEffect(() => { refreshCampaignList(); }, []);
+
+  /* Arriving from Home's "New campaign": open the same dialog here. */
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem("sh-new-campaign")) { sessionStorage.removeItem("sh-new-campaign"); if (admin) setCreating(true); }
+    } catch { /* storage unavailable: the button still lands on this page */ }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const count = (f: Filter) => (f === "all" ? rows.length : rows.filter((r) => r.status === f).length);
   const shown = useMemo(() => {
@@ -62,56 +91,54 @@ export function CampaignsPage({ onOpen }: { onOpen: (c: CampaignRow) => void }) 
         : AGO_ORDER(a.updatedAgo) - AGO_ORDER(b.updatedAgo)));
   }, [rows, filter, q, sort, fresh]);
 
-  const active = rows.filter((r) => r.status === "active").length;
   const needYou = rows.filter((r) => r.needs && r.status !== "closed").length;
-  const hired = rows.reduce((a, r) => a + r.funnel.hired, 0);
 
-  const setStatus = (id: string, status: CampaignStatus) => {
-    setRows((cur) => cur.map((r) => (r.id === id ? { ...r, status, updatedAgo: "Just now", agents: status === "active" ? (r.agents.length ? r.agents : ["Sourcing"]) : [] } : r)));
+  /* Said once the server has answered: a refusal puts the status back and says why. */
+  const setStatus = (id: string, status: CampaignStatus, said: string, undo?: () => void) => {
+    void setCampaignStatus(id, status).then((ok) => { if (ok) toast(said, "done", undo ? { label: "Undo", onClick: undo } : undefined); });
   };
+  const confirmRow = confirm ? allRows.find((r) => r.id === confirm) : undefined;
+  const reopenRow = reopening ? allRows.find((r) => r.id === reopening) : undefined;
+  const empty = campaignsEmpty({ filter, q, total: rows.length, admin });
+  /* The tab counts say nothing until the list has arrived: "All 0" over a skeleton is a wrong answer. */
+  const counted = ready && !(failed && allRows.length === 0);
 
   return (
     <div className="cg">
       <header className="cg-head">
         <div>
           <h1 className="cg-h1">Campaigns</h1>
-          <p className="cg-lede">
-            <Num n={rows.length} /> campaigns<span className="cg-dot" aria-hidden="true" />
-            <Num n={active} /> active<span className="cg-dot" aria-hidden="true" />
-            <Num n={hired} /> hired so far
-            {needYou > 0 && (
-              <>
-                <span className="cg-dot" aria-hidden="true" />
-                <button type="button" className="cg-lede-need" onClick={() => { setFilter("all"); setSort("updated"); setQ(""); document.querySelector(".cg-row.has-need")?.scrollIntoView({ block: "center", behavior: "smooth" }); }}>
-                  <Num n={needYou} /> need you
-                </button>
-              </>
-            )}
-          </p>
+          {needYou > 0 && (
+            <button type="button" className="cg-lede-need" onClick={() => { setFilter("all"); setSort("updated"); setQ(""); document.querySelector(".cg-row.has-need")?.scrollIntoView({ block: "center", behavior: "smooth" }); }}>
+              <Num n={needYou} /> need you
+            </button>
+          )}
         </div>
-        <button type="button" className="cg-new" onClick={() => setCreating(true)}>
-          <span className="cg-new-ico" aria-hidden="true"><Plus size={14} weight="bold" /></span>
-          New campaign
-        </button>
+        {admin && (
+          <button type="button" className="cg-new" onClick={() => setCreating(true)}>
+            <span className="cg-new-ico" aria-hidden="true"><Plus size={14} weight="bold" /></span>
+            New campaign
+          </button>
+        )}
       </header>
 
       <div className="cg-bar">
         <nav className="cg-tabs" aria-label="Status">
           {FILTERS.map((f) => (
             <button key={f.id} type="button" className={`cg-tab${filter === f.id ? " is-on" : ""}`} aria-pressed={filter === f.id} onClick={() => setFilter(f.id)}>
-              {f.label}<span className="cg-tab-n">{count(f.id)}</span>
+              {f.label}{counted && <span className="cg-tab-n">{count(f.id)}</span>}
             </button>
           ))}
         </nav>
         <label className="cg-search">
           <MagnifyingGlass size={15} aria-hidden="true" />
-          <input id="cg-search" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search campaigns, teams or owners" spellCheck={false} />
+          <input id="cg-search" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search campaigns" spellCheck={false} />
           {q && <button type="button" className="cg-search-x" onClick={() => setQ("")} aria-label="Clear search"><X size={12} weight="bold" /></button>}
         </label>
         <SortMenu sort={sort} onChange={setSort} />
       </div>
 
-      <ul
+      {!ready ? <Loader size="lg" label="Loading campaigns" block /> : failed && allRows.length === 0 ? <LoadFailed what="Your campaigns" onRetry={retryCampaigns} /> : <ul
         className="cg-list"
         key={`${filter}-${sort}`}
         onKeyDown={(e) => {
@@ -132,63 +159,106 @@ export function CampaignsPage({ onOpen }: { onOpen: (c: CampaignRow) => void }) 
               r={r}
               fresh={r.id === fresh}
               onOpen={() => onOpen(r)}
-              onStatus={(s) => {
-                setStatus(r.id, s);
-                toast(s === "active" ? `${r.name} resumed` : s === "paused" ? `${r.name} paused` : `${r.name} closed`);
-              }}
+              admin={admin}
+              mayClose={canSetStatus(session, r) || (!r.ownerId && r.owner === session.name)}
+              onAssign={() => setAssigning(r.id)}
+              onClose={() => setConfirm(r.id)}
+              /* Reopening asks first, like closing; then it says what happened and offers the way out. */
+              onReopen={() => setReopening(r.id)}
               onDuplicate={() => {
-                const copy = { ...r, id: `${r.id}-copy-${Date.now().toString(36)}`, name: `${r.name} (copy)`, status: "draft" as const, funnel: { ...r.funnel, sourced: 0, shortlisted: 0, contacted: 0, replied: 0, interviews: 0, hired: 0 }, trend: r.trend.map(() => 0), agents: [], needs: "Brief not finished", updatedAgo: "Just now", createdAgo: "Just now" };
-                setRows((cur) => [copy, ...cur]);
+                const copy = duplicateCampaign(r.id);
+                if (!copy) return;
                 setFresh(copy.id);
-                toast("Duplicated as a draft");
+                toast("Campaign duplicated");
               }}
             />
           </li>
         ))}
-      </ul>
-      {!shown.length && (
+      </ul>}
+      {ready && !(failed && allRows.length === 0) && !shown.length && (
         <div className="cg-empty">
-          <p className="cg-empty-h">{q ? `No campaign matches “${q}”.` : `No ${STATUS_LABEL[filter as CampaignStatus]?.toLowerCase() ?? ""} campaigns.`}</p>
-          <button type="button" className="cg-btn" onClick={() => setCreating(true)}><Plus size={13} weight="bold" /> New campaign</button>
+          <EmptyArt {...empty.art} />
+          <p className="cg-empty-h">{empty.message}</p>
+          {empty.canClear && <button type="button" className="cg-btn" onClick={() => setQ("")}>Clear search</button>}
+          {empty.hint && <p className="cg-empty-sub">{empty.hint}</p>}
         </div>
       )}
 
-      <NewCampaign
+      <NewCampaignDialog
         open={creating}
         onClose={() => setCreating(false)}
-        onCreate={(c) => {
-          setRows((cur) => [c, ...cur]);
+        onCreated={(c, saved) => {
           setFresh(c.id);
           setFilter("all");
           setQ("");
           setCreating(false);
-          toast(c.status === "active" ? `${c.name} created, sourcing has started` : `${c.name} saved as a draft`);
+          // Said once the server has it; a refusal shows its own message instead.
+          void saved.then((ok) => ok && toast(createdMessage(c)));
         }}
       />
-      <Toaster />
+      <AssignDialog row={allRows.find((r) => r.id === assigning)} open={!!assigning} onClose={() => setAssigning(null)} />
+      <ConfirmDialog
+        open={!!confirmRow}
+        title="Close this campaign?"
+        body={confirmRow && <><b>{confirmRow.name}</b> stops here: {confirmRow.funnel.hired} of {confirmRow.target} hired. Sourcing and outreach stop, and everyone in the pipeline stays on record. You can reopen it any time.</>}
+        confirm="Close campaign"
+        danger
+        onClose={() => setConfirm(null)}
+        onConfirm={() => {
+          if (!confirmRow) return;
+          setStatus(confirmRow.id, "closed", `${confirmRow.name} closed`);
+          setConfirm(null);
+        }}
+      />
+      <ReopenDialog
+        open={!!reopenRow}
+        name={reopenRow ? plainText(reopenRow.name) : ""}
+        onClose={() => setReopening(null)}
+        onConfirm={() => {
+          if (!reopenRow) return;
+          const was = plainText(reopenRow.name);
+          setStatus(reopenRow.id, "active", `${was} is active again`, () => setStatus(reopenRow.id, "closed", `${was} closed`));
+          setReopening(null);
+        }}
+      />
     </div>
   );
 }
 
 /* ── a campaign ── */
 
-function Row({ r, fresh, onOpen, onStatus, onDuplicate }: {
+function Row({ r, fresh, onOpen, admin, mayClose, onAssign, onClose, onReopen, onDuplicate }: {
   r: CampaignRow;
   fresh: boolean;
   onOpen: () => void;
-  onStatus: (s: CampaignStatus) => void;
+  admin: boolean;
+  /** The campaign's owner or an admin: the people the server lets close and reopen it. */
+  mayClose: boolean;
+  onAssign: () => void;
+  onClose: () => void;
+  onReopen: () => void;
   onDuplicate: () => void;
 }) {
   const need = r.needs && r.status !== "closed" ? r.needs : null;
-  const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : "–");
+  /* Stages also take people the search didn't find, so a step can outnumber the one before it: no share over 100%. */
+  const pct = (a: number, b: number) => (b && a <= b ? `${Math.round((a / b) * 100)}%` : "–");
   const recent = r.trend.reduce((x, y) => x + y, 0);
   /* Each number's label swaps, on hover, for the fact behind it: how much of
      the step before it made it through, or how recent it is. */
-  const stats: readonly [string, number, string][] = [
-    ["Sourced", r.funnel.sourced, recent ? `+${recent} in 14d` : "None in 14d"],
-    ["Shortlisted", r.funnel.shortlisted, `${pct(r.funnel.shortlisted, r.funnel.sourced)} of sourced`],
-    ["Interviewing", r.funnel.interviews, `${pct(r.funnel.interviews, r.funnel.shortlisted)} of shortlisted`],
-  ];
+  /* A live campaign says what its Overview says: how far people got, and the server's own conversions. */
+  const reached = r.reached;
+  const share = (n: number | null | undefined) => (typeof n === "number" ? `${n}%` : "–");
+  const stats: readonly [string, number, string][] = reached
+    ? [
+        ["Sourced", reached.found, r.loading ? "Counting" : recent ? `+${recent} in 14 days` : "No new people in 14 days"],
+        ["Shortlisted", reached.shortlisted, `${share(r.rates?.kept)} of sourced`],
+        ["Interviewing", reached.interviewing, `${share(r.rates?.interviewing)} of contacted`],
+      ]
+    : [
+        ["Sourced", r.funnel.sourced, r.loading ? "Counting" : recent ? `+${recent} in 14 days` : "No new people in 14 days"],
+        ["Shortlisted", r.funnel.shortlisted, `${pct(r.funnel.shortlisted, r.funnel.sourced)} of sourced`],
+        ["Interviewing", r.funnel.interviews, `${pct(r.funnel.interviews, r.funnel.shortlisted)} of shortlisted`],
+      ];
   return (
     <article
       className={`cg-row is-${r.status}${need ? " has-need" : ""}${fresh ? " is-fresh" : ""}`}
@@ -196,22 +266,18 @@ function Row({ r, fresh, onOpen, onStatus, onDuplicate }: {
     >
       <div className="cg-id">
         <div className="cg-id-top">
-          <button type="button" className="cg-name" onClick={onOpen}>
-            {r.name}
+          <button type="button" className="cg-name" onClick={onOpen} title={plainText(r.name)}>
+            <span className="cg-name-t">{plainText(r.name)}</span>
             <ArrowRight size={13} weight="bold" className="cg-name-go" aria-hidden="true" />
           </button>
-          {/* Active is the normal state, so it carries no label; only the
-              exceptions (paused, draft, closed) say what they are. */}
+          {/* Active is the normal state, so it carries no label; a closed campaign says so. */}
           {r.status !== "active" && (
-            <span className={`cg-status is-${r.status}`}>
-              <svg width="6" height="6" aria-hidden="true"><circle cx="3" cy="3" r="3" /></svg>
-              {STATUS_LABEL[r.status]}
-            </span>
+            <span className={`cg-status is-${r.status}`}>{STATUS_LABEL[r.status]}</span>
           )}
           {fresh && <span className="cg-newtag">New</span>}
         </div>
         <p className="cg-meta">
-          {r.department} · {r.location} · {r.owner}
+          {joinParts([r.department, r.location])}{joinParts([r.department, r.location]) && " · "}<span title={r.team.map(plainText).join(", ")}>{plainText(r.owner)}{r.team.length > 1 && ` +${r.team.length - 1}`}</span>
           {need && <span className="cg-need"> · {need}</span>}
         </p>
       </div>
@@ -219,7 +285,7 @@ function Row({ r, fresh, onOpen, onStatus, onDuplicate }: {
       <dl className="cg-stats">
         {stats.map(([k, v, more]) => (
           <div key={k} className={`cg-stat${v ? "" : " is-zero"}`}>
-            <dd>{v}</dd>
+            <dd>{r.loading && k === "Sourced" ? <span className="sh-b sh-line is-tag" aria-label="Counting" /> : v}</dd>
             <dt className="cg-swap"><span>{k}</span><span>{more}</span></dt>
           </div>
         ))}
@@ -227,7 +293,7 @@ function Row({ r, fresh, onOpen, onStatus, onDuplicate }: {
 
       <Goal hired={r.funnel.hired} target={r.target} />
 
-      <RowMenu status={r.status} onOpen={onOpen} onStatus={onStatus} onDuplicate={onDuplicate} />
+      <RowMenu status={r.status} admin={admin} mayClose={mayClose} onOpen={onOpen} onAssign={onAssign} onClose={onClose} onReopen={onReopen} onDuplicate={onDuplicate} />
     </article>
   );
 }
@@ -259,15 +325,21 @@ function Goal({ hired, target }: { hired: number; target: number }) {
   );
 }
 
-function RowMenu({ status, onOpen, onStatus, onDuplicate }: {
+function RowMenu({ status, admin, mayClose, onOpen, onAssign, onClose, onReopen, onDuplicate }: {
   status: CampaignStatus;
+  admin: boolean;
+  mayClose: boolean;
   onOpen: () => void;
-  onStatus: (s: CampaignStatus) => void;
+  onAssign: () => void;
+  onClose: () => void;
+  onReopen: () => void;
   onDuplicate: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLButtonElement>(null);
   const close = useCallback(() => setOpen(false), []);
+  /* Giving a campaign to recruiters is about a team: Personal has none, so it isn't offered there. */
+  const assigns = useCan("campaign.assign");
   const item = (label: string, fn: () => void, tone?: "danger") => (
     <button type="button" role="menuitem" className={`ct-menu-i${tone ? " is-danger" : ""}`} onClick={() => { fn(); close(); }}>
       <span className="ct-menu-t">{label}</span>
@@ -281,10 +353,11 @@ function RowMenu({ status, onOpen, onStatus, onDuplicate }: {
       <Popover anchor={ref} open={open} onClose={close} align="end" width={200}>
         <div className="ct-menu" role="menu">
           {item("Open in agent", onOpen)}
-          {status === "active" && item("Pause", () => onStatus("paused"))}
-          {(status === "paused" || status === "draft") && item(status === "draft" ? "Start sourcing" : "Resume", () => onStatus("active"))}
-          {item("Duplicate", onDuplicate)}
-          {status !== "closed" && item("Close campaign", () => onStatus("closed"), "danger")}
+          {/* The campaign's owner or an admin; absent (not disabled) for everyone else. */}
+          {mayClose && status === "active" && item("Close campaign", onClose, "danger")}
+          {mayClose && status === "closed" && item("Reopen campaign", onReopen)}
+          {assigns && item("Assign recruiters", onAssign)}
+          {admin && item("Duplicate", onDuplicate)}
         </div>
       </Popover>
     </>
@@ -312,101 +385,5 @@ function SortMenu({ sort, onChange }: { sort: Sort; onChange: (s: Sort) => void 
         </div>
       </Popover>
     </>
-  );
-}
-
-/* ── new campaign ──
-   Five answers, all on one screen, and a summary line that reads back what
-   will be made. The agent can start sourcing the moment it is created. */
-
-function NewCampaign({ open, onClose, onCreate }: { open: boolean; onClose: () => void; onCreate: (c: CampaignRow) => void }) {
-  const [name, setName] = useState("");
-  const [department, setDepartment] = useState<string>("Engineering");
-  const [location, setLocation] = useState("");
-  const [target, setTarget] = useState(1);
-  const [owner, setOwner] = useState<string>(TEAM[0]);
-  const [agent, setAgent] = useState(true);
-  const nameRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    setName(""); setDepartment("Engineering"); setLocation(""); setTarget(1); setOwner(TEAM[0]); setAgent(true);
-    const id = window.setTimeout(() => nameRef.current?.focus(), 60);
-    return () => window.clearTimeout(id);
-  }, [open]);
-
-  const ok = name.trim().length > 1;
-  const submit = () => {
-    if (!ok) { nameRef.current?.focus(); return; }
-    onCreate(newCampaign({ name: name.trim(), department, location: location.trim(), target, owner, agent }));
-  };
-
-  return (
-    <Dialog open={open} onClose={onClose} label="New campaign" size="md">
-      <form className="nc" onSubmit={(e) => { e.preventDefault(); submit(); }}>
-        <header className="nc-head">
-          <h2>New campaign</h2>
-          <p>Name the role you are hiring for. You can refine the brief with the agent afterwards.</p>
-        </header>
-
-        <div className="nc-body">
-          <label className="nc-field">
-            <span className="nc-l">Role</span>
-            <input ref={nameRef} id="nc-name" className="nc-input is-big" value={name} onChange={(e) => setName(e.target.value)} placeholder="Senior Backend Engineers" autoComplete="off" spellCheck={false} />
-          </label>
-
-          <div className="nc-field">
-            <span className="nc-l">Team</span>
-            <div className="nc-chips" role="radiogroup" aria-label="Team">
-              {DEPARTMENTS.map((d) => (
-                <button key={d} type="button" role="radio" aria-checked={department === d} className={`nc-chip${department === d ? " is-on" : ""}`} onClick={() => setDepartment(d)}>{d}</button>
-              ))}
-            </div>
-          </div>
-
-          <div className="nc-row">
-            <label className="nc-field">
-              <span className="nc-l">Location</span>
-              <input id="nc-loc" className="nc-input" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Bangalore, or Remote" autoComplete="off" />
-            </label>
-            <div className="nc-field">
-              <span className="nc-l">Hires to make</span>
-              <div className="nc-step">
-                <button type="button" onClick={() => setTarget((t) => Math.max(1, t - 1))} disabled={target <= 1} aria-label="Fewer hires"><Minus size={13} weight="bold" /></button>
-                <span className="nc-step-v" key={target}>{target}</span>
-                <button type="button" onClick={() => setTarget((t) => Math.min(50, t + 1))} aria-label="More hires"><Plus size={13} weight="bold" /></button>
-              </div>
-            </div>
-          </div>
-
-          <div className="nc-field">
-            <span className="nc-l">Owner</span>
-            <div className="nc-chips" role="radiogroup" aria-label="Owner">
-              {TEAM.map((m) => (
-                <button key={m} type="button" role="radio" aria-checked={owner === m} className={`nc-chip has-face${owner === m ? " is-on" : ""}`} onClick={() => setOwner(m)}>
-                  <Avatar name={m} hue="brand" size={20} />{m}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <button type="button" className={`nc-agent${agent ? " is-on" : ""}`} role="switch" aria-checked={agent} onClick={() => setAgent((a) => !a)}>
-            <span className="nc-agent-t">
-              <strong>Start sourcing right away</strong>
-              <span>A sourcing agent begins building the search as soon as the campaign exists.</span>
-            </span>
-            <span className="nc-switch" aria-hidden="true"><span /></span>
-          </button>
-        </div>
-
-        <footer className="nc-foot">
-          <p className="nc-sum">
-            {ok ? <><strong>{name.trim()}</strong> · {department} · {location.trim() || "Remote"} · {target} {target === 1 ? "hire" : "hires"}</> : "Give the campaign a role to create it."}
-          </p>
-          <button type="button" className="cg-btn" onClick={onClose}>Cancel</button>
-          <button type="submit" className="cg-new" disabled={!ok}>{agent ? "Create and start" : "Save as draft"}</button>
-        </footer>
-      </form>
-    </Dialog>
   );
 }

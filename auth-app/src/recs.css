@@ -1,160 +1,116 @@
-/* ═══════════════════════════════ ideas (Recs) ═══════════════════════════════
-   Three soft tiles: an icon and a sentence. No borders at rest, no tags, no
-   meters. A tile answers the pointer by lifting to white with a hairline and
-   a soft shadow, and its icon warms to the accent. That is the whole
-   interaction vocabulary.                                                  */
+/* ═══════════════════════ ideas (IdeaChips, Recs.tsx) ═══════════════════════
+   One line under the composer: up to three chips and a search button at the
+   end. It never wraps. A chip is cut with an ellipsis before it is allowed to
+   push another down a row, and the count of chips is chosen from the row's
+   width in script (recs.ts, chipLimit), so on a narrow screen there are fewer
+   rather than smaller.
 
-.rc { display: grid; gap: 10px; min-width: 0; margin-top: 22px; container-type: inline-size; }
+   Plain text on a hairline pill, no icon, no shadow: the composer above is the
+   one raised thing on the page and these are the quiet way in. The hover
+   answers with the border and the ink, nothing else.
 
-.rc-cards {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.rc-cards > li { display: grid; min-width: 0; animation: rc-deal 420ms var(--ease-out) both; }
+   The selectors carry `.orc` so they outrank access.css, which loads last.   */
 
-@keyframes rc-deal {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: none; }
-}
-
-.rc-card {
-  position: relative;
-  display: grid;
-  align-content: start;
-  gap: 10px;
-  min-height: 108px;
-  padding: 12px 14px 14px;
-  border: 1px solid rgba(26, 22, 20, 0.05);
-  border-radius: 16px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.72) 0%, rgba(247, 244, 241, 0.55) 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    0 1px 2px rgba(26, 22, 20, 0.04),
-    0 4px 14px -6px rgba(26, 22, 20, 0.08);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
-  text-align: left;
-  cursor: pointer;
-  transition: background-color 240ms var(--ease-out), border-color 240ms var(--ease-out), box-shadow 280ms var(--ease-out);
-}
-.rc-card:hover, .rc-card:focus-visible {
-  background: #fff;
-  border-color: rgba(234, 90, 30, 0.18);
-  box-shadow:
-    inset 0 1px 0 #fff,
-    0 1px 2px rgba(26, 22, 20, 0.05),
-    0 14px 30px -14px rgba(204, 77, 23, 0.30);
-}
-.rc-card:active { transform: scale(0.98); transition: transform 80ms var(--ease-out); }
-.rc-card:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-
-/* The icon sits in a soft circle that warms on hover. */
-.rc-ico {
-  box-sizing: content-box;
-  padding: 7px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.8);
-  box-shadow: 0 1px 2px rgba(26, 22, 20, 0.06);
-  color: var(--ink-2);
-  transition: color 240ms var(--ease-out), background-color 240ms var(--ease-out), box-shadow 240ms var(--ease-out);
-}
-.rc-card:hover .rc-ico, .rc-card:focus-visible .rc-ico {
-  background: var(--accent-tint);
-  color: var(--accent);
-  box-shadow: 0 0 0 4px rgba(234, 90, 30, 0.06);
-}
-
-/* A small arrow fades in, bottom right: this tile does something. */
-.rc-card::after {
-  content: "→";
-  position: absolute;
-  right: 14px;
-  bottom: 12px;
-  font: 500 14px/1 var(--ui);
-  color: var(--accent);
-  opacity: 0;
-  transform: translateX(-4px);
-  transition: opacity 220ms var(--ease-out), transform 280ms var(--ease-out);
-}
-.rc-card:hover::after, .rc-card:focus-visible::after { opacity: 1; transform: none; }
-
-.rc-prompt {
-  font: 400 13.5px/1.45 var(--ui);
-  letter-spacing: -0.008em;
-  color: var(--ink);
-  text-wrap: pretty;
-}
-
-/* On the heading's line, top right, so it costs the landing view no height. */
-.rc { position: relative; }
-.rc-more {
-  position: absolute;
-  right: 0;
-  top: -42px;
-  display: inline-flex;
+.orc .orc-chips {
+  display: flex;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 6px;
-  padding: 4px 2px;
-  border: 0;
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  margin-top: 12px;
+  overflow: hidden;
+  /* Its natural width is the chips laid end to end, which would otherwise be what the column's
+     minimum becomes: on a phone the whole page grew to fit sentences that are meant to be cut. */
+  contain: inline-size;
+}
+
+.orc .orc-chip {
+  /* A chip keeps the room its words need (recs.ts, fitChips chose them to fit), so it is dropped whole rather than squeezed. */
+  flex: 0 0 auto;
+  min-width: 0;
+  max-width: 100%;
+  height: 32px;
+  padding: 0 11px;
+  border: 1px solid var(--nav-rule);
+  border-radius: var(--r-pill);
   background: transparent;
-  font: 500 12px/1 var(--ui);
+  color: var(--ink-2);
+  font: 400 13px/1 var(--ui);
+  letter-spacing: -0.006em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color var(--t), border-color var(--t), background-color var(--t);
+}
+.orc .orc-chip-t { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.orc .orc-chip:hover { color: var(--ink); border-color: var(--nav-edge-panel); background: var(--nav-surface); }
+.orc .orc-chip:active { transform: scale(0.98); transition: transform 80ms var(--ease-out); }
+.orc .orc-chip:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* Docked under a conversation the row is a touch closer to the bar, to give the transcript the room back. */
+.orc .orc-stream.is-live .orc-chips { margin-top: 8px; }
+
+/* Search, at the right end of the row whatever else is in it. */
+.orc .orc-find {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
   color: var(--ink-2);
   cursor: pointer;
-  transition: color var(--t);
+  transition: color var(--t), background-color var(--t);
 }
-.rc-more:hover { color: var(--ink); }
-.rc-more svg { transition: transform 460ms var(--ease-out); }
-.rc-more:hover svg { transform: rotate(180deg); }
-.rc-more:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+.orc .orc-find:hover { color: var(--ink); background: var(--nav-hover); }
+.orc .orc-find:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 
 /* The composer's ghost preview of a hovered idea. */
 .orc-input.is-preview::placeholder { color: var(--ink-2); opacity: 0.75; }
 
-@container (max-width: 380px) {
-  .rc-cards { grid-template-columns: minmax(0, 1fr); }
-  .rc-card { min-height: 0; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px; padding: 12px 14px; }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .rc-cards > li { animation: none; }
-  .rc-ico, .rc-more svg, .rc-card::after { transition: none; }
+  .orc .orc-chip, .orc .orc-find { transition: none; }
 }
 
-/* ── the background mark ──
-   Only in the default view: the empty landing, before anything is typed or
-   previewed. It is the brand saying whose surface this is while the page is
-   still a blank invitation; the moment someone starts writing (or hovers an
-   idea) it steps out of the way, and it never shows behind a conversation.
-   Still, not animated: a drifting mark at this opacity read as flickering.
-
-   `isolation` on the stream makes z-index -1 sit above the stream's ground
-   but below everything written on it. */
-.orc-stream { isolation: isolate; }
-.orc-bgmark {
-  position: absolute;
-  left: 50%;
-  top: 44%;
-  z-index: -1;
-  width: min(440px, 76%);
-  aspect-ratio: 34 / 35;
-  translate: -50% -50%;
-  color: var(--accent);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 320ms var(--ease-out);
+/* ═════════════ the list under the composer (IdeaList, Recs.tsx) ═════════════
+   Three suggestions one under the other, each a full sentence, and a last line to search past chats. Quiet:
+   no border, a small icon, the ink goes up and a faint wash shows on hover. It never wraps a sentence off the
+   column, and it sits in the composer's own block so it can never overlap the field. */
+.orc .orc-ideas {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  min-width: 0;
+  margin-top: 10px;
 }
-.orc-bgmark svg { width: 100%; height: 100%; display: block; }
-.orc-bgmark[data-idle="1"]:not(.is-out) { opacity: 0.05; transition-duration: 600ms; }
-
-@media (prefers-reduced-motion: reduce) {
-  .orc-bgmark { transition: none; }
+.orc .orc-idea {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink-2);
+  font: 400 13.5px/1.4 var(--ui);
+  letter-spacing: -0.006em;
+  text-align: left;
+  cursor: pointer;
+  transition: color var(--t), background-color var(--t);
 }
-
-/* The space that seats the composer on the Configuration panel's baseline
-   goes between the heading and the ideas, so the heading stays at the top of
-   the page and the ideas stay with the composer they feed. */
-.orc-intro .rc { margin-top: calc(22px + var(--land-push, 0px)); }
+.orc .orc-idea svg { flex: none; }
+.orc .orc-idea span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.orc .orc-idea:hover { color: var(--ink); background: var(--nav-hover, var(--sub)); }
+.orc .orc-idea:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.orc .orc-idea-find { color: var(--ink-2); }
+@media (max-width: 640px) { .orc .orc-idea span { white-space: normal; } }
+@media (prefers-reduced-motion: reduce) { .orc .orc-idea { transition: none; } }

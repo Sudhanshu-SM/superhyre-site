@@ -64,7 +64,7 @@
 .stg-note { font: 400 12px/1.35 var(--ui); color: var(--ink-2); animation: stg-note 360ms var(--ease-out) both; }
 .stg-stage.is-live .stg-label, .stg-stage.is-wait .stg-label, .stg-stage.is-done .stg-label { color: var(--ink); }
 .stg-stage.is-wait .stg-note { color: #8a6a12; }
-.stg-stage.is-todo .stg-note { color: #9a918a; }
+.stg-stage.is-todo .stg-note { color: var(--ink-3); }
 
 /* ── nodes ── */
 .stg-node {
@@ -76,7 +76,7 @@
   border: 1.5px solid #e2ddd8;
   border-radius: 50%;
   background: #fff;
-  color: #a39a93;
+  color: var(--ink-3);
   transition: background-color 360ms var(--ease-out), border-color 360ms var(--ease-out), color 360ms var(--ease-out);
 }
 .stg-node-ico, .stg-node-ok { grid-area: 1 / 1; display: grid; place-items: center; transition: opacity 240ms var(--ease-out), transform 420ms cubic-bezier(0.34, 1.56, 0.64, 1); }

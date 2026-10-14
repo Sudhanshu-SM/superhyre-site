@@ -1,23 +1,42 @@
 import {
-  ArrowUpRight, ArrowsLeftRight, BookmarkSimple, Briefcase, GoogleChromeLogo, CaretDown, CaretLeft, CaretRight, Check, Copy, EnvelopeSimple,
-  FunnelSimple, GraduationCap, LinkedinLogo, MagnifyingGlass, MapPin, Phone, Plus, SealCheck, SortAscending, X,
+  ArrowsLeftRight, BookmarkSimple, Briefcase, CaretDown, CaretLeft, CaretRight, Check, Copy, EnvelopeSimple,
+  FunnelSimple, GraduationCap, LinkedinLogo, MagnifyingGlass, MapPin, NotePencil, PencilSimple, Phone, Plus, PuzzlePiece, SealCheck, SortAscending, Trash, UserPlus, X,
 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode, RefObject } from "react";
 import { createPortal } from "react-dom";
+import { AddCandidatesDialog } from "./AddCandidates";
+import type { AddResult } from "./AddCandidates";
+import type { CandidateDetail, Note } from "./api/candidates";
+import * as cands from "./api/candidates";
+import { LIVE, messageOf } from "./api/client";
+import { useCampaignRows } from "./campaignStore";
+import { stageLabel } from "./chatCards";
+import { statusProps } from "./statusTones";
+import { controlState, stagesFrom } from "./shortlistControl";
 import { Avatar } from "./CandidateBits";
 import type { Contact, ContactNeed, ExpBand, Filters, Seniority, SortKey } from "./contacts";
 import {
   CONTACTS, EMPTY_FILTERS, EXP_BANDS, MEMBERS, SEED_SHORTLIST, SENIORITIES, activeFilterCount, capturedLabel,
-  matches, optionsFor, sortContacts, summaryOf, tenureOf,
+  experienceLabel, matches, mostYears, optionsFor, sortContacts, summaryOf, tenureOf,
 } from "./contacts";
-import { CHROME_STORE_URL } from "./config";
-import { Dialog } from "./ui";
+import { EmptyArt } from "./EmptyArt";
+import { listEmptyArt } from "./emptyStates";
+import { Dialog, firstGlyph, LoadFailed, useBackCloses } from "./ui";
+import { emptyList } from "./emptyStates";
+import type { Campaign } from "./workspaces";
 import { CAMPAIGNS } from "./workspaces";
+import { ConfirmDialog } from "./RoleBits";
+import { useCan } from "./can";
+import { CHROME_STORE_URL } from "./config";
+import { Loader } from "./components/Loader";
+import { onInvalidate } from "./invalidate";
+import { useToast } from "./toast";
+import { useSession, visibleCampaigns } from "./roleStore";
 import "./contacts.css";
 
 /**
- * Contacts — everyone the team saved with the Chrome extension.
+ * Contacts — everyone the team has saved, by hand, by import or through the agent.
  *
  * A table first: who they are, how to reach them, which campaign they were
  * saved for, and a shortlist button on the right. Everything else (career,
@@ -25,16 +44,80 @@ import "./contacts.css";
  * that opens in the middle of the screen, so opening and closing people
  * never sends the pointer to a screen edge.
  *
- * Campaign tabs scope the list the same way the extension scopes a save.
+ * Campaign tabs scope the list the same way a save is scoped.
  * Filters are chips in one panel, no nested menus. Paging sits at the top,
  * next to the search, where the eye already is. Clicking an email or a
  * number copies it.
  */
 
-const campName = (id: string) => CAMPAIGNS.find((c) => c.id === id)?.name ?? id;
+/* The campaigns this page offers. Fixtures, or with the API the workspace's
+   own, set while the page renders so every menu and toast reads the same. */
+let campaignsNow: readonly Campaign[] = CAMPAIGNS;
+/* What the shortlist menus offer: campaigns this person works on that are still running. */
+let pickableNow: readonly Campaign[] = CAMPAIGNS;
+/* Where each person stands on each campaign they are on (campaign id to stage), so the control says "Passed"
+   for someone who was passed, not "Shortlisted". Set on each render, like the campaigns above. */
+const NO_STAGES: Readonly<Record<string, string>> = {};
+let stagesNow: Readonly<Record<string, Readonly<Record<string, string>>>> = {};
+const stagesOfNow = (personId: string): Readonly<Record<string, string>> => stagesNow[personId] ?? NO_STAGES;
+const campName = (id: string) => campaignsNow.find((c) => c.id === id)?.name ?? id;
 const MAX_COMPARE = 3;
 
 type Shortlists = Record<string, readonly string[]>;
+
+/* Contacts an admin deleted this session. Module state, so leaving the page
+   and coming back does not bring them back; a reload does, like every other
+   fixture edit in the console. */
+let deletedSoFar: ReadonlySet<string> = new Set();
+/* People added by hand this session, newest first, and edits made to anyone:
+   module state for the same reason. */
+let addedSoFar: readonly Contact[] = [];
+let editsSoFar: Record<string, ContactEdit> = {};
+
+type Profile = { detail: CandidateDetail; contact: Contact; notes: readonly Note[] };
+
+function useDebounced<T>(value: T, ms: number): T {
+  const [v, setV] = useState(value);
+  useEffect(() => {
+    const id = window.setTimeout(() => setV(value), ms);
+    return () => window.clearTimeout(id);
+  }, [value, ms]);
+  return v;
+}
+
+/** `failed`: the last load didn't arrive, so the page says so instead of "no candidates". */
+type LiveRows = { rows: readonly cands.CandidateRow[]; next: string | null; loading: boolean; failed: boolean; view: string | null };
+
+/** One page from the API. `view` names the view the rows on screen belong to. */
+function useLiveRows(query: cands.ListQuery | null, reload: number, view: string): LiveRows {
+  const [state, setState] = useState<LiveRows>({ rows: [], next: null, loading: LIVE, failed: false, view: null });
+  const toast = useToast();
+  const key = query ? cands.listPath(query) : null;
+  useEffect(() => {
+    if (!query) return;
+    let gone = false;
+    setState((s) => ({ ...s, loading: true }));
+    cands.listCandidates(query).then(
+      (r) => { if (!gone) setState({ rows: r.rows, next: r.nextCursor, loading: false, failed: false, view }); },
+      (err: unknown) => {
+        if (gone) return;
+        setState((s) => ({ ...s, loading: false, failed: true, view }));
+        toast(messageOf(err), "error");
+      },
+    );
+    return () => { gone = true; };
+    // The path is the query; the object itself is new every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, reload]);
+  return state;
+}
+
+/** The workspace's campaigns for menus: the campaign list, plus any a candidate is on that it doesn't have yet. */
+function liveCampaigns(rows: readonly { id: string; name: string; department: string; location: string }[], people: readonly cands.CandidateRow[]): Campaign[] {
+  const out: Campaign[] = rows.map((r) => ({ id: r.id, name: r.name, role: [r.department, r.location].filter(Boolean).join(" · ") }));
+  for (const r of people) for (const c of r.campaigns) if (!out.some((x) => x.id === c.id)) out.push({ id: c.id, name: c.name, role: "" });
+  return out;
+}
 
 export function ContactsPage() {
   const [camp, setCamp] = useState<string>("all");
@@ -44,18 +127,132 @@ export function ContactsPage() {
   const [page, setPage] = useState(0);
   const [size, setSize] = useState(20);
   const [selected, setSelected] = useState<readonly string[]>([]);
-  const [lists, setLists] = useState<Shortlists>(SEED_SHORTLIST);
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [lists, setLists] = useState<Shortlists>(LIVE ? {} : SEED_SHORTLIST);
+  /* A link from a call ("#/contacts?open=<id>") opens that person's profile. */
+  const [openId, setOpenId] = useState<string | null>(() => /[?&]open=([0-9a-f-]{36})(?:&|$)/i.exec(window.location.hash)?.[1] ?? null);
+  /* The same link followed while this page is open (quick find: a candidate) opens that person at once. */
+  useEffect(() => {
+    const read = () => {
+      const id = /[?&]open=([0-9a-f-]{36})(?:&|$)/i.exec(window.location.hash)?.[1];
+      if (id) setOpenId(id);
+    };
+    window.addEventListener("hashchange", read);
+    return () => window.removeEventListener("hashchange", read);
+  }, []);
   const [comparing, setComparing] = useState(false);
+  /* Recruiter edits layered over the fetched profile. With the API they are
+     the optimistic copy of a PATCH, kept until the next load replaces them. */
+  const [edits, setEditsState] = useState<Record<string, ContactEdit>>(editsSoFar);
+  const setEdits = (fn: (cur: Record<string, ContactEdit>) => Record<string, ContactEdit>) =>
+    setEditsState((cur) => { editsSoFar = fn(cur); return editsSoFar; });
+  const [added, setAdded] = useState<readonly Contact[]>(addedSoFar);
+  const [adding, setAdding] = useState(false);
+  const [addKey, setAddKey] = useState(0);
+  /* Rows just added, lit for a few seconds so the eye finds them. */
+  const [fresh, setFresh] = useState<ReadonlySet<string>>(new Set());
+  const canAdd = useCan("contact.add");
+  const [deleted, setDeleted] = useState<ReadonlySet<string>>(deletedSoFar);
+  const [confirmDelete, setConfirmDelete] = useState<readonly string[] | null>(null);
+  const canDelete = useCan("contact.delete");
   const toast = useToast();
 
-  const inCamp = useMemo(() => CONTACTS.filter((c) => camp === "all" || c.campaign === camp), [camp]);
-  const rows = useMemo(() => sortContacts(inCamp.filter((c) => matches(c, filters, q)), sort), [inCamp, filters, q, sort]);
-  const pages = Math.max(1, Math.ceil(rows.length / size));
-  const at = Math.min(page, pages - 1);
-  const shown = rows.slice(at * size, at * size + size);
+  /* ── the API's page ──
+     Filters, search and sort run on the server; paging follows its cursors,
+     one per page seen, so Back is the same page again. */
+  const [cursors, setCursors] = useState<readonly (string | null)[]>([null]);
+  const [reload, setReload] = useState(0);
+  /* Something the agent (or another page) did changed who is in the directory: read this page again. */
+  useEffect(() => onInvalidate((effects) => { if (effects.has("candidates")) setReload((k) => k + 1); }), []);
+  const dq = useDebounced(q, 250);
+  const query: cands.ListQuery | null = LIVE ? {
+    q: dq, campaignId: camp === "all" ? undefined : camp, location: filters.location[filters.location.length - 1],
+    hasEmail: filters.contact.includes("email"), hasPhone: filters.contact.includes("phone"), skills: filters.skills,
+    sort: sort === "name" ? "name" : "recent", cursor: cursors[page] ?? null, limit: size,
+  } : null;
+  const viewKey = `${camp}-${page}-${sort}-${size}-${JSON.stringify(filters)}`;
+  const live = useLiveRows(query, reload, viewKey);
+  const [details, setDetails] = useState<Readonly<Record<string, Profile>>>({});
+  const campRows = useCampaignRows();
+  const session = useSession();
+  if (LIVE) {
+    campaignsNow = liveCampaigns(campRows, live.rows);
+    pickableNow = liveCampaigns(
+      visibleCampaigns(campRows, session).filter((r) => r.status !== "closed"),
+      [],
+    );
+    stagesNow = stagesFrom(live.rows, details);
+  }
+  useEffect(() => {
+    if (!live.rows.length) return;
+    setLists((cur) => {
+      const next = { ...cur };
+      for (const r of live.rows) next[r.id] = r.campaigns.map((c) => c.id);
+      return next;
+    });
+  }, [live.rows]);
 
-  useEffect(() => { setPage(0); }, [camp, q, filters, sort, size]);
+  const withEdits = useCallback((c: Contact) => (edits[c.id] ? { ...c, ...edits[c.id] } : c), [edits]);
+  const ALL = useMemo(
+    () => (LIVE ? live.rows.map((r) => details[r.id]?.contact ?? cands.contactFromRow(r)) : [...added, ...CONTACTS])
+      .filter((c) => !deleted.has(c.id)).map(withEdits),
+    [added, withEdits, deleted, live.rows, details],
+  );
+  /* Everyone seen on any page, so compare and the profile still know people
+     after paging away from them. */
+  const seen = useRef(new Map<string, Contact>());
+  for (const c of ALL) seen.current.set(c.id, c);
+  for (const d of Object.values(details)) if (!deleted.has(d.contact.id)) seen.current.set(d.contact.id, withEdits(d.contact));
+  const know = (id: string) => (deleted.has(id) ? undefined : ALL.find((c) => c.id === id) ?? seen.current.get(id));
+
+  const loadDetail = useCallback((id: string) => {
+    cands.getCandidate(id).then(
+      (d) => setDetails((cur) => ({ ...cur, [id]: { detail: d, contact: cands.contactFromDetail(d), notes: d.notes } })),
+      (err) => toast(messageOf(err), "error"),
+    );
+  }, [toast]);
+  useEffect(() => { if (LIVE && openId) loadDetail(openId); }, [openId, loadDetail]);
+
+  const removeContacts = (ids: readonly string[]) => {
+    const next = new Set(deleted);
+    for (const id of ids) next.add(id);
+    deletedSoFar = next;
+    setDeleted(next);
+    setSelected((cur) => cur.filter((id) => !next.has(id)));
+    if (openId && next.has(openId)) setOpenId(null);
+    toast(ids.length === 1 ? "Candidate deleted" : `${ids.length} candidates deleted`);
+    if (!LIVE) return;
+    void Promise.allSettled(ids.map((id) => cands.deleteCandidate(id))).then((rs) => {
+      const failed = rs.flatMap((r, i) => (r.status === "rejected" ? [{ id: ids[i], reason: r.reason as unknown }] : []));
+      if (failed.length) {
+        setDeleted((cur) => {
+          const back = new Set(cur);
+          for (const f of failed) if (f.id) back.delete(f.id);
+          deletedSoFar = back;
+          return back;
+        });
+        toast(messageOf(failed[0]?.reason), "error");
+      }
+      setReload((k) => k + 1);
+    });
+  };
+  const toDelete = (confirmDelete ?? []).map(know).filter((c): c is Contact => !!c);
+
+  const inCamp = useMemo(() => (LIVE ? ALL : ALL.filter((c) => camp === "all" || c.campaign === camp)), [ALL, camp]);
+  const rows = useMemo(() => (LIVE ? ALL : sortContacts(inCamp.filter((c) => matches(c, filters, q)), sort)), [ALL, inCamp, filters, q, sort]);
+  const pages = LIVE ? page + (live.next ? 2 : 1) : Math.max(1, Math.ceil(rows.length / size));
+  const at = Math.min(page, pages - 1);
+  const shown = LIVE ? rows : rows.slice(at * size, at * size + size);
+  const firstN = at * size + 1;
+  const lastN = at * size + shown.length;
+
+  useEffect(() => { setPage(0); setCursors([null]); }, [camp, q, filters, sort, size]);
+  const turn = (to: number) => {
+    if (LIVE && to > page && live.next) {
+      const next = live.next;
+      setCursors((cur) => [...cur.slice(0, to), next]);
+    }
+    setPage(to);
+  };
 
   /* ── LOADING SHIMMER ──
      The table shows skeleton rows while a view is being fetched: on arrival,
@@ -63,100 +260,189 @@ export function ContactsPage() {
      is left out on purpose; it narrows what is already loaded, and a shimmer
      on every keystroke would make typing feel slow. Fixture data returns at
      once, so the wait is a short stand-in for the real request's. */
-  const viewKey = `${camp}-${page}-${sort}-${size}-${JSON.stringify(filters)}`;
-  const [loading, setLoading] = useState(true);
+  const [waiting, setLoading] = useState(true);
   const firstLoad = useRef(true);
   /* A search jumps back to page one, which changes the key; that is still a
      search, so it must not shimmer. */
   const lastQ = useRef(q);
   useEffect(() => {
+    if (LIVE) return;
     if (lastQ.current !== q) { lastQ.current = q; setLoading(false); return; }
     setLoading(true);
     const id = window.setTimeout(() => setLoading(false), firstLoad.current ? 700 : 420);
     firstLoad.current = false;
     return () => window.clearTimeout(id);
   }, [viewKey]);
+  /* With the API the rows on screen stay until new ones land; only a new
+     view (not a search) shimmers. */
+  const loading = LIVE ? live.loading && live.view !== viewKey : waiting;
 
   const toggleShortlist = useCallback((id: string, campaign: string) => {
-    const on = (lists[id] ?? []).includes(campaign);
+    const had = lists[id] ?? [];
+    const on = had.includes(campaign);
     toast(on ? `Removed from ${campName(campaign)}` : `Shortlisted for ${campName(campaign)}`);
     setLists((cur) => {
-      const had = cur[id] ?? [];
-      return { ...cur, [id]: on ? had.filter((x) => x !== campaign) : had.includes(campaign) ? had : [...had, campaign] };
+      const was = cur[id] ?? [];
+      return { ...cur, [id]: on ? was.filter((x) => x !== campaign) : was.includes(campaign) ? was : [...was, campaign] };
+    });
+    if (!LIVE) return;
+    (on ? cands.removeFromCampaign(id, campaign) : cands.addToCampaign(campaign, [id])).catch((err: unknown) => {
+      setLists((cur) => ({ ...cur, [id]: had }));
+      toast(messageOf(err), "error");
     });
   }, [lists, toast]);
 
-  const toggleSelect = (id: string) => {
-    if (!selected.includes(id) && selected.length >= MAX_COMPARE) {
-      toast(`Compare takes up to ${MAX_COMPARE}. Unselect one first.`);
-      return;
+  const onAdded = (r: AddResult) => {
+    setAdding(false);
+    if (r.added.length) {
+      addedSoFar = [...r.added, ...addedSoFar];
+      setAdded(addedSoFar);
     }
+    const patched = r.merged.filter((m) => Object.keys(m.patch).length);
+    if (patched.length) {
+      setEdits((cur) => {
+        const next = { ...cur };
+        for (const m of patched) next[m.id] = { ...next[m.id], ...m.patch };
+        return next;
+      });
+    }
+    const ids = [...r.added.map((c) => c.id), ...r.merged.map((m) => m.id), ...(r.touched ?? [])];
+    if (r.campaign && !LIVE) {
+      const camp = r.campaign;
+      setLists((cur) => {
+        const next = { ...cur };
+        for (const id of ids) next[id] = (next[id] ?? []).includes(camp) ? next[id]! : [...(next[id] ?? []), camp];
+        return next;
+      });
+    }
+    const lit = new Set([...r.added.map((c) => c.id), ...patched.map((m) => m.id), ...(r.touched ?? [])]);
+    if (lit.size) {
+      /* Show them: everyone, newest first, from the top, search cleared. */
+      setCamp("all"); setQ(""); setSort("recent"); setPage(0);
+      setFresh(lit);
+      window.setTimeout(() => setFresh((cur) => (cur === lit ? new Set() : cur)), 6500);
+    }
+    if (LIVE) setReload((k) => k + 1);
+    const onCamp = r.campaign && ids.length
+      ? `. ${ids.length === 1 ? "Shortlisted" : ids.length === 2 ? "Both shortlisted" : `All ${ids.length} shortlisted`} for ${campName(r.campaign)}`
+      : "";
+    toast(`${r.message}${onCamp}`);
+  };
+
+  /* Ticking is for bulk actions and has no limit; compare is one of them, for two or three. */
+  const toggleSelect = (id: string) => {
     setSelected((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
   };
 
   const counts = useMemo(() => {
     const m = new Map<string, number>();
-    for (const c of CONTACTS) m.set(c.campaign, (m.get(c.campaign) ?? 0) + 1);
+    for (const c of ALL) m.set(c.campaign, (m.get(c.campaign) ?? 0) + 1);
     return m;
-  }, []);
+  }, [ALL]);
 
+  // Back closes an open profile rather than leaving Candidates.
+  useBackCloses(openId !== null, () => setOpenId(null));
   const openIdx = openId ? shown.findIndex((c) => c.id === openId) : -1;
-  const openContact = openId ? CONTACTS.find((c) => c.id === openId) ?? null : null;
+  const openContact = openId ? know(openId) ?? null : null;
   const step = (d: number) => {
     const i = openIdx + d;
     if (i >= 0 && i < shown.length) setOpenId(shown[i]!.id);
   };
 
-  const people = selected.map((id) => CONTACTS.find((c) => c.id === id)!).filter(Boolean);
+  const people = selected.map(know).filter((c): c is Contact => !!c);
+  /* Compare reads careers and skills, which only the full profile has. */
+  useEffect(() => {
+    if (LIVE && comparing) for (const id of selected) if (!details[id]) loadDetail(id);
+  }, [comparing, selected, details, loadDetail]);
   const nFilters = activeFilterCount(filters);
-  const withEmail = inCamp.filter((c) => c.email).length;
-  const withPhone = inCamp.filter((c) => c.phone).length;
   const shortlistAll = (campaign: string) => {
     const all = selected.every((id) => (lists[id] ?? []).includes(campaign));
+    const before = lists;
+    const ids = selected;
     setLists((cur) => {
       const next = { ...cur };
-      for (const id of selected) {
+      for (const id of ids) {
         const had = next[id] ?? [];
         next[id] = all ? had.filter((x) => x !== campaign) : had.includes(campaign) ? had : [...had, campaign];
       }
       return next;
     });
-    const n = selected.length;
+    const n = ids.length;
     toast(all ? `Removed ${n} from ${campName(campaign)}` : `Shortlisted ${n === 1 ? "1 person" : `all ${n}`} for ${campName(campaign)}`);
+    if (!LIVE) return;
+    const sent = all ? Promise.all(ids.map((id) => cands.removeFromCampaign(id, campaign))) : cands.addToCampaign(campaign, ids);
+    sent.catch((err: unknown) => {
+      // Only the people who weren't added go back; the rest are on the campaign.
+      const undo = err instanceof cands.NotAddedError ? err.failedIds : ids;
+      setLists((cur) => ({ ...cur, ...Object.fromEntries(undo.map((id) => [id, before[id] ?? []])) }));
+      toast(messageOf(err), "error");
+    });
   };
   const onCompare = () => {
     if (selected.length < 2) { toast("Tick 2 or 3 people to compare"); return; }
+    if (selected.length > MAX_COMPARE) { toast(`Compare takes up to ${MAX_COMPARE}. Untick some first.`); return; }
     setComparing(true);
+  };
+
+  const saveEdit = (c: Contact, patch: ContactEdit) => {
+    const prev = edits[c.id];
+    setEdits((cur) => ({ ...cur, [c.id]: { ...cur[c.id], ...patch } }));
+    if (!LIVE) { toast("Details saved"); return; }
+    const body = cands.patchFromEdit(c, patch);
+    const link = !c.linkedin && patch.linkedin ? patch.linkedin : "";
+    Promise.all([
+      Object.keys(body).length ? cands.updateCandidate(c.id, body) : null,
+      link ? cands.addDetails(c.id, { linkedinUrl: link }) : null,
+    ]).then(
+      () => { toast("Details saved"); loadDetail(c.id); },
+      (err: unknown) => {
+        setEdits((cur) => {
+          const next = { ...cur };
+          if (prev) next[c.id] = prev; else delete next[c.id];
+          return next;
+        });
+        toast(messageOf(err), "error");
+      },
+    );
+  };
+
+  const addNote = async (id: string, body: string): Promise<boolean> => {
+    try {
+      const n = await cands.addNote(id, body);
+      setDetails((cur) => {
+        const d = cur[id];
+        return d ? { ...cur, [id]: { ...d, notes: [{ id: n.id, body: n.body, authorName: n.authorName, createdAt: n.createdAt }, ...d.notes] } } : cur;
+      });
+      return true;
+    } catch (err) {
+      toast(messageOf(err), "error");
+      return false;
+    }
   };
 
   return (
     <div className="ct">
       <header className="ct-head">
         <div className="ct-head-t">
-          <h1 className="ct-h1">Contacts</h1>
-          <p className="ct-lede">
-            <Num n={inCamp.length} /> saved<span className="ct-dot" aria-hidden="true" />
-            <Num n={withEmail} /> with email<span className="ct-dot" aria-hidden="true" />
-            <Num n={withPhone} /> with phone
-          </p>
+          <h1 className="ct-h1">Candidates</h1>
+
         </div>
         <div className="ct-head-act">
-          <a className="ct-ext" href={CHROME_STORE_URL} target="_blank" rel="noreferrer noopener">
-            <span className="ct-ext-ico" aria-hidden="true"><GoogleChromeLogo size={18} weight="duotone" /></span>
-            <span className="ct-ext-t">
-              <span className="ct-ext-l">Save profiles from LinkedIn</span>
-              <span className="ct-ext-v">Add the Chrome extension</span>
-            </span>
-            <ArrowUpRight size={14} weight="bold" className="ct-ext-go" aria-hidden="true" />
+          <a className="ct-btn ct-ext" href={CHROME_STORE_URL} target="_blank" rel="noreferrer noopener">
+            <PuzzlePiece size={15} weight="bold" /> Get the extension
           </a>
-          <CompareTray people={people} onCompare={onCompare} onRemove={(id) => setSelected((cur) => cur.filter((x) => x !== id))} />
+          {canAdd && (
+            <button type="button" className="ct-btn is-primary ct-add" onClick={() => { setAddKey((k) => k + 1); setAdding(true); }}>
+              <UserPlus size={15} weight="bold" /> Add candidates
+            </button>
+          )}
         </div>
       </header>
 
       {/* Whenever anyone is ticked, wherever the page is scrolled: shortlist
           them all for one campaign, or compare them. */}
       <div className={`ct-dock${selected.length ? " is-on" : ""}`} aria-hidden={!selected.length}>
-        <CompareTray people={people} onCompare={onCompare} onRemove={(id) => setSelected((cur) => cur.filter((x) => x !== id))} />
+        <CompareTray people={people} onCompare={onCompare} onRemove={(id) => setSelected((cur) => cur.filter((x) => x !== id))} tabIndex={selected.length ? undefined : -1} />
         <span className="ct-dock-sep" aria-hidden="true" />
         <ShortlistMenuButton
           label={selected.length > 1 ? `Shortlist all ${selected.length}` : "Shortlist"}
@@ -165,13 +451,19 @@ export function ContactsPage() {
           suggest={people[0]?.campaign}
           tabIndex={selected.length ? undefined : -1}
         />
+        {canDelete && (
+          <button type="button" className="ct-btn ct-dock-del" onClick={() => setConfirmDelete(selected)} tabIndex={selected.length ? undefined : -1}>
+            <Trash size={14} />
+            {selected.length > 1 ? `Delete ${selected.length}` : "Delete"}
+          </button>
+        )}
         <button type="button" className="ct-dock-x" onClick={() => setSelected([])} aria-label="Clear selection" title="Clear selection" tabIndex={selected.length ? undefined : -1}>
           <X size={12} weight="bold" />
         </button>
       </div>
 
       <div className="ct-bar">
-        <CampaignPicker value={camp} onChange={setCamp} counts={counts} />
+        <CampaignPicker value={camp} onChange={setCamp} counts={LIVE ? null : counts} />
         <label className="ct-search">
           <MagnifyingGlass size={15} aria-hidden="true" />
           <input
@@ -190,20 +482,6 @@ export function ContactsPage() {
         </label>
         <FiltersButton filters={filters} onChange={setFilters} pool={inCamp} count={nFilters} />
         <SortButton sort={sort} onChange={setSort} />
-        <div className="ct-pager" aria-label="Pages">
-          <span className="ct-range">
-            {rows.length ? `${at * size + 1}–${Math.min(rows.length, at * size + size)}` : "0"} of {rows.length}
-          </span>
-          <button type="button" className="ct-icon-btn is-prev" onClick={() => setPage(at - 1)} disabled={at === 0} aria-label="Previous page">
-            <CaretLeft size={14} weight="bold" />
-          </button>
-          <button type="button" className="ct-icon-btn is-next" onClick={() => setPage(at + 1)} disabled={at >= pages - 1} aria-label="Next page">
-            <CaretRight size={14} weight="bold" />
-          </button>
-          <select className="ct-size" value={size} onChange={(e) => setSize(Number(e.target.value))} aria-label="Rows per page">
-            {[10, 20, 50].map((n) => <option key={n} value={n}>{n} rows</option>)}
-          </select>
-        </div>
       </div>
 
       {nFilters > 0 && <ActiveChips filters={filters} onChange={setFilters} />}
@@ -212,7 +490,7 @@ export function ContactsPage() {
         <table className="ct-table">
           <thead>
             <tr>
-              <th className="ct-c-check" aria-label="Select to compare" />
+              <th className="ct-c-check" aria-label="Select" />
               <th className="ct-c-name">Name</th>
               <th className="ct-c-co">Current company</th>
               <th className="ct-c-sum">Summary</th>
@@ -221,12 +499,8 @@ export function ContactsPage() {
             </tr>
           </thead>
           {loading ? (
-            <tbody className="ct-skel" aria-busy="true" aria-label="Loading contacts">
-              {/* Exactly as many placeholders as the page is about to show (the
-                  page size, or fewer on a last page), so the table never jumps
-                  from one length to another when the rows land. An empty result
-                  still gets a short shimmer before its message. */}
-              {Array.from({ length: shown.length || 3 }, (_, i) => <SkeletonRow key={i} i={i} />)}
+            <tbody className="ct-wait">
+              <tr><td colSpan={99}><Loader size="md" label="Loading candidates" block /></td></tr>
             </tbody>
           ) : (
           <tbody key={`${camp}-${at}-${sort}-${size}-${nFilters}`}>
@@ -234,12 +508,14 @@ export function ContactsPage() {
               <Row
                 key={c.id}
                 c={c}
+                fresh={fresh.has(c.id)}
                 checked={selected.includes(c.id)}
                 onCheck={() => toggleSelect(c.id)}
                 onOpen={() => setOpenId(c.id)}
                 shortlisted={lists[c.id] ?? []}
                 onShortlist={(campaign) => toggleShortlist(c.id, campaign)}
                 onCopy={toast}
+                onDelete={canDelete ? () => setConfirmDelete([c.id]) : undefined}
               />
             ))}
           </tbody>
@@ -248,32 +524,43 @@ export function ContactsPage() {
         {!loading && shown.length > 0 && (
           <footer className="ct-foot">
             <span className="ct-foot-t">
-              Showing <strong>{at * size + 1}–{Math.min(rows.length, at * size + size)}</strong> of <strong>{rows.length}</strong>
+              Showing <strong>{firstN}–{lastN}</strong>{!LIVE && <> of <strong>{rows.length}</strong></>}
               {camp !== "all" && <> in {campName(camp)}</>}
             </span>
             <div className="ct-foot-pages" aria-label="Pages">
               {Array.from({ length: pages }, (_, i) => (
                 <button key={i} type="button" className={`ct-pg${i === at ? " is-on" : ""}`} aria-current={i === at ? "page" : undefined}
-                  onClick={() => { setPage(i); document.querySelector(".ct-bar")?.scrollIntoView({ block: "nearest" }); }}>
+                  disabled={LIVE && i > at + 1}
+                  onClick={() => { turn(i); document.querySelector(".ct-bar")?.scrollIntoView({ block: "nearest" }); }}>
                   {i + 1}
                 </button>
               ))}
             </div>
             <button type="button" className="ct-btn ct-foot-next" disabled={at >= pages - 1}
-              onClick={() => { setPage(at + 1); document.querySelector(".ct-head")?.scrollIntoView({ block: "start", behavior: "smooth" }); }}>
+              onClick={() => { turn(at + 1); document.querySelector(".ct-head")?.scrollIntoView({ block: "start", behavior: "smooth" }); }}>
               Next page <CaretRight size={13} weight="bold" />
             </button>
+            <select className="ct-size" value={size} onChange={(e) => setSize(Number(e.target.value))} aria-label="Rows per page">
+              {[10, 20, 50].map((n) => <option key={n} value={n}>{n} rows</option>)}
+            </select>
           </footer>
         )}
-        {!loading && !shown.length && (
-          <div className="ct-empty">
-            <p className="ct-empty-h">No contacts match.</p>
-            <p>Try fewer filters or a shorter search.</p>
-            {(nFilters > 0 || q) && (
-              <button type="button" className="ct-btn" onClick={() => { setFilters(EMPTY_FILTERS); setQ(""); }}>Clear search and filters</button>
-            )}
-          </div>
+        {!loading && !shown.length && LIVE && live.failed && (
+          <LoadFailed what="Candidates" onRetry={() => setReload((k) => k + 1)} />
         )}
+        {!loading && !shown.length && !(LIVE && live.failed) && (() => {
+          const empty = emptyList({ narrowed: !!q || nFilters > 0, campaign: camp === "all" ? null : campName(camp), live: LIVE });
+          return (
+            <div className="ct-empty">
+              <EmptyArt {...listEmptyArt("candidates", empty.noMatch)} />
+              <p className="ct-empty-h">{empty.head}</p>
+              <p>{empty.text}</p>
+              {(nFilters > 0 || q) && (
+                <button type="button" className="ct-btn" onClick={() => { setFilters(EMPTY_FILTERS); setQ(""); }}>Clear search and filters</button>
+              )}
+            </div>
+          );
+        })()}
       </div>
 
       <ProfileDialog
@@ -288,6 +575,25 @@ export function ContactsPage() {
         onCopy={toast}
         people={people}
         onCompare={() => { setOpenId(null); setComparing(true); }}
+        onSave={(patch) => { if (openContact) saveEdit(openContact, patch); }}
+        onDelete={canDelete && openContact ? () => setConfirmDelete([openContact.id]) : undefined}
+        notes={LIVE && openContact ? details[openContact.id]?.notes ?? null : undefined}
+        onNote={(body) => (openContact ? addNote(openContact.id, body) : Promise.resolve(false))}
+      />
+
+      <ConfirmDialog
+        open={toDelete.length > 0}
+        title={toDelete.length === 1 ? `Delete ${toDelete[0]!.name}?` : `Delete ${toDelete.length} candidates?`}
+        body={<>
+          {toDelete.length === 1
+            ? "They come off every campaign they are on, so a hire stops counting as one."
+            : <>{toDelete.map((c) => c.name).join(", ")} are deleted. They come off every campaign they are on, so hires stop counting.</>}
+          {" "}Their messages, notes, form answers and calls are deleted too, and this can&rsquo;t be undone.
+        </>}
+        confirm={toDelete.length === 1 ? "Delete" : `Delete ${toDelete.length}`}
+        danger
+        onClose={() => setConfirmDelete(null)}
+        onConfirm={() => { removeContacts(toDelete.map((c) => c.id)); setConfirmDelete(null); }}
       />
 
       <CompareDialog
@@ -295,14 +601,23 @@ export function ContactsPage() {
         people={people}
         onClose={() => setComparing(false)}
         onClear={() => { setComparing(false); setSelected([]); toast("Compare cleared"); }}
-        onAdd={(id) => setSelected((cur) => (cur.includes(id) || cur.length >= MAX_COMPARE ? cur : [...cur, id]))}
+        onAdd={(c) => { seen.current.set(c.id, c); setSelected((cur) => (cur.includes(c.id) || cur.length >= MAX_COMPARE ? cur : [...cur, c.id])); }}
         onRemove={(id) => setSelected((cur) => cur.filter((x) => x !== id))}
         lists={lists}
         onShortlist={toggleShortlist}
         onCopy={toast}
         onOpen={(id) => { setComparing(false); setOpenId(id); }}
       />
-      <Toaster />
+      {canAdd && (
+        <AddCandidatesDialog
+          key={addKey}
+          open={adding}
+          onClose={() => setAdding(false)}
+          existing={ALL}
+          onDone={onAdded}
+          onOpenPerson={(id) => setOpenId(id)}
+        />
+      )}
     </div>
   );
 }
@@ -329,46 +644,52 @@ export function Num({ n }: { n: number }) {
 }
 
 /* ── compare tray ──
-   Three slots in the header. Ticking a row drops that person into the next
-   slot; the button wakes up once two are in. */
-function CompareTray({ people, onCompare, onRemove }: { people: readonly Contact[]; onCompare: () => void; onRemove: (id: string) => void }) {
-  const ready = people.length >= 2;
+   Up to three faces in the selection dock; the button wakes up once two are
+   in. A bigger selection is for bulk actions, so it shows as a count. */
+function CompareTray({ people, onCompare, onRemove, tabIndex }: { people: readonly Contact[]; onCompare: () => void; onRemove: (id: string) => void; tabIndex?: number }) {
+  const many = people.length > MAX_COMPARE;
+  const ready = people.length >= 2 && !many;
   return (
     <div className={`ct-tray${ready ? " is-ready" : ""}${people.length ? " has-some" : ""}`}>
-      <div className="ct-tray-slots">
-        {Array.from({ length: MAX_COMPARE }, (_, i) => {
-          const p = people[i];
-          return p ? (
-            <button key={p.id} type="button" className="ct-slot is-full" onClick={() => onRemove(p.id)} title={`Remove ${p.name}`} aria-label={`Remove ${p.name} from compare`}>
-              <Avatar name={p.name} hue={p.hue} size={28} />
-              <span className="ct-slot-x" aria-hidden="true"><X size={9} weight="bold" /></span>
-            </button>
-          ) : (
-            <span key={`e${i}`} className="ct-slot" aria-hidden="true" />
-          );
-        })}
-      </div>
-      <button type="button" className="ct-tray-go" onClick={onCompare} aria-disabled={!ready}>
+      {many ? (
+        <span className="ct-tray-many t-body-sm">{people.length} selected. Compare takes up to {MAX_COMPARE}.</span>
+      ) : (
+        <div className="ct-tray-slots">
+          {Array.from({ length: MAX_COMPARE }, (_, i) => {
+            const p = people[i];
+            return p ? (
+              <button key={p.id} type="button" className="ct-slot is-full" onClick={() => onRemove(p.id)} title={`Remove ${p.name}`} aria-label={`Unselect ${p.name}`} tabIndex={tabIndex}>
+                <Avatar name={p.name} hue={p.hue} size={28} />
+                <span className="ct-slot-x" aria-hidden="true"><X size={9} weight="bold" /></span>
+              </button>
+            ) : (
+              <span key={`e${i}`} className="ct-slot" aria-hidden="true" />
+            );
+          })}
+        </div>
+      )}
+      <button type="button" className="ct-tray-go" onClick={onCompare} aria-disabled={!ready} tabIndex={tabIndex}
+        title={many ? `Compare takes up to ${MAX_COMPARE}` : ready ? `Compare ${people.length}` : "Tick two or three people to compare"}>
         <ArrowsLeftRight size={14} weight="bold" />
         Compare
-        <span className="ct-tray-n">{people.length}/{MAX_COMPARE}</span>
       </button>
     </div>
   );
 }
 
 /* ── campaign picker ──
-   A searchable dropdown: seven campaigns today, many more later. */
-function CampaignPicker({ value, onChange, counts }: { value: string; onChange: (id: string) => void; counts: Map<string, number> }) {
+   A searchable dropdown: seven campaigns today, many more later. Counts
+   come from the fixtures; the API's list doesn't count per campaign. */
+function CampaignPicker({ value, onChange, counts }: { value: string; onChange: (id: string) => void; counts: Map<string, number> | null }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [cursor, setCursor] = useState(0);
   const ref = useRef<HTMLButtonElement>(null);
   const close = useCallback(() => { setOpen(false); setQ(""); }, []);
-  const all = [{ id: "all", name: "All campaigns", role: "Everyone saved" }, ...CAMPAIGNS.filter((c) => counts.get(c.id))];
+  const all = [{ id: "all", name: "All campaigns", role: "Everyone saved" }, ...campaignsNow.filter((c) => !counts || counts.get(c.id))];
   const list = all.filter((c) => c.name.toLowerCase().includes(q.trim().toLowerCase()));
-  const total = [...counts.values()].reduce((a, b) => a + b, 0);
-  const countOf = (id: string) => (id === "all" ? total : counts.get(id) ?? 0);
+  const total = counts ? [...counts.values()].reduce((a, b) => a + b, 0) : 0;
+  const countOf = (id: string) => (!counts ? null : id === "all" ? total : counts.get(id) ?? 0);
   const current = all.find((c) => c.id === value) ?? all[0]!;
   useEffect(() => { setCursor(0); }, [q]);
   const pick = (id: string) => { onChange(id); close(); ref.current?.focus(); };
@@ -378,7 +699,7 @@ function CampaignPicker({ value, onChange, counts }: { value: string; onChange: 
       <button ref={ref} type="button" className={`ct-camp${value !== "all" ? " is-set" : ""}`} onClick={() => setOpen((o) => !o)} aria-haspopup="listbox" aria-expanded={open}>
         <span className="ct-camp-l">Campaign</span>
         <span className="ct-camp-v">{current.name}</span>
-        <span className="ct-camp-n">{countOf(current.id)}</span>
+        {counts && <span className="ct-camp-n">{countOf(current.id)}</span>}
         <CaretDown size={11} weight="bold" className="ct-camp-caret" />
       </button>
       <Popover anchor={ref} open={open} onClose={close} width={320}>
@@ -413,7 +734,7 @@ function CampaignPicker({ value, onChange, counts }: { value: string; onChange: 
                   <span className="ct-cp-name">{c.name}</span>
                   <span className="ct-cp-role">{c.role}</span>
                 </span>
-                <span className="ct-cp-n">{countOf(c.id)}</span>
+                {counts && <span className="ct-cp-n">{countOf(c.id)}</span>}
                 <span className="ct-cp-check">{c.id === value && <Check size={12} weight="bold" />}</span>
               </button>
             ))}
@@ -425,51 +746,27 @@ function CampaignPicker({ value, onChange, counts }: { value: string; onChange: 
   );
 }
 
-/* One placeholder row, shaped like the real one so nothing jumps when the
-   data lands: checkbox, avatar and two lines, email, phone, location, saved
-   for, and the shortlist pill. Line widths vary a little row to row so the
-   block reads as content, not as a stripe pattern. */
-function SkeletonRow({ i }: { i: number }) {
-  const w = (base: number, spread: number) => `${base + ((i * 37) % spread)}px`;
-  return (
-    <tr className="ct-skel-row" style={{ animationDelay: `${Math.min(i, 10) * 30}ms` }}>
-      <td className="ct-c-check"><span className="csk csk-box" /></td>
-      <td className="ct-c-name">
-        <div className="ct-who">
-          <span className="csk csk-circle" />
-          <div className="csk-lines">
-            <span className="csk csk-line" style={{ width: w(100, 50) }} />
-            <span className="csk csk-line is-sub" style={{ width: w(130, 50) }} />
-          </div>
-        </div>
-      </td>
-      <td className="ct-c-co">
-        <div className="ct-co"><span className="csk csk-sq" /><div className="csk-lines"><span className="csk csk-line" style={{ width: w(70, 40) }} /><span className="csk csk-line is-sub" style={{ width: w(90, 30) }} /></div></div>
-      </td>
-      <td className="ct-c-sum"><div className="csk-lines"><span className="csk csk-line" style={{ width: "92%" }} /><span className="csk csk-line is-sub" style={{ width: w(140, 80) }} /></div></td>
-      <td className="ct-c-contact"><div className="csk-lines"><span className="csk csk-line" style={{ width: w(150, 50) }} /><span className="csk csk-line is-sub" style={{ width: w(110, 20) }} /></div></td>
-      <td className="ct-c-act"><span className="csk csk-pill" /></td>
-    </tr>
-  );
-}
-
 /* ── row ── */
 
 function Row({
-  c, checked, onCheck, onOpen, shortlisted, onShortlist, onCopy,
+  c, fresh = false, checked, onCheck, onOpen, shortlisted, onShortlist, onCopy, onDelete,
 }: {
   c: Contact;
+  /** Just added; lit once so it is easy to find. */
+  fresh?: boolean;
   checked: boolean;
   onCheck: () => void;
   onOpen: () => void;
   shortlisted: readonly string[];
   onShortlist: (campaign: string) => void;
   onCopy: (msg: string) => void;
+  /** Admin only; absent for a recruiter, so the control is not rendered. */
+  onDelete?: () => void;
 }) {
   const tenure = tenureOf(c);
   return (
     <tr
-      className={`ct-row${checked ? " is-checked" : ""}`}
+      className={`ct-row${checked ? " is-checked" : ""}${fresh ? " is-fresh" : ""}`}
       onClick={(e) => {
         if ((e.target as HTMLElement).closest("button, input, a, label, select")) return;
         onOpen();
@@ -477,7 +774,7 @@ function Row({
     >
       <td className="ct-c-check">
         <label className="ct-check">
-          <input type="checkbox" checked={checked} onChange={onCheck} aria-label={`Select ${c.name} to compare`} />
+          <input type="checkbox" checked={checked} onChange={onCheck} aria-label={`Select ${c.name}`} />
           <span aria-hidden="true"><Check size={11} weight="bold" /></span>
         </label>
       </td>
@@ -485,18 +782,19 @@ function Row({
         <div className="ct-who">
           <Avatar name={c.name} hue={c.hue} size={34} />
           <div className="ct-who-text">
-            <button type="button" className="ct-name" onClick={onOpen}>{c.name}</button>
+            <button type="button" className="ct-name" onClick={onOpen} title={c.name}>{c.name}</button>
             <span className="ct-title">
-              {c.title}<span className="ct-title-co"> · {c.company} · {c.location}</span>
+              {c.title || (!c.company && !c.location ? <span className="ct-none">No title yet</span> : null)}
+              {(c.company || c.location) && <span className="ct-title-co">{c.title ? " · " : ""}{[c.company, c.location].filter(Boolean).join(" · ")}</span>}
             </span>
           </div>
         </div>
       </td>
       <td className="ct-c-co">
         <span className="ct-co">
-          <span className="ct-co-mark" aria-hidden="true">{c.company.slice(0, 1)}</span>
+          <span className="ct-co-mark" aria-hidden="true">{firstGlyph(c.company)}</span>
           <span className="ct-co-text">
-            <span className="ct-main">{c.company}<span className="ct-co-loc"> · {c.location}</span></span>
+            <span className="ct-main">{c.company || <span className="ct-none">Company not known yet</span>}{c.location && <span className="ct-co-loc">{c.company ? " · " : ""}{c.location}</span>}</span>
             <span className={`ct-sub${tenure.years !== null && tenure.years < 1 ? " is-new" : ""}`}>{tenure.label}</span>
           </span>
         </span>
@@ -508,19 +806,28 @@ function Row({
         </p>
       </td>
       <td className="ct-c-contact">
+        {/* What is there, one line each; one calm "Not found" for someone nothing was found for. */}
         <div className="ct-contact">
-          <span className="ct-contact-l"><EnvelopeSimple size={13} aria-hidden="true" /><CopyCell kind="email" value={c.email?.value} verified={c.email?.verified} onCopy={onCopy} missing="No email yet" /></span>
-          <span className="ct-contact-l"><Phone size={13} aria-hidden="true" /><CopyCell kind="phone" value={c.phone?.value} onCopy={onCopy} missing="No phone yet" /></span>
+          {c.email?.value && <span className="ct-contact-l"><EnvelopeSimple size={13} aria-hidden="true" /><CopyCell kind="email" value={c.email.value} verified={c.email.verified} onCopy={onCopy} /></span>}
+          {c.phone?.value && <span className="ct-contact-l"><Phone size={13} aria-hidden="true" /><CopyCell kind="phone" value={c.phone.value} onCopy={onCopy} /></span>}
+          {!c.email?.value && !c.phone?.value && <span className="ct-none">Not found</span>}
         </div>
       </td>
       <td className="ct-c-act">
-        <ShortlistControl suggest={c.campaign} on={shortlisted} onPick={onShortlist} />
+        <span className="ct-act-in">
+          <ShortlistControl suggest={c.campaign} on={shortlisted} onPick={onShortlist} stages={stagesOfNow(c.id)} />
+          {onDelete && (
+            <button type="button" className="ct-del" onClick={onDelete} aria-label={`Delete ${c.name}`} title="Delete">
+              <Trash size={15} />
+            </button>
+          )}
+        </span>
       </td>
     </tr>
   );
 }
 
-function CopyCell({ kind, value, verified, onCopy, missing = "Not found yet" }: { kind: "email" | "phone"; value?: string; verified?: boolean; onCopy: (m: string) => void; missing?: string }) {
+export function CopyCell({ kind, value, verified, onCopy, missing = "Not found yet" }: { kind: "email" | "phone"; value?: string; verified?: boolean; onCopy: (m: string) => void; missing?: string }) {
   const [done, setDone] = useState(false);
   if (!value) return <span className="ct-none">{missing}</span>;
   const copy = () => {
@@ -560,8 +867,19 @@ async function copyText(text: string) {
    picks any other campaign. Shortlisted reads as a filled, accent button that
    says for how many. */
 
-function ShortlistControl({ suggest, on, onPick }: { suggest: string; on: readonly string[]; onPick: (campaign: string) => void }) {
-  const active = on.length > 0;
+function ShortlistControl({ suggest: savedFor, on, onPick, stages = NO_STAGES }: {
+  suggest: string;
+  on: readonly string[];
+  onPick: (campaign: string) => void;
+  /** Campaign id to stage, for the campaigns in `on`; one not named here is at the first stage. */
+  stages?: Readonly<Record<string, string>>;
+}) {
+  const { label, shortlisted: atFirst, active } = controlState(on, stages);
+  /* A campaign that has since closed is nothing to suggest. */
+  const suggest = pickableNow.some((c) => c.id === savedFor) ? savedFor : "";
+  /* Someone added without a campaign has nothing to suggest: the main
+     button opens the campaign menu instead. */
+  const [menu, setMenu] = useState(false);
   /* A small burst from the bookmark each time someone is added. Keyed, so
      every add replays it; removing plays nothing. */
   const [burst, setBurst] = useState(0);
@@ -580,21 +898,26 @@ function ShortlistControl({ suggest, on, onPick }: { suggest: string; on: readon
       <button
         type="button"
         className="ct-sl-main"
-        onClick={() => onPick(active ? on[0]! : suggest)}
-        title={active ? `Shortlisted for ${on.map(campName).join(", ")}` : `Shortlist for ${campName(suggest)}`}
+        /* On the shortlist, a press takes them off it. Past it (passed, in outreach) a press opens the menu,
+           so a click never drops where someone stands. */
+        onClick={() => (atFirst.length ? onPick(atFirst[0]!) : active ? setMenu(true) : suggest ? onPick(suggest) : setMenu(true))}
+        title={active ? `${label}${atFirst.length ? " for" : " on"} ${on.map(campName).join(", ")}` : suggest ? `Shortlist for ${campName(suggest)}` : "Shortlist for a campaign"}
       >
         <BookmarkSimple size={14} weight={active ? "fill" : "regular"} />
-        <span className="ct-sl-label">{active ? "Shortlisted" : "Shortlist"}</span>
+        <span className="ct-sl-label">{label}</span>
         {on.length > 1 && <span className="ct-sl-n" key={on.length}>{on.length}</span>}
       </button>
-      <ShortlistMenuButton isOn={(c) => on.includes(c)} onPick={onPick} suggest={suggest} caret />
+      <ShortlistMenuButton isOn={(c) => on.includes(c)} onPick={onPick} suggest={suggest || undefined} caret open={menu} onOpenChange={setMenu} />
     </div>
   );
 }
 
 function ShortlistMenuButton({
-  label, isOn, onPick, suggest, caret, tabIndex,
+  label, isOn, onPick, suggest, caret, tabIndex, open: openProp, onOpenChange,
 }: {
+  /** Controlled open state, for a parent that opens the menu itself. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   label?: string;
   isOn: (campaign: string) => boolean;
   onPick: (campaign: string) => void;
@@ -602,9 +925,15 @@ function ShortlistMenuButton({
   caret?: boolean;
   tabIndex?: number;
 }) {
-  const [open, setOpen] = useState(false);
+  const [openState, setOpenState] = useState(false);
+  const open = openProp ?? openState;
+  const setOpen = (v: boolean | ((o: boolean) => boolean)) => {
+    const next = typeof v === "function" ? v(open) : v;
+    setOpenState(next);
+    onOpenChange?.(next);
+  };
   const ref = useRef<HTMLButtonElement>(null);
-  const order = suggest ? [...CAMPAIGNS].sort((a, b) => (a.id === suggest ? -1 : b.id === suggest ? 1 : 0)) : CAMPAIGNS;
+  const order = suggest ? [...pickableNow].sort((a, b) => (a.id === suggest ? -1 : b.id === suggest ? 1 : 0)) : pickableNow;
   return (
     <>
       <button
@@ -646,13 +975,15 @@ function ShortlistMenuButton({
    its button, or above when there is no room below. */
 
 export function Popover({
-  anchor, open, onClose, align = "start", width, children,
+  anchor, open, onClose, align = "start", width, side = "below", children,
 }: {
   anchor: RefObject<HTMLElement>;
   open: boolean;
   onClose: () => void;
   align?: "start" | "end";
   width: number;
+  /** "left" opens beside the anchor, toward the page (for edge toolbars). */
+  side?: "below" | "left";
   children: ReactNode;
 }) {
   const panel = useRef<HTMLDivElement>(null);
@@ -663,23 +994,41 @@ export function Popover({
     const place = () => {
       const r = anchor.current!.getBoundingClientRect();
       const h = panel.current?.offsetHeight ?? 300;
-      const up = r.bottom + 6 + h > window.innerHeight - 8 && r.top - 6 - h > 8;
+      if (side === "left") {
+        const top = Math.min(Math.max(12, r.top), window.innerHeight - h - 12);
+        setPos({ top, left: Math.max(12, r.left - width - 8), up: false });
+        return;
+      }
+      const below = window.innerHeight - 8 - (r.bottom + 6);
+      const above = r.top - 6 - 8;
+      /* Flip up when it doesn't fit below and there is more room above; if it
+         fits neither way, keep it on screen (a long menu scrolls inside). */
+      const up = h > below && above > below;
+      const top = up ? Math.max(8, r.top - 6 - h) : Math.max(8, Math.min(r.bottom + 6, window.innerHeight - h - 8));
       const left = Math.min(Math.max(8, align === "end" ? r.right - width : r.left), window.innerWidth - width - 8);
-      setPos({ top: up ? r.top - 6 - h : r.bottom + 6, left, up });
+      setPos({ top, left, up });
     };
     place();
     const id = requestAnimationFrame(place);
     window.addEventListener("resize", place);
     /* Close when the PAGE scrolls (the anchor moves away), but not when the
        popover's own list scrolls: a capture listener sees both, and closing
-       on every scroll made a long list impossible to scroll. */
+       on every scroll made a long list impossible to scroll. A scroll only
+       counts once the anchor has really moved (Firefox's scroll anchoring
+       nudges the page by a pixel as the menu mounts and takes focus), and
+       never in the first moments after opening. */
+    const openedAt = performance.now();
+    const openTop = anchor.current.getBoundingClientRect().top;
     const onScroll = (e: Event) => {
       if (panel.current && e.target instanceof Node && panel.current.contains(e.target)) return;
-      onClose();
+      if (performance.now() - openedAt < 150) { place(); return; }
+      const now = anchor.current?.getBoundingClientRect().top ?? openTop;
+      if (Math.abs(now - openTop) > 4) onClose();
+      else place();
     };
     window.addEventListener("scroll", onScroll, true);
     return () => { cancelAnimationFrame(id); window.removeEventListener("resize", place); window.removeEventListener("scroll", onScroll, true); };
-  }, [open, anchor, align, width, onClose]);
+  }, [open, anchor, align, width, onClose, side]);
 
   useEffect(() => {
     if (!open) return;
@@ -725,47 +1074,61 @@ function FiltersButton({ filters, onChange, pool, count }: { filters: Filters; o
       </button>
       <Popover anchor={ref} open={open} onClose={close} width={460}>
         <div className="ct-filters">
-          <Group label="Seniority">
-            {SENIORITIES.map((s) => (
-              <Chip key={s} on={filters.seniority.includes(s)} onClick={() => set("seniority", flip<Seniority>(filters.seniority, s))}>{s}</Chip>
-            ))}
-          </Group>
-          <Group label="Experience">
-            {EXP_BANDS.map((b) => (
-              <Chip key={b.id} on={filters.experience.includes(b.id)} onClick={() => set("experience", flip<ExpBand>(filters.experience, b.id))}>{b.label}</Chip>
-            ))}
-          </Group>
-          <Group label="Location">
-            {locations.map((l) => (
-              <Chip key={l} on={filters.location.includes(l)} onClick={() => set("location", flip(filters.location, l))}>{l}</Chip>
-            ))}
-          </Group>
-          <Group label="Skills" hint="has all selected">
-            {skills.map((s) => (
-              <Chip key={s} on={filters.skills.includes(s)} onClick={() => set("skills", flip(filters.skills, s))}>{s}</Chip>
-            ))}
-          </Group>
+          {/* With the API, only what it can filter on: one location, skills, and whether a contact is on file. */}
+          {!LIVE && (
+            <>
+              <Group label="Seniority">
+                {SENIORITIES.map((s) => (
+                  <Chip key={s} on={filters.seniority.includes(s)} onClick={() => set("seniority", flip<Seniority>(filters.seniority, s))}>{s}</Chip>
+                ))}
+              </Group>
+              <Group label="Experience">
+                {EXP_BANDS.map((b) => (
+                  <Chip key={b.id} on={filters.experience.includes(b.id)} onClick={() => set("experience", flip<ExpBand>(filters.experience, b.id))}>{b.label}</Chip>
+                ))}
+              </Group>
+            </>
+          )}
+          {(locations.length > 0 || filters.location.length > 0) && (
+            <Group label="Location">
+              {[...new Set([...filters.location, ...locations])].map((l) => (
+                <Chip key={l} on={filters.location.includes(l)}
+                  onClick={() => set("location", LIVE ? (filters.location.includes(l) ? [] : [l]) : flip(filters.location, l))}>{l}</Chip>
+              ))}
+            </Group>
+          )}
+          {skills.length > 0 && (
+            <Group label="Skills" hint="has all selected">
+              {skills.map((s) => (
+                <Chip key={s} on={filters.skills.includes(s)} onClick={() => set("skills", flip(filters.skills, s))}>{s}</Chip>
+              ))}
+            </Group>
+          )}
           <Group label="Contact details">
-            {([["email", "Has email"], ["verified", "Verified email"], ["phone", "Has phone"]] as const).map(([id, l]) => (
+            {(LIVE ? [["email", "Has email"], ["phone", "Has phone"]] as const : [["email", "Has email"], ["verified", "Verified email"], ["phone", "Has phone"]] as const).map(([id, l]) => (
               <Chip key={id} on={filters.contact.includes(id)} onClick={() => set("contact", flip<ContactNeed>(filters.contact, id))}>{l}</Chip>
             ))}
-            <Chip on={filters.openToWork} onClick={() => set("openToWork", !filters.openToWork)}>Open to work</Chip>
+            {!LIVE && <Chip on={filters.openToWork} onClick={() => set("openToWork", !filters.openToWork)}>Open to work</Chip>}
           </Group>
-          <Group label="Profile">
-            {([["any", "Any"], ["full", "Full profile"], ["basic", "Saved page only"]] as const).map(([id, l]) => (
-              <Chip key={id} on={filters.profile === id} onClick={() => set("profile", id)}>{l}</Chip>
-            ))}
-          </Group>
-          <Group label="Saved">
-            {([["any", "Any time"], ["7", "Last 7 days"], ["30", "Last 30 days"]] as const).map(([id, l]) => (
-              <Chip key={id} on={filters.captured === id} onClick={() => set("captured", id)}>{l}</Chip>
-            ))}
-          </Group>
-          <Group label="Saved by">
-            {MEMBERS.map((m) => (
-              <Chip key={m} on={filters.capturedBy.includes(m)} onClick={() => set("capturedBy", flip<string>(filters.capturedBy, m))}>{m}</Chip>
-            ))}
-          </Group>
+          {!LIVE && (
+            <>
+              <Group label="Profile">
+                {([["any", "Any"], ["full", "Full profile"], ["basic", "Saved page only"]] as const).map(([id, l]) => (
+                  <Chip key={id} on={filters.profile === id} onClick={() => set("profile", id)}>{l}</Chip>
+                ))}
+              </Group>
+              <Group label="Saved">
+                {([["any", "Any time"], ["7", "Last 7 days"], ["30", "Last 30 days"]] as const).map(([id, l]) => (
+                  <Chip key={id} on={filters.captured === id} onClick={() => set("captured", id)}>{l}</Chip>
+                ))}
+              </Group>
+              <Group label="Saved by">
+                {MEMBERS.map((m) => (
+                  <Chip key={m} on={filters.capturedBy.includes(m)} onClick={() => set("capturedBy", flip<string>(filters.capturedBy, m))}>{m}</Chip>
+                ))}
+              </Group>
+            </>
+          )}
           <footer className="ct-filters-foot">
             <button type="button" className="ct-link" onClick={() => onChange(EMPTY_FILTERS)} disabled={!count}>Clear all</button>
             <button type="button" className="ct-btn is-primary" onClick={close}>Done</button>
@@ -822,7 +1185,9 @@ function SortButton({ sort, onChange }: { sort: SortKey; onChange: (s: SortKey) 
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLButtonElement>(null);
   const close = useCallback(() => setOpen(false), []);
-  const opts: readonly [SortKey, string][] = [["recent", "Recently saved"], ["name", "Name"], ["experience", "Most experience"]];
+  const opts: readonly [SortKey, string][] = LIVE
+    ? [["recent", "Recently added"], ["name", "Name"]]
+    : [["recent", "Recently saved"], ["name", "Name"], ["experience", "Most experience"]];
   return (
     <>
       <button ref={ref} type="button" className="ct-btn" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
@@ -845,9 +1210,32 @@ function SortButton({ sort, onChange }: { sort: SortKey; onChange: (s: SortKey) 
 
 /* ── profile ── */
 
+type ContactEdit = Partial<Omit<Contact, "id">>;
+
+/* Where a person came from and who brought them in, in one sentence. */
+function sourceLine(p: Contact): string {
+  const when = capturedLabel(p.capturedAgo).toLowerCase();
+  const camp = p.campaign ? ` for ${campName(p.campaign)}` : "";
+  const how = p.origin === "Upload" ? "Imported in bulk" : p.origin === "Manual" ? "Added by hand"
+    : p.origin === "Form" ? "Applied through a form" : p.origin === "Agent" ? "Found by the agent" : "Saved";
+  const via = p.channel ? ` (${p.channel.toLowerCase()})` : "";
+  const by = p.capturedBy ? ` by ${p.capturedBy}` : "";
+  const owner = p.owner && p.owner !== p.capturedBy ? ` ${p.owner} owns this candidate.` : "";
+  const pending = p.profile === "full" || LIVE ? "" : p.origin && p.linkedin
+    ? " The full profile will be fetched once enrichment is connected."
+    : p.origin ? "" : " The full profile is still loading.";
+  return `${how}${via}${camp}${by}, ${when}.${owner}${pending}`;
+}
+
 function ProfileDialog({
-  c, onClose, position, onStep, shortlisted, onShortlist, selected, onSelect, onCopy, people, onCompare,
+  c, onClose, position, onStep, shortlisted, onShortlist, selected, onSelect, onCopy, people, onCompare, onSave, onDelete, notes, onNote,
 }: {
+  onSave: (patch: ContactEdit) => void;
+  /** The team's notes, with the API: null while they load, absent on fixtures. */
+  notes?: readonly Note[] | null;
+  onNote: (body: string) => Promise<boolean>;
+  /** Admin only; absent for a recruiter. */
+  onDelete?: () => void;
   people: readonly Contact[];
   onCompare: () => void;
   c: Contact | null;
@@ -863,6 +1251,9 @@ function ProfileDialog({
   const last = useRef<Contact | null>(null);
   if (c) last.current = c;
   const p = c ?? last.current;
+  const [editing, setEditing] = useState<false | string>(false);
+  useEffect(() => { setEditing(false); }, [c?.id]);
+  const missing = p ? [!p.email && !p.onFile?.email && "email", !p.phone && !p.onFile?.phone && "phone", !p.linkedin && "LinkedIn", !p.location && "location"].filter(Boolean) as string[] : [];
 
   useEffect(() => {
     if (!c) return;
@@ -887,41 +1278,59 @@ function ProfileDialog({
                 {p.name}
                 {p.openToWork && <span className="cp-otw">Open to work</span>}
               </h2>
-              <p className="cp-title">{p.title} at {p.company}</p>
+              {(p.title || p.company) && <p className="cp-title">{p.title && p.company ? `${p.title} at ${p.company}` : p.title || p.company}</p>}
               <p className="cp-meta">
-                <span><MapPin size={13} /> {p.location}</span>
-                <span><Briefcase size={13} /> {p.years} yrs · {p.seniority}</span>
-                <a href={`https://${p.linkedin}`} target="_blank" rel="noreferrer"><LinkedinLogo size={13} weight="fill" /> LinkedIn</a>
+                {p.location && <span><MapPin size={13} /> {p.location}</span>}
+                {experienceLabel(p) && <span><Briefcase size={13} /> {experienceLabel(p)}</span>}
+                {p.linkedin && <a href={`https://${p.linkedin}`} target="_blank" rel="noreferrer"><LinkedinLogo size={13} weight="fill" /> LinkedIn</a>}
               </p>
             </div>
+            {!editing && (
+              <span className="cp-head-act">
+                <button type="button" className="cp-edit" onClick={() => setEditing("name")}>
+                  <PencilSimple size={13} weight="bold" /> Edit
+                </button>
+                {onDelete && (
+                  <button type="button" className="cp-edit cp-del" onClick={onDelete} aria-label={`Delete ${p.name}`} title="Delete">
+                    <Trash size={14} />
+                  </button>
+                )}
+              </span>
+            )}
           </header>
 
+          {editing ? (
+            <EditForm key={p.id} p={p} focus={editing} onCancel={() => setEditing(false)} onSave={(patch) => { onSave(patch); setEditing(false); }} />
+          ) : (
           <div className="cp-body">
+            {missing.length > 0 && (
+              <button type="button" className="cp-missing" onClick={() => setEditing(missing[0] === "LinkedIn" ? "linkedin" : missing[0]!)}>
+                <span><b>Missing {missing.join(", ")}.</b> Know it? Add it here so outreach can go out.</span>
+                <span className="cp-missing-go">Fill in <CaretRight size={11} weight="bold" /></span>
+              </button>
+            )}
             <section className="cp-contact">
               <ContactLine icon={<EnvelopeSimple size={15} />} label="Email" value={p.email?.value}
-                note={p.email ? (p.email.verified ? <><SealCheck size={12} weight="fill" className="cp-ok" /> Verified</> : "Not verified yet") : "Still looking"}
-                onCopy={onCopy} kind="email" />
+                note={p.email ? (p.email.verified ? <><SealCheck size={12} weight="fill" className="cp-ok" /> Verified</> : "Not verified yet") : LIVE ? (p.onFile?.email ? "Loading" : "Not on file") : "Still looking"}
+                onCopy={onCopy} kind="email" onAdd={() => setEditing("email")} />
               <ContactLine icon={<Phone size={15} />} label="Phone" value={p.phone?.value}
-                note={p.phone ? "Mobile" : "Still looking"}
-                onCopy={onCopy} kind="phone" />
+                note={p.phone ? (LIVE ? "On file" : "Mobile") : LIVE ? (p.onFile?.phone ? "Loading" : "Not on file") : "Still looking"}
+                onCopy={onCopy} kind="phone" onAdd={() => setEditing("phone")} />
             </section>
 
-            <p className="cp-src">
-              {p.profile === "full"
-                ? <>Saved for {campName(p.campaign)} by {p.capturedBy}, {capturedLabel(p.capturedAgo).toLowerCase()}.</>
-                : <>Saved for {campName(p.campaign)} by {p.capturedBy}, {capturedLabel(p.capturedAgo).toLowerCase()}. The full profile is still loading.</>}
-            </p>
+            <p className="cp-src">{sourceLine(p)}</p>
 
             <section className="cp-sl">
-              <h3><BookmarkSimple size={14} weight={shortlisted.length ? "fill" : "regular"} /> Shortlisted for</h3>
+              <h3><BookmarkSimple size={14} weight={shortlisted.length ? "fill" : "regular"} /> {shortlisted.every((id) => (stagesOfNow(p.id)[id] ?? "shortlisted") === "shortlisted") ? "Shortlisted for" : "On these campaigns"}</h3>
               {shortlisted.length ? (
                 <div className="cp-sl-list">
                   {shortlisted.map((id) => {
-                    const camp = CAMPAIGNS.find((x) => x.id === id);
+                    const camp = campaignsNow.find((x) => x.id === id);
+                    const at = stagesOfNow(p.id)[id] ?? "shortlisted";
                     return (
                       <span key={id} className="cp-sl-chip">
                         <span className="cp-sl-name">{camp?.name ?? id}</span>
-                        {camp && <span className="cp-sl-role">{camp.role}</span>}
+                        {at !== "shortlisted" ? <span {...statusProps(stageLabel(at))} className="cp-sl-role st">{stageLabel(at)}</span> : camp && <span className="cp-sl-role">{camp.role}</span>}
                         <button type="button" className="cp-sl-x" onClick={() => onShortlist(id)} aria-label={`Remove from ${camp?.name ?? id}`} title="Remove">
                           <X size={10} weight="bold" />
                         </button>
@@ -935,8 +1344,10 @@ function ProfileDialog({
             </section>
 
             {p.about && <p className="cp-about">{p.about}</p>}
+            {p.notes && <p className="cp-about">{p.notes}</p>}
+            {notes !== undefined && <NotesSection key={p.id} notes={notes} onNote={onNote} />}
 
-            <section className="cp-sec">
+            {p.jobs.length > 0 && <section className="cp-sec">
               <h3><Briefcase size={14} /> Experience</h3>
               <ol className="cp-jobs">
                 {p.jobs.map((j, i) => (
@@ -947,7 +1358,7 @@ function ProfileDialog({
                   </li>
                 ))}
               </ol>
-            </section>
+            </section>}
 
             {p.school && (
               <section className="cp-sec">
@@ -956,11 +1367,12 @@ function ProfileDialog({
               </section>
             )}
 
-            <section className="cp-sec">
+            {p.skills.length > 0 && <section className="cp-sec">
               <h3>Skills</h3>
               <div className="cp-skills">{p.skills.map((s) => <span key={s} className="cp-skill">{s}</span>)}</div>
-            </section>
+            </section>}
           </div>
+          )}
 
           <footer className="cp-foot">
             <div className="cp-step">
@@ -974,19 +1386,19 @@ function ProfileDialog({
             </div>
             <div className={`cp-cmp${people.length >= 2 ? " is-ready" : ""}`}>
               <button type="button" className={`cp-cmp-add${selected ? " is-on" : ""}`} onClick={onSelect}
-                title={selected ? "Remove from compare" : people.length >= MAX_COMPARE ? "Compare is full" : "Add to compare"}>
+                title={selected ? "Remove from compare" : "Add to compare"}>
                 <span className="cp-cmp-box">{selected && <Check size={11} weight="bold" />}</span>
                 {selected ? "In compare" : "Add to compare"}
               </button>
               <span className="cp-cmp-faces" aria-hidden="true">
-                {people.map((x) => <Avatar key={x.id} name={x.name} hue={x.hue} size={22} />)}
+                {people.slice(0, MAX_COMPARE).map((x) => <Avatar key={x.id} name={x.name} hue={x.hue} size={22} />)}
               </span>
-              <button type="button" className="cp-cmp-go" onClick={onCompare} disabled={people.length < 2}
-                title={people.length < 2 ? "Add one more person to compare" : `Compare ${people.length}`}>
-                Compare {people.length}/{MAX_COMPARE}
+              <button type="button" className="cp-cmp-go" onClick={onCompare} disabled={people.length < 2 || people.length > MAX_COMPARE}
+                title={people.length < 2 ? "Add one more person to compare" : people.length > MAX_COMPARE ? `Compare takes up to ${MAX_COMPARE}` : `Compare ${people.length}`}>
+                {people.length > MAX_COMPARE ? `${people.length} selected` : `Compare ${people.length}/${MAX_COMPARE}`}
               </button>
             </div>
-            <ShortlistControl suggest={p.campaign} on={shortlisted} onPick={onShortlist} />
+            <ShortlistControl suggest={p.campaign} on={shortlisted} onPick={onShortlist} stages={stagesOfNow(p.id)} />
           </footer>
         </div>
       )}
@@ -994,8 +1406,94 @@ function ProfileDialog({
   );
 }
 
-function ContactLine({ icon, label, value, note, onCopy, kind }: {
-  icon: ReactNode; label: string; value?: string; note: ReactNode; onCopy: (m: string) => void; kind: "email" | "phone";
+/* Edit the details a recruiter is most likely to know better than the
+   enrichment did. Empty fields are flagged so gaps get filled, and the
+   field that was clicked ("Add email") opens focused. */
+function EditForm({ p, focus, onCancel, onSave }: { p: Contact; focus: string; onCancel: () => void; onSave: (patch: ContactEdit) => void }) {
+  const [v, setV] = useState({
+    name: p.name, title: p.title, company: p.company, location: p.location,
+    email: p.email?.value ?? "", phone: p.phone?.value ?? "", linkedin: p.linkedin,
+  });
+  const set = (k: keyof typeof v) => (e: React.ChangeEvent<HTMLInputElement>) => setV((cur) => ({ ...cur, [k]: e.target.value }));
+  const emailOk = !v.email || /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v.email.trim());
+  const fields: { k: keyof typeof v; label: string; type?: string; ph: string; wide?: boolean }[] = [
+    { k: "name", label: "Full name", ph: "Full name" },
+    { k: "title", label: "Title", ph: "e.g. Staff Engineer" },
+    { k: "company", label: "Company", ph: "Current company" },
+    { k: "location", label: "Location", ph: "City, country" },
+    { k: "email", label: "Email", type: "email", ph: "name@company.com" },
+    { k: "phone", label: "Phone", type: "tel", ph: "+91 98xxx xxxxx" },
+    { k: "linkedin", label: "LinkedIn", ph: "linkedin.com/in/…", wide: true },
+  ];
+  const save = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!emailOk || !v.name.trim()) return;
+    const email = v.email.trim(), phone = v.phone.trim();
+    onSave({
+      name: v.name.trim(), title: v.title.trim(), company: v.company.trim(), location: v.location.trim(),
+      linkedin: v.linkedin.trim().replace(/^https?:\/\//, ""),
+      email: email ? (email === p.email?.value ? p.email : { value: email, source: "Manual" as const, verified: false }) : undefined,
+      phone: phone ? (phone === p.phone?.value ? p.phone : { value: phone, source: "Manual" as const }) : undefined,
+    });
+  };
+  return (
+    <form className="cp-form" onSubmit={save}>
+      <div className="cp-form-grid">
+        {fields.map((f) => {
+          const empty = !v[f.k].trim();
+          return (
+            <label key={f.k} className={`cp-field${f.wide ? " is-wide" : ""}${empty ? " is-empty" : ""}${f.k === "email" && !emailOk ? " is-bad" : ""}`}>
+              <span>{f.label}{empty && <em>Missing</em>}</span>
+              <input type={f.type ?? "text"} value={v[f.k]} onChange={set(f.k)} placeholder={f.ph} autoFocus={f.k === focus}
+                readOnly={LIVE && f.k === "linkedin" && !!p.linkedin} title={LIVE && f.k === "linkedin" && p.linkedin ? "The LinkedIn link identifies them, so it stays as it is" : undefined} />
+              {f.k === "email" && !emailOk && <small>That doesn't look like an email yet.</small>}
+            </label>
+          );
+        })}
+      </div>
+      <p className="cp-form-note">Edits are yours: enrichment won't overwrite them. A new email shows as unverified until it checks out.</p>
+      <div className="cp-form-act">
+        <button type="button" className="ct-btn" onClick={onCancel}>Cancel</button>
+        <button type="submit" className="ct-btn is-primary" disabled={!emailOk || !v.name.trim()}>Save details</button>
+      </div>
+    </form>
+  );
+}
+
+/* The team's notes on someone, newest first, and a box to add one. */
+function NotesSection({ notes, onNote }: { notes: readonly Note[] | null; onNote: (body: string) => Promise<boolean> }) {
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!text.trim() || busy) return;
+    setBusy(true);
+    if (await onNote(text.trim())) setText("");
+    setBusy(false);
+  };
+  return (
+    <section className="cp-sec">
+      <h3><NotePencil size={14} /> Notes</h3>
+      {notes === null ? <p className="cp-sl-none">Loading notes</p> : notes.length > 0 && (
+        <ul className="cp-notes">
+          {notes.map((n) => (
+            <li key={n.id}>
+              <p className="cp-about">{n.body}</p>
+              <p className="cp-src">{[n.authorName, new Date(n.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })].filter(Boolean).join(", ")}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+      <form className="cp-note-add" onSubmit={(e) => void save(e)}>
+        <textarea className="cp-note-in" rows={2} value={text} onChange={(e) => setText(e.target.value)} placeholder="Add a note for the team" aria-label="New note" maxLength={5000} />
+        <button type="submit" className="ct-btn" disabled={!text.trim() || busy} aria-busy={busy || undefined}>{busy ? <><Loader size="sm" />Saving</> : "Add note"}</button>
+      </form>
+    </section>
+  );
+}
+
+function ContactLine({ icon, label, value, note, onCopy, kind, onAdd }: {
+  icon: ReactNode; label: string; value?: string; note: ReactNode; onCopy: (m: string) => void; kind: "email" | "phone"; onAdd?: () => void;
 }) {
   const [done, setDone] = useState(false);
   const copy = () => {
@@ -1012,7 +1510,7 @@ function ContactLine({ icon, label, value, note, onCopy, kind }: {
         <span className="cp-line-l">{label}</span>
         {value
           ? <button type="button" className="cp-line-v" onClick={copy} title="Copy">{value}</button>
-          : <span className="cp-line-v is-none">Not found yet</span>}
+          : onAdd ? <button type="button" className="cp-line-add" onClick={onAdd}><Plus size={11} weight="bold" /> Add {label.toLowerCase()}</button> : <span className="cp-line-v is-none">Not found yet</span>}
         <span className="cp-line-n">{note}</span>
       </div>
       {value && (
@@ -1038,7 +1536,7 @@ function CompareDialog({
 }: {
   open: boolean;
   onClear: () => void;
-  onAdd: (id: string) => void;
+  onAdd: (c: Contact) => void;
   onRemove: (id: string) => void;
   people: readonly Contact[];
   onClose: () => void;
@@ -1053,23 +1551,25 @@ function CompareDialog({
   const room = ps.length < MAX_COMPARE;
   const cols = ps.length + (room ? 1 : 0);
   const shared = new Set(ps[0]?.skills.filter((s) => ps.every((p) => p.skills.includes(s))) ?? []);
-  const most = Math.max(...ps.map((p) => p.years));
-  const lead = ps.filter((p) => p.years === most).length === 1 ? most : -1;
+  const lead = mostYears(ps);
 
   const rows: { label: string; cell: (p: Contact) => ReactNode }[] = [
-    { label: "Current role", cell: (p) => <><strong>{p.title}</strong><span className="cc-sub">{p.company} · {p.industry}</span></> },
-    { label: "Experience", cell: (p) => <span className={p.years === lead ? "cc-lead" : undefined}>{p.years} yrs · {p.seniority}{p.years === lead && <span className="cc-tag">Most</span>}</span> },
+    { label: "Current role", cell: (p) => <><strong>{p.title}</strong><span className="cc-sub">{[p.company, p.industry].filter(Boolean).join(" · ")}</span></> },
+    /* Years that are not on the profile arrive as 0: said as missing, never as "0 yrs" or a level worked out from them. */
+    { label: "Experience", cell: (p) => experienceLabel(p)
+      ? <span className={p.years === lead ? "cc-lead" : undefined}>{experienceLabel(p)}{p.years === lead && <span className="cc-tag">Most</span>}</span>
+      : <span className="ct-none">{LIVE ? "Not on the profile" : "Not in the saved page"}</span> },
     { label: "Location", cell: (p) => p.location },
-    { label: "Previously", cell: (p) => p.jobs[1] ? <>{p.jobs[1].title}<span className="cc-sub">{p.jobs[1].company} · {p.jobs[1].span}</span></> : <span className="ct-none">Not in the saved page</span> },
-    { label: "Education", cell: (p) => p.school ? <>{p.school.name}<span className="cc-sub">{p.school.degree}</span></> : <span className="ct-none">Not in the saved page</span> },
+    { label: "Previously", cell: (p) => p.jobs[1] ? <>{p.jobs[1].title}<span className="cc-sub">{p.jobs[1].company} · {p.jobs[1].span}</span></> : <span className="ct-none">{LIVE ? "Not on the profile" : "Not in the saved page"}</span> },
+    { label: "Education", cell: (p) => p.school ? <>{p.school.name}<span className="cc-sub">{p.school.degree}</span></> : <span className="ct-none">{LIVE ? "Not on the profile" : "Not in the saved page"}</span> },
     { label: "Skills", cell: (p) => <div className="cp-skills">{p.skills.map((s) => <span key={s} className={`cp-skill${shared.has(s) ? " is-shared" : ""}`}>{s}</span>)}</div> },
     { label: "Email", cell: (p) => <CopyCell kind="email" value={p.email?.value} verified={p.email?.verified} onCopy={onCopy} /> },
     { label: "Phone", cell: (p) => <CopyCell kind="phone" value={p.phone?.value} onCopy={onCopy} /> },
-    { label: "Saved for", cell: (p) => <>{campName(p.campaign)}<span className="cc-sub">{capturedLabel(p.capturedAgo)} · {p.capturedBy}</span></> },
+    { label: "Saved for", cell: (p) => <>{p.campaign ? campName(p.campaign) : <span className="ct-none">No campaign</span>}<span className="cc-sub">{[capturedLabel(p.capturedAgo), p.capturedBy].filter(Boolean).join(" · ")}</span></> },
   ];
 
   return (
-    <Dialog open={open} onClose={onClose} label="Compare contacts" size="lg">
+    <Dialog open={open} onClose={onClose} label="Compare candidates" size="lg">
       <div className="cc" style={{ ["--cc-n" as string]: cols }}>
         <header className="cc-head">
           <h2>Compare</h2>
@@ -1091,7 +1591,7 @@ function CompareDialog({
                 <Avatar name={p.name} hue={p.hue} size={44} />
                 <button type="button" className="ct-name" onClick={() => onOpen(p.id)}>{p.name}</button>
                 <span className="ct-title">{p.title}</span>
-                <ShortlistControl suggest={p.campaign} on={lists[p.id] ?? []} onPick={(camp) => onShortlist(p.id, camp)} />
+                <ShortlistControl suggest={p.campaign} on={lists[p.id] ?? []} onPick={(camp) => onShortlist(p.id, camp)} stages={stagesOfNow(p.id)} />
               </div>
             ))}
             {room && <AddSlot exclude={ps.map((p) => p.id)} near={ps[0]} onAdd={onAdd} />}
@@ -1112,28 +1612,39 @@ function CompareDialog({
 /* The open column: a dashed slot that becomes a search over every contact.
    Before anything is typed it suggests people from the same campaign as
    the first person being compared, since that is usually the comparison. */
-function AddSlot({ exclude, near, onAdd }: { exclude: readonly string[]; near?: Contact; onAdd: (id: string) => void }) {
+function AddSlot({ exclude, near, onAdd }: { exclude: readonly string[]; near?: Contact; onAdd: (c: Contact) => void }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [cursor, setCursor] = useState(0);
   const ref = useRef<HTMLButtonElement>(null);
   const close = useCallback(() => { setOpen(false); setQ(""); }, []);
+  /* With the API the search runs there, on the same campaign first. */
+  const dq = useDebounced(q, 250);
+  const [found, setFound] = useState<readonly Contact[]>([]);
+  useEffect(() => {
+    if (!LIVE || !open) return;
+    let gone = false;
+    cands.listCandidates({ q: dq, campaignId: dq.trim() ? undefined : near?.campaign || undefined, sort: "recent", limit: 12 })
+      .then((r) => { if (!gone) setFound(r.rows.map((x) => cands.contactFromRow(x))); }, () => { if (!gone) setFound([]); });
+    return () => { gone = true; };
+  }, [dq, open, near?.campaign]);
   const list = useMemo(() => {
+    if (LIVE) return found.filter((c) => !exclude.includes(c.id)).slice(0, 8);
     const pool = CONTACTS.filter((c) => !exclude.includes(c.id));
     const needle = q.trim();
     const hits = needle ? pool.filter((c) => matches(c, EMPTY_FILTERS, needle))
       : [...pool].sort((a, b) => Number(b.campaign === near?.campaign) - Number(a.campaign === near?.campaign));
     return hits.slice(0, 8);
-  }, [q, exclude, near]);
+  }, [q, exclude, near, found]);
   useEffect(() => { setCursor(0); }, [q]);
-  const pick = (id: string) => { onAdd(id); close(); };
+  const pick = (c: Contact) => { onAdd(c); close(); };
 
   return (
     <div className="cc-person cc-add">
       <button ref={ref} type="button" className="cc-add-btn" onClick={() => setOpen((o) => !o)} aria-haspopup="listbox" aria-expanded={open}>
         <span className="cc-add-ico" aria-hidden="true"><Plus size={16} weight="bold" /></span>
         <span className="cc-add-t">Add person</span>
-        <span className="cc-add-s">Search contacts</span>
+        <span className="cc-add-s">Search candidates</span>
       </button>
       <Popover anchor={ref} open={open} onClose={close} width={320}>
         <div className="ct-cp">
@@ -1148,22 +1659,23 @@ function AddSlot({ exclude, near, onAdd }: { exclude: readonly string[]; near?: 
               onKeyDown={(e) => {
                 if (e.key === "ArrowDown") { e.preventDefault(); setCursor((c) => Math.min(list.length - 1, c + 1)); }
                 if (e.key === "ArrowUp") { e.preventDefault(); setCursor((c) => Math.max(0, c - 1)); }
-                if (e.key === "Enter" && list[cursor]) { e.preventDefault(); pick(list[cursor]!.id); }
+                const hit = list[cursor];
+                if (e.key === "Enter" && hit) { e.preventDefault(); pick(hit); }
               }}
             />
           </label>
-          <div className="ct-cp-list" role="listbox" aria-label="Contacts">
+          <div className="ct-cp-list" role="listbox" aria-label="Candidates">
             {!q && near && <p className="cc-add-hint">From {campName(near.campaign)} first</p>}
             {list.map((c, i) => (
               <button key={c.id} type="button" role="option" aria-selected={i === cursor}
                 className={`ct-cp-i cc-add-i${i === cursor ? " is-cursor" : ""}`}
-                onMouseEnter={() => setCursor(i)} onClick={() => pick(c.id)}>
+                onMouseEnter={() => setCursor(i)} onClick={() => pick(c)}>
                 <Avatar name={c.name} hue={c.hue} size={26} />
                 <span className="ct-cp-t">
                   <span className="ct-cp-name">{c.name}</span>
-                  <span className="ct-cp-role">{c.title} · {c.company}</span>
+                  <span className="ct-cp-role">{[c.title, c.company].filter(Boolean).join(" · ")}</span>
                 </span>
-                <span className="ct-cp-n">{c.years}y</span>
+                {c.years > 0 && <span className="ct-cp-n">{c.years}y</span>}
               </button>
             ))}
             {!list.length && <p className="ct-cp-empty">No one matches “{q}”.</p>}
@@ -1175,31 +1687,7 @@ function AddSlot({ exclude, near, onAdd }: { exclude: readonly string[]; near?: 
 }
 
 /* ── toast ──
-   One line, bottom centre, replaced rather than stacked. */
-
-let pushToast: ((m: string) => void) | null = null;
-
-export function useToast() {
-  return useCallback((m: string) => pushToast?.(m), []);
-}
-
-export function Toaster() {
-  const [msg, setMsg] = useState<{ text: string; n: number } | null>(null);
-  useEffect(() => {
-    let n = 0;
-    let t = 0;
-    pushToast = (text) => {
-      n += 1;
-      setMsg({ text, n });
-      window.clearTimeout(t);
-      t = window.setTimeout(() => setMsg(null), 1800);
-    };
-    return () => { pushToast = null; window.clearTimeout(t); };
-  }, []);
-  return createPortal(
-    <div className="ct-toast-host" role="status" aria-live="polite">
-      {msg && <div key={msg.n} className="ct-toast"><Check size={13} weight="bold" /> {msg.text}</div>}
-    </div>,
-    document.body,
-  );
-}
+   One line, bottom centre, replaced rather than stacked. It lives in toast.tsx and is mounted once, by the
+   console, so it is seen from every page; the names stay importable from here. */
+export { Toaster, useToast } from "./toast";
+export type { ToastAction } from "./toast";

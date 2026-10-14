@@ -1,0 +1,17 @@
+/* Error and not-found states. See ErrorStates.tsx. One picture, one title, one sentence, one action. */
+.es {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 24px 16px 32px;
+  text-align: center;
+}
+.es .ea { margin-bottom: 6px; }
+.es-t { margin: 0; color: var(--ink); }
+.es-p { margin: 0; max-width: 44ch; color: var(--ink-2); }
+.es-act { margin-top: 12px; text-decoration: none; }
+.es.is-404 { padding-top: 48px; }
+/* In a narrow panel (the Agent page's rail): the same states, tighter, the sentence one step down. */
+.es.is-compact { padding: 4px 4px 6px; }
+.es.is-compact .es-p { font: var(--type-body-sm); letter-spacing: var(--track-body-sm); }
+.es.is-compact .es-act { margin-top: 8px; }

@@ -1,0 +1,11 @@
+/* Campaign details: a short form, one column, the same inputs as New campaign. */
+.ce { display: flex; flex-direction: column; gap: 14px; padding: 24px; }
+.ce-h h2 { margin: 0; font: 600 18px/1.3 var(--ui); color: var(--ink); }
+.ce-h p { margin: 4px 0 0; font: 400 13.5px/1.45 var(--ui); color: var(--ink-2); }
+.ce-f { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.ce-f > span { font: 500 13px/1.3 var(--ui); color: var(--ink); }
+.ce-f > em { font: 400 12.5px/1.4 var(--ui); font-style: normal; color: var(--ink-2); }
+.ce-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ce-note { margin: 0; font: 400 13.5px/1.45 var(--ui); color: var(--ink-2); }
+.ce-foot { display: flex; justify-content: flex-end; gap: 8px; padding-top: 4px; }
+@media (max-width: 480px) { .ce-row { grid-template-columns: 1fr; } }

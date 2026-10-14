@@ -1,14 +1,56 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { afterMismatch, landedLine, LIVE, onWorkspaceMismatch, setTabWorkspace } from "./api/client";
+import {
+  activeOrg, displayNameOf, identityApi, inviteTokenFrom, onOtherTabWorkspaceChange, pendingOrgName, readable,
+  rememberInvite, takeInvite, toBootstrap, workspaceChanged, workspaceChangedHere,
+} from "./api/identity";
+import { hashAfterWorkspaceChange } from "./nav";
 import { BlockedCard, CodeCard, SignInCard } from "./Cards";
-import { Console } from "./Console";
+import { Console, hasStoredSession, prefetchConsole } from "./consoleChunk";
+import type { LiveAccount } from "./Console";
+import { finishWithRetry, onboardingApi } from "./api/onboarding";
+import type { ResearchView, Setup } from "./api/onboarding";
+import { landingPlace, needsSetup } from "./setup/lean/gate";
+import { setupLogo } from "./setup/lean/logoDraft";
+import { flight } from "./setup/lean/flight";
+import type { FlightInfo } from "./setup/lean/flight";
+import { finishBody } from "./setup/lean/steps";
+import { markPending } from "./tour/useTour";
+import type { TeamApi } from "./setup/lean/Team";
+import { clearPersonalCaches } from "./clientCache";
+import { errorKindOf } from "./ErrorStates";
+import { sessionForScope, setSession } from "./roleStore";
 import { describeAuthError } from "./authErrors";
 import { redirectTarget } from "./config";
 import { DEV_BOOTSTRAP, DEV_SKIP_AUTH } from "./devSession";
-import { LOGO_PATH } from "./logo";
+import { Loader } from "./components/Loader";
+import { DocTitle } from "./components/DocTitle";
+import { SET_UP_TITLE, SIGN_IN_TITLE } from "./pageTitle";
 import { supabase } from "./supabase";
 import { bootstrapSchema, BUSY, IDLE } from "./types";
 import type { Op, View } from "./types";
 import { emailProblem } from "./validate";
+
+/** The set-up and the screens around it (team, invite, account error) share one canvas and Motion, so
+ *  they load together and only when one is needed. */
+const LeanSetup = lazy(() => import("./setup/lean/LeanSetup").then((m) => ({ default: m.LeanSetup })));
+const InviteScreen = lazy(() => import("./setup/lean/SideScreens").then((m) => ({ default: m.InviteScreen })));
+const AccountErrorScreen = lazy(() => import("./setup/lean/SideScreens").then((m) => ({ default: m.AccountErrorScreen })));
+const WAITING = (
+  <div className="boot" style={{ background: "#fff4ec" }}>
+    <Loader size="lg" label="Getting things ready" />
+  </div>
+);
+/* The console is a file of its own (consoleChunk.ts). While it arrives the page is what "Checking your session" was:
+   the same loader, in the same place, on the same ground. */
+const CONSOLE_WAITING = (
+  <div className="boot">
+    <Loader size="lg" label="Loading" />
+  </div>
+);
+/* Someone who has signed in here before is about to be given the console: it starts arriving now, in step with
+   finding out who they are, instead of after. */
+if (hasStoredSession()) prefetchConsole();
 
 /** Deferred so Motion is not in the sign-in form's critical path. Named
  *  export, so unwrap it for React.lazy's default-export contract. */
@@ -43,10 +85,184 @@ export function App() {
   // change with no focus move attached to it.
   const [announce, setAnnounce] = useState("");
 
+  // The code has been asked for: the console is the next thing they see, so it starts arriving while they type.
+  useEffect(() => { if (view.v === "code") prefetchConsole(); }, [view.v]);
+
   // getSession() on mount and the SIGNED_IN event can both land for one
   // sign-in. Bootstrap is a cheap read either way, but running it twice makes
   // the card render, blank, and render again.
   const resolving = useRef(false);
+
+  /* Connected to the API only: an invite link waiting to be accepted, and
+     whether the person chose their personal workspace over onboarding. */
+  const [invite, setInvite] = useState<string | null>(null);
+  const [declined, setDeclined] = useState(false);
+  /* The set-up was finished here (the first campaign is made): never put back in it, whatever a slow
+     read of the account says for a moment. */
+  const [setupDone, setSetupDone] = useState(false);
+  /* Between "the set-up ended" and "the account says where they are now": a plain loader, so the console is never
+     started on the workspace they have just left (and never asks for what it would be refused). */
+  const [landing, setLanding] = useState(false);
+  /* Set-up after sign-in, as the server keeps it: undefined until asked, null when there's
+     none (an existing account), otherwise the step and what research there is. */
+  const [setupInfo, setSetupInfo] = useState<{ setup: Setup | null; research: ResearchView | null } | null | undefined>(undefined);
+
+  /** The workspace this tab last showed, so a change found while loading drops what belongs to the old one. */
+  const shownWorkspace = useRef<string | null | undefined>(undefined);
+  /** The person this tab last showed: a different person on the same tab starts from a clean page. */
+  const shownUser = useRef<string | undefined>(undefined);
+
+  /** `/v1/me` -> the role the console shows -> the view. */
+  const loadMe = useCallback(async () => {
+    const [me, setup] = await Promise.all([
+      identityApi.me(),
+      // Unreadable is not "none": an account whose set-up could not be read is not walked through it again.
+      onboardingApi.setup().catch(() => null),
+    ]);
+    // Someone else signed in on this tab: nothing of the last person (chat, drafts, names on screen) may survive.
+    if (shownUser.current !== undefined && shownUser.current !== me.user.id) {
+      clearPersonalCaches();
+      window.location.reload();
+      return me;
+    }
+    shownUser.current = me.user.id;
+    // Switched, removed or joined somewhere else: the stores must not keep the last workspace's lists on screen.
+    const next = me.scope.organizationId ?? null;
+    // The tab says it is on the new workspace before any store is told to read again, so what they ask is not refused.
+    setTabWorkspace(me.scope.organizationId);
+    if (shownWorkspace.current !== undefined && shownWorkspace.current !== next) {
+      workspaceChangedHere();
+      // A campaign belongs to the workspace it was made in: a link to one means nothing in the new one.
+      const to = hashAfterWorkspaceChange(window.location.hash);
+      if (to) window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}${to}`);
+    }
+    shownWorkspace.current = next;
+    setSetupInfo(setup);
+    setSession(sessionForScope(me.scope, displayNameOf(me), me.user.id));
+    setView({ v: "live", me });
+    return me;
+  }, []);
+
+  /* Another tab switched workspace: this one follows rather than saving into a
+     workspace it isn't showing. */
+  const [tabNotice, setTabNotice] = useState<string | null>(null);
+  const leaving = useRef(false);
+  useEffect(() => {
+    if (!LIVE) return;
+    const follow = (notice: string | null) => {
+      if (notice) setTabNotice(notice);
+      const was = shownWorkspace.current;
+      void loadMe().then((me) => {
+        if (!notice) return;
+        // Said once the account is read: where they are now, or nothing if nothing moved.
+        const org = activeOrg(me);
+        setTabNotice(was !== (me.scope.organizationId ?? null) ? landedLine(org?.name ?? null) : null);
+      }).catch(() => {});
+    };
+    onWorkspaceMismatch((failure) => {
+      const { notice, leaveOrg } = afterMismatch(failure);
+      if (!leaveOrg) return follow(notice);
+      /* Removed from the organisation: never straight back to "Ask to join" it. Several
+         requests in flight all hear it; the first one leaves. */
+      if (leaving.current) return;
+      leaving.current = true;
+      setDeclined(true);
+      setTabNotice(notice);
+      void identityApi
+        .setActiveWorkspace(null)
+        .catch(() => {})
+        .then(() => loadMe())
+        .catch(() => {})
+        .finally(() => { leaving.current = false; });
+    });
+    const stop = onOtherTabWorkspaceChange(() => follow(null));
+    return () => { onWorkspaceMismatch(null); stop(); };
+  }, [loadMe]);
+  useEffect(() => {
+    if (!tabNotice) return;
+    const t = window.setTimeout(() => setTabNotice(null), 8000);
+    return () => window.clearTimeout(t);
+  }, [tabNotice]);
+
+  /* They asked to join a team and are carrying on in Personal. An approval can land at any moment, and set-up
+     ends by joining: look again while it is waiting, and open the team when it comes. */
+  const [asked, setAsked] = useState(false);
+  const waitingOnTeam = asked || (view.v === "live" && pendingOrgName(view.me) !== null);
+  useEffect(() => {
+    if (!LIVE || view.v !== "live" || setupDone || !waitingOnTeam) return;
+    if (!needsSetup(view.me, setupInfo, declined)) return;
+    let on = true;
+    const look = async () => {
+      if (document.hidden) return;
+      try {
+        const me = await identityApi.me();
+        const org = me.workspaces.find((w) => w.kind === "org");
+        if (on && org && !needsSetup(me, setupInfo, declined)) {
+          // The approval is the arrival: the scene says "you're in" and lands them in the team.
+          await joinedTeam({ kind: "request", org: org.name, logoUrl: org.logoUrl, person: displayNameOf(me) });
+        }
+      } catch { /* the next look tries again */ }
+    };
+    const timer = window.setInterval(() => void look(), 15_000);
+    window.addEventListener("focus", look);
+    return () => { on = false; window.clearInterval(timer); window.removeEventListener("focus", look); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [waitingOnTeam, view, setupInfo, declined, setupDone]);
+
+  const enterLive = useCallback(async () => {
+    try {
+      const me = await loadMe();
+      const token = takeInvite();
+      if (token) setInvite(token);
+      setAnnounce(`Signed in as ${me.user.email}.`);
+    } catch (error) {
+      setView({ v: "accountError", message: readable(error), kind: (() => { const k = errorKindOf(error); return k && k !== "connector" ? k : "server"; })() });
+    }
+  }, [loadMe]);
+
+  /* The team question inside set-up (server calls), and what happens when it ends in a team: the
+     set-up is over (remembered, so leaving that team never walks them through it again) and the
+     console opens on the organisation. */
+  const joinedTeam = useCallback(async (how?: FlightInfo) => {
+    // Arriving is a short scene, not a jump: it is already up when they joined here (the set-up puts it up on the
+    // click), and is put up now when the arrival came from somewhere else (a request that was approved).
+    if (how) flight.begin(how);
+    setLanding(true);
+    try {
+      await onboardingApi.done().catch(() => {});
+      // The account first (it says which workspace they are in), then the console: no request goes out for the old one.
+      const me = await loadMe().catch(() => null);
+      window.location.hash = "#/";
+      workspaceChanged();
+      setSetupDone(true);
+      setLanding(false);
+      if (me) {
+        markPending(me.user.id);
+        flight.update({ logoUrl: me.workspaces.find((w) => w.kind === "org")?.logoUrl ?? null });
+      }
+    } finally {
+      // The console is mounted behind the scene now: it fades once its minimum time has passed.
+      flight.ready();
+    }
+  }, [loadMe]);
+  const teamApi = useMemo<TeamApi>(
+    () => ({
+      invitations: onboardingApi.invitations,
+      byDomain: onboardingApi.organisationByDomain,
+      lookup: onboardingApi.lookupOrganisation,
+      accept: async (id, fullName) => {
+        await onboardingApi.acceptInvitation(id, fullName);
+      },
+      join: async (id, fullName) => {
+        const r = await onboardingApi.joinOrganisation(id, fullName);
+        if (r.status === "joined") return "joined";
+        setAsked(true);
+        return "requested";
+      },
+      joined: () => void joinedTeam(),
+    }),
+    [joinedTeam],
+  );
 
   /** Session -> tenancy -> view. `extension_bootstrap()` is the authority on
    *  whether this account may be here at all, so its answer decides the card. */
@@ -61,6 +277,10 @@ export function App() {
          offline, on a dead network, or against a project whose keys have
          rotated. See devSession.ts for why this cannot reach production. */
       if (DEV_SKIP_AUTH) {
+        if (LIVE) {
+          await enterLive();
+          return;
+        }
         setView({ v: "signedIn", bootstrap: DEV_BOOTSTRAP });
         setAnnounce("Development mode: authentication skipped.");
         return;
@@ -69,6 +289,14 @@ export function App() {
       const { data: sessionData } = await supabase.auth.getSession();
       if (!sessionData.session) {
         setView({ v: "signIn" });
+        return;
+      }
+
+      if (LIVE) {
+        setFormOp(IDLE);
+        setGoogleOp(IDLE);
+        setCode("");
+        await enterLive();
         return;
       }
 
@@ -107,6 +335,21 @@ export function App() {
     } finally {
       resolving.current = false;
     }
+  }, [enterLive]);
+
+  useEffect(() => {
+    /* An invite link survives sign-in in session storage: Google sends the
+       browser back to the page without its hash. */
+    const token = LIVE ? inviteTokenFrom(window.location.hash) : null;
+    if (token) rememberInvite(token);
+    if (!LIVE) return;
+    /* An invite link opened in a tab that's already signed in shows at once, not after a reload. */
+    const onHash = () => {
+      const next = inviteTokenFrom(window.location.hash);
+      if (next) setInvite(next);
+    };
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
   useEffect(() => {
@@ -258,12 +501,31 @@ export function App() {
   async function signOut() {
     setSigningOut(true);
     await supabase.auth.signOut();
+    // What this browser kept for them goes too, so the next person on it starts clean.
+    clearPersonalCaches();
     setSigningOut(false);
     setEmail("");
     setCode("");
     clearErrors();
     setView({ v: "signIn" });
     setAnnounce("Signed out.");
+    // A fresh page, not just a fresh view: every in-memory store (chat, candidates, forms) goes with it.
+    window.location.hash = "#/";
+    window.location.reload();
+  }
+
+  /** Off the invite link, so a reload does not offer it again. */
+  function leaveInvite() {
+    setInvite(null);
+    window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#/`);
+  }
+
+  async function switchWorkspace(organizationId: string | null) {
+    await identityApi.setActiveWorkspace(organizationId);
+    // From here every request is for the workspace they chose; the stores that read again are not refused.
+    setTabWorkspace(organizationId);
+    workspaceChanged();
+    await loadMe();
   }
 
   /* Booting: the session check is async, so the very first paint happens
@@ -282,12 +544,7 @@ export function App() {
   if (view.v === "loading") {
     return (
       <div className="boot">
-        <span className="boot-mark" role="img" aria-label="Loading SuperHyre">
-          <svg viewBox="0 0 34 35" fill="none" aria-hidden="true" focusable="false">
-            <path d={LOGO_PATH} fill="currentColor" stroke="currentColor" strokeMiterlimit="10" />
-          </svg>
-        </span>
-        <p className="sr-only" role="status" aria-live="polite">Checking your session</p>
+        <Loader size="lg" label="Checking your session" />
       </div>
     );
   }
@@ -296,17 +553,150 @@ export function App() {
      another card inside it. Returning early is the point — once you are in,
      the split brand panel has done its job and the viewport belongs to the
      product, so the shell, the frame and the decorative blocks all go with it. */
+  /* Setting up after sign-in takes the whole screen: a new organisation's first person, or one who
+     started and hasn't finished (the organisation may already exist by then). So do the cases around
+     it: a team that is already here, a request waiting, an invite, a personal address, a load error. */
+  if (view.v === "accountError") {
+    return (
+      <Suspense fallback={WAITING}>
+        <AccountErrorScreen kind={view.kind} message={view.message} onRetry={enterLive} onSignOut={() => void signOut()} />
+      </Suspense>
+    );
+  }
+  if (view.v === "live" && landing) {
+    return (
+      <div className="boot">
+        <Loader size="lg" label="Getting things ready" />
+      </div>
+    );
+  }
+  if (view.v === "live" && invite) {
+    const me = view.me;
+    return (
+      <Suspense fallback={WAITING}>
+        <DocTitle title={SET_UP_TITLE} />
+        <InviteScreen
+          token={invite}
+          email={me.user.email}
+          memberOf={me.onboarding.memberOf}
+          memberRole={me.workspaces.find((w) => w.kind === "org")?.role ?? null}
+          knownName={!!me.user.fullName?.trim()}
+          onAccept={async (fullName) => {
+            await identityApi.acceptInvite(invite, fullName);
+            // The account is read while the invite is still on screen, so the console starts in the organisation.
+            const me = await loadMe();
+            markPending(me.user.id);
+            flight.update({ logoUrl: me.workspaces.find((w) => w.kind === "org")?.logoUrl ?? null });
+            leaveInvite();
+            workspaceChanged();
+            flight.ready();
+          }}
+          onSkip={leaveInvite}
+          onSignOut={() => { leaveInvite(); void signOut(); }}
+        />
+      </Suspense>
+    );
+  }
+  if (view.v === "live" && setupInfo !== undefined && LIVE) {
+    const me = view.me;
+    if (!setupDone && needsSetup(me, setupInfo, declined)) {
+      const kept = (setupInfo?.setup?.answers as Record<string, unknown> | undefined)?.lean;
+      const o = me.onboarding;
+      return (
+        <Suspense fallback={WAITING}>
+          <DocTitle title={SET_UP_TITLE} />
+          <LeanSetup
+            mode="live"
+            account={{
+              name: me.user.fullName?.trim() ?? "",
+              team: { personalEmail: o.personalEmail, domain: o.domain, pending: pendingOrgName(me) },
+            }}
+            resume={kept}
+            team={teamApi}
+            onSignOut={() => { setupLogo.set(null); void signOut(); }}
+            onSave={(saved) => void onboardingApi.lean(saved).catch(() => {})}
+            onFinish={async (answers) => {
+              const body = finishBody(answers);
+              if (!body) throw new Error("Something is missing from your answers. Go back and check them.");
+              // Quick on the server (the first search starts in the background); safe to repeat, so a slow
+              // or dropped attempt is made again and returns the same ids.
+              // The logo they added, if any, goes with the organisation it is for (never for Personal).
+              const logo = answers.team?.kind === "create" ? setupLogo.get() : null;
+              const made = await finishWithRetry(logo ? { ...body, logo } : body);
+              setupLogo.set(null);
+              // The console opens on the new campaign's chat, so the first search is the first thing seen.
+              return { hash: `#/agent?campaign=${made.campaignId}`, conversationId: made.conversationId, organisationId: made.organisationId };
+            }}
+            onComplete={async (done) => {
+              setLanding(true);
+              try {
+                // The account decides where they are (a new organisation, Personal, or one they were let into
+                // meanwhile); only then does the console start, on a page that exists there.
+                const me = await loadMe().catch(() => null);
+                const there = landingPlace(done, me ? (me.scope.organizationId ?? null) : undefined);
+                window.location.hash = there === "campaign" ? done.hash : "#/";
+                workspaceChanged();
+                setSetupInfo((s) => (s?.setup ? { ...s, setup: { ...s.setup, step: "done", completedAt: new Date().toISOString() } } : s));
+                setSetupDone(true);
+                setLanding(false);
+                if (me) {
+                  // Set-up is over: the console shows them around, once.
+                  markPending(me.user.id);
+                  flight.update({ logoUrl: me.workspaces.find((w) => w.kind === "org")?.logoUrl ?? null });
+                }
+                // After the workspace is the right one: the chat is opened and shows the run.
+                if (there === "campaign" && done.conversationId) {
+                  /* The chat's module is the console's, not the sign-in's: fetched here, where it is first needed. */
+                  const chat = done.conversationId;
+                  void import("./liveChat").then((m) => m.openChat(chat));
+                }
+              } finally {
+                // A new organisation's arrival scene (set-up put it up) fades once the console is drawn behind it.
+                flight.ready();
+              }
+            }}
+          />
+        </Suspense>
+      );
+    }
+  }
+
+  if (view.v === "live") {
+    const me = view.me;
+    const live: LiveAccount = { me, reload: async () => { await loadMe(); }, switchWorkspace, say: setTabNotice };
+    return (
+      <>
+        <p className="sr-only" role="status" aria-live="polite">{announce}</p>
+        {tabNotice && <p className="tab-notice" role="status">{tabNotice}</p>}
+        {/* Keyed by workspace: switching remounts every page, so each loads
+            the new workspace's data rather than showing the last one's. */}
+        <Suspense fallback={CONSOLE_WAITING}>
+          <Console
+            key={me.scope.organizationId ?? "personal"}
+            bootstrap={toBootstrap(me)}
+            live={live}
+            onSignOut={signOut}
+            signingOut={signingOut}
+          />
+        </Suspense>
+      </>
+    );
+  }
+
   if (view.v === "signedIn") {
     return (
       <>
         <p className="sr-only" role="status" aria-live="polite">{announce}</p>
-        <Console bootstrap={view.bootstrap} onSignOut={signOut} signingOut={signingOut} />
+        <Suspense fallback={CONSOLE_WAITING}>
+          <Console bootstrap={view.bootstrap} onSignOut={signOut} signingOut={signingOut} />
+        </Suspense>
       </>
     );
   }
 
   return (
     <div className="shell">
+      <DocTitle title={SIGN_IN_TITLE} />
       {/* Fragments of the logo's staircase, sitting BEHIND the card so each
           one is only partly visible past its edges. A single square is one cell
           of the 2x4 mark, which makes this decoration that belongs to the brand
@@ -334,6 +724,7 @@ export function App() {
 
       <main className="panel">
         <p className="sr-only" role="status" aria-live="polite">{announce}</p>
+        {tabNotice && <p className="tab-notice" role="status">{tabNotice}</p>}
 
         {view.v === "signIn" && (
           <SignInCard

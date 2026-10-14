@@ -1,0 +1,169 @@
+/* The console's dark theme: its tokens (src/theme/theme.css), and what every literal colour becomes
+   (generated from the stylesheets themselves by postcssDark.ts, so there is no second copy of them).
+
+   Neutral, always. A dark page is not a brown page: the warm cream of the light theme becomes a plain grey, and
+   orange stays what it is everywhere else in the product, an accent. Surfaces climb as they rise (page, card,
+   popover, hovered row); text is three distinct greys; lines keep their weight.
+
+   Contrast, measured on the surfaces they land on (#171717 card, #0f0f0f ground, #1f1f1f plane):
+     --ink       #ececec   15.6 / 17.4 / 14.0
+     --ink-2     #b4b4b4    8.6 /  9.6 /  7.7
+     --ink-3     #8f8f8f    5.6 /  6.2 /  5.0   (tertiary text only)
+     --accent-text #f0875c  7.0 /  7.8 /  6.3   (the brand as text) */
+
+/* `html:root` is one step more specific than the generated rules, so the tokens written here win wherever they
+   are defined, whatever order the stylesheets arrive in. */
+html:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --ink: #ececec;
+  --ink-2: #b4b4b4;
+  --ink-3: #8f8f8f;
+  --black: #fafafa;
+  --rule: #2e2e2e;
+  --rule-strong: #4f4f4f;
+
+  --page: #171717;
+  --card: #171717;
+  --field: #1b1b1b;
+  --page-2: #0f0f0f;
+  --sub: #1f1f1f;
+  --hairline: #262626;
+  --panel: #1c1c1c;
+  --panel-2: #171717;
+
+  /* The brand: the fill stays (white text on it), the text and the line lighten, the wash is not orange. */
+  --accent-fill: #cc4d17;
+  --accent-text: #f0875c;
+  --accent-deep: #f0875c;
+  --accent-tint: #262626;
+  --accent-line: rgba(240, 135, 92, 0.45);
+  --focus: #f26b36;
+
+  /* The one primary button (access.css): the fill stays (white text, 4.52:1) and deepens on hover; a button that
+     cannot be pressed yet is a quiet grey on the card, not a faded orange (which is brown). */
+  --btn-fill-hover: #b8400f;
+  --btn-off-fill: #2a2a2a;
+  --btn-off-ink: #999999;
+
+  /* Category and status hues: the same hue, as a quiet wash with light text. Fills keep white text. */
+  /* The brand's own category is the accent, so its wash is neutral: orange is a line and a word, never a surface. */
+  --c-brand-tint: rgba(255, 255, 255, 0.07); --c-brand-line: rgba(255, 255, 255, 0.18); --c-brand-text: #e2a082;
+  --c-amber-tint: rgba(214, 170, 50, 0.15);  --c-amber-line: rgba(214, 170, 50, 0.4);  --c-amber-text: #dfc56e;
+  --c-sage-tint: rgba(85, 157, 61, 0.18);    --c-sage-line: rgba(85, 157, 61, 0.42);   --c-sage-text: #8fcf78;
+  --c-teal-tint: rgba(52, 156, 152, 0.18);   --c-teal-line: rgba(52, 156, 152, 0.42);  --c-teal-text: #70cdc9;
+  --c-blue-tint: rgba(88, 138, 205, 0.2);    --c-blue-line: rgba(88, 138, 205, 0.45);  --c-blue-text: #8fb4ec;
+  --c-violet-tint: rgba(155, 114, 208, 0.2); --c-violet-line: rgba(155, 114, 208, 0.45); --c-violet-text: #bf9bf0;
+  --c-rose-tint: rgba(209, 100, 118, 0.2);   --c-rose-line: rgba(209, 100, 118, 0.45); --c-rose-text: #ee8fa0;
+
+  /* The sidebar: the page itself, divided by a hairline; the current page is a quiet neutral fill. */
+  --nav-panel: #171717;
+  --nav-surface: #1d1d1d;
+  --nav-hover: rgba(255, 255, 255, 0.05);
+  --nav-cursor: rgba(255, 255, 255, 0.09);
+  --nav-rule: #262626;
+  --nav-edge-panel: #303030;
+  --nav-active: #262626;
+  --nav-edge: #6c6c6c;
+
+  /* Shadows are black, and a little more of it. */
+  --e1: 0 1px 1px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.35);
+  --e2: 0 1px 1px rgba(0, 0, 0, 0.4), 0 5px 14px rgba(0, 0, 0, 0.42);
+  --e3: 0 16px 40px rgba(0, 0, 0, 0.55);
+  --scrim: rgba(0, 0, 0, 0.62);
+  --shadow-pop: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 2px 6px rgba(0, 0, 0, 0.4), 0 12px 28px -6px rgba(0, 0, 0, 0.6);
+  --shadow-modal: 0 0 0 1px rgba(255, 255, 255, 0.07), 0 4px 12px rgba(0, 0, 0, 0.45), 0 32px 72px -16px rgba(0, 0, 0, 0.7);
+
+  /* The faint mark behind the agent's hero: a neutral light at a whisper (orange on near-black reads as brown). */
+  --wm-color: #ffffff;
+  --wm-opacity: 0.045;
+}
+
+html:root[data-theme="light"] { color-scheme: light; }
+
+/* Scrollbars, native controls and selection follow the theme. */
+:root[data-theme="dark"] ::selection { background: rgba(240, 135, 92, 0.35); color: #fff; }
+
+/* ── the appearance choice, in the account menu ── */
+.nav-me-theme {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 2px;
+  margin: 6px 6px 2px;
+  padding: 2px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: var(--sub);
+}
+.nav-me-theme-opt {
+  min-width: 0;
+  padding: 5px 4px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font: var(--type-caption);
+  letter-spacing: 0;
+  color: var(--ink-2);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.nav-me-theme-opt:hover { color: var(--ink); }
+.nav-me-theme-opt.is-on { background: var(--nav-surface, #fff); color: var(--ink); box-shadow: 0 0 0 1px var(--hairline); }
+.nav-me-theme-opt:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+/* ── colour that comes from the data, inline, which no stylesheet rule can reach without being told ── */
+:root[data-theme="dark"] .fm-row-mark { background: var(--sub) !important; }
+:root[data-theme="dark"] [style*="--mo-form-wash"] { --mo-form-wash: var(--sub) !important; }
+
+/* ── a company's mark, drawn in its own colours (Slack, Notion): a hair of light so a black one still has an edge ── */
+:root[data-theme="dark"] .cn-mark { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16); }
+
+/* ── forms ──
+   The builder is the candidate's page edited in place. Its tint arrives as inline --fm-* values chosen for a light
+   page, so in the dark theme they are replaced here (the stylesheet wins an inline value only with !important):
+   the canvas is the page's own ground, the header's band is a quiet grey, and the tint stays where it is an accent
+   (dots, swatches, the focus ring, the text colour of a link or a chip). */
+:root[data-theme="dark"] .fm {
+  --fm-bg: var(--page-2) !important;
+  --fm-band: var(--sub) !important;
+  --fm-wash: color-mix(in srgb, var(--fm-fill) 22%, var(--card)) !important;
+  --fm-line: color-mix(in srgb, var(--fm-fill) 40%, var(--card)) !important;
+  --fm-text: color-mix(in srgb, var(--fm-fill) 55%, #ffffff) !important;
+  --fm-field-line: #3a3a3a;
+  --fm-field-line-2: #333333;
+  --fm-field-hover: #505050;
+  --fm-dot: #626262;
+}
+
+/* The candidate's own page is light by design, wherever it is shown (the preview, the page itself). Inside the
+   dark console it keeps the light tokens, so its headings are not near-white on a white sheet. */
+:root[data-theme="dark"] .ap {
+  color-scheme: light;
+  --ink: #312a23;
+  --ink-2: #5c524b;
+  --ink-3: #776d66;
+  --hairline: #edeae6;
+  --sub: #f3f2f0;
+  --focus: #ea5a1e;
+  --c-rose-text: #b84054;
+  --c-rose-line: #eac3c9;
+  --c-rose-tint: #f9e7ea;
+  --fm-field-line: #ddd6cf;
+  --fm-field-line-2: #e2ddd8;
+  --fm-field-hover: #cbc2b9;
+  --fm-dot: #bfb5ac;
+}
+
+/* ── bars that carry a number ──
+   What the generator makes of the pale pastels these are drawn in lands within a hair of the card, so the
+   Overview's funnel and the Pipeline's stage strip all but vanished. Each gets a mid-tone of its own hue, over 3:1
+   on the card (#171717): the funnel's (found, shortlisted and the rest), outreach and replies, interviews, hires. */
+:root[data-theme="dark"] .ov2-bar-col i { background: linear-gradient(180deg, #9a90e0 0%, #8076cc 100%); box-shadow: none; }
+:root[data-theme="dark"] .ov2-bar.is-out .ov2-bar-col i,
+:root[data-theme="dark"] .ov2-bar.is-rep .ov2-bar-col i { background: linear-gradient(180deg, #78aeee 0%, #5f98dc 100%); }
+:root[data-theme="dark"] .ov2-bar.is-int .ov2-bar-col i { background: linear-gradient(180deg, #efa47c 0%, #dc8d60 100%); }
+:root[data-theme="dark"] .ov2-bar.is-hired .ov2-bar-col i { background: linear-gradient(180deg, #f28f50 0%, #e27535 100%); box-shadow: none; }
+:root[data-theme="dark"] .pl-jseg.is-shortlisted { background: #8e84da; }
+:root[data-theme="dark"] .pl-jseg.is-outreach { background: #639fe4; }
+:root[data-theme="dark"] .pl-jseg.is-interviewing { background: #e39c70; }
+:root[data-theme="dark"] .pl-jseg.is-hired { background: #72b988; }

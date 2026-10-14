@@ -1,5 +1,19 @@
+import { funnelReached } from "./campaign";
 import { REPLY_FIXTURE } from "./orchestrator";
 import type { ModeId, ReplyArtefact } from "./orchestrator";
+
+/* The b2 "chase" trace, phrased from the same cumulative funnel the Overview
+   draws, so the brief, the trace and the page never disagree on a count. */
+const CHASE_N = (() => {
+  const f = funnelReached("backend-snr");
+  const w = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"][f.repliesToAnswer] ?? String(f.repliesToAnswer);
+  return {
+    brief: `Chase the ${w} ${f.repliesToAnswer === 1 ? "candidate" : "candidates"} waiting on a reply`,
+    all: f.repliesToAnswer === 1 ? "They are" : `All ${w} are`,
+    funnel: `${f.outreach} contacted, ${f.replied} replied, ${f.repliesToAnswer} still unanswered.`,
+    lead: `${w.charAt(0).toUpperCase() + w.slice(1)} ${f.repliesToAnswer === 1 ? "candidate is" : "candidates are"} waiting on a reply`,
+  };
+})();
 
 /* ═══════════════════════════════ replies ════════════════════════════════════
 
@@ -238,18 +252,18 @@ export const REPLIES: Record<ModeId, readonly AgentReply[]> = {
       kind: "prose",
       thoughtMs: 2100,
       body: [
-        "Four candidates are waiting on a reply, and three of them have been waiting two days or more. Meera Raghavan is the oldest at three days, and she already has a screening booked with you at 10:30 today.",
-        "Three of the four asked about the comp band, which I can answer from the doc attached to this campaign. Meera's question is about visa sponsorship, and nothing in the brief, the JD or the comp doc covers it — so that one needs you rather than me.",
+        `${CHASE_N.lead}. Meera Raghavan is the oldest at three days, and she already has a screening booked with you at 10:30 today.`,
+        "Most of them asked about the comp band, which I can answer from the doc attached to this campaign. Meera's question is about visa sponsorship, and nothing in the brief, the JD or the comp doc covers it — so that one needs you rather than me.",
       ],
       trace: [
         {
           label: AGT_STEP.brief,
           detail: "Chase the candidates waiting on a reply.",
-          found: ["All four are in Senior Backend Engineers"],
+          found: [`${CHASE_N.all} in Senior Backend Engineers`],
         },
         {
           label: AGT_STEP.campaign,
-          detail: "61 contacted, 17 replied, 4 of those still unanswered.",
+          detail: CHASE_N.funnel,
           found: [
             "Meera Raghavan, 3 days",
             "Tobias Lindqvist and Priya Anand, 2 days each",
@@ -294,7 +308,7 @@ export const REPLIES: Record<ModeId, readonly AgentReply[]> = {
         {
           label: AGT_STEP.brief,
           detail: "Chase the candidates waiting on a reply.",
-          found: ["Meera Raghavan's thread is the oldest of the four, at 3 days"],
+          found: ["Meera Raghavan's thread is the oldest, at 3 days"],
         },
         {
           label: AGT_STEP.campaign,
@@ -323,22 +337,22 @@ export const REPLIES: Record<ModeId, readonly AgentReply[]> = {
       trace: [
         {
           label: AGT_STEP.brief,
-          detail: "Chase the four candidates waiting on a reply.",
-          found: ["All four are in Senior Backend Engineers"],
+          detail: `${CHASE_N.brief}.`,
+          found: [`${CHASE_N.all} in Senior Backend Engineers`],
         },
         {
           label: AGT_STEP.campaign,
-          detail: "61 contacted, 17 replied, 4 of those still unanswered.",
+          detail: CHASE_N.funnel,
           found: ["Outlook is connected and sends from your address", "Two interview slots are free tomorrow morning"],
         },
         {
           label: AGT_STEP.sequence,
           detail: "Comp questions first, since the answer already exists here.",
-          found: ["Three of the four asked about the comp band", "One asked about visa sponsorship"],
+          found: ["Most asked about the comp band", "One asked about visa sponsorship"],
         },
         {
           label: AGT_STEP.draft,
-          detail: "Four messages. Three are complete; one is held back for you.",
+          detail: "One message each. All but one are complete; one is held back for you.",
           found: [
             "Each one answers the question that was actually asked",
             "Meera Raghavan's needs a human answer on sponsorship",

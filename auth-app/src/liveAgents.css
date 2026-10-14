@@ -1,0 +1,13 @@
+/* ═══════════════════════ the agents, on live data ═════════════════════════════
+   The strip, the overview and the dispatch receipt are the owner's (agents.css,
+   moments.css); these are only the few lines a connected view adds around them. */
+
+.lv-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 4px; }
+.lv-none { display: grid; gap: 10px; }
+.lv-none .src-para { margin: 0; }
+.lv-fail { display: grid; gap: 8px; justify-items: start; }
+.lv-fail .lt-note { margin: 0; }
+
+/* A refusal from the server, said plainly under the receipt. */
+.lv-problem { margin: 2px 0 0; font: 400 12.5px/1.45 var(--ui); color: var(--ink); }
+.lv-problem .cn-link { color: var(--ink); }

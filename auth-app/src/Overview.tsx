@@ -4,8 +4,9 @@ import {
   STALE_DAYS, campaignsFor, isScoped, sourcedFor, stepsFor,
 } from "./orchestrator";
 import {
-  Area, Counter, Dot, Funnel, Ring,
+  Area, Counter, Dot, Ring,
 } from "./viz";
+import { Bars } from "./Bars";
 
 /**
  * Home's analytics: one full-width banner, and three cards stacked beside the
@@ -294,13 +295,16 @@ export function ProgressCard({ scope }: { scope: Scope }) {
   return (
     <article className="ov-card">
       <header className="ov-head">
-        <h3 className="ov-h">Funnel</h3>
-        <a className="ov-link" href="#/campaign/candidates">
+        <h3 className="ov-h">Pipeline</h3>
+        <a className="ov-link" href="#/campaign/pipeline">
           All candidates <CaretRight size={11} weight="bold" aria-hidden="true" />
         </a>
       </header>
 
-      <Funnel stages={chain} />
+      {/* Bars, not a funnel: a funnel's tapering shape makes every drop look
+          like a loss. Bars just say how many people are at each step, which
+          is what the recruiter wants to read. */}
+      <Bars orient="horizontal" unit="people" data={chain.map((c) => ({ label: c.label, value: c.n, hint: c.id === "sourced" ? `${c.n} sourced` : `${c.n} of ${c.of}` }))} />
     </article>
   );
 }
@@ -332,16 +336,16 @@ export function CampaignsCard({ scope }: { scope: Scope }) {
                   campaign has actually gone quiet. A dot on every row would
                   make the palette decorative and leave nothing to mark the
                   row that needs attention. */}
-              <Dot hue={stale ? "rose" : "sage"} />
+              <Dot hue={stale ? "amber" : "sage"} />
               <a className="ov-camp-n" href="#/campaign">{c.name}</a>
               <span className="ov-camp-m">
-                {solo ? c.role : `${c.open} open · ${c.live} live`}
+                {solo ? c.role : `${c.live} in pipeline`}
               </span>
               <span className={`ov-camp-q${stale ? " is-stale" : ""}`}>
-                {c.quietFor === 0 ? "Today" : `${c.quietFor}d quiet`}
+                {c.quietFor === 0 ? "Active today" : stale ? "Could use a nudge" : `${c.quietFor}d ago`}
               </span>
               {solo && (
-                <span className="ov-camp-x">{c.open} open · {c.live} live</span>
+                <span className="ov-camp-x">{c.live} in pipeline</span>
               )}
             </li>
           );
@@ -354,9 +358,7 @@ export function CampaignsCard({ scope }: { scope: Scope }) {
       {stalling > 0 && (
         <p className="ov-foot">
           <a className="ov-link is-warn" href="#/campaigns">
-            {stalling === camps.length && camps.length === 1
-              ? "No movement in over a week"
-              : `${stalling} has had no movement in over a week`}
+            {stalling === 1 ? "One campaign could use a nudge" : `${stalling} campaigns could use a nudge`}
             <ArrowRight size={11} weight="bold" aria-hidden="true" />
           </a>
         </p>

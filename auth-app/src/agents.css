@@ -240,3 +240,11 @@
   .ag-row { grid-template-columns: 34px minmax(0, 1fr) 84px; }
   .ag-row-m { display: none; }
 }
+
+/* ── a connected agent's controls ──
+   Quiet buttons under the header; the one that clears what the agent is
+   waiting on sits inside its notice. */
+.ao-ctl { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: -4px; }
+.ao-ctl-ask { display: inline-flex; align-items: center; gap: 6px; font: 400 12.5px/1 var(--ui); color: var(--ink-2); }
+.ao-ctl-err { margin: -6px 0 0; font: 400 12.5px/1.4 var(--ui); color: var(--c-rose-text); }
+.ao-feed li.is-wait { color: var(--ink-2); }

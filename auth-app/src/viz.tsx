@@ -3,6 +3,7 @@ import { TrendDown, TrendUp } from "@phosphor-icons/react";
 import type { MouseEvent, ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import type { Hue } from "./orchestrator";
+import { shortDate } from "./liveViews/formStatus";
 
 /**
  * viz — the small representations the bento is built out of.
@@ -917,7 +918,7 @@ export function Area({
 
       <div className="vz-xaxis" style={{ left: GX, height: XH }}>
         {xlabs.map(([i, day]) => (
-          <span key={i} className="vz-ax" style={{ left: `${px(i)}%` }}>{day}</span>
+          <span key={i} className="vz-ax" style={{ left: `${px(i)}%` }}>{shortDate(day) || day}</span>
         ))}
       </div>
     </div>

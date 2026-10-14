@@ -1,0 +1,10 @@
+/* ═════════ Settings → Do not contact (SettingsDoNotContact.tsx) ═════════
+   Rows come from settingsMemory.css (`sm-*`); only the add form is its own. */
+
+.sd-add { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; }
+.sd-email { flex: 1 1 240px; min-width: 0; width: auto; }
+.sd-note { flex: 1 1 200px; min-width: 0; width: auto; }
+.sd-go:disabled { opacity: 0.5; cursor: default; }
+.sd-err { flex-basis: 100%; margin: 0; }
+.sd-list { border-top: 1px solid #f1ebe5; }
+.sd-list > .sm-row:first-child { padding-top: 14px; }

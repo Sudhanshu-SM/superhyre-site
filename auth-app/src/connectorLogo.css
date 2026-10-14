@@ -1,0 +1,29 @@
+/* ConnectorLogo, and the Connections rows that carry it.
+
+   The tile is white in BOTH themes on purpose: Slack's colours, Google's four and Notion's black have
+   to read as the brands they are, and none of them is drawn for a near-black card. The dark rule below is
+   written out by hand because the build's dark pass would otherwise turn a literal white surface into the
+   card colour. */
+.conn-logo { display: inline-grid; place-items: center; flex: none; line-height: 0; vertical-align: middle; }
+.conn-logo > svg { display: block; }
+
+.conn-logo-tile {
+  box-sizing: border-box;
+  background: #fff;
+  border: 1px solid #e4ded8;
+}
+:root[data-theme="dark"] .conn-logo-tile { background: #fff; border-color: #e4ded8; }
+
+/* ── Settings → Connections: tile, name and status on the left, the button on the right ── */
+.st-lead { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.st-name { font: 600 15px/20px var(--ui); letter-spacing: -0.006em; color: var(--ink); }
+/* What sits under a row hangs from the name, not from the tile. */
+.st-hang { display: grid; gap: 12px; min-width: 0; padding-left: 56px; }
+.st-uses { display: grid; gap: 6px; min-width: 0; padding-left: 56px; }
+.st-uses > p { margin: 0; display: flex; align-items: center; gap: 8px; }
+@media (max-width: 520px) {
+  .st-hang, .st-uses { padding-left: 0; }
+}
+
+/* ── the rail's connect line: the small marks stand before what it offers to connect ── */
+.rail-config-offer { display: inline-flex; align-items: center; gap: 4px; margin-right: 6px; vertical-align: -2px; }

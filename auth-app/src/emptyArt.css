@@ -1,0 +1,41 @@
+/* Spot illustrations for empty, error and milestone states. See EmptyArt.tsx. */
+.ea {
+  display: block;
+  flex: none;
+  max-width: 100%;
+  height: auto;
+  margin-inline: auto;
+  user-select: none;
+  pointer-events: none;
+  animation: ea-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes ea-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ea {
+    animation: none;
+  }
+}
+
+/* A small picture over one quiet line, for menus and side rails (96 px). */
+.ea-note {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 6px 12px 12px;
+  text-align: center;
+}
+.ea-note > p { margin: 0; }
+.ea-note-t { color: var(--ink-2); }
+/* under a rail row that has nothing in it yet (the Agent page's Channels row) */
+.rail-config-art { display: grid; justify-items: center; padding: 0 0 10px; }
+.st-none { padding-block: 4px 12px; }
+.pal-none { padding: 14px 12px 4px; }
+.pal-none > .pal-empty { padding: 0 8px 14px; }
+.ea-note > .hist-empty { padding-block: 4px 8px; }

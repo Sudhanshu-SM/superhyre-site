@@ -21,3 +21,11 @@ auth-app/src/__harness__/
 # part of the app and never served — deliberately uncommitted so nobody
 # mistakes a draft prompt for a spec. DESIGN.md is the committed spec.
 .prompts/
+
+# Local environment files: tokens and keys that must never be committed.
+.env
+.env.*
+!.env.example
+auth-app/.env
+auth-app/.env.*
+!auth-app/.env.example
