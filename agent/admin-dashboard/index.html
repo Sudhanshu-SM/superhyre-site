@@ -3,129 +3,106 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#ffffff">
+<meta name="theme-color" content="#141413">
 <title>Agent usage - Superhyre</title>
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" type="image/svg+xml" href="../logo.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fanwood+Text&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../agent.css">
+<link href="https://fonts.googleapis.com/css2?family=Fanwood+Text&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- Its own stylesheet, and only its own: this page is dark, every other page under /agent is white. -->
+<link rel="stylesheet" href="../admin.css">
 </head>
 <body>
-<div class="wrap wide">
-  <div class="top">
+<div class="wrap">
+
+  <div class="bar">
     <img src="../logo.svg" alt="">
-    <span class="name">Superhyre</span>
-    <span class="pill">Admin</span>
+    <span class="mark">Superhyre</span>
+    <span class="tag">Admin</span>
     <span class="sp"></span>
-    <span class="muted" id="who" hidden></span>
+    <span class="who" id="who" hidden></span>
+    <div class="seg" id="range" hidden>
+      <button data-days="1">24h</button>
+      <button data-days="7" class="on">7d</button>
+      <button data-days="30">30d</button>
+      <button data-days="3650">All</button>
+    </div>
+    <button class="link" id="refresh" hidden>Refresh</button>
     <button class="link" id="out" hidden>Sign out</button>
   </div>
 
   <h1>Agent usage</h1>
-  <p class="lead">How the assistant is actually being used: what it answered, how long it took, what broke, and what it
-    cost. Numbers only — no one's messages, memories or JDs are readable from here.</p>
+  <p class="lead" id="lead">Numbers only — no one's messages, memories or JDs are readable from here.</p>
   <div class="banner" id="msg" hidden></div>
 
   <!-- Signed out. The only door is a Google account in our own domain, checked on the server. -->
-  <section class="card" id="gate" hidden>
-    <h2>Sign in</h2>
-    <p>This page is for Superhyre accounts. Sign in with your work Google account and you'll come straight back here.</p>
-    <div class="acts">
-      <button class="btn fill" id="in">Sign in with Google</button>
+  <section class="panel" id="gate" hidden>
+    <div class="ph"><h2>Sign in</h2></div>
+    <div class="pb">
+      <p>This page is for Superhyre accounts. Sign in with your work Google account and you'll come straight back here.</p>
+      <div class="acts"><button class="btn fill" id="in">Sign in with Google</button></div>
+      <p class="foot">Nothing of yours is read or kept: the sign-in proves who you are and that is all. Sessions last
+        twelve hours, and every sign-in and every page load is recorded.</p>
     </div>
-    <p class="foot">Nothing of yours is read or kept: the sign-in proves who you are and that is all. Sessions last
-      twelve hours, and every sign-in and every page load is recorded.</p>
   </section>
 
   <div id="board" hidden>
-    <div class="range">
-      <button data-days="1">24 hours</button>
-      <button data-days="7" class="on">7 days</button>
-      <button data-days="30">30 days</button>
-      <button data-days="3650">All</button>
-      <span class="sp"></span>
-      <span class="when" id="when"></span>
-      <button class="link" id="refresh">Refresh</button>
+    <div class="ribbon" id="ribbon"></div>
+
+    <div class="panel">
+      <div class="ph">
+        <div class="tabs" id="tabs">
+          <button data-plot="volume" class="on">Messages a day</button>
+          <button data-plot="latency">Reply time</button>
+          <button data-plot="tokens">Tokens a day</button>
+        </div>
+        <span class="sp"></span>
+        <span class="legend" id="legend"></span>
+      </div>
+      <div class="pb">
+        <div class="plot" id="plot"><p class="muted"><span class="spin" aria-hidden="true"></span> Loading…</p></div>
+        <p class="note" id="plotnote"></p>
+      </div>
     </div>
 
-    <div class="tiles" id="tiles"></div>
+    <div class="panel">
+      <div class="ph"><h2>People</h2><span class="sp"></span><span class="note" id="peopleNote"></span></div>
+      <div class="scroll" id="people"></div>
+    </div>
 
-    <section class="card">
-      <div class="head">
-        <h2>Messages a day</h2>
-        <span class="sp"></span>
-        <span class="legend"><span><i style="background:var(--accent)"></i>in</span><span><i style="background:#cfcfcf"></i>out</span></span>
+    <div class="two">
+      <div class="panel">
+        <div class="ph"><h2>Adoption</h2><span class="sp"></span><span class="note">each a share of the account holders</span></div>
+        <div id="funnel"></div>
       </div>
-      <div id="volume"><p class="muted"><span class="spin" aria-hidden="true"></span> Loading…</p></div>
-    </section>
-
-    <section class="card">
-      <div class="head">
-        <h2>How long people wait</h2>
-        <span class="sp"></span>
-        <span class="legend"><span><i style="background:var(--accent)"></i>median</span><span><i style="background:#9a9a9a"></i>slowest tenth</span><span>· the dashed line is two minutes</span></span>
+      <div class="panel">
+        <div class="ph"><h2>Agents</h2></div>
+        <div class="scroll" id="agents"></div>
       </div>
-      <div id="latency"><p class="muted"><span class="spin" aria-hidden="true"></span> Loading…</p></div>
-    </section>
+    </div>
 
-    <section class="card">
-      <div class="head">
-        <h2>People</h2>
-        <span class="sp"></span>
-        <span class="note" id="peopleNote"></span>
+    <div class="two">
+      <div class="panel">
+        <div class="ph"><h2>What the agent does all day</h2><span class="sp"></span><span class="note" id="actionsNote"></span></div>
+        <div class="scroll" id="actions"></div>
       </div>
-      <div class="scroll" id="people"><p class="muted"><span class="spin" aria-hidden="true"></span> Loading…</p></div>
-      <p class="foot">Sorted by how long since they last said anything, because that is the number that tells you
-        whether this is working. Phone numbers are shown as their last four digits.</p>
-    </section>
-
-    <section class="card">
-      <div class="head">
-        <h2>Where people stop</h2>
-        <span class="sp"></span>
-        <span class="note">account holders only</span>
+      <div class="panel">
+        <div class="ph"><h2>Model and spend</h2><span class="sp"></span><span class="note" id="modelNote"></span></div>
+        <div class="scroll" id="model"></div>
       </div>
-      <div id="funnel"></div>
-    </section>
+    </div>
 
-    <section class="card">
-      <h2>Agents</h2>
-      <div id="agents"></div>
-    </section>
-
-    <section class="card">
-      <div class="head">
-        <h2>What the agent does all day</h2>
-        <span class="sp"></span>
-        <span class="note" id="actionsNote"></span>
+    <div class="two">
+      <div class="panel">
+        <div class="ph"><h2>Tools</h2></div>
+        <div class="scroll" id="tools"></div>
       </div>
-      <div class="scroll" id="actions"></div>
-    </section>
-
-    <section class="card">
-      <div class="head">
-        <h2>Model and spend</h2>
-        <span class="sp"></span>
-        <span class="note" id="modelNote"></span>
+      <div class="panel">
+        <div class="ph"><h2>What's breaking</h2><span class="sp"></span><span class="note">our own error text, grouped</span></div>
+        <div class="scroll" id="errors"></div>
       </div>
-      <div id="model"></div>
-    </section>
-
-    <section class="card">
-      <h2>Tools</h2>
-      <div class="scroll" id="tools"></div>
-    </section>
-
-    <section class="card">
-      <div class="head">
-        <h2>What's breaking</h2>
-        <span class="sp"></span>
-        <span class="note">our own error text, grouped</span>
-      </div>
-      <div class="scroll" id="errors"></div>
-    </section>
+    </div>
 
     <p class="foot">Everything on this page is a count, a time or an error we wrote ourselves. Message bodies,
       memories, brain entities and JD text are never read by this page — not in the API, not in the database
