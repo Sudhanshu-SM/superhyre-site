@@ -83,6 +83,9 @@ h1 { font-family: 'Fanwood Text', Georgia, serif; font-weight: 400; font-size: 2
 .legend .dash { width: 14px; height: 0; border-top: 1px dashed var(--bad); display: inline-block; margin-right: 5px; vertical-align: 3px; }
 .plot { position: relative; }
 .chart { width: 100%; height: auto; display: block; }
+/* The chart is one tab stop and says so in its label; the arrow keys walk the days from here. */
+.chart:focus { outline: none; }
+.chart:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
 .grid { stroke: var(--rule2); stroke-width: 1; }
 .axis { fill: var(--faint); font-size: 11px; }
 .thr { stroke: var(--bad); stroke-width: 1; stroke-dasharray: 3 3; opacity: .55; }
@@ -90,10 +93,10 @@ h1 { font-family: 'Fanwood Text', Georgia, serif; font-weight: 400; font-size: 2
 .l50 { fill: none; stroke: var(--p50); stroke-width: 2; }
 .l90 { fill: none; stroke: var(--p90); stroke-width: 2; }
 .d50 { fill: var(--p50); } .d90 { fill: var(--p90); }
-/* The hit band is the whole column, so nobody has to land on a 14px bar. */
+/* The hit band is the whole column, so nobody has to land on a 14px bar. It stays invisible: tinting it looked fine
+   over one narrow column of seven and awful over the 24-hour view, where one column is the entire plot and the tint
+   reads as a dead grey slab. The tooltip appearing is the feedback, on hover and on focus alike. */
 .hit { fill: transparent; }
-.hit:hover, .hit:focus { fill: var(--panel2); }
-.crosshair { stroke: var(--rule2); stroke-width: 1; }
 /* Positioned over the plot rather than inside the SVG, so it never scales with the viewBox. */
 .tip {
   position: absolute; pointer-events: none; background: var(--panel2); border: 1px solid var(--rule2);

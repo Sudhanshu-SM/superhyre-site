@@ -180,11 +180,17 @@
     return out;
   }
 
-  /** One transparent band per day, the full height of the plot: nobody should have to hit a 14px bar. */
+  /**
+   * One transparent band per day, the full height of the plot: nobody should have to hit a 14px bar.
+   *
+   * The bands are not focusable. An SVG rect with a tabindex does become the active element in Chromium but fires no
+   * focus event, so a tooltip hung off one never appears — and sixty tab stops for a sixty-day chart would be a poor
+   * bargain even if it did. The chart itself takes the one tab stop and the arrow keys walk these bands instead.
+   */
   function hitbands(series, slot) {
     return series.map(function (d, i) {
       return '<rect class="hit" x="' + (PAD_L + i * slot) + '" y="0" width="' + slot + '" height="' + PLOT_H +
-        '" tabindex="0" role="img" data-i="' + i + '" aria-label="' + S.esc(dayName(d.day)) + '"></rect>';
+        '" data-i="' + i + '"></rect>';
     }).join("");
   }
 
@@ -285,7 +291,8 @@
     }
 
     var ax = niceAxis(p.max(series)), top = ax.top, slot = (VB_W - PAD_L) / series.length;
-    box.innerHTML = '<svg class="chart" viewBox="0 0 ' + VB_W + " " + VB_H + '" role="img" aria-label="' + S.esc(p.name) + '">' +
+    box.innerHTML = '<svg class="chart" viewBox="0 0 ' + VB_W + " " + VB_H + '" tabindex="0" role="img" aria-label="' +
+      S.esc(p.name) + ', ' + plu(series.length, "day") + '. Use the arrow keys to read each day.">' +
       gridlines(ax, p.fmt) + p.marks(series, slot, top) + xlabels(series, slot) + hitbands(series, slot) +
       '</svg><div class="tip" id="tip" hidden></div>';
     wireTwin();
@@ -316,10 +323,21 @@
     Array.prototype.forEach.call(box.querySelectorAll(".hit"), function (el) {
       var i = Number(el.getAttribute("data-i"));
       el.addEventListener("mouseenter", function () { show(i); });
-      el.addEventListener("focus", function () { show(i); });
       el.addEventListener("mouseleave", hide);
-      el.addEventListener("blur", hide);
     });
+    // The keyboard gets the same values the mouse does: one tab stop on the chart, then left and right along the days.
+    var at = -1;
+    svg.addEventListener("keydown", function (e) {
+      var step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+      if (step) {
+        at = at < 0 ? (step > 0 ? 0 : series.length - 1) : Math.max(0, Math.min(series.length - 1, at + step));
+        show(at);
+        e.preventDefault();
+      } else if (e.key === "Home") { at = 0; show(at); e.preventDefault(); }
+      else if (e.key === "End") { at = series.length - 1; show(at); e.preventDefault(); }
+      else if (e.key === "Escape") { at = -1; hide(); }
+    });
+    svg.addEventListener("blur", function () { at = -1; hide(); });
   }
 
   // ---------- tables ----------
