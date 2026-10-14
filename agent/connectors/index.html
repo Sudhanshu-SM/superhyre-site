@@ -36,6 +36,30 @@
     <div id="agents"><p class="muted"><span class="spin" aria-hidden="true"></span> Loading…</p></div>
     <p class="foot">An agent you haven't switched on does nothing and sees nothing. Your assistant will tell you what each one can do once it's on.</p>
   </section>
+
+  <section class="card">
+    <h2>Meetings</h2>
+    <div class="row">
+      <div class="body">
+        <div class="t">Meeting assistant <span class="pill" id="meetPill">…</span></div>
+        <div class="d">An extension for Chrome. Leave a Google Meet and the summary is on your WhatsApp: what was decided, who promised what, by when. Every call also becomes a row in a sheet in your own Drive. The audio is never saved.</div>
+      </div>
+      <a class="sm" href="../meeting-assistant/">Open</a>
+    </div>
+    <p class="foot">It records a call only after you click, once per call, and Chrome shows the tab is being shared the whole time.</p>
+  </section>
+
+  <section class="card">
+    <h2>Memory</h2>
+    <div class="row">
+      <div class="body">
+        <div class="t">What your assistant knows</div>
+        <div class="d">Every person, company and file it has worked out from your tools, how it would describe you, and where each piece came from. Delete anything that's wrong or that you'd rather it didn't know.</div>
+      </div>
+      <a class="sm" href="../memory/">Open</a>
+    </div>
+    <p class="foot">It keeps the catalogue and the conclusions, never copies of your email, your documents or your messages. Nothing there is shared with your teammates.</p>
+  </section>
 </div>
 
 <script src="../config.js"></script>
@@ -49,7 +73,7 @@
   var TOOLS = [
     { key: "google", name: "Google Workspace", desc: "Gmail, Calendar, Drive, Docs and Sheets. Read and send email, book meetings with a Meet link, write documents and sheets." },
     { key: "notion", name: "Notion", desc: "The pages and databases you share. Find things, add rows, write notes and comment." },
-    { key: "slack", name: "Slack", desc: "The channels you're in. Search, summarise and post as you, after you approve the message." },
+    { key: "slack", name: "Slack", desc: "The channels you're in. Search, summarise and post as you, after you approve the message. A workspace owner connects first; then anyone on the team can." },
     { key: "trello", name: "Trello", desc: "The boards you're a member of. See what's where, add and move cards, set due dates and comment." },
     { key: "magnifi", name: "Magnifi", desc: "Your client conversations on WhatsApp. Who's unhappy, what was said, what needs attention, and your tickets. A Magnifi admin approves it." }
   ];
@@ -86,6 +110,11 @@
     var me = both[0], list = both[1];
     if (!me.ok) { S.note("msg", me.message || "Please sign in again.", "bad"); return; }
     drawTools(me.tools);
+    // The meeting assistant is browsers, not an account, so it has its own pill rather than a row in Tools.
+    var meet = (me.tools && me.tools.meetings) || {};
+    var pill = S.el("meetPill");
+    pill.textContent = meet.connected ? (meet.browsers === 1 ? "On in 1 browser" : "On in " + meet.browsers + " browsers") : "Not set up";
+    pill.className = "pill" + (meet.connected ? " on" : "");
     if (list.ok) drawAgents(list.agents);
     else S.note("msg", list.message || "I couldn't load your agents.", "bad");
   }).catch(function () {});

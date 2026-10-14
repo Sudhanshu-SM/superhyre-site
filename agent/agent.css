@@ -47,7 +47,30 @@ h2 { font-family: 'Fanwood Text', Georgia, serif; font-weight: 400; font-size: 2
 .jd .links a { font-size: 14.5px; color: var(--accent); }
 ul.what { margin: 0; padding-left: 20px; color: var(--ink2); }
 ul.what li { margin: 6px 0; }
+/* /agent/memory: one item per thing the assistant has worked out, with where it came from under it and its own
+   delete. Deliberately plain and vertical — the list is long, and someone auditing it reads rather than scans. */
+.count { color: var(--muted); font-size: 14px; margin: -4px 0 16px; }
+.item { border-top: 1px solid var(--rule); padding: 16px 0; }
+.item:first-of-type { border-top: 0; }
+.item .t { font-weight: 500; }
+.item .meta { color: var(--muted); font-size: 14px; margin-top: 3px; }
+.item .txt { margin: 8px 0 0; color: var(--ink2); }
+.item .facts { margin: 8px 0 0; padding-left: 18px; color: var(--ink2); font-size: 14.5px; }
+.item .facts li { margin: 4px 0; }
+.item .facts .meta { display: inline; margin: 0; }
+.item .act { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+.item .act .ask { color: var(--muted); font-size: 14.5px; flex: 1; min-width: 220px; }
+.tag { font-size: 12.5px; padding: 2px 8px; border-radius: 999px; background: var(--panel); border: 1px solid var(--rule); color: var(--muted); }
+.link-out { font-size: 14.5px; color: var(--accent); }
+.danger { border-color: var(--danger); color: var(--danger); }
 .foot { color: var(--muted); font-size: 14px; margin-top: 26px; }
+/* The one text field under /agent: the pairing code the meeting assistant's extension shows. */
+.in {
+  font: 500 15px/1.2 inherit; letter-spacing: .06em; text-transform: uppercase;
+  padding: 10px 12px; border: 1px solid var(--rule); border-radius: 10px; background: var(--bg); color: inherit;
+  width: 11ch; min-width: 0;
+}
+.in::placeholder { letter-spacing: normal; color: var(--muted); text-transform: none; }
 .spin { display: inline-block; width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: s .7s linear infinite; }
 @keyframes s { to { transform: rotate(360deg); } }
 @media (max-width: 560px) {
