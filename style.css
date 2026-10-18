@@ -37,6 +37,15 @@ a{color:inherit;}
   max-width:var(--content);margin:0 auto;position:relative;
   border-left:1px solid var(--rule-strong);border-right:1px solid var(--rule-strong);
 }
+/* Home page runs frameless: no side rules, no rule under the top bar. */
+.page--home{border-left:none;border-right:none;}
+.page--home .topbar{border-bottom:none;}
+/* Home background matches the agent landing page. */
+.home{background:#F7F0E4;--halo:0 0 8px #F7F0E4,0 0 8px #F7F0E4,0 0 4px #F7F0E4,0 0 4px #F7F0E4;}
+/* The hands artwork has a baked-in white background; multiply lets the cream show through. */
+.home .hands{mix-blend-mode:multiply;}
+/* Home copy sits a little lower, clear of the hands. */
+.home .hero-text{top:53%;}
 
 /* ---------------- Top bar ---------------- */
 .topbar{
@@ -66,20 +75,20 @@ a{color:inherit;}
 
 .hero-text{
   position:absolute;top:47%;left:50%;transform:translateX(-50%);width:30%;z-index:3;
-  display:flex;flex-direction:column;gap:1.3cqw;text-align:left;
+  display:flex;flex-direction:column;gap:1.3cqw;text-align:center;
 }
-.kicker{font-style:italic;color:var(--accent);font-size:2.1cqw;text-align:center;text-shadow:var(--halo);}
-.lede{font-style:italic;font-size:1.95cqw;line-height:1.34;text-indent:2.2em;text-shadow:var(--halo);}
-.hero-body{font-size:1.9cqw;line-height:1.45;color:#161616;text-align:left;text-shadow:var(--halo);}
-
-.pill{font-family:var(--pixel);border-radius:100px;text-align:center;text-decoration:none;transition:.15s;cursor:pointer;z-index:4;}
-.hero .pill{position:absolute;font-size:2cqw;width:18.8cqw;padding:1.35cqw 0;}
-.pill-solid{background:var(--accent);color:#fff;border:1px solid var(--accent);box-shadow:0 8px 22px rgba(234,90,30,.30);}
-.pill-solid:hover{filter:brightness(1.07);}
-.pill-outline{background:#fff;color:var(--black);border:1px solid var(--accent);}
-.pill-outline:hover{background:#f3f7f3;}
-.start{left:11%;top:37%;}
-.see{left:70%;top:53%;}
+.lede{font-size:1.95cqw;line-height:1.34;text-shadow:var(--halo);}
+.hero-body{font-size:1.9cqw;line-height:1.45;color:#161616;text-shadow:var(--halo);}
+/* Home: small underlined text CTAs under the hero copy. */
+.hero-ctas{display:flex;justify-content:center;flex-wrap:wrap;gap:12px 32px;margin-top:1.2cqw;}
+.text-cta{
+  display:inline-flex;align-items:center;gap:8px;padding-bottom:3px;
+  font-family:var(--pixel);font-size:20px;letter-spacing:.3px;color:var(--accent);
+  text-decoration:none;border-bottom:1.5px solid currentColor;white-space:nowrap;
+  transition:gap .25s ease,color .25s ease;
+}
+.text-cta:hover{gap:14px;color:var(--black);}
+.text-cta .arrow{font-family:var(--ui);font-size:.85em;}
 
 /* decorative ticks */
 .tick{position:absolute;background:var(--accent);z-index:1;}
@@ -87,29 +96,6 @@ a{color:inherit;}
 .tick.b{right:14px;top:44%;width:6px;height:90px;}
 .tick.c{left:18px;bottom:54px;width:11px;height:11px;}
 .tick.d{right:18px;bottom:74px;width:11px;height:11px;border:2px solid var(--accent);background:transparent;}
-
-/* ---------------- Features (pinned horizontal scroll) ---------------- */
-.features{position:relative;background:#fff;border-top:1px solid var(--rule-strong);}
-.features__sticky{
-  position:sticky;top:0;height:82vh;overflow:hidden;
-  display:flex;align-items:center;border-bottom:1px solid var(--rule-strong);
-}
-.features__track{display:flex;gap:30px;padding:0 56px;will-change:transform;align-items:stretch;}
-.card{
-  flex:0 0 clamp(300px,29vw,440px);border:1px solid var(--accent);background:#fff;
-  display:flex;flex-direction:column;overflow:hidden;height:74vh;
-}
-.card .media{flex:1 1 auto;min-height:0;background:#fff;overflow:hidden;}
-.card .media img{width:100%;height:100%;object-fit:cover;object-position:center;display:block;}
-.card-body{padding:18px 26px 24px;display:flex;flex-direction:column;gap:10px;flex:0 0 auto;}
-.card-title{font-family:var(--pixel);color:var(--accent);font-size:29px;line-height:1.12;text-align:left;text-indent:1.8em;min-height:2.24em;}
-.card-text{font-size:19px;line-height:1.45;color:#1a1a1a;text-align:justify;}
-.scroll-hint{
-  position:absolute;bottom:22px;left:50%;transform:translateX(-50%);
-  font-family:var(--ui);font-size:13px;letter-spacing:.14em;color:#999;text-transform:uppercase;
-  display:flex;gap:10px;align-items:center;
-}
-.scroll-hint span{color:var(--accent);}
 
 /* ---------------- Article (talent) ---------------- */
 .article{position:relative;padding:70px 24px 80px;}
@@ -188,15 +174,9 @@ body.modal-open{overflow:hidden;}
   .hero-stage{aspect-ratio:auto;display:flex;flex-direction:column;gap:22px;align-items:center;}
   .wordmark{position:static;transform:none;width:100%;}
   .hands{position:relative;top:0;left:0;width:100%;}
-  .hero-text{position:static;transform:none;width:100%;text-align:left;}
-  .kicker{font-size:24px;}.lede{font-size:21px;}.hero-body{font-size:18px;}
-  .hero .pill{position:static;font-size:19px;width:100%;max-width:300px;padding:15px 0;}
+  .hero-text{position:static;transform:none;width:100%;}
+  .lede{font-size:21px;}.hero-body{font-size:18px;}
   .tick{display:none;}
-  .features__sticky{position:static;height:auto;display:block;padding:30px 0;}
-  .features__track{flex-direction:column;padding:0 20px;gap:24px;transform:none!important;}
-  .card{flex-basis:auto;width:100%;height:auto;}
-  .card .media{flex:0 0 240px;height:240px;}
-  .scroll-hint{display:none;}
   footer{min-height:0;}
   .stair{position:static;display:flex;flex-direction:column;align-items:flex-start;gap:14px;margin-top:34px;}
   .stair .sq{display:none;}
@@ -205,6 +185,7 @@ body.modal-open{overflow:hidden;}
 }
 @media(max-width:600px){
   .topbar{height:74px;}.get-started{font-size:19px;width:120px;}
+  .text-cta{font-size:17px;}
   .article{padding:46px 20px 60px;}
   .quotes{padding:50px 46px;}
   .q-prev{left:6px;}.q-next{right:6px;}.q-btn{font-size:30px;}
