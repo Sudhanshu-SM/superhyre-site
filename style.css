@@ -23,7 +23,6 @@
   --serif:'Fanwood Text',Georgia,serif;
   --pixel:'PP Mondwest','Fanwood Text',serif;
   --ui:'IBM Plex Sans',system-ui,sans-serif;
-  --halo:0 0 8px #fff,0 0 8px #fff,0 0 4px #fff,0 0 4px #fff;
 }
 
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -41,11 +40,7 @@ a{color:inherit;}
 .page--home{border-left:none;border-right:none;}
 .page--home .topbar{border-bottom:none;}
 /* Home background matches the agent landing page. */
-.home{background:#F7F0E4;--halo:0 0 8px #F7F0E4,0 0 8px #F7F0E4,0 0 4px #F7F0E4,0 0 4px #F7F0E4;}
-/* The hands artwork has a baked-in white background; multiply lets the cream show through. */
-.home .hands{mix-blend-mode:multiply;}
-/* Home copy sits a little lower, clear of the hands. */
-.home .hero-text{top:53%;}
+.home{background:#F7F0E4;}
 
 /* ---------------- Top bar ---------------- */
 .topbar{
@@ -65,20 +60,34 @@ a{color:inherit;}
 .get-started:hover{filter:brightness(1.07);}
 
 /* ---------------- Hero (index) ---------------- */
-.hero{position:relative;padding:12px 22px 20px;overflow:hidden;}
-.hero-stage{
-  position:relative;container-type:inline-size;
-  width:100%;max-width:1231px;margin:0 auto;aspect-ratio:1231 / 830;
-}
-.wordmark{position:absolute;top:1%;left:50%;transform:translateX(-50%);width:95%;height:auto;display:block;z-index:2;}
-.hands{position:absolute;top:-5%;left:0;width:100%;height:auto;pointer-events:none;z-index:0;}
+.hero{position:relative;padding:12px 22px 20px;}
+.hero-stage{container-type:inline-size;width:100%;max-width:1231px;margin:0 auto;}
 
-.hero-text{
-  position:absolute;top:47%;left:50%;transform:translateX(-50%);width:30%;z-index:3;
-  display:flex;flex-direction:column;gap:1.3cqw;text-align:center;
+.hero-text{display:flex;flex-direction:column;gap:1.3cqw;text-align:center;padding-top:4cqw;}
+.lede{font-size:1.95cqw;line-height:1.34;}
+.hero-body{font-size:1.9cqw;line-height:1.45;color:#161616;}
+
+/* Hands + wordmark: a full-bleed row, each hand pinned to its edge of the
+   viewport and pointing at the wordmark between them. Each hand is a crop of
+   hero-hands.svg (1231x755): left hand x 0-515, right hand x 681-1231, both
+   y 161-588, fingertips ~216px below the crop top. --u is one artwork pixel,
+   sized so the two hands, the gaps and the wordmark fill the viewport width. */
+.hero-art{
+  --title-w:40vw;--gap:1.2vw;
+  --u:calc((100vw - var(--title-w) - 2 * var(--gap)) / 1065);
+  display:flex;align-items:flex-start;gap:var(--gap);
+  width:100vw;margin-left:calc(50% - 50vw);
 }
-.lede{font-size:1.95cqw;line-height:1.34;text-shadow:var(--halo);}
-.hero-body{font-size:1.9cqw;line-height:1.45;color:#161616;text-shadow:var(--halo);}
+/* The artwork has a baked-in white background; multiply lets the cream show through. */
+.hand{
+  flex:none;height:calc(427 * var(--u));
+  background:url('assets/hero-hands.svg') no-repeat;background-size:calc(1231 * var(--u)) auto;
+  mix-blend-mode:multiply;
+}
+.hand--left{width:calc(515 * var(--u));background-position:0 calc(-161 * var(--u));}
+.hand--right{width:calc(550 * var(--u));background-position:calc(-681 * var(--u)) calc(-161 * var(--u));}
+/* Glyphs sit at 44% of the SVG's height (184/1180 of its width); centre them on the fingertip line. */
+.wordmark{flex:none;display:block;width:var(--title-w);height:auto;margin-top:calc(216 * var(--u) - var(--title-w) * .0686);}
 /* Home: small underlined text CTAs under the hero copy. */
 .hero-ctas{display:flex;justify-content:center;flex-wrap:wrap;gap:12px 32px;margin-top:1.2cqw;}
 .text-cta{
@@ -171,11 +180,9 @@ body.modal-open{overflow:hidden;}
 
 /* ---------------- Responsive ---------------- */
 @media(max-width:860px){
-  .hero-stage{aspect-ratio:auto;display:flex;flex-direction:column;gap:22px;align-items:center;}
-  .wordmark{position:static;transform:none;width:100%;}
-  .hands{position:relative;top:0;left:0;width:100%;}
-  .hero-text{position:static;transform:none;width:100%;}
+  .hero-text{padding-top:40px;gap:10px;}
   .lede{font-size:21px;}.hero-body{font-size:18px;}
+  .hero-ctas{margin-top:8px;}
   .tick{display:none;}
   footer{min-height:0;}
   .stair{position:static;display:flex;flex-direction:column;align-items:flex-start;gap:14px;margin-top:34px;}
@@ -186,6 +193,7 @@ body.modal-open{overflow:hidden;}
 @media(max-width:600px){
   .topbar{height:74px;}.get-started{font-size:19px;width:120px;}
   .text-cta{font-size:17px;}
+  .hero-art{--title-w:52vw;--gap:2vw;}
   .article{padding:46px 20px 60px;}
   .quotes{padding:50px 46px;}
   .q-prev{left:6px;}.q-next{right:6px;}.q-btn{font-size:30px;}
