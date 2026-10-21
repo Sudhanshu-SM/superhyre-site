@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { nameOf } from "../api/identity";
 import { labelMembers } from "../campaignStore";
-import { addressLine, requestLine } from "../SettingsMembers";
+import { addressLine, requestLine } from "../TeamsPeople";
 
 /**
  * Members, for a recruiter and for an admin. A recruiter is given names and roles, not teammates'

@@ -11,6 +11,12 @@
 /* ── the row ── */
 
 .orc .orc-composer .orc-composer-row { align-items: center; gap: 8px; }
+/* A phone: if the controls still do not fit on one line (a long job-description name, a count badge), the row
+   wraps and the controls sit one under another, never on top of one another. */
+@media (max-width: 520px) {
+  .orc .orc-composer .orc-composer-row { flex-wrap: wrap; row-gap: 6px; }
+  .orc .orc-composer .orc-slots { flex-wrap: wrap; min-width: 0; max-width: 100%; }
+}
 
 .orc .orc-composer .orc-modes {
   display: inline-flex;

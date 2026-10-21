@@ -1,4 +1,5 @@
 import type { AnalyticsQuery } from "./api/analytics";
+import { sectionScope } from "./sectionState";
 
 /**
  * The Analytics filter bar, as data: what is in the address, what goes to the API, and what a person has
@@ -159,9 +160,10 @@ export const filtersKey = (f: Filters): string => JSON.stringify(filtersToParams
 /** Whether anything narrows the view beyond the period. */
 export const isNarrowed = (f: Filters): boolean => !!(f.campaignId || f.clientId || f.userId);
 
-/* ── remembered per person ── */
+/* ── remembered per person, for this tab ── */
 
-export const storageKey = (userId: string | null | undefined): string => `sh.analytics.filters.${userId || "me"}`;
+/** Kept for this tab and this workspace only (an organisation switch or a sign-out clears it, sectionState.ts). */
+export const storageKey = (userId: string | null | undefined): string => `sh.analytics.filters.${sectionScope()}.${userId || "me"}`;
 
 /** What was chosen last time, as the address's query string; empty when nothing was. Never throws. */
 export function readRemembered(userId: string | null | undefined, store: Pick<Storage, "getItem"> | null = safeStore()): string {
@@ -184,7 +186,7 @@ export function remember(userId: string | null | undefined, f: Filters, store: P
 
 function safeStore(): Storage | null {
   try {
-    return typeof window === "undefined" ? null : window.localStorage;
+    return typeof window === "undefined" ? null : window.sessionStorage;
   } catch {
     return null;
   }

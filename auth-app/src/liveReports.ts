@@ -476,7 +476,7 @@ export function adviceFor(drop: Drop | null, stuck: readonly Stuck[], campaign: 
   }
   const lead = `${drop.from.label} to ${drop.to.label.toLowerCase()} is where you lose the most: ${drop.to.n} of ${drop.from.n}.`;
   if (drop.to.id === "outreach") {
-    if (!shortlisted) return { text: `${lead} Nobody is waiting for a first message right now, so the rest were passed on or moved without a message.`, acts: [] };
+    if (!shortlisted) return { text: `${lead} Nobody is waiting for a first message right now, so the rest were rejected or moved without a message.`, acts: [] };
     const long = shortlisted.longest >= 2 ? `, the longest ${waitedLabel(shortlisted.longest)}` : "";
     return {
       text: `${lead} ${shortlisted.n} ${shortlisted.n === 1 ? "is" : "are"} shortlisted and still waiting for a first message${long}. Reaching out to them is the fastest fix.`,

@@ -135,7 +135,7 @@ export function emptyCopy(page: "overview" | "recruiters" | "outreach" | "pipeli
       case "recruiters":
         return o.mine
           ? { head: "Nothing logged yet", text: "Send an email, place a call or move someone forward and your week shows up here.", action: start }
-          : { head: "It's just you so far", text: "Invite your team and their work shows up side by side.", action: { label: "Invite your team", href: "#/settings/members" } };
+          : { head: "It's just you so far", text: "Invite your team and their work shows up side by side.", action: { label: "Invite your team", href: "#/teams" } };
       case "outreach":
         return { head: "No emails sent yet", text: "Draft outreach from a campaign's shortlist, approve it, and replies and timing show up here.", action: start };
       default:
@@ -392,7 +392,7 @@ export const STAGE_LABEL: Readonly<Record<string, string>> = {
   outreach: "In outreach",
   interviewing: "Interviewing",
   hired: "Hired",
-  passed: "Passed",
+  passed: "Rejected",
 };
 
 /** A person's place as the page says it: "Waiting for a reply", else the stage. */
@@ -527,6 +527,23 @@ export function velocityTable(rows: PipelineAnalytics["velocity"]): Table {
   );
 }
 
+export type CampaignsState = "active" | "closed" | "all";
+
+/**
+ * The figures over the campaigns a tab lists, one definition for the summary line and the three KPIs. Hires are
+ * counted against each campaign's own plan (never past it). Active and Closed are the campaign's state and nothing else,
+ * so a closed campaign's hires are counted under Closed (a Closed tab is not zeros) and never under Active.
+ */
+export function campaignKpis(rows: readonly Pick<CampaignStats, "status" | "target" | "hired" | "quiet">[], state: CampaignsState) {
+  const listed = state === "all" ? rows : rows.filter((c) => (state === "closed" ? c.status !== "active" : c.status === "active"));
+  const planned = listed.reduce((n, c) => n + c.target, 0);
+  const hired = listed.reduce((n, c) => n + Math.min(c.hired, c.target || c.hired), 0);
+  const quiet = listed.filter((c) => c.status === "active" && c.quiet).length;
+  const filled = listed.filter((c) => c.target > 0 && c.hired >= c.target).length;
+  const first = state === "closed" ? "Closed campaigns" : state === "all" ? "Campaigns" : "Active campaigns";
+  return { count: listed.length, planned, hired, quiet, filled, first };
+}
+
 export function campaignsTable(rows: readonly CampaignStats[]): Table {
   return table(
     ["Campaign", "Client", "Owner", "Status", "Hired", "Planned", "Found", "Shortlisted", "Contacted", "Replied", "Interviewing",
@@ -584,7 +601,7 @@ export function outcomesInOrder(outcomes: ReadonlyArray<{ outcome: string; n: nu
 }
 
 /** A share as the length of a bar: whole percent, zero when there was nothing to divide. */
-export const shareValue = (r: Ratio): number => (r.of > 0 ? Math.round((r.n / r.of) * 100) : 0);
+export const shareValue = (r: Ratio): number => (r.of > 0 ? Math.min(100, Math.round((r.n / r.of) * 100)) : 0);
 
 /** The hour of the day as people say it, "9 am". */
 export const hourName = (h: number): string => `${h % 12 === 0 ? 12 : h % 12} ${h < 12 ? "am" : "pm"}`;

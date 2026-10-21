@@ -1,14 +1,18 @@
 import { useId, useState } from "react";
 import { specApi } from "./api/agent";
-import type { Requirement, RoleSpec } from "./api/agent";
+import type { RoleSpec } from "./api/agent";
 import { messageOf } from "./api/client";
-import { FOLLOWING_LINE, useMayChangeCampaign } from "./campaignRights";
+import { useFollowingLine, useMayChangeCampaign } from "./campaignRights";
 import { refreshCampaign, refreshCampaignAgents } from "./campaignStore";
 import { useCampaignSpec } from "./specDraft";
 import "./sourcing.css";
 import "./roleSpec.css";
 import { Loader } from "./components/Loader";
-import { RunNarration } from "./agentCards";
+import { Shimmer, ShimmerRegion, ShimmerText } from "./components/Shimmer";
+import { RunNarration, SpecEditor } from "./agentCards";
+import { readStanding } from "./agentCards/specActions";
+import { bucketsLine } from "./agentCards/specView";
+import { sameSpec, specProblem, tidy } from "./agentCards/specEdit";
 
 /**
  * The role spec: what every person found for this campaign is checked against.
@@ -19,24 +23,38 @@ import { RunNarration } from "./agentCards";
  * spec it was judged on.
  */
 
-const IMPORTANCE: Array<{ id: Requirement["importance"]; label: string }> = [
-  { id: "must", label: "Must have" },
-  { id: "nice", label: "Nice to have" },
-  { id: "knockout", label: "Hard requirement" },
-];
-const WEIGHT: Record<Requirement["importance"], number> = { must: 0.8, nice: 0.3, knockout: 0 };
-const FILE_TYPES = ".pdf,.docx,.txt,.png,.jpg,.jpeg";
-
-function nextRequirementId(reqs: readonly Requirement[]): string {
-  return `r${Math.max(0, ...reqs.map((r) => Number(r.id.slice(1)) || 0)) + 1}`;
+const GHOST_GROUPS = ["Must have", "Nice to have"];
+/** The spec while it loads: its own head, group titles and requirement rows, so the page keeps its shape when the spec lands. */
+function SpecGhost(): JSX.Element {
+  return (
+    <ShimmerRegion as="section" label="Loading the role spec" className="rs">
+      <header className="rs-head" aria-hidden="true">
+        <h2 className="rs-title">Role spec</h2>
+        <p className="rs-meta"><Shimmer h={12} lh={20} w="64%" /></p>
+      </header>
+      {GHOST_GROUPS.map((label, g) => (
+        <div key={label} className="rs-group" aria-hidden="true">
+          <h3 className="rs-group-title">{label}</h3>
+          <ul className="rs-reqs">
+            {Array.from({ length: g === 0 ? 3 : 2 }, (_, i) => (
+              <li key={i} className="rs-req"><span className="rs-req-text"><Shimmer h={13} lh={20} w={`${52 + ((i * 17 + g * 11) % 40)}%`} /></span></li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </ShimmerRegion>
+  );
 }
 
-export function RoleSpecPanel({ campaignId }: { campaignId: string }): JSX.Element {
+const FILE_TYPES = ".pdf,.docx,.txt,.png,.jpg,.jpeg";
+
+export function RoleSpecPanel({ campaignId, onClose }: { campaignId: string; onClose?: () => void }): JSX.Element {
   /* One shared read of the spec and of the draft on its way: while Mind drafts, it asks again by
      itself and the spec appears here when it lands. */
   const spec = useCampaignSpec(campaignId);
   /* Writing, drafting and approving the spec belong to the people on the campaign; anyone else reads it. */
   const may = useMayChangeCampaign(campaignId);
+  const FOLLOWING_LINE = useFollowingLine();
   const latest = spec.latest;
   /* Edits belong to the version they were made on: a newer version lands as it is. */
   const [edits, setEdits] = useState<{ id: string; spec: RoleSpec } | null>(null);
@@ -45,11 +63,12 @@ export function RoleSpecPanel({ campaignId }: { campaignId: string }): JSX.Eleme
   const [jd, setJd] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
-  const [adding, setAdding] = useState("");
   /* What approving started, said once: the first search, or the people already found ranked on this version. */
   const [started, setStarted] = useState<string | null>(null);
   /* The run it started, followed here so what it is doing is on screen and not only said once. */
   const [running, setRunning] = useState<string | null>(null);
+  /* How it ended, once the run has: the calm last word, with a way to close. */
+  const [done, setDone] = useState<string | null>(null);
   const jdId = useId();
 
   async function run(label: string, work: () => Promise<unknown>) {
@@ -57,6 +76,7 @@ export function RoleSpecPanel({ campaignId }: { campaignId: string }): JSX.Eleme
     setProblem(null);
     setStarted(null);
     setRunning(null);
+    setDone(null);
     try {
       await work();
       await spec.reload();
@@ -70,10 +90,10 @@ export function RoleSpecPanel({ campaignId }: { campaignId: string }): JSX.Eleme
     }
   }
 
-  if (!spec.ready) return <section className="rs" aria-label="Role spec"><Loader size="md" label="Loading the role spec" block /></section>;
+  if (!spec.ready) return <SpecGhost />;
 
   const isApproved = latest !== null && latest.id === spec.approved?.id;
-  const changed = latest !== null && edit !== null && JSON.stringify(edit) !== JSON.stringify(latest.spec);
+  const changed = latest !== null && edit !== null && !sameSpec(edit, latest.spec);
 
   /* Nothing to paste into while Mind is already at it: the same words, then the spec. */
   if (spec.drafting && !latest) {
@@ -81,11 +101,11 @@ export function RoleSpecPanel({ campaignId }: { campaignId: string }): JSX.Eleme
       <section className="rs" aria-label="Role spec" aria-busy="true">
         <h2 className="rs-title">Role spec</h2>
         <div className="rs-wait" role="status">
-          <p className="rs-wait-t">Mind is drafting the role</p>
+          <p className="rs-wait-t">SuperHyre is drafting the role</p>
           <p className="rs-copy">
             It shows here as soon as it is ready. Nothing is searched until you approve it.
           </p>
-          <Loader size="md" />
+          <ShimmerText lines={3} />
         </div>
       </section>
     );
@@ -162,104 +182,48 @@ export function RoleSpecPanel({ campaignId }: { campaignId: string }): JSX.Eleme
     );
   }
 
-  const setReq = (id: string, patch: Partial<Requirement>) =>
-    setEdit({ ...edit, requirements: edit.requirements.map((r) => (r.id === id ? { ...r, ...patch } : r)) });
+  const problem_ = specProblem(edit);
+  const finished = async (how: "done" | "failed") => {
+    setRunning(null);
+    setStarted(null);
+    if (how === "failed") { setProblem("The search stopped before it finished."); return; }
+    const st = await readStanding(campaignId);
+    setDone(`Done. ${st ? bucketsLine(st.buckets) : "The people found are in the ranked list."}`);
+    refreshCampaign(campaignId);
+  };
 
   return (
     <section className="rs" aria-label="Role spec">
       <header className="rs-head">
-        <h2 className="rs-title">{edit.title}</h2>
-        {spec.drafting && <p className="rs-note" role="status">Mind is drafting a newer version. It shows here when it is ready.</p>}
+        <h2 className="rs-title">Role spec</h2>
+        {spec.drafting && <p className="rs-note" role="status">SuperHyre is drafting a newer version. It shows here when it is ready.</p>}
         <p className="rs-meta">
-          {[
-            edit.seniority,
-            edit.locations.length ? edit.locations.join(", ") : null,
-            edit.remoteOk ? "Remote is fine" : null,
-            edit.yearsMin != null ? `${edit.yearsMin}+ years` : null,
-            isApproved && !changed ? `Approved, version ${latest.version}` : `Draft, version ${latest.version}`,
-          ]
-            .filter(Boolean)
-            .join(" · ")}
+          {isApproved
+            ? changed
+              ? `Editing approved version ${latest.version}. Saving makes draft version ${latest.version + 1}.`
+              : `Approved, version ${latest.version}`
+            : `Draft, version ${latest.version}`}
         </p>
       </header>
 
-      {IMPORTANCE.map(({ id, label }) => {
-        const reqs = edit.requirements.filter((r) => r.importance === id);
-        if (!reqs.length) return null;
-        return (
-          <div key={id} className="rs-group">
-            <h3 className="rs-group-title">{label}</h3>
-            <ul className="rs-reqs">
-              {reqs.map((r) => (
-                <li key={r.id} className="rs-req">
-                  <span className="rs-req-text">{r.text}</span>
-                  {/* The group heading already says how much it matters; this only moves it. */}
-                  {may && <select
-                    className="rs-req-importance"
-                    aria-label={`Move "${r.text}" to another group`}
-                    value=""
-                    onChange={(e) => {
-                      const importance = e.target.value as Requirement["importance"];
-                      if (importance) setReq(r.id, { importance, weight: WEIGHT[importance] });
-                    }}
-                  >
-                    <option value="" disabled>Move to</option>
-                    {IMPORTANCE.filter((o) => o.id !== r.importance).map((o) => (
-                      <option key={o.id} value={o.id}>{o.label}</option>
-                    ))}
-                  </select>}
-                  {may && <button
-                    type="button"
-                    className="rs-remove"
-                    aria-label={`Remove "${r.text}"`}
-                    disabled={edit.requirements.length === 1}
-                    onClick={() => setEdit({ ...edit, requirements: edit.requirements.filter((x) => x.id !== r.id) })}
-                  >
-                    Remove
-                  </button>}
-                </li>
-              ))}
-            </ul>
-          </div>
-        );
-      })}
-
-      {may && <form
-        className="rs-add"
-        onSubmit={(e) => {
-          e.preventDefault();
-          const text = adding.trim();
-          if (text.length < 2) return;
-          const req: Requirement = {
-            id: nextRequirementId(edit.requirements),
-            kind: "other",
-            text,
-            importance: "must",
-            weight: WEIGHT.must,
-          };
-          setEdit({ ...edit, requirements: [...edit.requirements, req] });
-          setAdding("");
-        }}
-      >
-        <input
-          className="rs-add-input"
-          aria-label="Add a requirement"
-          placeholder="Add a requirement, e.g. 3+ years with Kafka"
-          value={adding}
-          maxLength={200}
-          onChange={(e) => setAdding(e.target.value)}
-        />
-      </form>}
+      {/* The whole spec at once, edited where it stands: one Save for all of it, one Approve. */}
+      <SpecEditor spec={edit} readOnly={!may} onChange={setEdit} />
 
       {!may && <p className="rs-note">{FOLLOWING_LINE}</p>}
+      {/* The decision stays in view while the spec scrolls: one Save, one Approve, and how it went. */}
+      <footer className="rs-foot">
+      {started && !problem && !done && <p className="rs-note" role="status">{started}</p>}
+      {running && !problem && !done && <RunNarration runId={running} onFinish={(how) => void finished(how)} />}
+      {done && !problem && <p className="rs-note is-done" role="status">{done}</p>}
+      {problem && <p className="rs-note">{problem}</p>}
       {may && <div className="rs-actions">
         {changed && (
           <button
             type="button"
             className="src-btn is-primary"
-            disabled={busy !== null}
+            disabled={busy !== null || problem_ !== null}
             aria-busy={busy === "save" || undefined}
-            onClick={() => void run("save", () => specApi.save(campaignId, edit))}
+            onClick={() => void run("save", () => specApi.save(campaignId, tidy(edit)))}
           >
             {busy === "save" ? <><Loader size="sm" tone="inherit" />Saving</> : "Save changes"}
           </button>
@@ -285,10 +249,9 @@ export function RoleSpecPanel({ campaignId }: { campaignId: string }): JSX.Eleme
             Undo changes
           </button>
         )}
+        {done && onClose && <button type="button" className="src-btn is-primary" onClick={onClose}>Close</button>}
       </div>}
-      {started && !problem && <p className="rs-note" role="status">{started}</p>}
-      {running && !problem && <RunNarration runId={running} />}
-      {problem && <p className="rs-note">{problem}</p>}
+      </footer>
     </section>
   );
 }

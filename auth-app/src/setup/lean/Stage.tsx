@@ -4,7 +4,7 @@ import { art, HERO_RATIO, HERO_SPOT } from "./art";
 import { Hero } from "./Companion";
 import { Pad, padBeat } from "./Pad";
 import { FrameLoop } from "./FrameLoop";
-import { type Answers, type Beat, FIELD, type Pose, POSE, POWERS } from "./steps";
+import { type Answers, type Beat, FIELD, type Pose, POSE, POWERS, roleSkipped } from "./steps";
 
 /**
  * The whole screen is the canvas: sky, hills and her fill it edge to edge, the questions are typed
@@ -117,7 +117,8 @@ export function Stage({ beat, awaken, onAwakened, ready, leaving, stalled = fals
   const pose: Pose = beat === "name" && awaken ? (phase === "tap" ? "tap" : "watch") : base;
   const field = FIELD[beat];
 
-  const padOn = (padBeat(beat) || beat === "finish") && !leaving;
+  // Without a role there is no first campaign for the page to turn to.
+  const padOn = (padBeat(beat) || (beat === "finish" && !roleSkipped(answers))) && !leaving;
 
   const starOn = beat === "name" && (!awaken || phase === "tap");
   const flying = beat === "name" && awaken && phase === "fly";

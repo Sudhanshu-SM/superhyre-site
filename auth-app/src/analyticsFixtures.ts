@@ -90,7 +90,7 @@ export function overviewFixture(f: Filters, role: Role = "admin"): OverviewAnaly
         ? ["found", "shortlisted", "contacted", "replied", "interviewing", "hired"].map((id) => ({ id, label: LABEL[id]!, n: 0 }))
         : [
           { id: "found", label: "Found", n: 80 },
-          { id: "shortlisted", label: "On the shortlist", n: 41 },
+          { id: "shortlisted", label: "Shortlisted (ever)", n: 41 },
           { id: "contacted", label: "Contacted", n: 30 },
           { id: "replied", label: "Replied", n: 12 },
           { id: "interviewing", label: "Interviewing", n: 7 },
@@ -127,7 +127,7 @@ export function overviewFixture(f: Filters, role: Role = "admin"): OverviewAnaly
 }
 
 const LABEL: Record<string, string> = {
-  found: "Found", shortlisted: "On the shortlist", contacted: "Contacted", replied: "Replied", interviewing: "Interviewing", hired: "Hired",
+  found: "Found", shortlisted: "Shortlisted (ever)", contacted: "Contacted", replied: "Replied", interviewing: "Interviewing", hired: "Hired",
 };
 
 /* ── Recruiters ── */

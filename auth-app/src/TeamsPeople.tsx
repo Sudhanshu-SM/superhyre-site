@@ -5,25 +5,41 @@ import {
   workspaceChanged,
 } from "./api/identity";
 import type { Invite, JoinRequest, Member, Members, OrgRole } from "./api/identity";
+import { teamsApi } from "./api/teams";
+import type { People, Person, Team } from "./api/teams";
 import { actionsOn, peopleRoles } from "./can";
 import type { Assignable, Standing } from "./can";
 import { Popover, useToast } from "./Contacts";
 import { Loader } from "./components/Loader";
+import { Shimmer } from "./components/Shimmer";
+import { StItemsGhost } from "./settingsGhosts";
 import { pollWhileVisible } from "./livePoll";
 import { groupByRole, ownerLeaveLine, ROLE_LABEL, ROLE_LINE, ROLE_PLURAL } from "./membership";
+import { Pager } from "./components/Pager";
+import { clampedOffset } from "./sectionState";
 import { ConfirmDialog } from "./RoleBits";
+import { useAsked } from "./useAsked";
+import { Guard } from "./Guard";
+import { removalPreview } from "./api/windDown";
+import { handoverLine, teamNames } from "./windDown";
 import { Fld } from "./Settings";
 import { LoadFailed } from "./ui";
 
 /**
- * Members: who is in the organisation, in what role, and what the viewer may do about it.
- * An owner deals with admins and recruiters, an admin with recruiters only (`actionsOn`, the
- * same table the server enforces); a recruiter sees the list. Every change shows at once and
- * is put back, with the reason, if the API refuses it.
+ * Everyone: the Teams page's second tab, and what Settings > Members used to be. Who is in the organisation, in
+ * what role and on which teams, the invitations and requests to join, and what the viewer may do about each person.
+ * The owner changes roles and removes anyone from the organisation (their work goes to someone they choose); an
+ * admin takes people off the teams they lead and nothing more (`actionsOn`, the same table the server enforces).
+ * Every change shows at once and is put back, with the reason, if the API refuses it.
  */
 
 /** How often the list is read again while it is on screen. */
 export const MEMBERS_POLL_MS = 15_000;
+/** People on a page of the Everyone list. */
+export const PEOPLE_PAGE = 12;
+
+const toMembers = (p: People): Members => ({ members: p.people, requests: p.requests, invites: p.invites });
+const teamsOfPerson = (m: Member): Person["teams"] => (m as Partial<Person>).teams ?? [];
 
 const day = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short" });
 const date = (iso: string) => day.format(new Date(iso));
@@ -32,7 +48,7 @@ const AS: Readonly<Record<Assignable, string>> = { admin: "an admin", recruiter:
 
 type Load = { s: "loading" } | { s: "error" } | { s: "ready"; data: Members };
 
-export function SettingsMembers({ me, role, orgName, reload, say }: {
+export function TeamsPeople({ me, role, orgName, reload, say, teams, onChanged }: {
   me: string;
   role: OrgRole;
   orgName: string;
@@ -40,6 +56,10 @@ export function SettingsMembers({ me, role, orgName, reload, say }: {
   reload: () => Promise<void>;
   /** One calm line above the console, which survives it being reloaded. */
   say?: (text: string) => void;
+  /** The teams, for the ones an admin leads. */
+  teams: readonly Team[];
+  /** Something here changed what the teams show (a person left, a role moved): read them again. */
+  onChanged?: () => void;
 }) {
   const standing: Standing = role;
   const manages = role === "owner" || role === "admin";
@@ -49,11 +69,16 @@ export function SettingsMembers({ me, role, orgName, reload, say }: {
   const [removing, setRemoving] = useState<Member | null>(null);
   const [handing, setHanding] = useState<Member | null>(null);
   const [leaving, setLeaving] = useState(false);
+  const [offering, setOffering] = useState<Member | null>(null);
+  const [offset, setOffset] = useState(0);
   const toast = useToast();
+  /* An admin takes someone off a team they lead; the owner's removal is out of the organisation. */
+  const led = new Set(teams.filter((t) => t.canManage).map((t) => t.id));
+  const offTeams = (m: Member) => teamsOfPerson(m).filter((t) => led.has(t.id) && !t.lead);
 
   const fetchMembers = useCallback(async () => {
     try {
-      const data = await identityApi.members();
+      const data = toMembers(await teamsApi.people());
       setLoad({ s: "ready", data });
     } catch {
       setLoad((cur) => (cur.s === "ready" ? cur : { s: "error" }));
@@ -65,12 +90,26 @@ export function SettingsMembers({ me, role, orgName, reload, say }: {
   const changing = useRef(0);
   useEffect(() => pollWhileVisible(() => { if (changing.current === 0) void fetchMembers(); }, MEMBERS_POLL_MS), [fetchMembers]);
 
-  if (load.s === "loading") return <p className="st-quiet t-body">Loading members</p>;
+  if (load.s === "loading") {
+    /* The page's own heading and its invite button (the person's standing is known before the list is); the rows are ghosts. */
+    return (
+      <div className="st-sec">
+        <div className="st-h-row">
+          <h2 className="st-h t-title-sm">Everyone</h2>
+          {peopleRoles(standing, "invite").length > 0 && <button type="button" className="ncx-btn is-sm" disabled>Invite someone</button>}
+        </div>
+        <div className="st-group">
+          <h3 className="st-sub t-label"><Shimmer h={11} lh={16} w={72} /></h3>
+          <StItemsGhost n={4} label="Loading everyone" />
+        </div>
+      </div>
+    );
+  }
   if (load.s === "error") {
     return (
       <div className="st-sec">
-        <h2 className="st-h t-title-sm">Members</h2>
-        <LoadFailed what="Your members" onRetry={() => { setLoad({ s: "loading" }); void fetchMembers(); }} />
+        <h2 className="st-h t-title-sm">Everyone</h2>
+        <LoadFailed what="The people here" onRetry={() => { setLoad({ s: "loading" }); void fetchMembers(); }} />
       </div>
     );
   }
@@ -130,17 +169,19 @@ export function SettingsMembers({ me, role, orgName, reload, say }: {
     }
   };
 
-  const groups = groupByRole(data.members);
+  const ordered = groupByRole(data.members).flatMap((g) => g.people);
+  const at = clampedOffset(offset, ordered.length, PEOPLE_PAGE);
+  const groups = groupByRole(ordered.slice(at, at + PEOPLE_PAGE));
 
   return (
     <div className="st-sec">
       <div className="st-h-row">
-        <h2 className="st-h t-title-sm">Members</h2>
+        <h2 className="st-h t-title-sm">Everyone</h2>
         {mayInvite && !inviting && (
           <button type="button" className="ncx-btn is-sm" onClick={() => setInviting(true)}>Invite someone</button>
         )}
       </div>
-      {!manages && <p className="st-quiet t-body-sm">Admins of {orgName} manage who is here and what they can do.</p>}
+      <Pager offset={at} limit={PEOPLE_PAGE} total={ordered.length} unit="people" onChange={setOffset} />
       {error && <p className="st-err t-body-sm" role="alert">{error}</p>}
 
       {inviting && (
@@ -162,7 +203,7 @@ export function SettingsMembers({ me, role, orgName, reload, say }: {
       )}
 
       {groups.map((g) => (
-        <div className="st-group" key={g.role}>
+        <div className="st-group" key={g.role} data-pager-list>
           <h3 className="st-sub t-label">{ROLE_PLURAL[g.role]}</h3>
           <p className="st-quiet t-body-sm st-roleline">{ROLE_LINE[g.role]}</p>
           <ul className="st-list">
@@ -172,9 +213,11 @@ export function SettingsMembers({ me, role, orgName, reload, say }: {
                 m={m}
                 self={m.userId === me}
                 standing={standing}
-                onRole={(to) => void change(changeRole(data, m.userId, to), () => identityApi.setRole(m.userId, to),
+                offTeams={offTeams(m)}
+                onRole={(to) => void change(changeRole(data, m.userId, to), async () => { await identityApi.setRole(m.userId, to); onChanged?.(); },
                   `${nameOf(m)} is now ${AS[to]}`)}
                 onRemove={() => setRemoving(m)}
+                onOffer={() => setOffering(m)}
                 onHand={() => setHanding(m)}
               />
             ))}
@@ -227,16 +270,32 @@ export function SettingsMembers({ me, role, orgName, reload, say }: {
         </div>
       )}
 
+      <Pager offset={at} limit={PEOPLE_PAGE} total={ordered.length} unit="people" variant="foot" onChange={setOffset} />
+
+      <TakeOffDialog
+        member={offering}
+        teams={offering ? offTeams(offering) : []}
+        orgName={orgName}
+        onClose={() => setOffering(null)}
+        onConfirm={(m) => {
+          setOffering(null);
+          const names = offTeams(m).map((t) => t.name).join(" and ");
+          void change(data, async () => { await teamsApi.removePerson(m.userId); onChanged?.(); },
+            `${nameOf(m)} is off ${names}. They're still in ${orgName}.`);
+        }}
+      />
+
       <RemoveDialog
         member={removing}
+        orgName={orgName}
         members={data.members}
         me={me}
         onClose={() => setRemoving(null)}
         onRemove={(m, to) => {
           setRemoving(null);
           const heir = data.members.find((x) => x.userId === to);
-          void change(dropMember(data, m.userId), () => identityApi.removeMember(m.userId, to),
-            `${nameOf(m)} removed. ${heir ? `${first(nameOf(heir))} has their work.` : ""}`.trim());
+          void change(dropMember(data, m.userId), async () => { await teamsApi.removePerson(m.userId, to); onChanged?.(); },
+            `${nameOf(m)} removed from ${orgName}. ${heir ? `${first(nameOf(heir))} has their work.` : ""}`.trim());
         }}
       />
 
@@ -274,20 +333,28 @@ export function SettingsMembers({ me, role, orgName, reload, say }: {
 export const addressLine = (m: { fullName: string | null; email: string | null }): string | null =>
   m.fullName?.trim() && m.email ? m.email : null;
 
-function MemberRow({ m, self, standing, onRole, onRemove, onHand }: {
+function MemberRow({ m, self, standing, offTeams, onRole, onRemove, onOffer, onHand }: {
   m: Member;
   self: boolean;
   standing: Standing;
+  /** The teams an admin leads that this person is a plain member of: what "Take off" would leave. */
+  offTeams: Person["teams"];
   onRole: (to: Assignable) => void;
   onRemove: () => void;
+  onOffer: () => void;
   onHand: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const anchor = useRef<HTMLButtonElement>(null);
   const may = actionsOn(standing, { role: m.role, self });
-  const any = may.roles.length > 0 || may.remove || may.makeOwner;
-  const meta = [m.campaigns > 0 ? (m.campaigns === 1 ? "On 1 campaign" : `On ${m.campaigns} campaigns`) : null, `Joined ${date(m.joinedAt)}`]
-    .filter(Boolean).join(". ");
+  const takeOff = !self && standing === "admin" && m.role !== "owner" && offTeams.length > 0;
+  const any = may.roles.length > 0 || may.remove || may.makeOwner || takeOff;
+  const teamNames = teamsOfPerson(m).map((t) => (t.lead ? `${t.name} (lead)` : t.name));
+  const meta = [
+    teamNames.length ? `Teams: ${teamNames.join(", ")}` : null,
+    m.campaigns > 0 ? (m.campaigns === 1 ? "On 1 campaign" : `On ${m.campaigns} campaigns`) : null,
+    `Joined ${date(m.joinedAt)}`,
+  ].filter(Boolean).join(". ");
   const run = (fn: () => void) => () => { setOpen(false); fn(); };
   return (
     <li className="st-item">
@@ -317,9 +384,14 @@ function MemberRow({ m, self, standing, onRole, onRemove, onHand }: {
                     <span className="ct-menu-t">Make owner</span>
                   </button>
                 )}
+                {takeOff && (
+                  <button type="button" role="menuitem" className="ct-menu-i" onClick={run(onOffer)}>
+                    <span className="ct-menu-t">Take {first(nameOf(m))} off {offTeams.length === 1 ? offTeams[0]?.name : "their teams"}</span>
+                  </button>
+                )}
                 {may.remove && (
                   <button type="button" role="menuitem" className="ct-menu-i is-danger" onClick={run(onRemove)}>
-                    <span className="ct-menu-t">Remove {first(nameOf(m))}</span>
+                    <span className="ct-menu-t">Remove {first(nameOf(m))} from the organisation</span>
                   </button>
                 )}
               </div>
@@ -462,31 +534,70 @@ function InviteForm({ standing, invites, onClose, onSent }: {
   );
 }
 
-function RemoveDialog({ member, members, me, onClose, onRemove }: {
+/** What an admin's "Remove" means: off the teams they lead, and still in the organisation. */
+export const takeOffLine = (orgName: string): string =>
+  `They stay in ${orgName}, with their campaigns, and can still be put on a team again.`;
+
+/** What the owner's Remove means, said plainly before it happens. */
+export const removeForGoodLine = (name: string, orgName: string): string =>
+  `${name} is removed from ${orgName} for good. They lose access straight away and come off every team. Their Personal, and any other organisation they are in, are untouched.`;
+
+function TakeOffDialog({ member, teams, orgName, onClose, onConfirm }: {
+  member: Member | null;
+  teams: Person["teams"];
+  orgName: string;
+  onClose: () => void;
+  onConfirm: (m: Member) => void;
+}) {
+  const names = teams.map((t) => t.name).join(" and ");
+  return (
+    <ConfirmDialog
+      open={member !== null}
+      title={member ? `Take ${nameOf(member)} off ${names}?` : "Take off team"}
+      body={<p>{takeOffLine(orgName)}</p>}
+      confirm="Take off"
+      onClose={onClose}
+      onConfirm={() => { if (member) onConfirm(member); }}
+    />
+  );
+}
+
+function RemoveDialog({ member, members, me, orgName, onClose, onRemove }: {
   member: Member | null;
   members: Member[];
   me: string;
+  orgName: string;
   onClose: () => void;
   onRemove: (m: Member, reassignTo: string) => void;
 }) {
   const others = members.filter((m) => m.userId !== member?.userId);
+  /* What the server says leaving hands on (tasks, reminders, campaigns, teams) and who gets it by default. Always said,
+     even for someone who owns no campaigns: their tasks and reminders still need a home. */
+  const { loading, data } = useAsked(member !== null, member?.userId ?? "", () => removalPreview(member!.userId));
   const [to, setTo] = useState(me);
-  useEffect(() => { if (member) setTo(me); }, [member, me]);
+  useEffect(() => { if (member) setTo(data?.reassignTo?.id ?? me); }, [member, me, data]);
+  const heir = others.find((m) => m.userId === to);
+  const leaves = teamNames(data);
   return (
     <ConfirmDialog
       open={member !== null}
-      title={member ? `Remove ${nameOf(member)}?` : "Remove member"}
+      title={member ? `Remove ${nameOf(member)} from ${orgName}?` : "Remove from the organisation"}
       body={
         <div className="st-remove">
-          <p>
-            Their campaigns, candidates, clients and open tasks go to the person you choose. Their own
-            Personal stays as it is.
-          </p>
+          <p>{member ? removeForGoodLine(nameOf(member), orgName) : null}</p>
+          <Guard fallback={<p>Their campaigns, candidates, clients, tasks and reminders go to the person you choose, so nothing is left without an owner.</p>}>
+            {loading ? (
+              <div aria-hidden="true"><Shimmer h={12} lh={18} w="90%" /><Shimmer h={12} lh={18} w="40%" /></div>
+            ) : (
+              <p>{data ? handoverLine(data, heir ? first(nameOf(heir)) : "the person you choose") : "Their campaigns, candidates, clients, tasks and reminders go to the person you choose, so nothing is left without an owner."}</p>
+            )}
+          </Guard>
           <Fld id="st-heir" label="Hand their work to">
             <select id="st-heir" className="ncx-in" value={to} onChange={(e) => setTo(e.target.value)}>
               {others.map((m) => <option key={m.userId} value={m.userId}>{nameOf(m)}{m.userId === me ? " (you)" : ""}</option>)}
             </select>
           </Fld>
+          {leaves.length > 0 && <p>They will leave {leaves.length === 1 ? "this team" : "these teams"}: {leaves.join(", ")}.</p>}
         </div>
       }
       confirm={member ? `Remove ${first(nameOf(member))}` : "Remove"}

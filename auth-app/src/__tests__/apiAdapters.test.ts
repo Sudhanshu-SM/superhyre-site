@@ -215,7 +215,7 @@ describe("logLine", () => {
       [{ subjectKind: "form", subjectName: "Screening", verb: "form_published" }, "Asha Rao published the form Screening"],
       [{ subjectKind: "form", subjectName: "Screening", verb: "form_closed" }, "Asha Rao closed the form Screening"],
       [{ subjectKind: "form", subjectName: "Screening", verb: "applicant_added" }, "Asha Rao added an applicant from Screening"],
-      [{ subjectKind: "form", subjectName: "Screening", verb: "applicant_passed" }, "Asha Rao passed on an applicant from Screening"],
+      [{ subjectKind: "form", subjectName: "Screening", verb: "applicant_passed" }, "Asha Rao rejected an applicant from Screening"],
       [{ subjectKind: "form", subjectName: "Screening", verb: "response_received", actorKind: "system" }, "Someone applied through Screening"],
       [{ subjectKind: "task", subjectName: "Call Meera", verb: "created" }, "Asha Rao added a task Call Meera"],
       [{ subjectKind: "task", subjectName: "Call Meera", verb: "completed" }, "Asha Rao finished a task Call Meera"],

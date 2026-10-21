@@ -2,12 +2,13 @@
 import {
   Agent, CampaignOutreach, CampaignCandidates, CampaignForms, CampaignOverview, CampaignShortlisted,
   CampaignsAnalyticsPage, CampaignsPage, ClientsPage, ContactsPage, Home, OutreachAnalyticsPage, OutreachPage, OverviewAnalyticsPage,
-  PageBoundary, PageFallback, PipelineAnalyticsPage, preloadPages, RecruitersAnalyticsPage, SettingsPage,
+  PageBoundary, PageFallback, PipelineAnalyticsPage, preloadPages, RecruitersAnalyticsPage, SettingsPage, TeamsNotHere, TeamsPage,
 } from "./consolePages";
 import { List } from "@phosphor-icons/react";
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Nav } from "./Nav";
 import { Toaster } from "./toast";
+import { HiredConfirm } from "./HiredConfirm";
 import { useBellCount } from "./Notifications";
 import { Palette } from "./Palette";
 import { CURRENT_CAMPAIGN, defaultCampaign } from "./workspaces";
@@ -23,8 +24,11 @@ import type { Me } from "./api/identity";
 import { LIVE } from "./api/client";
 import { connectInvalidation, revalidateCampaign, revalidateRoute } from "./invalidate";
 import { startTheme } from "./theme";
+import { campaignInFocus } from "./railConfig";
+import { rememberCampaign, rememberedCampaign } from "./campaignChoice";
 import {
   campaignRow as campaignRowOf,
+  campaignRowsNow,
   retryCampaigns,
   useCampaignRow,
   useCampaignRows,
@@ -33,15 +37,14 @@ import {
 } from "./campaignStore";
 import { NotOnCampaign } from "./RoleBits";
 import { canOpenCampaign, useSession } from "./roleStore";
-import { standingOf } from "./can";
+import { can, standingOf } from "./can";
 import { LoadFailed } from "./ui";
-import { NoCampaign } from "./NoCampaign";
+import { NoCampaign, NoCampaignGhost } from "./NoCampaign";
 import { NotFound } from "./ErrorStates";
 import { EmptyArt } from "./EmptyArt";
 import { DocTitle } from "./components/DocTitle";
 import { openerNow, restoreFocus } from "./components/focusTrap";
 import { pageTitle } from "./pageTitle";
-import { Loader } from "./components/Loader";
 import { COMING_SOON_NOTE, comingSoon } from "./emptyStates";
 import { SupportPage } from "./SupportPage";
 import { canonicalZone } from "./schedulesView";
@@ -92,7 +95,7 @@ type Props = {
 /** Must match `--nav-bp` in access.css: above this the sidebar is a column,
  *  below it the sidebar is a drawer. Duplicated into JS because the drawer has
  *  behaviour — scroll lock, auto-close — that CSS cannot express. */
-const NAV_BP = 900;
+const NAV_BP = 1024;
 const RAIL_KEY = "superhyre.nav.railed";
 
 /** localStorage throws outright in some privacy modes rather than no-opping,
@@ -120,8 +123,8 @@ export function Console({ bootstrap, live, onSignOut, signingOut }: Props) {
   const [unknownLink, setUnknownLink] = useState(() => !isKnownHash(window.location.hash));
   const [railed, setRailed] = useState(readRailed);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  /* Seeded so that arriving directly on #/dialer/calls shows an open Dialer
-     group — the alternative is a highlighted child inside a collapsed parent. */
+  /* Seeded so that arriving directly on a page inside a nav group shows that group open — the alternative is a
+     highlighted child inside a collapsed parent. */
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
     const g = GROUP_OF[routeFromHash(window.location.hash)];
     return g ? { [g]: true } : {};
@@ -257,6 +260,10 @@ export function Console({ bootstrap, live, onSignOut, signingOut }: Props) {
     setCampaign(c);
     setCampaignChosen(true);
   }, []);
+  /* The chat moved to a campaign as it went (one it just made, or one it was asked to work on): the page follows, staying where it is. */
+  const focusCampaign = useCallback((id: string, name: string) => {
+    chooseCampaign(campaignInFocus(id, name, campaignRowsNow()));
+  }, [chooseCampaign]);
   /* Visiting any campaign page, by link, sidebar or back button, counts. */
   useEffect(() => {
     if (route.startsWith("campaign-")) setCampaignChosen(true);
@@ -376,9 +383,18 @@ export function Console({ bootstrap, live, onSignOut, signingOut }: Props) {
   const campaignRows = useCampaignRows();
   useEffect(() => {
     if (!LIVE || campaign.id) return;
-    const r = defaultCampaign(campaignRows, (x) => canOpenCampaign(x, session));
-    if (r) setCampaign({ id: r.id, name: r.name, role: [r.department, r.location].filter(Boolean).join(" · ") });
+    // After a refresh the campaign they had picked comes back, not the default: it is theirs still, so it counts as chosen.
+    const saved = rememberedCampaign(session.userId ?? "");
+    const kept = saved ? campaignRows.find((x) => x.id === saved && canOpenCampaign(x, session)) : undefined;
+    const r = kept ?? defaultCampaign(campaignRows, (x) => canOpenCampaign(x, session));
+    if (!r) return;
+    setCampaign({ id: r.id, name: r.name, role: [r.department, r.location].filter(Boolean).join(" · ") });
+    if (kept) setCampaignChosen(true);
   }, [campaignRows, campaign.id, session]);
+  // What they pick (or visit) is what comes back after a refresh.
+  useEffect(() => {
+    if (campaignChosen && campaign.id) rememberCampaign(session.userId ?? "", campaign.id);
+  }, [campaignChosen, campaign.id, session.userId]);
   const campaignsReady = useCampaignsReady();
   const campaignsFailed = useCampaignsFailed();
   /* Live, a campaign page needs a real campaign: none yet (a new organisation, a
@@ -464,6 +480,7 @@ export function Console({ bootstrap, live, onSignOut, signingOut }: Props) {
 
       {/* The one place a confirmation or a refused change is said, for every page. */}
       <Toaster />
+      <HiredConfirm />
 
       {/* The introduction and the guided walk, for someone who has just joined (or who asked for them). */}
       <Suspense fallback={null}>
@@ -508,7 +525,7 @@ export function Console({ bootstrap, live, onSignOut, signingOut }: Props) {
 
         <main className="con-main" id="con-main" tabIndex={-1}>
           {/* A page is a file of its own: the loader stands where it will be until it arrives. */}
-          <PageBoundary>
+          <PageBoundary resetKey={route}>
           <Suspense fallback={<PageFallback />}>
           {/* Routes gain a real page here one at a time; everything still on
               Placeholder says so and names the table it will read. */}
@@ -527,6 +544,7 @@ export function Console({ bootstrap, live, onSignOut, signingOut }: Props) {
               onHandoffTaken={clearHandoff}
               campaignIsCurrent={campaignChosen}
               onNewChat={() => setCampaignChosen(false)}
+              onFocusCampaign={focusCampaign}
               inOrg={!!live && activeOrg(live.me) !== null}
               onOpenForm={openForm}
               onOpenCampaign={(id) => {
@@ -545,7 +563,10 @@ export function Console({ bootstrap, live, onSignOut, signingOut }: Props) {
           ) : route === "clients" ? (
             <ClientsPage onOpenCampaign={(c) => { chooseCampaign({ id: c.id, name: c.name, role: [c.department, c.location].filter(Boolean).join(" · ") }); navigate("campaign-overview"); }} />
           ) : route === "settings" && live ? (
-            <SettingsPage account={live} />
+            <SettingsPage account={live} onAgent={(text) => brief(text, { send: true })} />
+          ) : route === "teams" ? (
+            /* Owners and admins have Teams; anyone else who follows a link to it is told, calmly, it isn't theirs. */
+            routeOk && live ? <TeamsPage account={live} /> : <TeamsNotHere />
           ) : LIVE && route.startsWith("campaign-") && campaignsFailed ? (
             /* Without the campaign list nothing here can be shown, and saying there are no
                campaigns would be a wrong answer rather than a missing one. */
@@ -554,7 +575,7 @@ export function Console({ bootstrap, live, onSignOut, signingOut }: Props) {
             campaignsReady ? (
               <NoCampaign
                 rows={campaignRows.filter((r) => canOpenCampaign(r, session))}
-                canCreate={session.role !== "recruiter"}
+                canCreate={can(standingOf(session), "campaign.create")}
                 onPick={(r) => chooseCampaign({ id: r.id, name: r.name, role: [r.department, r.location].filter(Boolean).join(" · ") })}
                 onNew={() => {
                   try { sessionStorage.setItem("sh-new-campaign", "1"); } catch { /* falls back to just navigating */ }
@@ -562,7 +583,7 @@ export function Console({ bootstrap, live, onSignOut, signingOut }: Props) {
                 }}
                 onAll={() => navigate("campaigns")}
               />
-            ) : <div className="con-page" aria-busy="true"><Loader size="lg" label="Loading the campaign" block /></div>
+            ) : <NoCampaignGhost />
           ) : offCampaign ? (
             <NotOnCampaign key={campaign.id} row={campaignRow} onBack={() => navigate("campaigns")} />
           ) : route === "campaign-overview" ? (

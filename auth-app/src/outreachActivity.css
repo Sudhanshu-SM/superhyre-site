@@ -3,21 +3,24 @@
    the thin orange-tinted dividers, the sheet) with a channel switch above the toolbar, a channel mark on each line and
    one sheet per person. Neutral surfaces and two tones of ink; the brand's orange stays a thin line or a label. */
 
-/* ── the channel switch ── */
+/* ── the channel switch ──
+   The active tab's fill is a mark that slides to the next tab (switchMotion.css: .sw-ind). Until it has been measured
+   the active button wears the fill itself, so the control is whole without it. */
 .ko-switch {
   display: inline-flex; gap: 2px; padding: 3px; max-width: 100%; justify-self: start; overflow-x: auto;
   border: 1px solid var(--hairline); border-radius: 12px; background: var(--sub); scrollbar-width: none;
+  --sw-bg: var(--card); --sw-shadow: 0 0 0 1px var(--hairline); --sw-r: 9px;
 }
 .ko-switch::-webkit-scrollbar { display: none; }
 .ko-switch button {
   display: inline-flex; align-items: center; gap: 7px; flex: none; height: 32px; padding: 0 12px; border: 0; border-radius: 9px;
   background: none; font: var(--type-label); letter-spacing: var(--track-label); color: var(--ink-2); cursor: pointer; white-space: nowrap;
-  transition: background-color 120ms var(--ease-out), color 120ms var(--ease-out);
+  transition: background-color 180ms var(--ease-out), color 180ms var(--ease-out);
 }
 .ko-switch button:hover { color: var(--ink); }
 .ko-switch button.is-on { background: var(--card); color: var(--ink); box-shadow: 0 0 0 1px var(--hairline); }
 .ko-switch button:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
-.ko-switch-n { font: var(--type-caption); letter-spacing: 0; color: var(--ink-3); }
+.ko-switch-n { font: var(--type-caption); letter-spacing: 0; color: var(--ink-3); transition: color 180ms var(--ease-out); }
 .ko-switch button.is-on .ko-switch-n { color: var(--ink-2); }
 
 /* ── the channel mark ── */
@@ -84,6 +87,8 @@
 .ko-subject { font: 600 15px/1.4 var(--ui); letter-spacing: -0.006em; color: var(--ink); overflow-wrap: anywhere; }
 .ko-text { font: var(--type-body); letter-spacing: var(--track-body); color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
 .ko-more { justify-self: start; }
+/* why an email did not go: plain words under it, in the ink of a note, never a badge */
+.ko-why { font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); overflow-wrap: anywhere; }
 .ko-actions { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 2px; }
 
 /* a WhatsApp message is a bubble: theirs on the left, ours on the right */
@@ -94,6 +99,11 @@
 }
 .ko-card.is-chat.is-out .ko-bubble { margin-left: auto; background: var(--card); }
 
+/* a call's card opens and closes from anywhere on it (OutreachSheet CallCard), so it reads as pressable; the open
+   call inside it is its own surface and keeps the normal cursor */
+.ko-card.is-toggle { cursor: pointer; transition: border-color var(--t, 160ms), background-color var(--t, 160ms); }
+.ko-card.is-toggle:hover { border-color: var(--accent-line, var(--hairline)); }
+.ko-card.is-toggle .ko-call-open { cursor: auto; }
 /* a call's own body inside its card: the sheet's panels, on the card's surface, with no frame of their own */
 .ko-call-open { display: grid; gap: 0; min-width: 0; margin-top: 2px; border-top: 1px solid var(--hairline); }
 .ko-call-open .kl-sec { padding: 16px 0; border: 0; border-radius: 0; background: none; }
@@ -119,5 +129,5 @@
   .ko-bubble { max-width: 94%; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .ko-switch button { transition: none; }
+  .ko-switch button, .ko-switch-n { transition: none; }
 }

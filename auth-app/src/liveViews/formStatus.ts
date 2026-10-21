@@ -103,7 +103,7 @@ export function inView<T extends { id: string }>(
 }
 
 const STAGE_WORDS: Readonly<Record<string, string>> = {
-  shortlisted: "On the shortlist", outreach: "In outreach", interviewing: "Interviewing", hired: "Hired", passed: "Passed",
+  shortlisted: "On the shortlist", outreach: "In outreach", interviewing: "Interviewing", hired: "Hired", passed: "Rejected",
 };
 
 /** Where someone already on the board is, in words. */

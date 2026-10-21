@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ContactPerson, ContactSide, ContactsResult, ContactsStatus } from "../contactsModel";
 import {
-  contactWords, flippedToFound, mergeResult, NO_PHONE_LOOKUPS, offerFor, planDetail, planFor, planLine, pollRule, POLL_MS,
+  allowanceLine, contactWords, flippedToFound, mergeResult, NO_PHONE_LOOKUPS, offerFor, planDetail, planFor, planLine, pollRule, POLL_MS,
   recount, resultLine, sideLine, STALL_AFTER_MS, STILL_LOOKING, toastTone,
 } from "../contactsModel";
 
@@ -66,6 +66,24 @@ describe("where a person stands, in words", () => {
       NO_PHONE_LOOKUPS, STILL_LOOKING,
     ].join(" ");
     expect(all).not.toMatch(/salesql|apollo|contactout|crustdata|prospeo/i);
+  });
+});
+
+describe("what Settings says about contact lookups", () => {
+  const a = (over: Partial<Parameters<typeof allowanceLine>[0]>) => ({ email: true, phone: true, credits: 38, apolloCredits: 5, ...over });
+
+  it("says on with what is left, and what it is when nothing is set up on this server", () => {
+    expect(allowanceLine(a({}))).toBe("On. 38 phone lookups left");
+    expect(allowanceLine(a({ credits: 1 }))).toBe("On. 1 phone lookup left");
+    expect(allowanceLine(a({ credits: 0 }))).toBe("On. No phone lookups left this month");
+    expect(allowanceLine(a({ phone: false, credits: null }))).toBe("On for emails");
+    expect(allowanceLine(a({ email: false, phone: false, credits: null, apolloCredits: null }))).toBe("Not connected on this server");
+  });
+
+  it("never names a data provider", () => {
+    for (const line of [allowanceLine(a({})), allowanceLine(a({ credits: 0 })), allowanceLine(a({ email: false, phone: false, credits: null }))]) {
+      expect(line).not.toMatch(/salesql|apollo|crustdata|prospeo/i);
+    }
   });
 });
 

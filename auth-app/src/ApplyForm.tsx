@@ -506,7 +506,7 @@ function OrgLine({ company, logo }: { company: string | null; logo: string | nul
 
 /* ── done ── */
 
-function Done({ refEl, who, already, message, company, preview, onReset }: {
+export function Done({ refEl, who, already, message, company, preview, onReset }: {
   refEl: React.RefObject<HTMLHeadingElement>;
   who: Who;
   already: string | null;
@@ -519,7 +519,10 @@ function Done({ refEl, who, already, message, company, preview, onReset }: {
   const team = company ? `${possessive(company)} hiring team` : "The hiring team";
   return (
     <div className="ap-done" role="status">
-      <EmptyArt name="form-thanks" size={200} />
+      <svg className="ap-done-mark" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+        <circle className="ap-done-ring" cx="32" cy="32" r="30" />
+        <path className="ap-done-tick" d="M20 33.5l8.5 8.5L44.5 24" />
+      </svg>
       {already ? (
         <>
           <h2 ref={refEl} tabIndex={-1}>You've already applied, {first}.</h2>
@@ -576,7 +579,7 @@ function PhoneField({ id, value, error, onChange, onBlur }: { id: string; value:
   return (
     <div className="ap-field">
       <Label htmlFor={id} required>Phone</Label>
-      <div className={`ap-ctl ap-phone${own ? " is-own" : ""}`}>
+      <div className={`ap-ctl ap-phone${own ? " is-own" : ""}${value.trim() ? " has-value" : ""}`}>
         {!own && <span className="ap-cc" aria-hidden="true">+91</span>}
         <input id={id} className={`ap-input${error ? " is-bad" : ""}`} type="tel" inputMode="tel" autoComplete="tel" value={value} placeholder="98450 12345"
           aria-invalid={!!error || undefined} aria-describedby={`${id}-help${error ? ` ${id}-err` : ""}`} aria-required

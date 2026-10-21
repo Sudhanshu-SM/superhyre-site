@@ -4,6 +4,7 @@ import { campaignsFixture, overviewFixture, pipelineFixture, recruitersFixture }
 import { DEFAULT_FILTERS } from "../analyticsFilters";
 import type { OverviewAnalytics } from "../api/analytics";
 import {
+  campaignKpis,
   callsByCampaignTable,
   campaignsTable,
   changeLine,
@@ -142,7 +143,7 @@ describe("the funnel", () => {
 
   it("gives each step its level, and the share of the step before that reached it", () => {
     const rows = funnelRows(overviewFixture(f).funnel);
-    expect(rows.map((r) => r.label)).toEqual(["Found", "On the shortlist", "Contacted", "Replied", "Interviewing", "Hired"]);
+    expect(rows.map((r) => r.label)).toEqual(["Found", "Shortlisted (ever)", "Contacted", "Replied", "Interviewing", "Hired"]);
     expect(rows[0]!.share).toBe(1);
     expect(rows[5]!.share).toBeCloseTo(3 / 80);
     expect(rows[0]!.fromPrev).toBeNull();
@@ -312,5 +313,18 @@ describe("CSV from the rows on the page", () => {
   it("names the file by page and period", () => {
     expect(csvName("Recruiters", f)).toBe("recruiters-last-30-days.csv");
     expect(csvName("Pipeline: waiting", { period: { kind: "custom", from: "2026-09-01", to: "2026-09-30" } })).toBe("pipeline-waiting-2026-09-01-to-2026-09-30.csv");
+  });
+});
+
+describe("the Campaigns figures follow the tab", () => {
+  const rows = [
+    { status: "active" as const, target: 3, hired: 1, quiet: true },
+    { status: "active" as const, target: 2, hired: 0, quiet: false },
+    { status: "closed" as const, target: 2, hired: 2, quiet: false },
+  ];
+  it("counts a closed campaign under Closed (2 of 2 hired), never under Active", () => {
+    expect(campaignKpis(rows, "active")).toMatchObject({ first: "Active campaigns", count: 2, planned: 5, hired: 1, quiet: 1 });
+    expect(campaignKpis(rows, "closed")).toMatchObject({ first: "Closed campaigns", count: 1, planned: 2, hired: 2, filled: 1, quiet: 0 });
+    expect(campaignKpis(rows, "all")).toMatchObject({ first: "Campaigns", count: 3, planned: 7, hired: 3 });
   });
 });

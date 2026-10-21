@@ -3,7 +3,7 @@ import { api, ApiError, LIVE, messageOf } from "./api/client";
 import { onWorkspaceChange } from "./api/identity";
 import { campaignRow, pipelineNow, resolveCampaignId } from "./campaignStore";
 import type {
-  ContactMode, ContactPerson, ContactsManyResult, ContactsResult, ContactsStatus, ContactSide,
+  ContactMode, ContactPerson, ContactsAllowance, ContactsManyResult, ContactsResult, ContactsStatus, ContactSide,
 } from "./contactsModel";
 import { flippedToFound, mergeResult, POLL_MS, pollRule, recount } from "./contactsModel";
 import { invalidate, onInvalidate } from "./invalidate";
@@ -24,6 +24,10 @@ import { pollWhileVisible } from "./livePoll";
 export const fetchContactsStatus = (campaignId: string) =>
   api<ContactsStatus>("GET", `/v1/campaigns/${campaignId}/contacts/status`);
 
+/** Whether lookups are on for this server and what the workspace has left (Settings, Connections). */
+export const fetchContactsAllowance = (): Promise<ContactsAllowance> =>
+  LIVE ? api<ContactsAllowance>("GET", "/v1/contacts/allowance") : Promise.resolve({ email: true, phone: true, credits: 38, apolloCredits: null });
+
 export const fetchContacts = (campaignId: string, body: { campaignCandidateIds?: string[]; candidateIds?: string[]; mode: ContactMode }) =>
   api<ContactsResult>("POST", `/v1/campaigns/${campaignId}/contacts`, body);
 
@@ -35,7 +39,7 @@ export const fetchContactsMany = (body: { campaignIds?: string[]; all?: true; mo
 export function errorLine(err: unknown): string {
   const said = err instanceof ApiError ? messageOf(err) : "";
   return (said || "Couldn't get contact details. Try again in a moment.")
-    .replace(/\b(salesql|apollo|contactout|crustdata|prospeo)\b/gi, "our data provider");
+    .replace(/\b(salesql|apollo|contactout|crustdata|prospeo)\b/gi, (_m, _v, at: number) => (at === 0 ? "The lookup service" : "the lookup service"));
 }
 
 /* ── the store ────────────────────────────────────────────────────────────── */

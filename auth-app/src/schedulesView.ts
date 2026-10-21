@@ -168,7 +168,11 @@ type WhenOptions = {
   zone?: boolean;
 };
 
-const clock = (p: Parts): string => `${pad(p.h)}:${pad(p.min)}`;
+/** "10 am", "3:30 pm": the one way a time of day is said everywhere (meetings say it the same way). */
+const clock = (p: Parts): string => {
+  const h = p.h % 12 || 12;
+  return `${p.min === 0 ? h : `${h}:${pad(p.min)}`} ${p.h < 12 ? "am" : "pm"}`;
+};
 
 /**
  * "Today, 10:00", "Tomorrow, 10:00", "Yesterday, 18:30", "Mon 13 Oct, 09:30", or with the year when it
@@ -231,24 +235,28 @@ export function repeatWords(
 
 /* ── who ── */
 
-/** "You", a teammate's name, or "Mind" for what the agent set up. */
-export function whoLabel(i: Pick<ScheduledItem, "createdBy">, viewerId?: string | null): string {
-  if (i.createdBy.kind === "agent") return "Mind";
+/**
+ * "You" or a teammate's name. What the agent set up is the one who said yes to it (it did nothing without their
+ * approval), so it reads "By you" or "By Priya"; only when nobody approved does it read as SuperHyre's own.
+ */
+export function whoLabel(i: Pick<ScheduledItem, "createdBy"> & Partial<Pick<ScheduledItem, "approvedBy">>, viewerId?: string | null): string {
+  if (i.createdBy.kind === "agent") {
+    if (!i.approvedBy) return "SuperHyre";
+    return viewerId && i.approvedBy.id === viewerId ? "You" : (i.approvedBy.name ?? "A teammate");
+  }
   if (viewerId && i.createdBy.id === viewerId) return "You";
   return i.createdBy.name ?? "A teammate";
 }
 
-/** "By you", "By Priya", "By Mind". */
-export function byLine(i: Pick<ScheduledItem, "createdBy">, viewerId?: string | null): string {
+/** "By you", "By Priya". */
+export function byLine(i: Pick<ScheduledItem, "createdBy"> & Partial<Pick<ScheduledItem, "approvedBy">>, viewerId?: string | null): string {
   const who = whoLabel(i, viewerId);
   return `By ${who === "You" ? "you" : who}`;
 }
 
-/** Who said yes to what Mind proposed; nothing when the person made it themselves. */
-export function approvedLine(i: Pick<ScheduledItem, "createdBy" | "approvedBy">, viewerId?: string | null): string | null {
-  if (i.createdBy.kind !== "agent" || !i.approvedBy) return null;
-  const same = !!viewerId && i.approvedBy.id === viewerId;
-  return `Approved by ${same ? "you" : (i.approvedBy.name ?? "a teammate")}`;
+/** Who said yes is already the "By" line, so there is nothing more to say about it. */
+export function approvedLine(_i: Pick<ScheduledItem, "createdBy" | "approvedBy">, _viewerId?: string | null): string | null {
+  return null;
 }
 
 /* ── what ── */

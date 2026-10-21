@@ -4,15 +4,18 @@ import type { Match, MatchList, RoleSpec } from "../api/agent";
 import { agentApi, specApi } from "../api/agent";
 import { api } from "../api/client";
 import { useMayChangeCampaign } from "../campaignRights";
-import { PhaseSummary, PhaseTimeline } from "../agentCards";
+import { PhaseSummary } from "../agentCards/PhaseTimeline";
 import { lineNote, verdictOf } from "../agentPhases";
-import { Loader } from "../components/Loader";
+import { ThinkingFeed } from "../agentCards/ThinkingFeed";
 import { vendorWords } from "../displayText";
 import { setFromMatches } from "../liveCandidate";
 import { getSet, putSet } from "../liveCandidates";
+import { onInvalidate } from "../invalidate";
 import { findMore } from "../liveChat";
 import type { Search } from "../liveChat";
-import { liveStages, mergeSet, resultsCopy, runStateOfSearch, unscoredIds, unscoredIn } from "../liveSourcing";
+import { bucketsLine, bucketsOfRows } from "../agentCards/specView";
+import type { Candidate } from "../sourcing";
+import { closeVerdict, liveStages, mergeSet, mustHaveCount, resultsCopy, runStateOfSearch, unscoredIds, unscoredIn } from "../liveSourcing";
 import { Results } from "../Sourcing";
 import { Stages } from "../Stages";
 import { PREVIEW_COUNT } from "../sourcing";
@@ -26,7 +29,7 @@ import { useLiveMoment } from "./LiveMoment";
  *                    right now; the people as soon as they are found, in the order the checks that need no
  *                    model give, and with their fit as each group is scored
  *   when it is done  the way the search went, folded; the three best fits as cards (one line on why, a fit
- *                    mark for each thing the role asks for, Shortlist and Not a fit), the way into the whole
+ *                    mark for each thing the role asks for, Shortlist and Reject), the way into the whole
  *                    ranked list, and another search when there is one
  *
  * The cards are `Sourcing.tsx`'s own `Results`, the list is `RankedMatches`, and the people are registered
@@ -48,7 +51,7 @@ export function searchSub(i: { running: boolean; unscored: number; scored: numbe
       ? "Best fits first. Scores arrive as each group is read."
       : "Ordered by skills, years and place for now. Scores arrive as each group is read.";
   }
-  if (i.unscored > 0) return "Some aren't scored yet, so they're ordered by skills, years and place. Score them again to finish.";
+  /* Done: how many were scored, and the order of the rest, is the closing line's to say (once), not this one's. */
   return null;
 }
 
@@ -57,12 +60,18 @@ const NO_MATCHES: readonly Match[] = [];
 const CATCH_UP_EVERY_MS = 8_000;
 const CATCH_UP_TRIES = 15;
 
-export function SearchRun({ turnKey, search, latest, onAsk }: {
+/** Matched closely: scored into a tier. Someone who needs more evidence, is not scored yet or is ruled out is not a best fit. */
+const isMatched = (c: Candidate): boolean =>
+  c.result ? c.result.status !== "knocked_out" && c.result.tier !== null : c.scored === true;
+
+export function SearchRun({ turnKey, search, latest, onAsk, onFindMore }: {
   turnKey: string;
   search: Search;
   latest: boolean;
-  /** Says something on the person's behalf (the "Score them again" press), where the page can send it. */
-  onAsk?: (text: string) => void;
+  /** A press that acts on the person's behalf (score them again): its words, and the button's label. */
+  onAsk?: (text: string, label: string) => void;
+  /** Another search for this campaign, started by whatever holds this list (a card outside a chat turn). */
+  onFindMore?: () => Promise<void>;
 }): JSX.Element {
   const ctx = useLiveMoment();
   const [next, setNext] = useState<{ size: number; exhausted: boolean } | null>(null);
@@ -83,6 +92,12 @@ export function SearchRun({ turnKey, search, latest, onAsk }: {
     };
   }, [search.campaignId]);
 
+  /* Something was written about people (a shortlist or a rejection made in another card, or by the agent): the list is read again. */
+  const [wrote, setWrote] = useState(0);
+  useEffect(() => onInvalidate((effects, campaigns) => {
+    if ((effects.has("pipeline") || effects.has("candidates")) && (campaigns.has(null) || campaigns.has(search.campaignId))) setWrote((n) => n + 1);
+  }), [search.campaignId]);
+
   /* When it is done: what another search would ask for, and the campaign's whole ranked list, so "See all"
      opens everyone ranked and not only this search's people. */
   useEffect(() => {
@@ -93,7 +108,7 @@ export function SearchRun({ turnKey, search, latest, onAsk }: {
     return () => {
       live = false;
     };
-  }, [search.status, search.campaignId]);
+  }, [search.status, search.campaignId, wrote]);
 
   /* The model may still be reading when the search says scoring is catching up: what it answers after the run
      has ended is saved on the server, so the campaign's list is read again now and then, for a couple of
@@ -136,24 +151,42 @@ export function SearchRun({ turnKey, search, latest, onAsk }: {
 
   if (failed) return <p className="lt-note">{search.error ?? "The search didn't finish."}</p>;
 
-  const verdict = verdictOf(search.phases);
-  const rest = verdict ? search.phases.filter((l) => l.id !== verdict.id) : search.phases;
   /* This search's people, each as the server has them now (a verdict that came after the run is in it). */
   const nowById = new Map((whole?.rows ?? []).map((m) => [m.personId, m]));
   const shown = (search.items ?? []).map((m) => nowById.get(m.personId) ?? m).filter((m) => !m.knockedOut);
-  const scored = shown.filter((m) => m.judgement !== null).length;
-  const waiting = shown.length - scored;
+  /* Counted once, by the same function the role spec card uses: found, matched closely, needs more evidence, not scored. */
+  const counts = bucketsOfRows(shown);
+  const scored = counts.strong + counts.good + counts.partial;
+  const waiting = counts.notScored;
+  /* The closing line agrees with the count above the cards: "Scored 4 of 20", and what order the rest are in. */
+  const lines = running ? search.phases : closeVerdict(search.phases, shown.length, scored);
+  const said = verdictOf(lines);
+  /* The closing line is that same function's, so it never disagrees with the card above or the list below. */
+  const closing = !running && counts.found > 0 ? bucketsLine(counts) : null;
+  const verdict = closing ? ({ id: said?.id ?? "closing", phase: "decide", state: "done", label: closing, seq: said?.seq ?? 0 } as const) : said;
+  const verdictId = said?.id;
+  const rest = verdictId ? lines.filter((l) => l.id !== verdictId) : lines;
+  const partlyScored = scored > 0 && waiting > 0;
   /* Nobody left to catch up on: the note about it, and the press, are no longer true. */
   const settled = catchingUp && whole !== null && waiting === 0;
-  const best = set?.candidates.filter((c) => !set.decisions?.[c.id]).slice(0, PREVIEW_COUNT) ?? [];
-  const sub = searchSub({ running, unscored: waiting, scored });
-  const copy = resultsCopy({ shown: best.length, total: set?.total ?? 0, unscored: running ? 0 : unscoredIn(items, PREVIEW_COUNT) });
+  /* Scores still on their way: a person without one shows where it will appear, instead of an empty card. */
+  const arriving = running || (catchingUp && !settled);
+  /* The best fits are the people who were matched; someone who needs more evidence, or isn't scored, is in the whole list. */
+  const undecided = set?.candidates.filter((c) => !set.decisions?.[c.id]) ?? [];
+  const matched = undecided.filter(isMatched);
+  const best = (running || matched.length === 0 ? undecided : matched).slice(0, PREVIEW_COUNT);
+  const copy = resultsCopy({
+    shown: best.length, total: set?.total ?? 0, unscored: running ? 0 : unscoredIn(items, PREVIEW_COUNT), found: shown.length,
+  });
   /* Nobody is scored yet: these are first in the list by skills, years and place, not "the best fits". */
-  const title = scored === 0 ? "First in the list" : copy.title;
+  /* One header over the list: how many were found while scoring goes on, "Top matches" once they are scored. */
+  const title = running || scored === 0 ? `${shown.length.toLocaleString("en-IN")} found` : "Top matches";
+  const count = best.length < shown.length ? `${best.length} shown` : "";
+  const subline = running || arriving ? "Scoring now. People move into place as each group is read." : copy.sub;
   const more = !running && may && next && latest && !next.exhausted && next.size > 0
     ? { label: `Find ${next.size} more`, busy: finding, onClick: () => {
         setFinding(true);
-        void findMore(turnKey, search.campaignId).finally(() => setFinding(false));
+        void (onFindMore ? onFindMore() : findMore(turnKey, search.campaignId)).finally(() => setFinding(false));
       } }
     : null;
 
@@ -165,7 +198,7 @@ export function SearchRun({ turnKey, search, latest, onAsk }: {
     run: runStateOfSearch(search),
     found: shown.length,
     ranked: set?.total ?? shown.length,
-    criteria: set?.criteria.length ?? 0,
+    criteria: spec ? mustHaveCount(spec) : (set?.criteria.length ?? 0),
     preview: best.map((c) => c.id),
     verdicts: ctx?.verdicts ?? {},
   });
@@ -173,9 +206,9 @@ export function SearchRun({ turnKey, search, latest, onAsk }: {
   return (
     <section className="lt-search src" aria-label="People found">
       <Stages goal={spec ? `Shortlist ${spec.title}` : "Shortlist the best fits"} {...track} />
-      {running && (search.phases.length > 0
-        ? <PhaseTimeline lines={search.phases} working feed={search.feed} />
-        : <p className="pt-first" role="status"><Loader size="sm" /><span>Searching</span></p>)}
+      {/* The goal card above is the one place the steps and their counts are drawn; only what the search is doing right
+          now, as lines that rise and fade, goes under it. */}
+      {running && search.feed && search.feed.length > 0 && <ThinkingFeed lines={search.feed} />}
       {!running && rest.length > 0 && <PhaseSummary lines={rest} label="How the search went" />}
       {/* The last thing it said stays on screen: the lines fold away, "Ready for your call" is the outcome. */}
       {!running && verdict && (
@@ -185,15 +218,15 @@ export function SearchRun({ turnKey, search, latest, onAsk }: {
           {lineNote(verdict) && <span className="pt-note">{lineNote(verdict)}</span>}
         </p>
       )}
-      {!settled && search.notices.map((n) => (
+      {/* The note that scoring is catching up says what the closing line says once some are scored: not twice. */}
+      {!settled && search.notices.filter((n) => !(partlyScored && /^scoring is catching up/i.test(n.trim()))).map((n) => (
         <p key={n} className="lt-note">{vendorWords(n)}</p>
       ))}
       {/* People nobody could score are said once, by the note: a press scores them. It is the same words the
           person could type. */}
       {!running && !settled && may && search.rescore && onAsk && (
-        <button type="button" className="rep-opt" onClick={() => onAsk(search.rescore?.text ?? "")}>Score them again</button>
+        <button type="button" className="rep-opt" onClick={() => onAsk(search.rescore?.text ?? "", partlyScored ? "Score the rest" : "Score them again")}>{partlyScored ? "Score the rest" : "Score them again"}</button>
       )}
-      {shown.length > 0 && <p className="lt-search-head">{searchCount(shown.length, scored, running)}</p>}
       {set && best.length > 0 && (
         <Results
           key="results"
@@ -209,14 +242,16 @@ export function SearchRun({ turnKey, search, latest, onAsk }: {
             short: set.criteria.map((c) => c.short),
             ...copy,
             title,
-            sub: sub ?? copy.sub,
+            count,
+            sub: subline,
+            scoring: arriving,
             more,
           }}
         />
       )}
       {!running && shown.length === 0 && <p className="lt-note">Nobody new matched this time.</p>}
       {!running && may && next && latest && (next.exhausted || next.size === 0) && (
-        <p className="lt-note">That's everyone matching these filters for now.</p>
+        <p className="lt-note">The search has no more people to show for these filters for now.</p>
       )}
     </section>
   );

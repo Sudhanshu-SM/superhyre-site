@@ -5,8 +5,8 @@ import "./stages.css";
 /**
  * Stages — the sourcing run as a goal with three legs.
  *
- *   Searching   read the brief, build the search, wait for Run, scan the pool
- *   Matching    rank the pool on the campaign's criteria
+ *   Finding people   read the brief, build the search, wait for Run, look for people who fit
+ *   Matching         match them to the role on the campaign's criteria
  *   Deciding    the recruiter calls the first profiles; the goal is reached
  *               when every one of them has a verdict
  *
@@ -15,8 +15,8 @@ import "./stages.css";
  * moves at the pace of the work rather than jumping at the end. Waiting on the
  * recruiter is its own state, not a stall: the node says so and stops moving.
  *
- * It sticks to the top of the run while the run is on screen, so the goal and
- * where it stands stay visible however far the transcript has scrolled.
+ * It is the first block of the run, in the flow: it scrolls with the run and
+ * never floats over the lines and cards under it.
  */
 
 export type StageId = "search" | "match" | "decide";
@@ -32,7 +32,7 @@ export type StageView = {
 };
 
 const META: Readonly<Record<StageId, { label: string; Icon: typeof MagnifyingGlass }>> = {
-  search: { label: "Searching", Icon: MagnifyingGlass },
+  search: { label: "Finding people", Icon: MagnifyingGlass },
   match: { label: "Matching", Icon: Scales },
   decide: { label: "Deciding", Icon: Gavel },
 };

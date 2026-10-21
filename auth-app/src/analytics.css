@@ -142,18 +142,22 @@
 .an-clear:hover { color: var(--ink); }
 .an-clear:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 1px; }
 
+/* The active button's fill is a mark that slides to the next one (switchMotion.css: .sw-ind); until it is measured
+   the active button wears the fill itself. */
 .an-seg {
   display: inline-flex; align-items: center; gap: 2px; height: 32px; padding: 2px; flex: none;
   border: 1px solid var(--an-edge); border-radius: 10px; background: var(--an-card);
+  --sw-bg: var(--an-plane); --sw-shadow: none; --sw-r: 8px;
 }
 .an-seg button {
   height: 26px; padding: 0 11px; border: 0; border-radius: 8px; background: none; cursor: pointer;
   font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); white-space: nowrap;
+  transition: color 180ms var(--ease-out), background-color 180ms var(--ease-out);
 }
 .an-seg button:hover { color: var(--ink); }
 .an-seg button[aria-pressed="true"] { background: var(--an-plane); color: var(--ink); }
 .an-seg button:focus-visible { outline: 2px solid var(--accent-fill); outline-offset: 1px; }
-.an-seg-n { margin-left: 6px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.an-seg-n { margin-left: 6px; color: var(--ink-3); font-variant-numeric: tabular-nums; transition: color 180ms var(--ease-out); }
 .an-seg button[aria-pressed="true"] .an-seg-n { color: var(--ink-2); }
 
 .an-sel {
@@ -173,6 +177,9 @@
 
 .an-body { transition: opacity 0.15s ease; }
 .an-body.is-busy { opacity: 0.55; }
+@media (prefers-reduced-motion: reduce) {
+  .an-seg button, .an-seg-n, .an-body { transition: none; }
+}
 
 /* ── three figures in one card ── */
 .an-kpis {
@@ -229,6 +236,8 @@
 .an-banner h2 { margin: 0; font: 600 14px/20px var(--ui); color: var(--ink); }
 .an-banner p { margin: 0; max-width: 64ch; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); }
 .an-banner .es-act { margin: 0; flex: none; }
+/* An empty page says it once, in the banner: the cards under it keep their name and picture and say nothing more. */
+.an-banner ~ .an-dash .gh .gh-l { display: none; }
 
 /* ── tables ── */
 .an-scroll { margin: 0 -8px; padding: 0 8px; overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
@@ -308,7 +317,7 @@
 .anm-defs { margin: 0; padding: 0 0 0 18px; display: grid; gap: 8px; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); }
 
 /* ── the drawer for one person ── */
-.and { position: fixed; inset: 0; z-index: var(--z-dialog, 60); }
+.and { position: fixed; inset: 0; z-index: var(--z-sheet, 60); }
 .and-scrim { position: absolute; inset: 0; background: color-mix(in srgb, var(--ink) 30%, transparent); }
 .and-panel {
   position: absolute; top: 0; right: 0; bottom: 0; width: min(440px, 100%); display: flex; flex-direction: column; outline: none;

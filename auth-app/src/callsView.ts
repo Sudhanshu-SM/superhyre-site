@@ -64,6 +64,10 @@ export const callCount = (n: number): string => `${n} ${n === 1 ? "call" : "call
 
 /** An open campaign group shows this many calls; the rest are behind "View all". */
 export const GROUP_ROWS = 8;
+/** A campaign's own page, and "View all", show this many calls (or things) a page. */
+export const ROW_PAGE = 15;
+/** The top-level list shows this many campaigns a page. */
+export const GROUP_PAGE = 10;
 
 /* ── the campaign accordion's own pieces ── */
 

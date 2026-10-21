@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { LIVE } from "./api/client";
-import type { GoogleConnection } from "./api/identity";
+import type { GoogleConnection, GoogleProduct } from "./api/identity";
 import { identityApi } from "./api/identity";
 
 /**
@@ -29,14 +29,26 @@ export function useGoogle(): GoogleConnection | null {
   return g;
 }
 
-/** What to tell someone about sending or exporting through Google, or null when it will just work. */
-export function googleHint(g: GoogleConnection | null, product: "gmail" | "sheets"): string | null {
+/** What to tell someone about sending, exporting or scheduling through Google, or null when it will just work. */
+export function googleHint(g: GoogleConnection | null, product: GoogleProduct): string | null {
   if (!g) return null;
-  if (!g.available) return product === "gmail"
-    ? "Sending from Gmail isn't set up on this server yet. Drafts are saved and can go out once it is."
-    : "Google Sheets isn't set up on this server yet. CSV and Excel work now.";
-  if (g.status !== "connected" || !g.products.includes(product)) return product === "gmail"
-    ? "Connect Gmail in Settings → Connections before these can be sent."
-    : "Connect Google in Settings → Connections to export to Sheets.";
+  if (!g.available) {
+    return product === "gmail"
+      ? "Sending from Gmail isn't set up on this server yet. Drafts are saved and can go out once it is."
+      : product === "sheets"
+        ? "Google Sheets isn't set up on this server yet. CSV and Excel work now."
+        : "Google Calendar and Tasks aren't set up on this server yet.";
+  }
+  const state = g.productStates?.find((s) => s.product === product);
+  if (state?.state === "api_disabled" && state.message) return state.message;
+  if (g.status !== "connected" || !g.products.includes(product)) {
+    return product === "gmail"
+      ? "Connect Gmail in Settings → Connections before these can be sent."
+      : product === "sheets"
+        ? "Connect Google in Settings → Connections to export to Sheets."
+        : product === "calendar"
+          ? "Add Calendar access in Settings → Connections to schedule meetings."
+          : "Add Tasks access in Settings → Connections to put reminders in Google Tasks.";
+  }
   return null;
 }

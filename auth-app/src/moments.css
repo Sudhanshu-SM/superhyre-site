@@ -357,6 +357,10 @@
 .mo-draft-id b { font: 600 13.5px/1.3 var(--ui); color: var(--ink); }
 .mo-draft-id span { font: 400 12px/1.35 var(--ui); color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* Why an email did not go, said where the row is, in the warm colour a refusal is told in. */
+.mo-why { margin: 0; font: 400 12.5px/1.45 var(--ui); color: #a2552f; max-width: 62ch; }
+:root[data-theme="dark"] .mo-why { color: #e0a183; }
+
 .mo-subject { margin: 0; display: flex; gap: 8px; font: 500 13px/1.4 var(--ui); color: var(--ink); }
 .mo-subject span { font-weight: 400; color: var(--ink-2); }
 
@@ -968,6 +972,12 @@
 
 .mo-form-f { display: grid; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--nav-rule); }
 .mo-form-f .mo-acts { gap: 4px; }
+/* The link to send, once the form is published, and the button that copies it. */
+.mo-form-link { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 12px 20px; border-top: 1px solid var(--nav-rule); }
+.mo-form-link > p { margin: 0; grid-column: 1 / -1; color: var(--ink-3); }
+.mo-form-url { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); text-decoration: underline; text-underline-offset: 2px; }
+.mo-form-url:hover { color: var(--ink); }
+.mo-form-url:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 3px; }
 
 /* Responses per live form. */
 .mo-fstat { display: grid; margin: 0; padding: 0; list-style: none; border: 1px solid var(--hairline); border-radius: 14px; background: #fff; max-width: 640px; }

@@ -35,6 +35,8 @@
 .ncx-l { display: flex; align-items: center; gap: 10px; font: var(--type-label); letter-spacing: var(--track-label); color: var(--ink); }
 .ncx-hint { font: var(--type-caption); color: var(--ink-3); }
 .ncx-err { font: var(--type-caption); color: #a2552f; }
+/* A line that is always there, empty or not, so an error appearing under a field shifts nothing. */
+.ncx-err.is-held { display: block; min-height: 18px; margin-top: -3px; }
 
 .ncx-in {
   box-sizing: border-box; width: 100%; height: 38px; padding: 0 12px; border: 1px solid #e6dfd8; border-radius: 10px; background: #fff;

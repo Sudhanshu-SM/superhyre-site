@@ -93,6 +93,8 @@
   background: linear-gradient(180deg, color-mix(in srgb, var(--fm-wash) 55%, #fff), #fff 80%);
 }
 .ap-block.is-note { padding: 32px var(--ap-pad); }
+/* The thank-you heading takes focus so it is read out; that is not a field being edited, so the card keeps its normal edge. */
+.ap-block.is-note:focus-within { border-color: var(--ap-block-line); box-shadow: 0 1px 2px rgba(49, 42, 35, 0.04); }
 
 /* ── header ──
    The heading is a band of the brand orange across the top of the card, white text, the clipboard at its right. */
@@ -202,6 +204,9 @@
   transition: border-color 150ms, box-shadow 150ms;
 }
 .ap-input:hover { border-bottom-color: var(--ap-edge-hover); }
+/* What is typed is ink, never the placeholder's grey (a browser's autofill or a number field must not dim it). */
+.ap-input:not(:placeholder-shown) { color: var(--ink); -webkit-text-fill-color: var(--ink); }
+.ap-input:-webkit-autofill { -webkit-text-fill-color: var(--ink); transition: background-color 9999s; }
 .ap-input:focus { outline: none; border-bottom-color: var(--ap-band); box-shadow: 0 1px 0 0 var(--ap-band); }
 .ap-input::placeholder { color: var(--ink-3); }
 .ap input, .ap textarea, .ap select, .ap button { font-family: inherit; }
@@ -307,10 +312,8 @@
 .ap-submit .ldr { margin-right: 8px; }
 
 /* success, closed */
-.ap-done { display: grid; justify-items: start; gap: 0; }
-.ap-done-mark { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: var(--fm-wash); color: var(--fm-text); animation: ap-in 260ms var(--ease-out) both; }
-@keyframes ap-in { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: none; } }
-.ap-done h2 { margin: 20px 0 8px; font: var(--type-title-lg); letter-spacing: var(--track-title-lg); color: var(--ink); outline: none; }
+.ap-done { display: grid; justify-items: center; gap: 0; text-align: center; }
+.ap-done h2 { margin: 16px 0 8px; font: var(--type-title-lg); letter-spacing: var(--track-title-lg); color: var(--ink); outline: none; }
 .ap-done p { max-width: 56ch; margin: 0; font: var(--type-body-lg); color: var(--ink-2); }
 .ap-done .ap-done-note { margin-top: 16px; color: var(--ink-3); }
 .ap-quiet { margin-top: 12px; height: 36px; padding: 0 14px; border: 1px solid var(--ap-edge); border-radius: 6px; background: #fff; font: var(--type-body-strong); color: var(--ink); cursor: pointer; }
@@ -361,8 +364,6 @@
   .ap-scale-o { max-width: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .ap-done-mark { animation: ap-fade 200ms linear both; }
-  @keyframes ap-fade { from { opacity: 0; } to { opacity: 1; } }
   .ap-submit:active { transform: none; }
 }
 
@@ -406,6 +407,8 @@
 .ap-phone { position: relative; }
 .ap-cc { position: absolute; left: 0; top: 6px; font: var(--type-body); letter-spacing: var(--track-body); color: var(--ink-3); pointer-events: none; }
 .ap-phone:not(.is-own) .ap-input { padding-left: 34px; }
+/* Once a number is typed the code beside it is ink too, so the two read as one number. */
+.ap-phone.has-value .ap-cc { color: var(--ink); }
 .ap-help-under { margin-top: var(--ap-field-gap); }
 
 /* Dropdown and date: the browser's own controls, dressed like the other fields. */
@@ -426,7 +429,7 @@
 .ap-lock { min-width: 0; margin: 0; padding: 0; border: 0; }
 
 /* Done: a ring, and a tick that draws itself once. */
-.ap-done-mark { width: 64px; height: 64px; overflow: visible; background: none; animation: none; }
+.ap-done-mark { display: block; width: 48px; height: 48px; overflow: visible; }
 .ap-done-ring { fill: var(--fm-wash); stroke: var(--fm-line); stroke-width: 1.5; transform-origin: 32px 32px; animation: ap-ring 360ms var(--ease-out) both; }
 .ap-done-tick {
   fill: none;
@@ -445,7 +448,6 @@
 .ap-sheet.ap-sheet-notice { display: block; padding: 40px var(--ap-pad); }
 .ap-sheet-notice .ap-org { justify-content: center; }
 .ap-sheet-notice .ea { margin-top: 12px; }
-.ap-done .ea { margin-inline: 0; margin-bottom: 4px; }
 
 @media (prefers-reduced-motion: reduce) {
   .ap-done-ring { animation: none; }

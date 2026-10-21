@@ -1,5 +1,6 @@
 import type { ActivityRow, ActivityStatus, CallItem, Channel, ChannelCounts, EmailItem, TimelineItem, WhatsAppItem } from "./api/outreachActivity";
 import type { CallOutcome, CallRow } from "./api/calls";
+import { plainReason, STATUS_FAILED } from "./outreachWords";
 import type { StatusTone } from "./statusTones";
 import { IST, whenLabel } from "./callsView";
 import type { Band } from "./callsView";
@@ -65,22 +66,49 @@ export function tabCount(tab: ChannelTab, c: ChannelCounts): number {
 
 /* ── status ── */
 
-/** What the filter offers: the six words that matter, then everything else under "All statuses". */
-export const STATUS_FILTERS: ReadonlyArray<{ value: ActivityStatus; label: string }> = [
+
+/** A call that did not connect: said the same in the list, in the filter and in the call's sheet (an email that did not go is "Didn't send"). */
+export const STATUS_DIDNT_CONNECT = "Didn't connect";
+
+type StatusOption = { value: ActivityStatus; label: string };
+const EMAIL_OPTIONS: readonly StatusOption[] = [
   { value: "replied", label: "Replied" },
   { value: "waiting", label: "Waiting for a reply" },
   { value: "bounced", label: "Bounced" },
+  { value: "failed", label: STATUS_FAILED },
   { value: "scheduled", label: "Scheduled" },
-  { value: "connected", label: "Connected" },
-  { value: "no_answer", label: "No answer" },
+  { value: "draft", label: "Draft" },
 ];
+const CALL_OPTIONS: readonly StatusOption[] = [
+  { value: "connected", label: "Connected" },
+  { value: "voicemail", label: "Voicemail" },
+  { value: "no_answer", label: "No answer" },
+  { value: "call_back", label: "Call back" },
+  { value: "not_interested", label: "Not interested" },
+  { value: "failed", label: STATUS_DIDNT_CONNECT },
+];
+const WHATSAPP_OPTIONS: readonly StatusOption[] = [
+  { value: "replied", label: "Replied" },
+  { value: "waiting", label: "Waiting for a reply" },
+];
+
+/** Every status the filter has under All: the email words, then the call outcomes (a failure is the email's word). */
+export const STATUS_FILTERS: ReadonlyArray<StatusOption> = [...EMAIL_OPTIONS, ...CALL_OPTIONS.filter((o) => o.value !== "failed")];
+
+/** What the filter offers for a channel: its own words only, so nothing in it can come to no rows. */
+export function statusFiltersFor(tab: ChannelTab): ReadonlyArray<StatusOption> {
+  return tab === "email" ? EMAIL_OPTIONS : tab === "call" ? CALL_OPTIONS : tab === "whatsapp" ? WHATSAPP_OPTIONS : STATUS_FILTERS;
+}
+
+/** The filter is "Outcome" for calls, "Status" for the rest. */
+export const statusFilterName = (tab: ChannelTab): string => (tab === "call" ? "Outcome" : "Status");
 
 export const STATUS_LABEL: Readonly<Record<ActivityStatus, string>> = {
   replied: "Replied",
   waiting: "Waiting for a reply",
   bounced: "Bounced",
   scheduled: "Scheduled",
-  failed: "Didn't send",
+  failed: STATUS_FAILED,
   draft: "Draft",
   connected: "Connected",
   no_answer: "No answer",
@@ -109,9 +137,30 @@ export const STATUS_TONE: Readonly<Record<ActivityStatus, StatusTone>> = {
   in_progress: "ink",
 };
 
-/** A status filter's value from the select: one of the six, or nothing. */
-export function statusFilterOf(v: string): ActivityStatus | "" {
-  return STATUS_FILTERS.find((s) => s.value === v)?.value ?? "";
+/** The channel a saved or typed name means ("call" and "calls" are one; anything else is All). */
+export function tabOf(v: unknown): ChannelTab {
+  const word = typeof v === "string" ? v.trim().toLowerCase() : "";
+  return word === "email" || word === "emails" ? "email" : word === "whatsapp" ? "whatsapp" : word === "call" || word === "calls" ? "call" : "";
+}
+
+/** The status to keep when the channel changes: the same one if the new channel has it, else none. Pure, so nothing needs to correct it afterwards. */
+export const statusForTab = (status: string, tab: ChannelTab): string => statusFilterOf(status, tab);
+
+/** A status filter's value from the select: one the channel has, or nothing. */
+export function statusFilterOf(v: string, tab: ChannelTab = ""): ActivityStatus | "" {
+  return statusFiltersFor(tab).find((s) => s.value === v)?.value ?? "";
+}
+
+/**
+ * The words on a row's status cell: the status, and under it one quiet line. A sent email reads "Sent" with "Waiting
+ * for a reply" under it; a draft reads "Draft" with "Review" (the row opens it); a call that did not connect says so
+ * in the call's words, the same as its sheet.
+ */
+export function statusWords(r: Pick<ActivityRow, "channel" | "status" | "direction">): { label: string; sub: string | null; action: boolean } {
+  if (r.channel === "call" && r.status === "failed") return { label: STATUS_DIDNT_CONNECT, sub: null, action: false };
+  if (r.channel === "email" && r.status === "draft") return { label: STATUS_LABEL.draft, sub: "Review", action: true };
+  if (r.channel === "email" && r.status === "waiting") return { label: "Sent", sub: STATUS_LABEL.waiting, action: false };
+  return { label: STATUS_LABEL[r.status], sub: null, action: false };
 }
 
 /* ── the line under the title ── */
@@ -119,8 +168,9 @@ export function statusFilterOf(v: string): ActivityStatus | "" {
 const n = (x: number) => x.toLocaleString("en-IN");
 
 /**
- * "412 emails, 31 WhatsApp chats, 96 calls, 38% answered": the counts the filters leave, a channel with none left
- * out, and the share of calls that connected when there are calls. Empty when there is nothing at all.
+ * "412 emails, 31 WhatsApp chats, 96 calls, 38% of calls answered": the counts the filters leave, a channel with none
+ * left out, and the share of the calls that were answered (answered calls over calls), left out when there are no calls.
+ * Empty when there is nothing at all.
  */
 export function summaryLine(c: ChannelCounts): string {
   const answered = c.call > 0 ? Math.round((c.callsConnected / c.call) * 100) : null;
@@ -128,7 +178,7 @@ export function summaryLine(c: ChannelCounts): string {
     c.email > 0 ? `${n(c.email)} ${c.email === 1 ? "email" : "emails"}` : "",
     c.whatsapp > 0 ? `${n(c.whatsapp)} WhatsApp ${c.whatsapp === 1 ? "chat" : "chats"}` : "",
     c.call > 0 ? `${n(c.call)} ${c.call === 1 ? "call" : "calls"}` : "",
-    answered !== null ? `${answered}% answered` : "",
+    answered !== null ? `${answered}% of calls answered` : "",
   ].filter(Boolean).join(", ");
 }
 
@@ -194,12 +244,23 @@ export function emailHead(e: Pick<EmailItem, "direction" | "status" | "by">): st
   if (e.status === "draft") return "Draft";
   const who = e.by ? (e.by.mine ? "you" : firstOf(e.by.name) || "a former teammate") : "";
   if (e.status === "scheduled") return who ? `Going out from ${who}` : "Going out";
+  // Written by them, but not sent: it never left, so it is never "Sent by".
+  if (e.status === "failed") return who ? `From ${who}` : "Written here";
   return who ? `Sent by ${who}` : "Sent";
 }
 
 /** The status word beside an email: none for a reply (the head says it) or a draft (so does the head). */
 export function emailStatus(e: Pick<EmailItem, "direction" | "status">): string {
   return e.direction === "in" || e.status === "draft" ? "" : STATUS_LABEL[e.status];
+}
+
+/**
+ * Why an email did not go, in one plain sentence: the reason that was stored, else the default. Null for an email
+ * that did (or is still to): only a failed one has a reason to give.
+ */
+export function failureReason(e: Pick<EmailItem, "direction" | "status" | "error">): string | null {
+  if (e.direction !== "out" || e.status !== "failed") return null;
+  return plainReason(e.error);
 }
 
 /** A call's card head: "Called by Meera" or "Called by you", then how it went is the card's status word. */

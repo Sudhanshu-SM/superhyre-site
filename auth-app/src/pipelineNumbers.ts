@@ -21,7 +21,9 @@ export type PipelineNumbers = {
   conv: { outreach: number | null; interviewing: number | null; hired: number | null };
 };
 
-const pct = (n: number, of: number): number | null => (of > 0 ? Math.round((n / of) * 100) : null);
+/** A share of the step before: never over 100 (a person who skipped a step is not 133% of it). */
+const capped = (rate: number | null): number | null => (rate === null ? null : Math.min(100, rate));
+const pct = (n: number, of: number): number | null => (of > 0 ? Math.min(100, Math.round((n / of) * 100)) : null);
 
 /**
  * The header's Replied tile. Nobody contacted is not "0% · 0 of 0": there is nothing to take a share of, and
@@ -48,8 +50,8 @@ export function pipelineNumbers(
     return {
       contacted: reach.outreach,
       replied: reach.replied,
-      repliedPct: rates.replied ?? 0,
-      conv: { outreach: rates.reachedOut, interviewing: rates.interviewing, hired: rates.hired },
+      repliedPct: Math.min(100, rates.replied ?? 0),
+      conv: { outreach: capped(rates.reachedOut), interviewing: capped(rates.interviewing), hired: capped(rates.hired) },
     };
   }
   // At or beyond a stage, passed people left out: how many got that far.
@@ -60,7 +62,7 @@ export function pipelineNumbers(
   return {
     contacted,
     replied,
-    repliedPct: contacted ? Math.round((replied / contacted) * 100) : 0,
+    repliedPct: contacted ? Math.min(100, Math.round((replied / contacted) * 100)) : 0,
     conv: {
       outreach: pct(reached(1), reached(0)),
       interviewing: pct(reached(2), reached(1)),

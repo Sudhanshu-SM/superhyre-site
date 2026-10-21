@@ -1,0 +1,35 @@
+/* The role spec in the chat (RoleSpecCard.tsx): one sheet, the spec as a short summary, the decision under it. */
+.rc {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px 14px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-card);
+  background: var(--nav-surface);
+  animation: lk-in 280ms var(--ease-out) both;
+}
+.rc-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.rc-title { margin: 0; min-width: 0; font: var(--type-title-sm); letter-spacing: var(--track-title-sm); color: var(--ink); overflow-wrap: anywhere; }
+/* The status is a coloured word and nothing more: no dot, no pill. */
+.rc-status { flex: none; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); font-weight: 500; color: var(--ink-2); }
+.rc-status.is-draft { color: var(--stage-amber-text); }
+.rc-status.is-approved { color: var(--stage-green-text); }
+.rc-status.is-missing { color: var(--stage-rose-text); }
+.rc-meta { margin: -6px 0 0; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); }
+.rc-group { display: grid; gap: 2px; }
+.rc-group-t { margin: 0; font: var(--type-body-strong); letter-spacing: var(--track-body-strong); color: var(--ink); }
+.rc-group-n { margin-left: 6px; font: var(--type-body-sm); font-weight: 400; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.rc-musts { list-style: none; margin: 0; padding: 0; display: grid; }
+.rc-musts li { padding: 4px 0; border-top: 1px solid var(--hairline); font: var(--type-body); letter-spacing: var(--track-body); color: var(--ink); overflow-wrap: anywhere; }
+.rc-musts li:last-child { border-bottom: 1px solid var(--hairline); }
+.rc-more { margin: 2px 0 0; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-3); }
+.rc-line { margin: 0; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); }
+.rc-line.is-done { color: var(--ink); }
+.rc-wait { display: inline-flex; align-items: center; gap: 8px; margin: 0; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); }
+.rc .cta-row { margin-top: 2px; }
+.rc .kc-problem { max-width: none; }
+@media (max-width: 640px) {
+  .rc { padding: 12px; }
+  .rc .cta-row .cta { flex: 1 1 auto; justify-content: center; }
+}
+.rc-drafting { display: grid; gap: 10px; }

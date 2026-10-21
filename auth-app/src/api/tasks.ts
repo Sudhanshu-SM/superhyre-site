@@ -56,6 +56,8 @@ export type DayTask = {
   dueInDays: number | null;
   /** When it is due, as the server has it, for editing. */
   dueAt?: string | null;
+  /** When it was finished, as the server has it; null while it is open. */
+  resolvedAt?: string | null;
   /** Where the task is done, as a console hash ("#/campaign/shortlisted?campaign=…"); tasks
       the agent's rules keep (review applicants, log replies, reconnect Gmail) carry one. */
   open?: string | null;
@@ -92,6 +94,7 @@ export function dayTask(t: ApiTask, now = Date.now()): DayTask {
     campaign: t.campaign?.name ?? null,
     dueInDays: t.dueAt ? daysUntil(t.dueAt, now) : null,
     dueAt: t.dueAt,
+    resolvedAt: t.resolvedAt,
     open: taskLink(t.action),
     removable: t.kind === "manual",
     assigneeId: t.assigneeId,
@@ -100,6 +103,22 @@ export function dayTask(t: ApiTask, now = Date.now()): DayTask {
     createdByName: t.createdByName ?? null,
   };
 }
+
+/**
+ * The day's progress, as plain facts: what was finished today, and out of how many. The day holds the tasks that are due
+ * today or late and still open, and the ones finished today; a task finished on an earlier day, or due later, is not in it.
+ * Only the person's own tasks are given here (Home asks for the ones assigned to them).
+ */
+export function dayProgress(tasks: readonly Pick<DayTask, "state" | "dueInDays" | "resolvedAt">[], now = Date.now()): { finished: number; total: number } {
+  const today = dayStart(now);
+  const finished = tasks.filter((t) => t.state === "done" && (!t.resolvedAt || dayStart(Date.parse(t.resolvedAt)) === today)).length;
+  const open = tasks.filter((t) => t.state !== "done" && t.dueInDays !== null && t.dueInDays <= 0).length;
+  return { finished, total: finished + open };
+}
+
+/** The header over the day's tasks: "3 of 5 done today", and "All done for today" once nothing due is left. */
+export const dayHeading = ({ finished, total }: { finished: number; total: number }): string =>
+  total === 0 ? "" : finished >= total ? "All done for today" : `${finished} of ${total} done today`;
 
 /** The end of today, local time: when a task typed on Home is due. */
 export function endOfToday(now = Date.now()): string {
@@ -144,6 +163,9 @@ export type ApiNotification = {
   createdAt: string;
   /** Still waiting for an answer: an invitation not answered, a request to join not decided. */
   open?: boolean;
+  /** A request to join that was answered: how, and by whom. */
+  outcome?: "approved" | "declined" | null;
+  decidedByName?: string | null;
   /** The organisation a note is about, for the ones that follow a person between workspaces. */
   organisationId?: string | null;
   /** An invitation, whole: it needs no second call to be answered. `blockedBy` is the organisation they are in. */

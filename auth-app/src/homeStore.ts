@@ -666,7 +666,7 @@ export async function answerInvitation(
 
 /** Approves (as a recruiter; the role is changed in Members) or declines a request to join, from the bell. */
 export async function answerRequest(noticeId: string, requestId: string, approve: boolean): Promise<boolean> {
-  const undo = answering(noticeId, (items) => settleRequest(items, noticeId));
+  const undo = answering(noticeId, (items) => settleRequest(items, noticeId, new Date(), { outcome: approve ? "approved" : "declined", by: "you" }));
   try {
     await identityApi.decide(requestId, { approve, role: "recruiter" });
     loadNotices();

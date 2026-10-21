@@ -30,6 +30,7 @@ vi.mock("../campaignStore", () => ({
   refreshCampaignsNow: () => h.calls.push("campaigns"),
   refreshClients: () => h.calls.push("clients"),
   refreshMembers: () => h.calls.push("members"),
+  onHiredChange: () => () => {},
 }));
 vi.mock("../connectionsStore", () => ({ reloadConnections: async () => { h.calls.push("connections"); } }));
 vi.mock("../formsStore", () => ({ refreshFormCounts: async (id: string) => { h.calls.push(`forms:${id}`); } }));
@@ -49,6 +50,7 @@ vi.mock("../memoryStore", () => ({
   reloadMemoryStats: async () => { h.calls.push("memory"); },
 }));
 vi.mock("../schedulesStore", () => ({ schedulesChanged: async () => { h.calls.push("schedules"); } }));
+vi.mock("../meetingsStore", () => ({ meetingsChanged: () => { h.calls.push("meetings"); } }));
 vi.mock("../specDraft", () => ({ reloadSpec: async (id: string) => { h.calls.push(`specs:${id}`); } }));
 
 const inv = await import("../invalidate");
@@ -89,8 +91,9 @@ describe("each kind of effect reads the stores that show it", () => {
     ["connections", ["connections"]],
     ["memory", ["memory"]],
     ["schedules", ["schedules", "tasks", "bell"]],
-    ["spec", ["specs:c1", "boards:c1", "campaigns", "week"]],
-    ["sourcing", ["watches", "boards:c1", "campaigns", "week"]],
+    ["meetings", ["meetings", "schedules", "tasks", "bell"]],
+    ["spec", ["specs:c1", "boards:c1", "campaigns", "week", "tasks"]],
+    ["sourcing", ["watches", "boards:c1", "campaigns", "week", "tasks"]],
     ["calls", []],
   ];
 

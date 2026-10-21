@@ -1,0 +1,13 @@
+/* A stage's name in its colour (stageText in boardStages.ts): coloured text from the stage tokens (--stage-<key>-text), so it
+   follows the theme. In a file of its own so every page that writes a stage's name has it (the board, Candidates, Home). */
+/* `.sc` is also the Schedules section (schedules.css: a grid with a bottom padding). A stage's name is text, so it
+   drops that layout: without this, "Hired" in the Candidates chip became a block and pushed the campaign's name onto
+   a second line, out of the pill. */
+html .sc[data-sc] { display: revert; gap: normal; min-width: revert; padding-bottom: revert; scroll-margin-top: revert; }
+html .sc[data-sc="blue"] { color: var(--stage-blue-text); }
+html .sc[data-sc="teal"] { color: var(--stage-teal-text); }
+html .sc[data-sc="green"] { color: var(--stage-green-text); }
+html .sc[data-sc="amber"] { color: var(--stage-amber-text); }
+html .sc[data-sc="orange"] { color: var(--stage-orange-text); }
+html .sc[data-sc="rose"] { color: var(--stage-rose-text); }
+html .sc[data-sc="violet"] { color: var(--stage-violet-text); }

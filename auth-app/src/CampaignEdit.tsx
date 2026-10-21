@@ -4,25 +4,31 @@ import { getCampaign } from "./api/campaigns";
 import { api, messageOf } from "./api/client";
 import type { Member } from "./api/identity";
 import { identityApi } from "./api/identity";
+import { teamsApi } from "./api/teams";
+import type { Team } from "./api/teams";
+import { VISIBILITY_HELP, VISIBILITY_LABEL } from "./campaignDraft";
 import { retryCampaigns } from "./campaignStore";
 import type { Priority } from "./campaignsData";
 import { Dialog } from "./ui";
 import "./newcampaign.css";
 import "./campaignEdit.css";
 import { Loader } from "./components/Loader";
+import { Shimmer, ShimmerRegion } from "./components/Shimmer";
 
 /**
  * A campaign's details after it was created: name, openings, priority, where it's based,
  * who can see it and who owns it. Only what changed is sent, so a field someone else
  * edited meanwhile is left alone. Visibility belongs to admins and the owner, ownership
  * to admins; those fields aren't offered to anyone else, rather than offered and refused.
+ * The team it is on is the owner's to set to any team, and an admin's to set to a team they lead.
  */
 
 export type CampaignEdits = Partial<Pick<ApiCampaign, "name" | "target" | "priority" | "location" | "visibility">> & {
   ownerId?: string;
+  teamId?: string | null;
 };
 
-type Fields = { name: string; target: string; priority: Priority; location: string; visibility: "team" | "org"; ownerId: string };
+type Fields = { name: string; target: string; priority: Priority; location: string; visibility: "team" | "org"; ownerId: string; teamId?: string };
 
 const PRIORITY_LABEL: Readonly<Record<Priority, string>> = { low: "Low", normal: "Normal", high: "High", urgent: "Urgent" };
 
@@ -33,6 +39,7 @@ const fieldsOf = (c: ApiCampaign): Fields => ({
   location: c.location ?? "",
   visibility: c.visibility,
   ownerId: c.owner?.id ?? "",
+  teamId: c.teamId ?? "",
 });
 
 /** The fields that differ from what was loaded, as the API's body; problems if any field won't do. */
@@ -49,6 +56,7 @@ export function editsFrom(before: Fields, after: Fields): { body: CampaignEdits;
   if (after.location.trim() !== before.location) body.location = after.location.trim() || null;
   if (after.visibility !== before.visibility) body.visibility = after.visibility;
   if (after.ownerId && after.ownerId !== before.ownerId) body.ownerId = after.ownerId;
+  if ((after.teamId ?? "") !== (before.teamId ?? "")) body.teamId = after.teamId || null;
   return { body, problems };
 }
 
@@ -67,6 +75,7 @@ export function CampaignEditDialog({
   const [before, setBefore] = useState<Fields | null>(null);
   const [f, setF] = useState<Fields | null>(null);
   const [members, setMembers] = useState<readonly Member[]>([]);
+  const [teams, setTeams] = useState<readonly Team[]>([]);
   const [problems, setProblems] = useState<Partial<Record<keyof Fields, string>>>({});
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -88,6 +97,8 @@ export function CampaignEditDialog({
     );
     if (canReassign) {
       identityApi.members().then((m) => current && setMembers(m.members.filter((x) => x.status === "active")), () => {});
+      /* Only the teams the person may put it on: every one for the owner, their own for an admin (`canManage`). */
+      teamsApi.list().then((t) => current && setTeams(t.teams.filter((x) => x.canManage)), () => {});
     }
     return () => { current = false; };
   }, [open, campaignId, canReassign]);
@@ -124,7 +135,18 @@ export function CampaignEditDialog({
           <p>The brief, spec and team have their own places; this is the rest.</p>
         </header>
         {!f ? (
-          error ? <p className="ce-note" role="alert">{error}</p> : <Loader size="md" label="Loading the details" block />
+          error ? <p className="ce-note" role="alert">{error}</p> : <ShimmerRegion label="Loading the details" className="ce-shm">
+            <span className="ce-f" aria-hidden="true"><span>Name</span><Shimmer h={40} r={10} /></span>
+            <div className="ce-row" aria-hidden="true">
+              <span className="ce-f"><span>Openings</span><Shimmer h={40} r={10} /></span>
+              <span className="ce-f"><span>Priority</span><Shimmer h={40} r={10} /></span>
+            </div>
+            <span className="ce-f" aria-hidden="true"><span>Where it's based</span><Shimmer h={40} r={10} /></span>
+            <footer className="ce-foot">
+              <button type="button" className="cw-btn" onClick={onClose}>Cancel</button>
+              <button type="submit" className="cw-btn is-primary" disabled>Save</button>
+            </footer>
+          </ShimmerRegion>
         ) : (
           <>
             <label className="ce-f">
@@ -153,9 +175,10 @@ export function CampaignEditDialog({
               <label className="ce-f">
                 <span>Who can see it</span>
                 <select className="ncx-in" value={f.visibility} onChange={(e) => set("visibility", e.target.value as "team" | "org")}>
-                  <option value="team">Its team and admins</option>
-                  <option value="org">Everyone in the organisation</option>
+                  <option value="team">{VISIBILITY_LABEL.team}</option>
+                  <option value="org">{VISIBILITY_LABEL.org}</option>
                 </select>
+                <em>{VISIBILITY_HELP}</em>
               </label>
             )}
             {canReassign && members.length > 0 && (
@@ -163,6 +186,16 @@ export function CampaignEditDialog({
                 <span>Owner</span>
                 <select className="ncx-in" value={f.ownerId} onChange={(e) => set("ownerId", e.target.value)}>
                   {members.map((m) => <option key={m.userId} value={m.userId}>{m.fullName || m.email || "A teammate"}</option>)}
+                </select>
+              </label>
+            )}
+            {canReassign && (teams.length > 0 || f.teamId) && (
+              <label className="ce-f">
+                <span>Team</span>
+                <select className="ncx-in" value={f.teamId ?? ""} onChange={(e) => set("teamId", e.target.value)}>
+                  <option value="">No team</option>
+                  {teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  {f.teamId && !teams.some((t) => t.id === f.teamId) && <option value={f.teamId}>{before?.teamId === f.teamId ? "Its current team" : "Another team"}</option>}
                 </select>
               </label>
             )}

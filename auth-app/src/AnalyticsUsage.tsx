@@ -11,7 +11,7 @@ import {
 } from "./analytics";
 import { getUsageAnalytics, type UsageAnalytics } from "./api/analytics";
 import { LIVE } from "./api/client";
-import { Loader } from "./components/Loader";
+import { Shimmer, ShimmerChart, ShimmerRegion } from "./components/Shimmer";
 import { EmptyArt } from "./EmptyArt";
 import { LoadFailed } from "./ui";
 import { Area } from "./viz";
@@ -64,7 +64,27 @@ function Head({ title, lede, children }: { title: string; lede: string; children
   );
 }
 
-const Busy = () => <Loader size="lg" label="Loading" block />;
+/** Usage while it loads: the "Today" meters (a name, a figure, the bar) and the daily chart, in the page's own section classes. */
+const Busy = ({ days }: { days: number }) => (
+  <ShimmerRegion label="Loading usage">
+    <section className="an-sec" aria-hidden="true">
+      <h2>Today</h2>
+      <ul className="an-meters">
+        {[0, 1, 2].map((i) => (
+          <li key={i}>
+            <span className="an-meter-l"><Shimmer h={13} lh={20} w={`${96 + i * 22}px`} /></span>
+            <span className="an-meter-n"><Shimmer h={12} lh={20} w={64} /></span>
+            <span className="an-meter"><Shimmer h={8} r={4} w={`${52 - i * 14}%`} /></span>
+          </li>
+        ))}
+      </ul>
+    </section>
+    <section className="an-sec" aria-hidden="true">
+      <div className="an-sec-h"><h2>Last {days} days</h2></div>
+      <ShimmerChart bars={14} h={180} />
+    </section>
+  </ShimmerRegion>
+);
 const fmt = (n: number) => n.toLocaleString("en-IN");
 
 export function UsageAnalyticsPage(): JSX.Element {
@@ -75,7 +95,7 @@ export function UsageAnalyticsPage(): JSX.Element {
       <Head title="Usage" lede="What has been used, against the daily limits.">
         <PeriodSwitch days={days} onChange={setDays} />
       </Head>
-      {failed ? <LoadFailed what="Usage" onRetry={retry} /> : !data ? <Busy /> : <UsageBody data={data} />}
+      {failed ? <LoadFailed what="Usage" onRetry={retry} /> : !data ? <Busy days={days} /> : <UsageBody data={data} />}
     </div>
   );
 }

@@ -13,7 +13,7 @@ import { ProfileSidebar } from "./ProfileSidebar";
  *
  * What the board already knows shows at once; the full profile replaces it when it arrives.
  */
-export function PersonSheet({ person, onClose, extra }: { person: PipelinePerson; onClose: () => void; extra?: ReactNode }): JSX.Element {
+export function PersonSheet({ person, onClose, extra, campaignId = null }: { person: PipelinePerson; onClose: () => void; extra?: ReactNode; campaignId?: string | null }): JSX.Element {
   const id = person.candidateId ?? null;
   const [detail, setDetail] = useState<{ id: string; value: Parameters<typeof candidateFromDetail>[0] } | null>(null);
   useEffect(() => {
@@ -37,6 +37,8 @@ export function PersonSheet({ person, onClose, extra }: { person: PipelinePerson
       linkedinUrl: null,
     });
   }, [id, detail, person.name, person.title, person.company, person.location, person.years]);
+  /* Moved from the board while the sheet is open: where they are on campaigns is read again. */
+  const where = [...`${person.stage}|${person.step ?? ""}|${person.stageId ?? ""}`].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) % 100003, 7);
   return (
     <ProfileSidebar
       candidate={candidate}
@@ -44,6 +46,8 @@ export function PersonSheet({ person, onClose, extra }: { person: PipelinePerson
       onVerdict={() => {}}
       canDecide={false}
       extra={extra}
+      campaignId={campaignId}
+      refresh={where}
     />
   );
 }

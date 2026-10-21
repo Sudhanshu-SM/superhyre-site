@@ -69,7 +69,7 @@ describe("an organisation that already exists, found when it was about to be mad
 
 describe("words a person reads where they join, leave or are asked about their organisation", () => {
   it("never call Personal or an organisation a workspace", () => {
-    for (const f of ["SettingsMembers.tsx", "Notifications.tsx", "Settings.tsx", "membership.ts", "ErrorStates.tsx", "Cards.tsx", "App.tsx"]) {
+    for (const f of ["TeamsPeople.tsx", "Notifications.tsx", "Settings.tsx", "membership.ts", "ErrorStates.tsx", "Cards.tsx", "App.tsx"]) {
       const text = strip(readFileSync(resolve(SRC, f), "utf8"))
         .split("\n")
         .filter((l) => !/^\s*(import|export)\b.*\bfrom\b/.test(l) && !/^\s*import\s+["']/.test(l))
@@ -110,9 +110,9 @@ describe("what Personal does not have", () => {
     for (const f of ["CampaignsPage.tsx", "CampaignWorkspace.tsx"]) {
       const line = readFileSync(resolve(SRC, f), "utf8").split("\n").find((l) => l.includes("Assign recruiters"));
       expect(line, `${f} has the menu item`).toBeDefined();
-      expect(line, `${f}: gated by the team capability, not by managing`).toMatch(/\b(assigns|teamwork) &&/);
+      expect(line, `${f}: gated by the team capability, not by managing`).toMatch(/\b(assigns|teamwork|mayAssign) &&/);
     }
     const make = readFileSync(resolve(SRC, "NewCampaign.tsx"), "utf8");
-    expect(make).toMatch(/session\.standing !== "personal" && \(\s*<Field label="Who can see it">/);
+    expect(make).toMatch(/session\.standing !== "personal" && \(\s*<Field label="Who can see it"[^>]*>/);
   });
 });

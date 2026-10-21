@@ -1,0 +1,54 @@
+/* A meeting that waits for a yes, and the free times that can be picked. Plain text and hairlines: no dots, no pills, no side bars. */
+.mt { align-content: start; align-self: start; }
+.mt-body { display: grid; gap: 4px; max-width: 62ch; }
+.mt-title { margin: 0; font: var(--type-body-strong); letter-spacing: var(--track-body-strong); color: var(--ink); overflow-wrap: anywhere; }
+.mt-when { margin: 0; font: var(--type-title-sm, var(--type-body-strong)); letter-spacing: var(--track-body-strong); color: var(--ink); }
+.mt-when-meta { font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-3); }
+.mt-who { margin: 2px 0 0; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); overflow-wrap: anywhere; }
+.mt-k { font: var(--type-caption); letter-spacing: 0.02em; color: var(--ink-3); margin-right: 6px; }
+.mt-sub { margin: 0; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); max-width: 62ch; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.mt-sub a { color: inherit; text-decoration: underline; text-underline-offset: 2px; overflow-wrap: anywhere; }
+.mt-busy { margin: 4px 0 0; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: #a2552f; }
+:root[data-theme="dark"] .mt-busy { color: #e0a183; }
+.mt-row { margin-top: 6px; }
+.mt-link { padding: 0; border: 0; background: none; font: inherit; color: var(--ink); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+
+/* The Meet switch: a track and a knob, with its words beside it. */
+.mt-switch { display: inline-flex; align-items: center; gap: 10px; padding: 4px 0; border: 0; background: none; color: var(--ink-2); font: var(--type-body-sm); letter-spacing: var(--track-body-sm); cursor: pointer; }
+.mt-switch:disabled { cursor: default; opacity: 0.6; }
+.mt-switch:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 6px; }
+.mt-switch-t { position: relative; width: 30px; height: 18px; border-radius: 999px; background: var(--hairline); transition: background var(--t); flex: none; }
+.mt-switch-k { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--surface, #fff); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25); transition: transform var(--t); }
+.mt-switch.is-on .mt-switch-t { background: var(--btn-fill); }
+.mt-switch.is-on .mt-switch-k { transform: translateX(12px); }
+.mt-switch.is-on { color: var(--ink); }
+@media (prefers-reduced-motion: reduce) { .mt-switch-t, .mt-switch-k { transition: none; } }
+
+/* The free times inside the card. */
+.mt-slots { display: grid; gap: 6px; }
+.mt-slot-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.mt-slot { display: inline-flex; align-items: baseline; gap: 6px; height: 32px; padding: 0 14px; align-items: center; border: 1px solid var(--hairline); border-radius: var(--r-pill); background: var(--nav-surface); color: var(--ink); font: 500 13px/1 var(--ui); cursor: pointer; transition: background var(--t), border-color var(--t); }
+.mt-slot:hover:not(:disabled) { background: var(--sub); }
+.mt-slot:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.mt-slot.is-picked { border-color: var(--btn-fill); }
+.mt-slot-d { color: var(--ink-3); font-weight: 400; }
+
+/* Answered: what was done, in the words of the thing. */
+.mt.is-settled { gap: 8px; padding-top: 14px; }
+.mt-done { margin: 0; font: var(--type-body-strong); letter-spacing: var(--track-body-strong); color: var(--ink); }
+.mt-done-k { color: var(--ink-2); font-weight: 500; }
+.mt-declined { margin: 0; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-3); }
+
+/* Free times found by looking at the calendar: days down the side, the times as buttons. */
+.fs-days { display: grid; gap: 8px; margin-block: 0; padding: 0; list-style: none; }
+.fs-day { display: grid; grid-template-columns: 96px 1fr; align-items: center; gap: 10px; }
+.fs-day-k { font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); }
+.fs-times { display: flex; flex-wrap: wrap; gap: 8px; }
+@media (max-width: 520px) { .fs-day { grid-template-columns: 1fr; gap: 4px; } }
+
+/* The free-times card: a compact list of days, each a label and its times wrapping beside it; the hint is small. */
+.fs-hint { margin: 0; font: var(--type-caption); letter-spacing: var(--track-caption); color: var(--ink-3); }
+
+/* The email field on the no-email card: one line, the field and its button, wrapping on a narrow screen. */
+.mt-add { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; max-width: 460px; }
+.mt-add .ncx-in { flex: 1 1 220px; min-width: 0; }

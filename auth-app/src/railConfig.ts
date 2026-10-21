@@ -299,7 +299,7 @@ export function campaignRows(
           : { label: "Collaborators", value: "Just the owner" },
     );
 
-    rows.push({ label: "Visibility", value: row.visibility === "org" ? "Everyone in the org" : "Team and admins" });
+    rows.push({ label: "Visibility", value: row.visibility === "org" ? "Everyone in the org" : "Its team and admins" });
   }
   if (row.department) rows.push({ label: "Department", value: row.department });
   if (v.search) rows.push(...searchRows(v.search));
@@ -379,20 +379,35 @@ export function workspaceRows(
 ): ConfigRow[] {
   const manages = can(standingOf(v), "member.invite");
   const rows: ConfigRow[] = [];
+  /* With no campaign yet there is nothing to own or staff: the panel says so calmly and shows no owner or team. */
+  const noCampaigns = v.campaignsReady && !v.campaignsFailed && v.campaigns.length === 0;
 
-  if (v.people.status === "ready") {
+  if (noCampaigns) {
+    // Owner and Team are about campaigns; none exist, so neither is drawn.
+  } else if (v.people.status === "ready") {
     const active = v.people.members.filter((m) => m.status === "active");
     const owner = active.find((m) => m.role === "owner");
     if (owner) rows.push({ label: "Owner", value: isYou(owner.userId, v) ? "You" : memberName(owner) });
     /* An empty list is a list that didn't load (there is always at least the person asking),
        and a panel that said the team was empty on that evidence would be wrong. */
     if (v.inOrg && active.length) {
-      const team = active.filter((m) => m !== owner).map((m) => ({ name: memberName(m), you: isYou(m.userId, v) }));
+      /* The team of all campaigns is the people on the campaigns THIS person can see: owners and collaborators of those,
+         not everyone in the organisation (a recruiter does not see people on campaigns that are not theirs). Until the
+         campaigns have loaded there is nothing to say. */
+      const ownerName = owner ? memberName(owner) : null;
+      const seen = new Map<string, { name: string; you: boolean }>();
+      for (const row of v.campaigns) {
+        const owned = row.owner ? [{ name: row.owner, you: row.ownerId ? isYou(row.ownerId, v) : false }] : [];
+        for (const p of [...owned, ...collaboratorsOf(row, v)]) if (p.name && p.name !== ownerName && !seen.has(p.name)) seen.set(p.name, p);
+      }
+      const team = v.campaignsReady ? [...seen.values()] : [];
       rows.push(
-        team.length
+        !v.campaignsReady
+          ? { label: "Team", pending: true }
+          : team.length
           ? { label: "Team", value: namesLine(team) }
           : manages
-            ? { label: "Team", action: { label: "Invite people", href: "#/settings/members" } }
+            ? { label: "Team", action: { label: "Invite people", href: "#/teams" } }
             : { label: "Team", value: "Just the owner" },
       );
     }
@@ -413,7 +428,7 @@ export function workspaceRows(
         ? { label: "Campaigns", value: `${running} active` }
         : mayCreate
           ? { label: "Campaigns", action: { label: "Create a campaign", href: `#${ROUTES.campaigns.path}` } }
-          : { label: "Campaigns", value: "None yet" },
+          : { label: "Campaigns", value: "No campaigns yet" },
   );
   if (v.search) rows.push(...searchRows({ ...v.search, forNext: true }));
   rows.push(channelsRow(v.connections, v, v.onRetryConnections));
@@ -460,8 +475,8 @@ export type RailSlot = {
 export const NOT_SET = "Not set";
 
 const DEFAULT_HREF: Readonly<Record<string, string>> = {
-  Owner: "#/settings/members",
-  Team: "#/settings/members",
+  Owner: "#/teams",
+  Team: "#/teams",
   Collaborators: "#/campaigns",
   Visibility: "#/campaigns",
   Campaigns: "#/campaigns",
@@ -516,4 +531,20 @@ export function railSlots(
       name: loading ? `${label}, loading` : `${label}, ${value}${note ? `. ${note}` : ""}`,
     };
   });
+}
+
+
+/**
+ * The campaign the page is about when the chat moves to one (one it just made, one chosen): found by its id, never by its
+ * title, because two campaigns can be called the same ("DevOps Engineer") and have different people on them.
+ */
+export function campaignInFocus(
+  id: string,
+  name: string,
+  rows: ReadonlyArray<Pick<CampaignRow, "id" | "name" | "department" | "location">>,
+): { id: string; name: string; role: string } {
+  const row = rows.find((r) => r.id === id);
+  return row
+    ? { id: row.id, name: row.name, role: [row.department, row.location].filter(Boolean).join(" · ") }
+    : { id, name, role: "" };
 }

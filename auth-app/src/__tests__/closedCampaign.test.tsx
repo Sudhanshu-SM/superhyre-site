@@ -71,7 +71,7 @@ describe("reopening", () => {
     expect(effectsOfWrite("PUT", "/v1/campaigns/c1/status")).toEqual({ effects: ["campaign"], campaignId: "c1" });
     // "campaign" refreshes the open campaign (which re-reads its overview and activity) and the list and Home.
     const inv = src("invalidate.ts");
-    expect(inv).toMatch(/campaign: \["boards", "campaigns", "week"\]/);
+    expect(inv).toMatch(/campaign: \["boards", "campaigns", "week", "candidates"\]/);
     expect(inv).toMatch(/boards: \(c\) => eachCampaign\(c, refreshCampaign\)/);
     expect(inv).toMatch(/campaigns: \(\) => refreshCampaignsNow\(\)/);
     expect(inv).toMatch(/week: \(\) => refreshHome\(\)/);

@@ -60,10 +60,12 @@
   .sh-boot-ring circle { fill: none; stroke: currentColor; stroke-linecap: round; stroke-width: 1.25; }
   .sh-boot-track { opacity: 0.16; }
   .sh-boot-arc { transform-origin: 50% 50%; animation: sh-turn 1.15s linear infinite, sh-breathe 1.9s ease-in-out infinite; }
-  .sh-boot-mark { width: 46%; height: 46%; display: block; }
+  .sh-boot-mark { width: 46%; height: 46%; display: block; animation: sh-spin 2.4s cubic-bezier(0.55, 0.05, 0.45, 0.95) infinite; will-change: transform; }
+  @keyframes sh-spin { from { transform: perspective(90px) rotateY(0deg); } to { transform: perspective(90px) rotateY(360deg); } }
   @keyframes sh-turn { from { transform: rotate(-90deg); } to { transform: rotate(270deg); } }
   @keyframes sh-breathe { 0%, 100% { stroke-dasharray: 12 88; } 50% { stroke-dasharray: 40 60; } }
   @media (prefers-reduced-motion: reduce) {
+    .sh-boot-mark { animation: none; }
     .sh-boot-arc { animation: none; stroke-dasharray: 28 72; transform: rotate(-90deg); }
     .sh-boot-ring { animation: sh-pulse 2.4s ease-in-out infinite; }
     @keyframes sh-pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }

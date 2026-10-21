@@ -3,7 +3,7 @@ import type { Match, RoleSpec, SourcingStatus, SpecRow } from "../api/agent";
 import type { RunEvent } from "../api/events";
 import type { CandidateSet } from "../liveCandidate";
 import {
-  applyRunEvent, batchOf, buildPhase, eventFromRow, settleRun, buildSays, cameBack, canRun, countLine, criteriaLines, experienceLine, failedRun, filterLines, idleRun,
+  applyRunEvent, batchOf, mustHaveCount, buildPhase, eventFromRow, settleRun, buildSays, cameBack, canRun, countLine, criteriaLines, experienceLine, failedRun, filterLines, idleRun,
   isRunning, joinAnd, joinOr, judgingDown, liveStages, locationLine, mergeSet, noticeText, plural, poolOf, poolSentence, readPhase,
   readSays, readSteps, requirementCounts, resultsCopy, runLabel, runPhases, runSummary, searchNote, shortDate, startingRun, unscoredIds, unscoredIn, visibleNotices,
 } from "../liveSourcing";
@@ -129,10 +129,10 @@ describe("copy builders", () => {
 
   it("builds the search from the spec and describes the pool without inventing a total", () => {
     const first = poolOf(status(), 0);
-    expect(poolSentence(first)).toBe("Nobody has been found for this campaign yet. The first search looks through our own database, then asks our data provider for new profiles.");
-    expect(poolSentence(poolOf(status({ crustdata: false }), 0))).toBe("Nobody has been found for this campaign yet. The first search looks through our own database.");
+    expect(poolSentence(first)).toBe("Nobody has been found for this campaign yet. The first search looks for people who fit.");
+    expect(poolSentence(poolOf(status({ crustdata: false }), 0))).toBe("Nobody has been found for this campaign yet. The first search looks for people who fit.");
     const mid = poolOf(status({ shown: 30, nextSize: 10 }), 21);
-    expect(poolSentence(mid)).toBe("30 people found so far, 21 of them ranked and waiting for your call. The next search looks through our own database, then asks our data provider for more.");
+    expect(poolSentence(mid)).toBe("30 people found so far, 21 of them ranked and waiting for your call. The next search looks for more.");
     const done = poolOf(status({ shown: 74, nextSize: 0, exhausted: true }), 21);
     expect(poolSentence(done)).toBe("74 people found so far, 21 of them ranked and waiting for your call.");
     expect(poolSentence(poolOf(status({ shown: 10, nextSize: 0, exhausted: true }), 0))).toBe("10 people found so far, none of them waiting for your call.");
@@ -151,15 +151,15 @@ describe("copy builders", () => {
     expect(runLabel(poolOf(status(), 0))).toBe("Run search");
     expect(runLabel(poolOf(status({ shown: 30, nextSize: 10 }), 21))).toBe("Find 10 more");
     expect(canRun(poolOf(status({ nextSize: 0, exhausted: true }), 3))).toBe(false);
-    expect(countLine(poolOf(status(), 0))).toBe("up to 20 new profiles");
-    expect(countLine(poolOf(status({ crustdata: false }), 0))).toBe("our own database only");
+    expect(countLine(poolOf(status(), 0))).toBe("up to 20 people");
+    expect(countLine(poolOf(status({ crustdata: false }), 0))).toBe("up to 20 people");
     expect(countLine(poolOf(status({ nextSize: 0, exhausted: true }), 3))).toBeNull();
   });
 
   it("explains in words what a search cannot do right now", () => {
     expect(searchNote(poolOf(status(), 0))).toBeNull();
-    expect(searchNote(poolOf(status({ crustdata: false }), 0))).toBe("Our data provider isn't connected yet, so a search looks through our own database only.");
-    expect(searchNote(poolOf(status({ nextSize: 0, exhausted: true, shown: 74 }), 21))).toBe("That's everyone these filters turn up for now. Change the spec to widen the search.");
+    expect(searchNote(poolOf(status({ crustdata: false }), 0))).toBeNull();
+    expect(searchNote(poolOf(status({ nextSize: 0, exhausted: true, shown: 74 }), 21))).toBe("That's everyone I could reach for these filters for now. Change the spec to widen the search.");
     expect(searchNote(poolOf(status({ nextSize: 0, exhausted: false }), 21))).toContain("no searches left");
   });
 
@@ -167,18 +167,18 @@ describe("copy builders", () => {
     expect(noticeText("Couldn't score these people right now; the AI is busy. They're listed unscored and get scored on the next search.")).toBe(
       "The AI was busy, so these people are listed without scores. They'll be scored on the next search.",
     );
-    expect(noticeText("Searching our own database only. Crustdata isn't connected yet.")).toBe("Our data provider isn't connected yet, so I searched our own database only.");
-    expect(noticeText("That's everyone Crustdata has for these filters for now.")).toBe("That's everyone our data provider has for these filters for now.");
-    expect(noticeText("Today's budget for new profiles is used up. Searching our own database; new profiles resume tomorrow.")).toContain("Today's limit on new profiles is used up");
+    expect(noticeText("Searching our own database only. Crustdata isn't connected yet.")).toBe("I looked through everyone I could reach for this role.");
+    expect(noticeText("That's everyone Crustdata has for these filters for now.")).toBe("I looked through everyone I could reach for this role.");
+    expect(noticeText("Today's budget for new profiles is used up. Searching our own database; new profiles resume tomorrow.")).toBe("I looked through everyone I could reach for this role.");
     expect(noticeText("Matching on titles and skills only this time; the meaning search is busy. Results may be narrower.")).toContain("reads for meaning was busy");
-    expect(noticeText("Crustdata took too long")).toBe("Our data provider took too long.");
+    expect(noticeText("Crustdata took too long")).toBe("The lookup took too long.");
   });
 
   it("writes the results' words from the real counts", () => {
     expect(resultsCopy({ shown: 3, total: 21, unscored: 0 })).toEqual({
       title: "The best fits so far",
       count: "3 shown · 21 ranked",
-      sub: "Shortlist the ones worth reaching out to. A pass takes a short reason.",
+      sub: "Shortlist the ones worth reaching out to. A rejection takes a short reason.",
       all: "See all 21 ranked profiles",
     });
     expect(resultsCopy({ shown: 1, total: 1, unscored: 1 }).title).toBe("The best fit so far");
@@ -240,17 +240,17 @@ describe("run events to phases", () => {
     expect(isRunning(idleRun)).toBe(false);
     const starting = startingRun();
     expect(isRunning(starting)).toBe(true);
-    expect(runPhases(starting)[0]).toMatchObject({ tookMs: undefined, phase: { id: "search", live: "Searching our own database" } });
+    expect(runPhases(starting)[0]).toMatchObject({ tookMs: undefined, phase: { id: "search", live: "Finding people" } });
   });
 
-  it("follows the search from the pool to the data provider to scoring", () => {
+  it("follows the search from finding people to scoring", () => {
     const events = full();
     const mid = play(events.slice(0, 2));
     expect(mid.status).toBe("running");
     expect(mid.size).toBe(20);
     expect(mid.pool).toBe(12);
     expect(runPhases(mid)).toHaveLength(1);
-    expect(runPhases(mid)[0]?.phase.live).toBe("Looking for new people");
+    expect(runPhases(mid)[0]?.phase.live).toBe("Finding people");
     expect(runPhases(mid)[0]?.tookMs).toBeUndefined();
 
     const scoring = play(events.slice(0, 4 + 5));
@@ -259,7 +259,7 @@ describe("run events to phases", () => {
     // The search settled when scoring began: 5 seconds after the first event.
     expect(phases[0]?.tookMs).toBe(5000);
     expect(phases[0]?.phase.done).toBe("Found 17 people");
-    expect(phases[0]?.phase.steps).toEqual(["12 people from our own database", "5 new profiles from our data provider, 2 you had already seen"]);
+    expect(phases[0]?.phase.steps).toEqual(["17 people found, 2 you had already seen"]);
     expect(phases[1]?.phase.live).toBe("Scoring 5 of 17 people");
     expect(phases[1]?.tookMs).toBeUndefined();
   });
@@ -321,7 +321,7 @@ describe("run events to phases", () => {
       ev("done", 2),
     ]);
     expect(run.notices).toHaveLength(1);
-    expect(visibleNotices(run)).toEqual(["That's everyone our data provider has for these filters for now."]);
+    expect(visibleNotices(run)).toEqual(["I looked through everyone I could reach for this role."]);
     expect(batchOf(run)).toBe(0);
     expect(runSummary(run)).toBe("Nothing new turned up for these filters this time.");
     const phases = runPhases(run);
@@ -355,7 +355,7 @@ describe("run events to phases", () => {
     const run = play([ev("plan", 0, { step: "search", size: 10 }), ev("error", 1, { message: "Crustdata took too long to answer" })]);
     expect(run.status).toBe("failed");
     expect(runPhases(run)).toEqual([]);
-    expect(runSummary(run)).toBe("The search stopped before it finished. Our data provider took too long to answer. You can try again.");
+    expect(runSummary(run)).toBe("The search stopped before it finished. That took too long to answer. You can try again.");
     const refused = failedRun("This campaign has searched a lot in the last hour.");
     expect(runPhases(refused)).toEqual([]);
     expect(runSummary(refused)).toBe("The search didn't start. This campaign has searched a lot in the last hour. You can try again.");
@@ -364,6 +364,15 @@ describe("run events to phases", () => {
 
 /* ── the goal's three legs ── */
 
+describe("the must-have count", () => {
+  it("counts the spec's hard requirements and must-haves, not the nice-to-haves", () => {
+    const req = (id: string, importance: "knockout" | "must" | "nice") => ({ id, kind: "skill" as const, text: id, skill: id, weight: 0.5, importance });
+    const s = { ...spec, requirements: [req("a", "knockout"), req("b", "must"), req("c", "must"), req("d", "nice")] };
+    expect(mustHaveCount(s)).toBe(3);
+    expect(mustHaveCount({ ...spec, requirements: [] })).toBe(0);
+  });
+});
+
 describe("stages", () => {
   const base = { readDone: true, buildDone: true, searched: false, found: 0, ranked: 0, criteria: 3, preview: [] as string[], verdicts: {} as Record<string, "shortlisted" | "rejected"> };
 
@@ -371,16 +380,19 @@ describe("stages", () => {
     const { stages, reached } = liveStages({ ...base, run: idleRun });
     expect(stages.map((s) => s.state)).toEqual(["wait", "todo", "todo"]);
     expect(stages[0]?.note).toBe("Waiting for you to run it");
-    expect(stages[1]?.note).toBe("Rank on 3 criteria");
+    expect(stages[1]?.note).toBe("Match on 3 must-haves");
+    // Unknown count: a plain line, never "0 criteria".
+    expect(liveStages({ ...base, criteria: 0, run: idleRun }).stages[1]?.note).toBe("Matching them to the role");
     expect(reached).toBe(false);
   });
 
   it("shows a campaign that was already searched as searched and ranked, waiting on the recruiter's call", () => {
     const { stages } = liveStages({ ...base, searched: true, found: 74, ranked: 21, preview: ["a", "b", "c"], run: idleRun });
     expect(stages.map((s) => s.state)).toEqual(["done", "done", "wait"]);
-    expect(stages[0]?.note).toBe("74 people found so far");
-    expect(stages[1]?.note).toBe("21 ranked · best 3 picked");
-    expect(stages[2]?.note).toBe("0 of 3 decided, your call");
+    expect(stages[0]?.note).toBe("Found");
+    expect(stages[1]?.note).toBe("Done");
+    // Deciding says nothing until it is finished.
+    expect(stages[2]?.note).toBe("");
   });
 
   it("moves with the run: searching, then matching, then done", () => {
@@ -396,19 +408,21 @@ describe("stages", () => {
     expect(scoring.stages[1]?.note).toBe("Scoring 1 of 4");
     const finished = liveStages({ ...base, ranked: 4, preview: ["a", "b"], run: play([...events, ev("done", 3)]) });
     expect(finished.stages.map((s) => s.state)).toEqual(["done", "done", "wait"]);
+    expect(finished.stages.map((s) => s.note)).toEqual(["Found", "Done", ""]);
   });
 
   it("reaches the goal when every one of the best has a call, and counts the shortlisted", () => {
     const state = liveStages({ ...base, searched: true, found: 10, ranked: 10, preview: ["a", "b", "c"], run: idleRun, verdicts: { a: "shortlisted", b: "rejected", c: "shortlisted" } });
     expect(state.reached).toBe(true);
     expect(state.summary).toBe("Goal reached · 2 shortlisted");
-    expect(state.stages[2]?.note).toBe("2 shortlisted · 1 passed");
+    // The count is the header's ("Goal reached · 2 shortlisted"), so the leg only says it is done.
+    expect(state.stages[2]?.note).toBe("Done");
   });
 
   it("does not claim a goal when nobody is left to decide on", () => {
     const state = liveStages({ ...base, searched: true, found: 10, ranked: 0, preview: [], run: idleRun });
     expect(state.reached).toBe(false);
-    expect(state.stages[2]?.note).toBe("No one to decide on yet");
+    expect(state.stages[2]?.note).toBe("");
   });
 
   it("stops the search leg and says so when the run fails", () => {

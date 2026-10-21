@@ -4,12 +4,15 @@ import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { applyKeyFrom } from "./applyKey";
+import { reviewTokenFrom } from "./reviewKey";
 import { stylesReady } from "./stylesReady";
 import { Loader } from "./components/Loader";
 import { startTheme } from "./theme";
 
 /* The candidate's page is a file of its own: nobody opening the console or the sign-in carries it. */
 const ApplyPage = lazy(() => import("./ApplyPage").then((m) => ({ default: m.ApplyPage })));
+/* So is the client's review page (#/review/<token>): no sign-in, no console. */
+const ReviewPage = lazy(() => import("./ReviewPage").then((m) => ({ default: m.ReviewPage })));
 const LeanSetup = lazy(() => import("./setup/lean/LeanSetup").then((m) => ({ default: m.LeanSetup })));
 const SidePreview = lazy(() => import("./setup/lean/SidePreview").then((m) => ({ default: m.SidePreview })));
 const AgentPreview = lazy(() => import("./agentCards/Preview").then((m) => ({ default: m.AgentPreview })));
@@ -23,14 +26,16 @@ const sideFrom = (hash: string): Side | null => SIDES.find((s) => s === new URLS
 const root = document.getElementById("root");
 if (!root) throw new Error("#root is missing from index.html");
 
-/** The candidate page (#/apply/…) renders on its own, with no console and
-    no sign-in: it is what a form link opens. Everything else is the app. */
+/** The candidate page (#/apply/…) and the client's review page (#/review/…) render on their own, with no console
+    and no sign-in: they are what a form link and a client link open. Everything else is the app. */
 function Root() {
   const [key, setKey] = useState(() => applyKeyFrom(window.location.hash));
+  const [review, setReview] = useState(() => reviewTokenFrom(window.location.hash, window.location.pathname));
   const [, bump] = useState(0);
   useEffect(() => {
     const on = () => {
       setKey(applyKeyFrom(window.location.hash));
+      setReview(reviewTokenFrom(window.location.hash, window.location.pathname));
       bump((n) => n + 1);
     };
     window.addEventListener("hashchange", on);
@@ -51,6 +56,13 @@ function Root() {
       <Suspense fallback={null}>
         {side ? <SidePreview name={side} /> : <LeanSetup mode="preview" />}
         <FlightHost settle={false} />
+      </Suspense>
+    );
+  }
+  if (review) {
+    return (
+      <Suspense fallback={<div className="boot"><Loader size="lg" label="Loading" /></div>}>
+        <ReviewPage key={review} token={review} />
       </Suspense>
     );
   }

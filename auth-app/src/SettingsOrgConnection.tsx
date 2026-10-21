@@ -4,6 +4,7 @@ import { identityApi, orgConnectionOf, PROVIDER_NAME, providerReasonText, provid
 import type { NotionTarget, OrgConnection, OrgProvider, SlackChannel } from "./api/identity";
 import { ConnectorLogo } from "./ConnectorLogo";
 import { Loader } from "./components/Loader";
+import { Shimmer, ShimmerRegion } from "./components/Shimmer";
 import { applyOrgConnection, reloadConnections, useConnections } from "./connectionsStore";
 import {
   channelLabel, chosenIn, connectionLine, TOKEN_CLOSED, TOKEN_HELP, tokenFlow, tokenProblem, withSetting,
@@ -17,8 +18,9 @@ import { Fld } from "./Settings";
  * or admin and used by the agent for everyone.
  *
  * Anyone in the organisation can read the status; only an owner or admin sees the buttons.
- * A token pasted here is sent once and the field emptied at the same moment, and sign-in
- * with the provider is offered wherever the server has it set up.
+ * A token pasted here is sent once; the field keeps it if the server refuses it (the reason is said once, the
+ * button says "Try again") and is emptied when the connection is made. Sign-in with the provider is offered
+ * wherever the server has it set up.
  */
 
 const ABOUT: Readonly<Record<OrgProvider, string>> = {
@@ -50,7 +52,12 @@ export function takeProviderReturn(): Back | null {
   return waiting;
 }
 
-export function OrgConnectionCard({ provider, canManage }: { provider: OrgProvider; canManage: boolean }) {
+export function OrgConnectionCard({ provider, canManage, onAgent }: {
+  provider: OrgProvider;
+  canManage: boolean;
+  /** Asks the agent for a test message in the chat (Slack): its own approval card shows what will be posted. */
+  onAgent?: (text: string) => void;
+}) {
   const name = PROVIDER_NAME[provider];
   const all = useConnections();
   const conn = all[provider];
@@ -69,9 +76,9 @@ export function OrgConnectionCard({ provider, canManage }: { provider: OrgProvid
     : all.status === "failed" ? (all.error ?? "Couldn't check what's connected.") : "Checking";
 
   const submit = async () => {
-    // Read once and emptied at once: the console never holds on to a token.
+    // What was typed stays in the field when the server refuses it, so a letter can be fixed in place; it is
+    // emptied once the connection is made, and nothing outside the field holds it.
     const token = field.current?.value ?? "";
-    if (field.current) field.current.value = "";
     send({ t: "submit" });
     setNote(null);
     const problem = tokenProblem(provider, token);
@@ -81,6 +88,7 @@ export function OrgConnectionCard({ provider, canManage }: { provider: OrgProvid
       const made = orgConnectionOf(result, provider);
       if (made) applyOrgConnection(provider, made);
       else await reloadConnections();
+      if (field.current) field.current.value = "";
       send({ t: "connected" });
       setNote({ tone: "ok", text: `${name} is connected.` });
     } catch (err) {
@@ -190,13 +198,18 @@ export function OrgConnectionCard({ provider, canManage }: { provider: OrgProvid
             <span />
             <button type="button" className="ncx-btn" disabled={flow.s === "checking"} onClick={() => send({ t: "cancel" })}>Cancel</button>
             <button type="submit" className="ncx-btn is-primary" disabled={flow.s === "checking"}>
-              {flow.s === "checking" ? <><Loader size="sm" tone="inherit" />Checking</> : "Connect"}
+              {flow.s === "checking" ? <><Loader size="sm" tone="inherit" />Checking</> : flow.s === "entering" && flow.error ? "Try again" : "Connect"}
             </button>
           </footer>
         </form>
       )}
 
       {working && provider === "slack" && <SlackHome conn={conn} canManage={canManage} />}
+      {working && provider === "slack" && onAgent && (
+        <p className="st-quiet t-body-sm">
+          <button type="button" className="st-link" onClick={() => onAgent("Post a test message to Slack")}>Post a test message</button>
+        </p>
+      )}
       {working && provider === "notion" && <NotionHome conn={conn} canManage={canManage} />}
 
       {!canManage && known && !working && (
@@ -270,7 +283,7 @@ function SlackHome({ conn, canManage }: { conn: OrgConnection; canManage: boolea
           {channels.items.map((c) => <option key={c.id} value={c.id}>{channelLabel(c)}</option>)}
         </select>
       ) : channels.s === "loading" ? (
-        <span className="st-mail t-body-sm"><Loader size="sm" /> Loading channels</span>
+        <ShimmerRegion label="Loading channels"><Shimmer w={220} h={32} r={8} /></ShimmerRegion>
       ) : channels.s === "failed" ? (
         <span className="st-mail t-body-sm" role="status">
           Your Slack channels didn't load. <button type="button" className="st-link" onClick={() => setAsked((n) => n + 1)}>Try again</button>

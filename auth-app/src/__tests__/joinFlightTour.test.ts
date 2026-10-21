@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FLIGHT, FlightController, flightWords, holdFor, initialsOf, LINE_AT, TYPE_EVERY, TYPE_FROM, typedLength } from "../setup/lean/flight";
-import { counter, placePopover, selectorFor, settleStep, stepsFor, TOUR_STEPS } from "../tour/tourSteps";
+import { counter, placePopover, presentUpFront, selectorFor, settleStep, stepsFor, TOUR_STEPS, walkLabels, walkSteps, withPagesFound } from "../tour/tourSteps";
 import type { TourStep } from "../tour/tourSteps";
 import { hasSeen, markPending, markSeen, shouldAutoStart } from "../tour/useTour";
 import type { TourStore } from "../tour/useTour";
@@ -161,8 +161,21 @@ describe("the tour's steps by role", () => {
   it("gives owners, admins and a personal workspace the Calls step, and a recruiter not", () => {
     for (const who of ["owner", "admin", "personal"] as const) expect(ids(stepsFor(who))).toContain("calls");
     expect(ids(stepsFor("recruiter"))).not.toContain("calls");
+    // The Teams step is for the people who manage teams.
+    for (const who of ["owner", "admin"] as const) expect(ids(stepsFor(who))).toContain("teams");
+    expect(ids(stepsFor("recruiter"))).not.toContain("teams");
     // Everything else is the same for everyone.
-    expect(ids(stepsFor("recruiter"))).toEqual(ids(stepsFor("owner")).filter((i) => i !== "calls"));
+    expect(ids(stepsFor("recruiter"))).toEqual(ids(stepsFor("owner")).filter((i) => i !== "calls" && i !== "teams"));
+  });
+
+  it("drops the campaign rows up front when no campaign is open, so the total never changes mid-walk", () => {
+    const plan = stepsFor("owner");
+    const noCampaign = presentUpFront(plan, (q) => !q.includes("nav-campaign-"));
+    expect(noCampaign.length).toBe(plan.length - 5);
+    expect(ids(noCampaign)).not.toContain("campaign-pipeline");
+    // The agent's page is not judged from another page: its steps stay.
+    expect(ids(noCampaign)).toContain("composer");
+    expect(presentUpFront(plan, () => true)).toEqual(plan);
   });
 
   it("walks the sidebar first, then the places that are always there, then the agent's page", () => {
@@ -306,5 +319,81 @@ describe("the tour is shown once, to someone new", () => {
     expect(hasSeen("u1", throwing)).toBe(false);
     expect(shouldAutoStart("u1", throwing, throwing)).toBe(false);
     expect(shouldAutoStart("u1", null, null)).toBe(false);
+  });
+});
+
+describe("the tour's numbering over a whole run", () => {
+  /** Takes every step the way the tour does: Next until the walk runs out, reporting "n of total" each time. */
+  async function run(plan: TourStep[], absent: string[]): Promise<string[]> {
+    const missing = new Set<string>();
+    const shown: string[] = [];
+    let at = await walkSteps(plan, 0, 1, async (s) => !absent.includes(s.id), missing);
+    while (at !== null) {
+      shown.push(counter(at, plan.length));
+      at = await walkSteps(plan, at + 1, 1, async (s) => !absent.includes(s.id), missing);
+    }
+    return shown;
+  }
+  const upFront = (who: "owner" | "recruiter", gone: string[]) =>
+    presentUpFront(stepsFor(who), (q) => !gone.some((g) => q.includes(`"${g}"`)));
+
+  it("fixes the total before the first step: the agent page's missing steps are out before any is numbered", async () => {
+    const plan = withPagesFound(upFront("owner", []), new Set(["composer", "jd", "filters"]));
+    expect(plan.length).toBe(stepsFor("owner").length - 3);
+    const shown = await run(plan, []);
+    const total = plan.length;
+    expect(shown[0]).toBe(`1 of ${total}`);
+    expect(shown.at(-1)).toBe(`${total} of ${total}`);
+    expect(new Set(shown.map((s) => s.split(" of ")[1]))).toEqual(new Set([String(total)]));
+    expect(shown).toHaveLength(total);
+  });
+
+  it("never repeats or changes a number when a target goes missing during the run, for an owner or a recruiter", async () => {
+    for (const who of ["owner", "recruiter"] as const) {
+      const plan = upFront(who, []);
+      const shown = await run(plan, ["analytics", "ideas"]);
+      const nums = shown.map((s) => Number(s.split(" of ")[0]));
+      expect(new Set(shown.map((s) => s.split(" of ")[1]))).toEqual(new Set([String(plan.length)]));
+      expect(nums).toEqual([...nums].sort((a, b) => a - b));
+      expect(new Set(nums).size).toBe(nums.length);
+      expect(nums).toHaveLength(plan.length - 2);
+    }
+  });
+
+  it("goes back over the same list, past a step known to be missing", async () => {
+    const plan = upFront("recruiter", []);
+    const missing = new Set<string>();
+    const absent = ["candidates"];
+    const prepare = async (s: TourStep) => !absent.includes(s.id);
+    const into = await walkSteps(plan, 3, 1, prepare, missing);
+    expect(plan[into!]!.id).toBe("clients");
+    expect(plan[(await walkSteps(plan, into! - 1, -1, prepare, missing))!]!.id).toBe("campaigns");
+  });
+});
+
+describe("the tour's counter reads the one frozen list", () => {
+  /** What the tour settles at the start: the sidebar rows there are on that page, then the pages' targets found. */
+  const frozen = (who: "owner" | "recruiter", campaignRows: boolean, agentFound: string[]) =>
+    withPagesFound(presentUpFront(stepsFor(who), (q) => campaignRows || !q.includes("nav-campaign-")), new Set(agentFound));
+  const AGENT = ["composer", "jd", "filters", "ideas", "history", "configuration"];
+
+  it("shows a total equal to the steps walked, from Home and from other pages, ending on N of N", async () => {
+    for (const who of ["owner", "recruiter"] as const) {
+      for (const campaignRows of [true, false]) {
+        for (const found of [AGENT, AGENT.slice(0, 4), AGENT.slice(0, 2)]) {
+          const plan = frozen(who, campaignRows, found);
+          const labels = await walkLabels(plan);
+          expect(labels.length, `${who} ${campaignRows} ${found.length}`).toBe(plan.length);
+          expect(labels[0]).toBe(`1 of ${plan.length}`);
+          expect(labels.at(-1)).toBe(`${plan.length} of ${plan.length}`);
+          expect(new Set(labels.map((l) => l.split(" of ")[1]))).toEqual(new Set([String(plan.length)]));
+        }
+      }
+    }
+  });
+
+  it("counts only the real steps: no introduction slide or probe is in the list", () => {
+    for (const s of stepsFor("owner")) expect(["nav", "page"]).toContain(s.area);
+    expect(stepsFor("owner")[0]!.id).toBe("home");
   });
 });

@@ -72,9 +72,30 @@ export function ensureConnections(force = false): Promise<void> {
 
 export const reloadConnections = (): Promise<void> => ensureConnections(true);
 
+/**
+ * Other windows of this browser hear that a connection changed: the sign-in window a connect card opened
+ * says so when it is done, and the chat it came from reads the connections again at once instead of at its
+ * next poll. A window never answers its own message, so this cannot loop.
+ */
+const channel: BroadcastChannel | null =
+  typeof BroadcastChannel === "undefined" ? null : new BroadcastChannel("superhyre.connections");
+channel?.addEventListener("message", () => { void reloadConnections(); });
+
+/** Tells the other windows that a connection was made, changed or removed here. */
+export function announceConnectionChange(): void {
+  try { channel?.postMessage("changed"); } catch { /* the others read it at their next look */ }
+}
+
 /** After connecting or changing one provider: the answer replaces the guess at once. */
 export function applyOrgConnection(provider: OrgProvider, connection: OrgConnection | null): void {
   set({ ...state, status: "ready", [provider]: connection, error: null, at: Date.now() });
+  announceConnectionChange();
+}
+
+/** After a connection is made or removed here: the shared answer is read again, and the other windows told. */
+export async function connectionsChanged(): Promise<void> {
+  await reloadConnections();
+  announceConnectionChange();
 }
 
 /** Test-only, and when the workspace changes: nothing carries over from the last one. */

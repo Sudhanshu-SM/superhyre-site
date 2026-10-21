@@ -32,6 +32,9 @@ export type MemoryState = {
   /** The review queue: notes waiting for someone to confirm, whatever the filters say. */
   queue: Phase;
   pending: readonly MemoryItem[];
+  /** Notes the agent has stopped opening with, because answers that leaned on them were turned down: kept or forgotten from here. */
+  doubts: Phase;
+  doubted: readonly MemoryItem[];
   /** The counts; null until they arrive. */
   stats: MemoryStats | null;
   statsPhase: Phase;
@@ -48,6 +51,7 @@ export type MemoryState = {
 const EMPTY: MemoryState = {
   list: "idle", items: [], next: null, more: "idle", filters: NO_FILTERS,
   queue: "idle", pending: [],
+  doubts: "idle", doubted: [],
   stats: null, statsPhase: "idle", unavailable: false, working: [], forgotten: [],
   known: { clients: [], campaigns: [] },
 };
@@ -109,7 +113,11 @@ export function ensureMemoryStats(force = false): Promise<void> {
   return statsInflight;
 }
 
-export const reloadMemoryStats = (): Promise<void> => ensureMemoryStats(true);
+/** The counts again, and the doubted notes too when a card has them on screen (any change to memory moves both). */
+export const reloadMemoryStats = (): Promise<void> => {
+  if (state.doubts !== "idle") void loadDoubts();
+  return ensureMemoryStats(true);
+};
 
 /** Moves the counts without asking: a change just shown, or put back. */
 function bump(stats: MemoryStats | null, by: { active?: number; pending?: number; scope?: MemoryScope; inScope?: number }): MemoryStats | null {
@@ -151,6 +159,7 @@ function loadList(): Promise<void> {
 }
 
 let queueToken = 0;
+let doubtToken = 0;
 
 function loadQueue(): Promise<void> {
   const token = ++queueToken;
@@ -167,6 +176,32 @@ function loadQueue(): Promise<void> {
       // A failed refresh keeps what the queue showed; a first failure says so.
       set({ queue: state.queue === "ready" ? "ready" : "failed" });
     });
+}
+
+/**
+ * The notes the agent has stopped opening with, for the chat's card: the list is asked for whenever a card is shown,
+ * and what is on screen stays while it is (a first look shows a ghost, a failed look keeps the list).
+ */
+function loadDoubts(): Promise<void> {
+  const token = ++doubtToken;
+  if (state.doubts !== "ready") set({ doubts: "loading" });
+  return memoryApi
+    .listMemory({ status: "doubted", limit: QUEUE_MAX })
+    .then((page) => {
+      if (token !== doubtToken) return;
+      const doubted = page.items.filter((i) => i.status === "active" && i.doubted);
+      set({ doubts: "ready", doubted, known: learn(state.known, doubted) });
+    })
+    .catch(() => {
+      if (token !== doubtToken) return;
+      // A failed refresh keeps what the section showed; a first failure says so.
+      set({ doubts: state.doubts === "ready" ? "ready" : "failed" });
+    });
+}
+
+/** The card of doubted notes was shown: read them again. */
+export function refreshDoubts(): Promise<void> {
+  return LIVE ? loadDoubts() : Promise.resolve();
 }
 
 /** The Memory page opened: load the list, the queue and the counts afresh. */
@@ -235,24 +270,32 @@ function putBack(list: readonly MemoryItem[], item: MemoryItem, at: number): Mem
 /** A refusal: the line saying so, and a fresh look when the note turned out to be gone or replaced. */
 function refused(what: string, err: unknown): void {
   reportProblem(`${what} ${messageOf(err)}`);
-  if (err instanceof ApiError && (err.status === 404 || err.status === 409) && LIVE) void openMemory();
+  if (err instanceof ApiError && (err.status === 404 || err.status === 409) && LIVE) {
+    void openMemory();
+    if (state.doubts !== "idle") void loadDoubts();
+  }
 }
 
 export type Change = { ok: true } | { ok: false; message: string };
 
-/** Pending to active. The note leaves the queue and joins the list at once. */
+/**
+ * Pending to active, or a doubted note trusted again. The note leaves its section and joins the list at once;
+ * a doubted one was already counted, so the counts do not move for it.
+ */
 export async function confirmMemory(id: string): Promise<Change> {
-  const item = state.pending.find((i) => i.id === id);
+  const waiting = state.pending.find((i) => i.id === id);
+  const item = waiting ?? state.doubted.find((i) => i.id === id);
   if (!item || state.working.includes(id)) return { ok: false, message: "That note has already changed." };
-  const at = state.pending.indexOf(item);
-  const active: MemoryItem = { ...item, status: "active" };
-  const listed = matchesFilters(active, state.filters);
+  const at = (waiting ? state.pending : state.doubted).indexOf(item);
+  const active: MemoryItem = { ...item, status: "active", doubted: null };
+  // A list nobody has loaded has nothing to join (the doubted notes are shown by a card, with no list beside it).
+  const listed = state.list !== "idle" && matchesFilters(active, state.filters);
   working(id, true);
   set({
-    pending: state.pending.filter(sameId(id)),
+    ...(waiting ? { pending: state.pending.filter(sameId(id)) } : { doubted: state.doubted.filter(sameId(id)) }),
     /* Newest first, as the server lists them: a note just confirmed is the newest change. */
     ...(listed ? { items: [active, ...state.items.filter(sameId(id))] } : {}),
-    stats: bump(state.stats, { pending: -1, active: 1, scope: item.scope, inScope: 1 }),
+    ...(waiting ? { stats: bump(state.stats, { pending: -1, active: 1, scope: item.scope, inScope: 1 }) } : {}),
   });
   try {
     const saved = await memoryApi.confirmMemory(id);
@@ -262,9 +305,10 @@ export async function confirmMemory(id: string): Promise<Change> {
     return { ok: true };
   } catch (err) {
     set({
-      pending: putBack(state.pending, item, at),
+      ...(waiting
+        ? { pending: putBack(state.pending, item, at), stats: bump(state.stats, { pending: 1, active: -1, scope: item.scope, inScope: -1 }) }
+        : { doubted: putBack(state.doubted, item, at) }),
       items: state.items.filter(sameId(id)),
-      stats: bump(state.stats, { pending: 1, active: -1, scope: item.scope, inScope: -1 }),
     });
     refused(`"${snippet(item.text)}" wasn't confirmed.`, err);
     return { ok: false, message: messageOf(err) };
@@ -275,16 +319,18 @@ export async function confirmMemory(id: string): Promise<Change> {
 
 /** Soft delete: gone from the screen at once, back with a line if the server refuses. */
 export async function forgetMemory(id: string): Promise<Change> {
-  const item = state.items.find((i) => i.id === id) ?? state.pending.find((i) => i.id === id);
+  const item = state.items.find((i) => i.id === id) ?? state.pending.find((i) => i.id === id) ?? state.doubted.find((i) => i.id === id);
   if (!item || state.working.includes(id)) return { ok: false, message: "That note has already changed." };
   const inList = state.items.findIndex((i) => i.id === id);
   const inQueue = state.pending.findIndex((i) => i.id === id);
+  const inDoubts = state.doubted.findIndex((i) => i.id === id);
   const wasActive = item.status === "active";
   const wasPending = item.status === "pending";
   working(id, true);
   set({
     items: state.items.filter(sameId(id)),
     pending: state.pending.filter(sameId(id)),
+    doubted: state.doubted.filter(sameId(id)),
     stats: bump(state.stats, wasActive
       ? { active: -1, scope: item.scope, inScope: -1 }
       : wasPending ? { pending: -1 } : {}),
@@ -297,6 +343,7 @@ export async function forgetMemory(id: string): Promise<Change> {
     set({
       items: inList >= 0 ? putBack(state.items, item, inList) : state.items,
       pending: inQueue >= 0 ? putBack(state.pending, item, inQueue) : state.pending,
+      doubted: inDoubts >= 0 ? putBack(state.doubted, item, inDoubts) : state.doubted,
       stats: bump(state.stats, wasActive
         ? { active: 1, scope: item.scope, inScope: 1 }
         : wasPending ? { pending: 1 } : {}),
@@ -349,6 +396,7 @@ export async function correctMemory(id: string, text: string): Promise<Change> {
 export function resetMemory(): void {
   listToken += 1;
   queueToken += 1;
+  doubtToken += 1;
   statsInflight = null;
   statsAt = 0;
   set(EMPTY);
@@ -363,6 +411,12 @@ const subscribe = (l: () => void) => {
 /** The Memory page's state; opening it loads everything afresh. */
 export function useMemory(): MemoryState {
   useEffect(() => { void openMemory(); }, []);
+  return useSyncExternalStore(subscribe, () => state);
+}
+
+/** The doubted notes, for the chat's card; showing it reads them again. */
+export function useDoubts(): Pick<MemoryState, "doubts" | "doubted" | "working"> {
+  useEffect(() => { void refreshDoubts(); }, []);
   return useSyncExternalStore(subscribe, () => state);
 }
 

@@ -12,7 +12,7 @@ import {
  */
 
 const KOLKATA = "Asia/Kolkata";
-/** Sat 10 Oct 2026, 14:30 in Kolkata. */
+/** Sat 10 Oct 2026, 2:30 pm in Kolkata. */
 const NOW = Date.parse("2026-10-10T09:00:00Z");
 
 const item = (over: Partial<ScheduledItem> = {}): ScheduledItem => ({
@@ -41,27 +41,27 @@ describe("when something happens", () => {
   const at = (iso: string, o: Parameters<typeof whenLabel>[2] = {}) => whenLabel(iso, KOLKATA, { now: NOW, viewerTz: KOLKATA, ...o });
 
   it("says today and tomorrow by the zone's own calendar, not by 24 hours", () => {
-    expect(at("2026-10-10T10:00:00Z")).toBe("Today, 15:30");
-    expect(at("2026-10-11T04:30:00Z")).toBe("Tomorrow, 10:00");
+    expect(at("2026-10-10T10:00:00Z")).toBe("Today, 3:30 pm");
+    expect(at("2026-10-11T04:30:00Z")).toBe("Tomorrow, 10 am");
     // 00:30 in Kolkata is tomorrow, though it is only ten hours away.
-    expect(at("2026-10-10T19:00:00Z")).toBe("Tomorrow, 00:30");
-    expect(at("2026-10-09T12:00:00Z")).toBe("Yesterday, 17:30");
+    expect(at("2026-10-10T19:00:00Z")).toBe("Tomorrow, 12:30 am");
+    expect(at("2026-10-09T12:00:00Z")).toBe("Yesterday, 5:30 pm");
   });
 
   it("gives a weekday and a date after that, and the year when it isn't this one", () => {
-    expect(at("2026-10-12T04:00:00Z")).toBe("Mon 12 Oct, 09:30");
-    expect(at("2027-01-04T04:00:00Z")).toBe("Mon 4 Jan 2027, 09:30");
-    expect(at("2026-10-05T04:00:00Z")).toBe("Mon 5 Oct, 09:30");
+    expect(at("2026-10-12T04:00:00Z")).toBe("Mon 12 Oct, 9:30 am");
+    expect(at("2027-01-04T04:00:00Z")).toBe("Mon 4 Jan 2027, 9:30 am");
+    expect(at("2026-10-05T04:00:00Z")).toBe("Mon 5 Oct, 9:30 am");
   });
 
   it("names the zone only when it isn't the reader's own", () => {
-    expect(at("2026-10-10T10:00:00Z", { viewerTz: "UTC" })).toBe("Today, 15:30 IST");
-    expect(at("2026-10-10T10:00:00Z", { viewerTz: KOLKATA })).toBe("Today, 15:30");
-    expect(at("2026-10-10T10:00:00Z", { zone: true })).toBe("Today, 15:30 IST");
+    expect(at("2026-10-10T10:00:00Z", { viewerTz: "UTC" })).toBe("Today, 3:30 pm IST");
+    expect(at("2026-10-10T10:00:00Z", { viewerTz: KOLKATA })).toBe("Today, 3:30 pm");
+    expect(at("2026-10-10T10:00:00Z", { zone: true })).toBe("Today, 3:30 pm IST");
   });
 
   it("gives the exact day when asked, for an approval", () => {
-    expect(at("2026-10-11T04:30:00Z", { absolute: true, zone: true })).toBe("Sun 11 Oct, 10:00 IST");
+    expect(at("2026-10-11T04:30:00Z", { absolute: true, zone: true })).toBe("Sun 11 Oct, 10 am IST");
   });
 
   it("is empty for a time that isn't one", () => {
@@ -113,25 +113,26 @@ describe("how it repeats", () => {
 });
 
 describe("who", () => {
-  it("says You, a teammate's name, or Mind", () => {
+  it("says You or a teammate's name, and for what the agent set up, the one who approved it", () => {
     expect(whoLabel(item(), "u1")).toBe("You");
     expect(whoLabel(item(), "u2")).toBe("Asha Rao");
     expect(whoLabel(item({ createdBy: { kind: "user", id: "u9", name: null } }), "u1")).toBe("A teammate");
-    expect(whoLabel(item({ createdBy: { kind: "agent", id: null, name: "Superhyre agent" } }), "u1")).toBe("Mind");
+    const agent = { kind: "agent" as const, id: null, name: "Superhyre agent" };
+    expect(whoLabel(item({ createdBy: agent, approvedBy: { id: "u1", name: "Asha Rao" } }), "u1")).toBe("You");
+    expect(whoLabel(item({ createdBy: agent, approvedBy: { id: "u1", name: "Asha Rao" } }), "u2")).toBe("Asha Rao");
+    expect(whoLabel(item({ createdBy: agent }), "u1")).toBe("SuperHyre");
   });
 
   it("reads as a line", () => {
     expect(byLine(item(), "u1")).toBe("By you");
     expect(byLine(item(), "u2")).toBe("By Asha Rao");
-    expect(byLine(item({ createdBy: { kind: "agent", id: null, name: null } }), "u1")).toBe("By Mind");
+    expect(byLine(item({ createdBy: { kind: "agent", id: null, name: null }, approvedBy: { id: "u1", name: "Asha Rao" } }), "u1")).toBe("By you");
+    expect(byLine(item({ createdBy: { kind: "agent", id: null, name: null }, approvedBy: { id: "u1", name: "Asha Rao" } }), "u2")).toBe("By Asha Rao");
   });
 
-  it("says who approved what Mind proposed, and nothing for what a person made", () => {
-    const mind = { kind: "agent" as const, id: null, name: null };
-    expect(approvedLine(item({ createdBy: mind, approvedBy: { id: "u1", name: "Asha Rao" } }), "u1")).toBe("Approved by you");
-    expect(approvedLine(item({ createdBy: mind, approvedBy: { id: "u1", name: "Asha Rao" } }), "u2")).toBe("Approved by Asha Rao");
-    expect(approvedLine(item({ approvedBy: { id: "u1", name: "Asha Rao" } }), "u1")).toBeNull();
-    expect(approvedLine(item({ createdBy: mind }), "u1")).toBeNull();
+  it("has nothing more to say about who approved it: the By line says it", () => {
+    const agent = { kind: "agent" as const, id: null, name: null };
+    expect(approvedLine(item({ createdBy: agent, approvedBy: { id: "u1", name: "Asha Rao" } }), "u1")).toBeNull();
   });
 });
 
@@ -182,7 +183,7 @@ describe("how it went", () => {
 
   it("reads an email by what happened to it after it fired", () => {
     expect(run({ kind: "email", result: { delivery: "sent" } })).toBe("Sent");
-    expect(run({ kind: "email", result: { delivery: "queued", scheduledFor: "2026-10-12T03:30:00Z" } })).toBe("Goes out Mon 12 Oct, 09:00");
+    expect(run({ kind: "email", result: { delivery: "queued", scheduledFor: "2026-10-12T03:30:00Z" } })).toBe("Goes out Mon 12 Oct, 9 am");
     expect(run({ kind: "email", result: { delivery: "queued" } })).toBe("Waiting to go out");
     expect(run({ kind: "email", result: { delivery: "failed", deliveryError: "Gmail refused it" } })).toBe("Didn't send: Gmail refused it");
     expect(run({ kind: "email", result: { delivery: "failed" } })).toBe("Didn't send: the email was refused");
@@ -272,7 +273,7 @@ describe("the full text", () => {
   it("gives a Notion note, a task with its due time, a reminder and a digest's destinations", () => {
     expect(detailLines(d("notion_note", { title: "Notes", parentTitle: "Hiring wiki", body: "Body" })).map((l) => l.label)).toEqual(["Title", "Goes in", "Text"]);
     expect(detailLines(d("task", { title: "Call", assigneeName: "Priya", dueAt: "2026-10-12T04:00:00Z" }), NOW, KOLKATA)).toEqual([
-      { label: "Task", text: "Call" }, { label: "For", text: "Priya" }, { label: "Due", text: "Mon 12 Oct, 09:30" },
+      { label: "Task", text: "Call" }, { label: "For", text: "Priya" }, { label: "Due", text: "Mon 12 Oct, 9:30 am" },
     ]);
     expect(detailLines(d("reminder", { text: "Call Rahul" }))).toEqual([{ label: "Reminder", text: "Call Rahul" }]);
     expect(detailLines(d("digest", { to: ["slack", "app"], channelName: "hiring" }))).toEqual([{ label: "Sends to", text: "Slack #hiring and your notifications" }]);
@@ -292,9 +293,9 @@ describe("the full text", () => {
 
   it("writes what each run came to", () => {
     const base = { runId: "r", at: "2026-10-10T08:00:00Z", finishedAt: null, result: null };
-    expect(runLine({ ...base, status: "done", message: null }, KOLKATA, NOW, KOLKATA)).toBe("Today, 13:30 · Done");
-    expect(runLine({ ...base, status: "skipped", message: "Asha has replied." }, KOLKATA, NOW, KOLKATA)).toBe("Today, 13:30 · Skipped: Asha has replied.");
-    expect(runLine({ ...base, status: "failed", message: "Slack is down." }, KOLKATA, NOW, KOLKATA)).toBe("Today, 13:30 · Didn't go out: Slack is down.");
+    expect(runLine({ ...base, status: "done", message: null }, KOLKATA, NOW, KOLKATA)).toBe("Today, 1:30 pm · Done");
+    expect(runLine({ ...base, status: "skipped", message: "Asha has replied." }, KOLKATA, NOW, KOLKATA)).toBe("Today, 1:30 pm · Skipped: Asha has replied.");
+    expect(runLine({ ...base, status: "failed", message: "Slack is down." }, KOLKATA, NOW, KOLKATA)).toBe("Today, 1:30 pm · Didn't go out: Slack is down.");
   });
 });
 

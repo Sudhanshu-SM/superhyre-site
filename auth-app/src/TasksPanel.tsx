@@ -8,7 +8,7 @@ import {
 } from "./campaignTasks";
 import type { Scope } from "./campaignTasks";
 import { useCan } from "./can";
-import { Loader } from "./components/Loader";
+import { Shimmer, ShimmerRegion } from "./components/Shimmer";
 import { plainText } from "./displayText";
 import { EmptyArt } from "./EmptyArt";
 import { addTask, retryCampaignTasks, setTaskDone, useCampaignTasks } from "./homeStore";
@@ -62,6 +62,23 @@ function Who({ t }: { t: DayTask }) {
       <span className="tp-av t-caption" title={name} role="img" aria-label={`For ${name}`}>{initialsOf(name)}</span>
     </span>
   );
+}
+
+/** The task list while it loads: the list's and the row's own classes (check, title, who, due), so the rows are the real rows'. */
+export function TasksGhost({ n = 3, label }: { n?: number; label?: string }) {
+  const list = (
+    <ul className="tp-list" aria-hidden="true">
+      {Array.from({ length: n }, (_, i) => (
+        <li key={i} className="tp-row">
+          <Shimmer circle w={18} h={18} />
+          <span className="tp-t t-body"><Shimmer h={13} lh={20} w={`${46 + ((i * 19) % 40)}%`} /></span>
+          <span className="tp-who"><Shimmer circle w={24} h={24} /></span>
+          <span className="tp-due t-body-sm"><Shimmer h={12} lh={20} w={72} /></span>
+        </li>
+      ))}
+    </ul>
+  );
+  return label ? <ShimmerRegion label={label}>{list}</ShimmerRegion> : list;
 }
 
 function TaskRow({ t, done, allowed, onToggle }: { t: DayTask; done: boolean; allowed: boolean; onToggle: (t: DayTask) => void }) {
@@ -177,7 +194,7 @@ export function TasksCard({ campaignId, onlyMine = false }: {
     <OvCard title="Tasks" className="tp" aside={aside}>
       <div className="tp-body">
         {!data.ready ? (
-          <div className="tp-wait"><Loader size="md" label="Loading tasks" block /></div>
+          <TasksGhost label="Loading tasks" />
         ) : data.failed ? (
           <LoadFailed what="This campaign's tasks" compact onRetry={data.retry} />
         ) : shown.length === 0 ? (

@@ -1,5 +1,8 @@
 import { BookmarkSimple, Check, Sparkle, X } from "@phosphor-icons/react";
+import { stateLabel, stateTone } from "./matchResult";
+import type { MatchResultView } from "./matchResult";
 import type { Candidate, Verdict } from "./sourcing";
+import { toneProps } from "./statusTones";
 import { CRITERIA, CRITERIA_SHORT, NOW_INDEX, initials, trajectory } from "./sourcing";
 import "./candidates.css";
 
@@ -98,29 +101,56 @@ export function Career({ c, labels = false }: { c: Candidate; labels?: boolean }
    under a single header, so the criterion names are printed once instead of
    on every row; elsewhere `labelled` prints them beside the marks.          */
 
-export function FitMark({ met, label, unscored = false }: { met: boolean; label: string; unscored?: boolean }) {
-  /* Someone the ranking has not judged yet is unknown, not a miss. */
-  const said = unscored ? "Not scored yet" : met ? "Meets" : "Does not meet";
+type Check = "met" | "partial" | "not_met" | "unknown";
+
+/**
+ * A years requirement said against the person's own years: "10 years, asked 5 to 8", not "Meets 5 to 8 years" (which reads
+ * as though they have 5 to 8). Null when the label is not about years or the person's years are not known.
+ */
+export function askedYears(label: string, have: number | null | undefined): string | null {
+  if (have == null || have <= 0) return null;
+  const m = /^\s*(\d{1,2})\s*(?:(?:to|-|–)\s*(\d{1,2})|(\+))?\s*\+?\s*(?:years?|yrs?)\b/i.exec(label);
+  if (!m) return null;
+  const asked = m[2] ? `${m[1]} to ${m[2]}` : m[3] || /\+\s*(?:years?|yrs?)/i.test(label) ? `${m[1]}+` : m[1];
+  return `${have} ${have === 1 ? "year" : "years"}, asked ${asked}`;
+}
+
+export function FitMark({ met, label, unscored = false, state, years }: { met: boolean; label: string; unscored?: boolean; state?: Check | undefined; years?: number | null | undefined }) {
+  /* Someone the ranking has not judged yet is unknown, not a miss. So is a criterion the profile could not settle. */
+  const unknown = !unscored && state === "unknown";
+  const partial = !unscored && state === "partial";
+  const said = unscored ? "Not scored yet" : unknown ? "Can't tell yet" : partial ? "Partly" : met ? "Meets" : "Does not meet";
+  const asked = unscored || unknown ? null : askedYears(label, years);
+  const text = asked ?? `${said}: ${label}`;
   return (
-    <span className={`cb-fit${unscored ? " is-unscored" : met ? " is-met" : ""}`} title={`${said}: ${label}`}>
+    <span className={`cb-fit${unscored || unknown ? " is-unscored" : partial ? " is-partial" : met ? " is-met" : ""}`} title={text}>
       {met && !unscored ? <Check size={10} weight="bold" aria-hidden="true" /> : null}
-      <span className="sr-only">{said}: {label}</span>
+      <span className="sr-only">{text}</span>
     </span>
   );
 }
 
-export function FitRow({ meets, criteria = CRITERIA, short = CRITERIA_SHORT, unscored = false }: { meets: readonly boolean[]; criteria?: readonly string[]; short?: readonly string[]; unscored?: boolean }) {
+export function FitRow({ meets, criteria = CRITERIA, short = CRITERIA_SHORT, unscored = false, checks }: { meets: readonly boolean[]; criteria?: readonly string[]; short?: readonly string[]; unscored?: boolean; checks?: readonly Check[] | undefined }) {
   const n = meets.filter(Boolean).length;
+  const open = checks ? checks.filter((c) => c === "unknown").length : 0;
   return (
-    <ul className="cb-fitrow" aria-label={unscored ? "Not scored yet" : `Meets ${n} of ${criteria.length} criteria`}>
+    <ul className="cb-fitrow" aria-label={unscored ? "Not scored yet" : `Meets ${n} of ${criteria.length} criteria${open ? `, ${open} can't be told yet` : ""}`}>
       {criteria.map((c, i) => (
         <li key={`${c}${i}`} className={meets[i] && !unscored ? "is-met" : undefined}>
-          <FitMark met={!!meets[i]} label={c} unscored={unscored} />
+          <FitMark met={!!meets[i]} label={c} unscored={unscored} state={checks?.[i]} />
           <span aria-hidden="true">{short[i]}</span>
         </li>
       ))}
     </ul>
   );
+}
+
+/**
+ * What the server concluded, as a few plain words in the status colour: "Strong fit · 82", "Needs more evidence",
+ * "Not scored yet". Text only, no marker in front of it; the word is always there, so colour never says it alone.
+ */
+export function FitState({ r }: { r: MatchResultView }) {
+  return <span className="cb-state"><span {...toneProps(stateTone(r))}>{stateLabel(r)}</span></span>;
 }
 
 /** The agent's read of a profile. The phrases that earned the match are
@@ -168,12 +198,12 @@ export function Verdicts({
         type="button"
         className={`cb-v is-reject${rej ? " is-on" : ""}`}
         aria-pressed={rej}
-        aria-label={`${rej ? "Undo pass" : "Pass"} ${name}`}
-        title={rej ? "Undo pass" : "Pass (X)"}
+        aria-label={`${rej ? "Undo reject" : "Reject"} ${name}`}
+        title={rej ? "Undo reject" : "Reject (X)"}
         onClick={(e) => { e.stopPropagation(); onVerdict(rej ? null : "rejected"); }}
       >
         <X size={14} weight="bold" aria-hidden="true" />
-        {!icons && <span>{rej ? "Passed" : "Pass"}</span>}
+        {!icons && <span>{rej ? "Rejected" : "Reject"}</span>}
       </button>
       <button
         type="button"

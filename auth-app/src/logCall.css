@@ -1,0 +1,39 @@
+/* "Log a call": a small dialog over the Outreach list. It borrows the console's dialog shell (roles.css .rl-dlg) and
+   adds only its own fields. Quiet type, the hairline and the page's tokens; nothing here is a box inside a box. */
+.lc .lc-body { display: grid; gap: 16px; padding: 0 24px 18px; overflow-y: auto; min-height: 0; }
+.lc-field { display: grid; gap: 6px; min-width: 0; }
+.lc-field .t-label { color: var(--ink); }
+.lc-quiet { color: var(--ink-3); font-weight: 400; }
+p.lc-quiet { margin: 0; }
+.lc :is(input, select, textarea) {
+  width: 100%; box-sizing: border-box; font: var(--type-body); letter-spacing: var(--track-body); color: var(--ink);
+  padding: 9px 11px; border: 1px solid var(--hairline); border-radius: 10px; background: var(--card);
+}
+.lc textarea { resize: vertical; min-height: 72px; font-family: var(--ui); }
+.lc :is(input, select, textarea):focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.lc ::placeholder { color: var(--ink-3); }
+
+.lc-search { display: grid; gap: 8px; }
+.lc-people { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.lc-person {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 1px; width: 100%; padding: 8px 10px; border: 0;
+  border-radius: 10px; background: none; text-align: left; cursor: pointer; min-width: 0;
+}
+.lc-person:hover { background: var(--sub); }
+.lc-person:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.lc-person.is-ghost { cursor: default; gap: 5px; }
+.lc-person.is-ghost:hover { background: none; }
+.lc-person-n { max-width: 100%; font: var(--type-label); letter-spacing: var(--track-label); color: var(--ink); }
+.lc-person-s { max-width: 100%; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); }
+.lc-chosen { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; min-width: 0; }
+.lc-chosen .lc-person-s { flex: 1 1 auto; min-width: 0; }
+
+.lc-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.lc-row { display: grid; grid-template-columns: minmax(0, 1fr) 132px; gap: 12px; align-items: start; }
+@media (max-width: 520px) {
+  .lc .lc-body { padding-inline: 16px; }
+  .lc-row { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* "Log a call" where there are no calls yet. */
+.kl-empty .kl-btn.lc-open { margin-top: 10px; }

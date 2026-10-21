@@ -64,6 +64,7 @@ export function IdeaChips({
   const rows = useCampaignRows();
   const ready = useCampaignsReady();
   const canCreate = useCan("campaign.create");
+  const canAddClient = useCan("client.manage");
   const session = useSession();
   const rowRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState<number | null>(null);
@@ -84,7 +85,7 @@ export function IdeaChips({
 
   /* Until the campaigns have arrived the ideas are not known; the row waits with only its search
      button, so the general ideas do not flash before the real ones replace them. */
-  const ideas = LIVE ? (ready ? liveIdeas(rows, { canCreate, mayChange: (row) => mayChangeCampaign(session, row) }) : []) : ideasFor(mode);
+  const ideas = LIVE ? (ready ? liveIdeas(rows, { canCreate, canAddClient, mayChange: (row) => mayChangeCampaign(session, row) }) : []) : ideasFor(mode);
   const page = pickChips(ideas, { visit, width });
   // Said whole: the usual words if the row holds them, fewer words if not, fewer chips if still not.
   const shown = fitChips(page, width, measureIn(rowRef.current));
@@ -143,6 +144,7 @@ export function IdeaList({
   const rows = useCampaignRows();
   const ready = useCampaignsReady();
   const canCreate = useCan("campaign.create");
+  const canAddClient = useCan("client.manage");
   const session = useSession();
   const focus = focusName ? rows.find((r) => r.name === focusName) : undefined;
   if (!ready && LIVE) {
@@ -158,6 +160,7 @@ export function IdeaList({
   const list = ideaRows({
     focusName: focusName ?? null,
     canCreate,
+    canAddClient,
     hasCampaigns: rows.length > 0,
     ...(focus ? { mayChange: mayChangeCampaign(session, focus) } : {}),
   });

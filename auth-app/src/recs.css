@@ -27,8 +27,10 @@
 }
 
 .orc .orc-chip {
-  /* A chip keeps the room its words need (recs.ts, fitChips chose them to fit), so it is dropped whole rather than squeezed. */
-  flex: 0 0 auto;
+  /* A chip keeps the room its words need (recs.ts, fitChips chose them to fit), so it is dropped whole rather than
+     squeezed. If the measure was a few pixels short (a narrow phone, a font that arrived late) it gives way with an
+     ellipsis, and the search button after it stays in view, instead of the chips running over one another. */
+  flex: 0 1 auto;
   min-width: 0;
   max-width: 100%;
   height: 32px;

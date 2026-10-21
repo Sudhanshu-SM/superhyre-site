@@ -140,7 +140,7 @@ export async function loadComparison(input: { ids: readonly string[]; dir: Dir; 
   const source = buildSource({
     name: campaignName,
     criteria,
-    people: got.flatMap((r) => (r.c ? [{ id: r.c.id, judgement: r.judgement, status: r.status }] : [])),
+    people: got.flatMap((r) => (r.c ? [{ id: r.c.id, judgement: r.judgement, status: r.status, result: r.c.result }] : [])),
   });
   return { people, criteria, source, missing: got.filter((r) => !r.c).map((r) => r.name) };
 }

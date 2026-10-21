@@ -1,0 +1,71 @@
+/* ═══════════════════════════════ stages dialog ═══════════════════════════════
+   The board's stages, edited. It borrows the console's dialog frame (rl-dlg), fields (ncx-in) and segmented
+   control (ncx-seg); only the rows are its own. Colour is the stage tokens (--stage-<key>), and a stage's name is
+   coloured text, never a badge.                                                                              */
+
+.sg { max-height: min(720px, calc(100dvh - 48px)); }
+.sg-body { display: grid; gap: 16px; padding: 0 24px 18px; min-height: 0; overflow-y: auto; }
+
+.sg-presets { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; }
+.sg-presets > .t-label { color: var(--ink-2); }
+
+.sg-grid { display: grid; gap: 6px; }
+.sg-head,
+.sg-row {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) 34px 34px 30px;
+  align-items: start;
+  gap: 8px;
+}
+.sg-head { align-items: end; padding-bottom: 2px; color: var(--ink-3); }
+.sg-head span:nth-child(3),
+.sg-head span:nth-child(4) { text-align: center; }
+
+.sg-order { display: grid; gap: 0; align-content: center; justify-items: center; min-height: 38px; color: var(--ink-3); }
+.sg-name { display: grid; gap: 4px; min-width: 0; }
+.sg-row.is-locked { align-items: center; min-height: 38px; }
+.sg-row.is-locked .sg-name { align-self: center; }
+
+.sg-ico {
+  display: inline-grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 8px; background: none;
+  color: var(--ink-2); cursor: pointer; transition: background-color var(--t), color var(--t);
+}
+.sg-row > .sg-ico, .sg-row > .sg-colour { margin-top: 4px; justify-self: center; }
+.sg-order .sg-ico { width: 24px; height: 19px; border-radius: 5px; }
+.sg-ico:hover:not(:disabled) { background: var(--sub); color: var(--ink); }
+.sg-ico:disabled { opacity: 0.35; cursor: default; }
+.sg-ico:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.sg-eye.is-on { color: var(--accent-text); }
+
+.sg-colour i { width: 16px; height: 16px; border-radius: 50%; background: var(--sg-c, transparent); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.14); }
+.sg-colour.is-fixed { cursor: default; }
+.sg-colour.is-auto i { background: none; box-shadow: none; border: 1.5px dashed var(--ink-3); }
+
+.sg-swatches { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px; }
+.sg-sw {
+  width: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%; background: var(--sg-c); cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12); transition: transform 140ms var(--ease-out);
+}
+.sg-sw:hover { transform: scale(1.1); }
+.sg-sw.is-on { box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12), 0 0 0 2px var(--card, #fff), 0 0 0 4px var(--ink); }
+.sg-sw:focus-visible, .sg-auto:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.sg-auto { flex: 1 1 100%; height: 30px; padding: 0 10px; border: 0; border-radius: 8px; background: var(--sub); color: var(--ink); text-align: left; cursor: pointer; }
+.sg-auto.is-on { background: var(--accent-tint); color: var(--accent-text); }
+
+.sg-add { display: grid; justify-items: start; gap: 8px; }
+.sg-note { margin: 0; color: var(--ink-2); }
+.sg-note b { color: var(--ink); font-weight: 500; }
+
+.sg-moves { display: grid; gap: 8px; padding: 12px 14px; border-radius: 12px; background: var(--sub); }
+.sg-move { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; color: var(--ink-2); }
+.sg-move b { color: var(--ink); font-weight: 500; }
+.sg-move select.ncx-in { width: auto; min-width: 160px; flex: 0 1 220px; }
+
+@media (max-width: 560px) {
+  .sg-body { padding-inline: 16px; }
+  .sg-head { display: none; }
+  .sg-row { grid-template-columns: 24px minmax(0, 1fr) 34px 34px 30px; }
+}
+
+/* The New campaign form's Pipeline step: the stages as one quiet line under the choice. */
+.ncx-pipe { margin: 2px 0 0; color: var(--ink-2); overflow-wrap: anywhere; }

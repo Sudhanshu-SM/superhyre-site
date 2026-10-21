@@ -1,4 +1,6 @@
 import { DEV_SKIP_AUTH } from "../devSession";
+import { setSectionScope } from "../sectionState";
+import { dropReadCache, flying, READ_CACHE_MS, readGeneration, reads, SHARED_READS } from "./readCache";
 import { supabase } from "../supabase";
 
 /**
@@ -61,8 +63,11 @@ const SETTLE_MS = 5000;
 
 export function setTabWorkspace(organizationId: string | null): void {
   const next = organizationId ?? "personal";
+  // What each section remembered (page, filters, scroll) belongs to one workspace.
+  setSectionScope(next);
   if (tabWorkspace !== null && tabWorkspace !== next) settleUntil = Date.now() + SETTLE_MS;
   tabWorkspace = next;
+  dropReadCache();
   staleSince = null;
 }
 
@@ -122,7 +127,7 @@ export function landedLine(organisationName: string | null): string {
  * The kind of the most recent failure, so an inline "didn't load" can say the right
  * thing: a dropped connection is the person's to fix, a server error is ours.
  */
-export type FailureKind = "network" | "server" | "limited" | "session" | "access";
+export type FailureKind = "network" | "server" | "limited" | "session" | "access" | "timeout";
 let lastFailure: FailureKind | null = null;
 let lastRetryAt: number | null = null;
 let lastConnect: string | null = null;
@@ -148,11 +153,127 @@ export function onWrite(fn: WriteListener): () => void {
 
 function wrote(method: Method, path: string): void {
   if (method === "GET") return;
+  // Whatever was read a moment ago may be what this changed.
+  dropReadCache();
   for (const l of writeListeners) l(method, path.split("?")[0] ?? path);
 }
 
-/** JSON in, JSON out; errors carry the sentence the API wrote for people. */
-export async function api<T>(method: Method, path: string, body?: unknown, init: RequestInit = {}): Promise<T> {
+/* ── how long a request may take ── */
+
+/** The longest an ordinary request waits for its answer. Past it the person is told, calmly, and can try again. */
+export const REQUEST_TIMEOUT_MS = 30_000;
+/** For requests that are slow by nature (a document read, a file taken in, a long export); the server's own limit is the same. */
+export const LONG_REQUEST_TIMEOUT_MS = 170_000;
+/** A file fetched whole (an Excel sheet). */
+export const FILE_TIMEOUT_MS = 120_000;
+
+const LONG_PATHS: readonly RegExp[] = [
+  /\/draft-from-file$/,
+  /^\/v1\/attachments\/read$/,
+  /^\/v1\/support$/,
+  /^\/v1\/calls\/[^/]+\/recording$/,
+  /^\/v1\/onboarding\//,
+  /^\/v1\/exports?\b/,
+  /\/spec\/draft$/,
+  /\/approvals\/\d+$/,
+  /\/export\/sheets$/,
+  /^\/v1\/campaigns\/[^/]+\/contacts$/,
+  /^\/v1\/contacts\/fetch$/,
+  /^\/v1\/campaigns\/[^/]+\/sourcing(\/score)?$/,
+];
+
+/** What a person is told when a read ran out of time. Nothing was changed by a read. */
+export const SLOW_MESSAGE = "That took longer than expected. Nothing was changed. Try again.";
+/** The same for a write: the server may have finished it anyway, so the person looks before asking again. */
+export const SLOW_WRITE_MESSAGE = "That took longer than expected. It may have gone through, so check before you try again.";
+
+/** How long this request may take: its own `timeoutMs` (false: no limit, for a stream), else by what it is. */
+export function timeoutFor(path: string, own?: number | false): number | null {
+  if (own === false) return null;
+  if (typeof own === "number") return own;
+  const bare = path.split("?")[0] ?? path;
+  return LONG_PATHS.some((r) => r.test(bare)) ? LONG_REQUEST_TIMEOUT_MS : REQUEST_TIMEOUT_MS;
+}
+
+/** The failure a request that ran out of time becomes: code `timeout`, the same words the API uses for its own. */
+export function slowFailure(method: Method, path: string, ms: number): ApiError {
+  const maybeDone = method !== "GET";
+  lastFailure = "timeout";
+  lastConnect = null;
+  return new ApiError(504, "timeout", maybeDone ? SLOW_WRITE_MESSAGE : SLOW_MESSAGE, { op: `${method} ${path.split("?")[0] ?? path}`, budgetMs: ms, ...(maybeDone ? { maybeDone } : {}) });
+}
+
+/**
+ * A fetch that gives up after `ms` (null: never), cancelling the request, and tells the caller whether it was the
+ * clock or the caller's own signal that stopped it. The body is read inside the same limit, by `read`.
+ */
+export async function fetchWithin<T>(
+  url: string,
+  init: RequestInit,
+  ms: number | null,
+  read: (res: Response) => Promise<T>,
+): Promise<{ timedOut: false; value: T } | { timedOut: true }> {
+  const control = new AbortController();
+  const caller = init.signal ?? undefined;
+  const onCaller = () => control.abort();
+  if (caller?.aborted) control.abort();
+  else caller?.addEventListener("abort", onCaller, { once: true });
+  let late = false;
+  const timer = ms === null ? undefined : setTimeout(() => { late = true; control.abort(); }, ms);
+  /* Whatever is being waited for, the clock ends the wait: a body that never ends is cut off as surely as a request. */
+  const stopped = new Promise<never>((_, reject) => {
+    const abort = () => reject(new DOMException("Aborted", "AbortError"));
+    if (control.signal.aborted) abort();
+    else control.signal.addEventListener("abort", abort, { once: true });
+  });
+  stopped.catch(() => undefined);
+  try {
+    const res = await Promise.race([fetch(url, { ...init, signal: control.signal }), stopped]);
+    return { timedOut: false, value: await Promise.race([read(res), stopped]) };
+  } catch (err) {
+    if (late) return { timedOut: true };
+    throw err;
+  } finally {
+    clearTimeout(timer);
+    caller?.removeEventListener("abort", onCaller);
+  }
+}
+
+/* ── the same read, asked for by many places at once (the keeping lives in readCache.ts) ── */
+
+export { dropReadCache, READ_CACHE_MS };
+
+const copy = <V,>(v: V): V => (v !== null && typeof v === "object" && typeof structuredClone === "function" ? structuredClone(v) : v);
+
+/**
+ * JSON in, JSON out; errors carry the sentence the API wrote for people. An identical GET asked for while one is on
+ * its way shares it (one request, every caller answered), and the widely-shared reads are reused for `READ_CACHE_MS`.
+ * Errors are never kept, and a stream or a call with its own signal or limit is left alone.
+ */
+export async function api<T>(method: Method, path: string, body?: unknown, init: RequestInit & { timeoutMs?: number | false } = {}): Promise<T> {
+  if (method !== "GET" || !API_URL || init.signal || init.timeoutMs !== undefined || init.headers) return send<T>(method, path, body, init);
+  const key = `${tabWorkspace ?? ""} ${path}`;
+  const shared = SHARED_READS.some((r) => r.test(path));
+  const kept = shared ? reads.get(key) : undefined;
+  if (kept && Date.now() - kept.at < READ_CACHE_MS) return copy(kept.value as T);
+  let running = flying.get(key) as Promise<T> | undefined;
+  if (!running) {
+    const generation = readGeneration;
+    const mine: Promise<T> = send<T>(method, path, body, init)
+      .then((value) => {
+        if (shared && generation === readGeneration) reads.set(key, { at: Date.now(), value: copy(value) });
+        return value;
+      })
+      .finally(() => {
+        if (flying.get(key) === mine) flying.delete(key);
+      });
+    flying.set(key, mine);
+    running = mine;
+  }
+  return copy(await running);
+}
+
+async function send<T>(method: Method, path: string, body?: unknown, init: RequestInit & { timeoutMs?: number | false } = {}): Promise<T> {
   if (!API_URL) throw new ApiError(0, "offline", "The console isn't connected to SuperHyre.");
   const headers = new Headers(init.headers);
   try {
@@ -170,15 +291,28 @@ export async function api<T>(method: Method, path: string, body?: unknown, init:
   }
   const raw = body instanceof ArrayBuffer || body instanceof Blob;
   if (body !== undefined && !raw) headers.set("content-type", "application/json");
+  const { timeoutMs, ...fetchInit } = init;
+  const limit = timeoutFor(path, timeoutMs);
   let res: Response;
+  let text: string;
   try {
-    res = await fetch(`${API_URL}${path}`, {
-      ...init,
-      method,
-      headers,
-      ...(body === undefined ? {} : { body: raw ? (body as BodyInit) : JSON.stringify(body) }),
-    });
-  } catch {
+    const got = await fetchWithin(
+      `${API_URL}${path}`,
+      {
+        ...fetchInit,
+        method,
+        headers,
+        ...(body === undefined ? {} : { body: raw ? (body as BodyInit) : JSON.stringify(body) }),
+      },
+      limit,
+      async (r) => ({ res: r, text: r.status === 204 ? "" : await r.text() }),
+    );
+    // No answer in time: said calmly, with a way to try again, and never a request left hanging.
+    if (got.timedOut) throw slowFailure(method, path, limit ?? REQUEST_TIMEOUT_MS);
+    res = got.value.res;
+    text = got.value.text;
+  } catch (err) {
+    if (err instanceof ApiError) throw err;
     lastFailure = "network";
     lastConnect = null;
     throw new ApiError(0, "network", "Can't reach SuperHyre. Check your connection and try again.");
@@ -187,7 +321,6 @@ export async function api<T>(method: Method, path: string, body?: unknown, init:
     wrote(method, path);
     return undefined as T;
   }
-  const text = await res.text();
   const data = text ? (JSON.parse(text) as unknown) : null;
   if (!res.ok) {
     const err = (data as { error?: { code?: string; message?: string } & Record<string, unknown> } | null)?.error;
@@ -206,13 +339,37 @@ export async function api<T>(method: Method, path: string, body?: unknown, init:
     }
     /* Every refusal sets the kind (anything else is ours to say), so a request that failed in some
        other way never inherits an older "network" or "session" and blames the wrong thing. */
-    lastFailure = res.status === 401 ? "session" : res.status === 403 ? "access" : res.status === 429 ? "limited" : "server";
+    lastFailure = res.status === 401 ? "session" : res.status === 403 ? "access" : res.status === 429 ? "limited" : res.status === 504 || failure.code === "timeout" ? "timeout" : "server";
     if (res.status === 429) lastRetryAt = failure.retryAt;
     lastConnect = typeof failure.details.connect === "string" ? failure.details.connect : null;
     throw failure;
   }
   wrote(method, path);
   return data as T;
+}
+
+/**
+ * A file the API makes (an Excel sheet), as bytes. A plain link would not carry the person's token, so it is
+ * fetched here with it, for the caller to save. A refusal is read as the sentence the API wrote.
+ */
+export async function apiFile(path: string): Promise<Blob> {
+  if (!API_URL) throw new ApiError(0, "offline", "The console isn't connected to SuperHyre.");
+  const headers = new Headers({ authorization: `Bearer ${await accessToken()}` });
+  if (tabWorkspace) headers.set("x-workspace", tabWorkspace);
+  let got: Awaited<ReturnType<typeof fetchWithin<{ res: Response; blob: Blob | null }>>>;
+  try {
+    got = await fetchWithin(`${API_URL}${path}`, { headers }, FILE_TIMEOUT_MS, async (r) => ({ res: r, blob: r.ok ? await r.blob() : null }));
+  } catch {
+    throw new ApiError(0, "network", "Can't reach SuperHyre. Check your connection and try again.");
+  }
+  if (got.timedOut) throw slowFailure("GET", path, FILE_TIMEOUT_MS);
+  const { res, blob } = got.value;
+  if (!res.ok || !blob) {
+    const data = (await res.json().catch(() => null)) as { error?: { code?: string; message?: string } & Record<string, unknown> } | null;
+    const err = data?.error;
+    throw new ApiError(res.status, err?.code ?? "error", err?.message ?? "Something went wrong.", err ?? {});
+  }
+  return blob;
 }
 
 /** How long until `at` (epoch ms), the way a person says it: "40s", "3 min", "2 h". */

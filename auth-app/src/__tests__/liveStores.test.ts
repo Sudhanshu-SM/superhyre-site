@@ -211,10 +211,19 @@ describe("the board, live", () => {
 
   it("puts a refused move back where it was", async () => {
     server.fail = /PATCH .*\/candidates\/b$/;
-    store.movePerson("c1", "b", "hired");
-    expect(store.pipelineNow("c1").find((p) => p.id === "b")?.stage).toBe("hired");
+    store.movePerson("c1", "b", "interviewing");
+    expect(store.pipelineNow("c1").find((p) => p.id === "b")?.stage).toBe("interviewing");
     await vi.waitFor(() => expect(store.pipelineNow("c1").find((p) => p.id === "b")?.stage).toBe("outreach"));
+    expect(problems[0]).toMatch(/^Person wasn't moved\./);
+  });
+
+  it("does not show a move into Hired before the server agrees, and says why if it refuses", async () => {
+    server.fail = /PATCH .*\/candidates\/b$/;
+    store.movePerson("c1", "b", "hired");
+    expect(store.pipelineNow("c1").find((p) => p.id === "b")?.stage).toBe("outreach");
     expect(store.campaignRow("c1")?.funnel.hired).toBe(0);
+    await vi.waitFor(() => expect(problems).toHaveLength(1));
+    expect(store.pipelineNow("c1").find((p) => p.id === "b")?.stage).toBe("outreach");
     expect(problems[0]).toMatch(/^Person wasn't moved\./);
   });
 });

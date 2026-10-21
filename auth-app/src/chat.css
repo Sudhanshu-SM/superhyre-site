@@ -10,9 +10,17 @@
 .orc.is-agent .orc-log > .orc-turn { padding: 0; border-top: 0; }
 .orc.is-agent .orc-log > .orc-turn + .orc-turn { border-top: 0; }
 .orc.is-agent .orc-stream .orc-log { gap: 28px; }
-/* The last message rests 56px above the composer when the transcript is scrolled to its end, and a message
-   brought into view (by following the chat, or scrollIntoView) is brought above that line, not against it. */
-.orc.is-agent .orc-stream.is-live .orc-log { padding-bottom: 56px; scroll-padding-bottom: 56px; padding-right: 12px; }
+/* ── THE END OF THE TRANSCRIPT: 28px, AND NO MORE ──
+   The last line rests 28px above the composer's input when the transcript is scrolled to its end, and a
+   message brought into view (by following the chat, or scrollIntoView) is brought above that line, not against
+   it. That is the whole of the room under it: nothing is held back for a turn that got shorter, and nothing
+   waits for the turn to finish.
+
+   `--log-tail` is the log's own padding. It is 28px unless Agent.tsx has measured where the input really is:
+   the composer is bottom-aligned in a dock of fixed height, so a taller input rises into the foot of the log
+   (and a dock with room to spare leaves some under it), and the padding is then what makes the distance 28px
+   again, not more and not less. `agentLayout.ts` holds the same number (TRANSCRIPT_TAIL) for the follower. */
+.orc.is-agent .orc-stream.is-live .orc-log { --log-tail: 28px; padding-bottom: var(--log-tail); scroll-padding-bottom: var(--log-tail); padding-right: 12px; }
 
 .orc-turn .rep-prompt {
   display: flex;
@@ -382,3 +390,8 @@ button.orc-file-open { cursor: pointer; }
 }
 .orc.is-agent .orc-rail .rail-hist > .rail-more:hover:not(:disabled) { background: var(--sub); color: var(--accent-deep); }
 .orc.is-agent .orc-rail .rail-hist > .rail-more:disabled { color: var(--ink-2); cursor: default; }
+
+/* The line a chat the app opened begins with (the set-up's first campaign): quiet, the app's own voice, no bubble. */
+.orc-opening { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin: 0 0 14px; }
+.orc-opening-t { margin: 0; font: 500 13px/1.4 var(--ui); color: var(--ink-2); }
+.orc-opening-file { padding: 3px 10px; border: 1px solid var(--hairline); border-radius: 10px; background: var(--sub); }

@@ -9,6 +9,9 @@
  * client, the client's name. Nothing is fetched from the web, and no link is opened.
  */
 
+import { fileRefusal } from "../../attachments";
+import { clientInJd } from "../../campaignAsk";
+
 export type Beat = "name" | "team" | "role" | "jd" | "client" | "powers" | "finish";
 export type Chapter = "you" | "role" | "powers";
 
@@ -21,7 +24,13 @@ export type Team =
   /** Just them: Personal. */
   | { kind: "personal" };
 
-export type RoleAnswer = { kind: "title"; title: string };
+/**
+ * The first role: a job title, or "later" when the person carried on without one. Nothing is made for a role that
+ * is not there (no campaign, no description to ask for, no client): it is added from the console when they have it.
+ */
+export type RoleTitle = { kind: "title"; title: string };
+export type RoleAnswer = RoleTitle | { kind: "later" };
+export const ROLE_LATER: RoleAnswer = { kind: "later" };
 
 export type Answers = {
   /** What to call the person: the first thing asked, offered from the account (Google) when it is known. */
@@ -85,7 +94,8 @@ const isTeam = (v: unknown): v is Team => {
 };
 const isRole = (v: unknown): v is RoleAnswer => {
   const o = v as RoleAnswer | null;
-  return !!o && typeof o === "object" && o.kind === "title" && typeof o.title === "string";
+  if (!o || typeof o !== "object") return false;
+  return o.kind === "later" || (o.kind === "title" && typeof o.title === "string");
 };
 
 /**
@@ -132,24 +142,33 @@ export function reachable(want: Beat, a: Answers): Beat {
     best = b;
     if (b === want) break;
   }
-  return best;
+  // Without a role there is no description or client beat: land on the next one there is.
+  const have = beatsFor(a);
+  if (have.includes(best)) return best;
+  return have.find((b) => BEATS.indexOf(b) > BEATS.indexOf(best)) ?? "finish";
 }
 
 /** What the server is told when the set-up ends. Null when something it needs is missing. */
-export function finishBody(a: Answers): { fullName: string; organisation: string | null; role: RoleAnswer; jd: string | null; client: string | null } | null {
+export function finishBody(a: Answers): { fullName: string; organisation: string | null; role: RoleTitle | null; jd: string | null; client: string | null } | null {
   if (!a.name || !a.role || !a.team) return null;
+  // No role yet: only the person (and the organisation, if one was chosen) is set up. There is no campaign to
+  // hold a description or a client.
+  const role = a.role.kind === "title" ? a.role : null;
   return {
     fullName: a.name,
     organisation: a.team.kind === "create" ? a.team.name : null,
-    role: a.role,
-    jd: a.jd,
-    client: a.forClient === true ? a.client : null,
+    role,
+    jd: role ? a.jd : null,
+    client: role && a.forClient === true ? a.client : null,
   };
 }
 
-/** The beats this person will have. */
-export function beatsFor(_a?: Answers): Beat[] {
-  return [...BEATS];
+/** True when the person carried on without a first role. */
+export const roleSkipped = (a: Pick<Answers, "role">): boolean => a.role?.kind === "later";
+
+/** The beats this person will have: a skipped role has no description and no client to ask about. */
+export function beatsFor(a?: Answers): Beat[] {
+  return a && roleSkipped(a) ? BEATS.filter((b) => b !== "jd" && b !== "client") : [...BEATS];
 }
 
 export function nextBeat(from: Beat, a: Answers): Beat {
@@ -162,6 +181,8 @@ export const firstBeatOf = (c: Chapter): Beat => ({ you: "name", role: "role", p
 
 /** What forgets what: an answer to an earlier beat can make later answers meaningless. */
 export function settle(a: Answers): Answers {
+  // Without a role there is no description, and the role is not for anyone.
+  if (roleSkipped(a)) return { ...a, jd: null, forClient: null, client: null };
   return a.forClient === true ? a : { ...a, client: null };
 }
 
@@ -178,7 +199,7 @@ const BARE_URL = /^(?:[a-z][a-z0-9+.-]*:\/\/|www\.)\S+$|^[a-z0-9-]+(?:\.[a-z0-9-
 export const isBareUrl = (text: string): boolean => BARE_URL.test(text.trim());
 
 /** A job title. A link is not one: the job description has its own step, and nothing here opens links. */
-export function parseRole(input: string): RoleAnswer | null {
+export function parseRole(input: string): RoleTitle | null {
   const raw = input.trim().replace(/\s+/g, " ");
   if (raw.length < 2 || raw.length > 80 || isBareUrl(raw)) return null;
   return { kind: "title", title: raw };
@@ -198,6 +219,17 @@ export const JD_MIN = 30;
 export const JD_MAX = 30_000;
 
 const grouped = (n: number): string => n.toLocaleString("en-US");
+
+/** What the file picker offers for a job description: the formats the server's reader takes (it does the reading). */
+export const JD_FILE_ACCEPT = ".pdf,.docx,.txt,.md";
+
+/** Why a picked file is not taken as a job description, in one calm line, or null when it is. */
+export function jdFileProblem(file: Pick<File, "name" | "type" | "size">): string | null {
+  const refused = fileRefusal(file);
+  if (refused) return refused;
+  if (!/\.(pdf|docx|txt|md|markdown)$/i.test(file.name)) return "I can read a PDF, Word (.docx) or text file here.";
+  return null;
+}
 
 export type JdCheck = { ok: true; text: string } | { ok: false; problem: string };
 
@@ -265,7 +297,7 @@ export function nameFromDomain(domain: string | null): string {
 /** What to call the client in a sentence. */
 export const clientLabel = (a: Answers): string => a.client || "your client";
 
-export const roleText = (r: RoleAnswer | null): string | null => (r ? r.title : null);
+export const roleText = (r: RoleAnswer | null): string | null => (r?.kind === "title" ? r.title : null);
 
 /** The organisation's name when one was chosen or asked for, else null: Personal has no name to show. */
 export const organisationOf = (a: Answers): string | null => (a.team && a.team.kind !== "personal" ? a.team.name : null);
@@ -294,7 +326,7 @@ export type PowerId = "mind" | "reach" | "voice" | "forms" | "insight" | "memory
 export const POWERS: readonly { id: PowerId; segment: 1 | 2 | 3 | 4 | 5 | 6; title: string; feature: string; line: string }[] = [
   { id: "mind", segment: 1, title: "Mind", feature: "Search agents", line: "Agents that source, shortlist and keep watching for new people." },
   { id: "reach", segment: 2, title: "Reach", feature: "Contact finder", line: "Save any LinkedIn profile and get a number or email in one click." },
-  { id: "voice", segment: 3, title: "Voice", feature: "WhatsApp agents", line: "Replies and follow-ups on WhatsApp, with you approving what goes out." },
+  { id: "voice", segment: 3, title: "Voice", feature: "Follow-up agents", line: "Follow-ups written for you, and nothing goes out until you approve it." },
   { id: "forms", segment: 4, title: "Forms", feature: "Specialised forms", line: "Application forms and screening, in your client's look." },
   { id: "insight", segment: 5, title: "Insight", feature: "Analytics", line: "See what's working: sourcing, replies and time to hire." },
   { id: "memory", segment: 6, title: "Memory", feature: "Agency memory", line: "Mind remembers each client's likes and no's." },
@@ -306,7 +338,17 @@ export const POWERS: readonly { id: PowerId; segment: 1 | 2 | 3 | 4 | 5 | 6; tit
 export type Words = { head: string[]; quiet: string | null };
 
 /** What the screen is doing within a beat, where the words change with it. */
-export type WordsState = { askingClient?: boolean; hasJd?: boolean };
+export type WordsState = { askingClient?: boolean; hasJd?: boolean; /** The client the job description names, offered to confirm. */ foundClient?: string | null };
+
+/**
+ * The client the job description names, for the person to confirm: never their own organisation (or the one they
+ * are creating), and null when the description names no one or there is none.
+ */
+export function foundClientOf(a: Answers, domainName = ""): string | null {
+  if (!a.jd || a.role?.kind !== "title") return null;
+  const own = [a.team?.kind === "create" || a.team?.kind === "asked" ? a.team.name : "", domainName];
+  return clientInJd(a.jd, own);
+}
 
 export function words(beat: Beat, a: Answers, s: WordsState = {}): Words {
   switch (beat) {
@@ -317,14 +359,20 @@ export function words(beat: Beat, a: Answers, s: WordsState = {}): Words {
     case "role":
       return { head: ["Which role should we start with?"], quiet: "A job title is enough. The description comes next." };
     case "jd":
-      return { head: ["Paste the *job description*."], quiet: "Mind starts sourcing as soon as you finish setting up." };
+      return { head: ["Paste the *job description*."], quiet: "Mind reads it and drafts the role spec. You approve it before anything starts." };
     case "client":
+      if (s.foundClient && !s.askingClient)
+        return { head: [`The client is *${s.foundClient}*.`, "Right?"], quiet: "It's in the job description. Change it if that's not right." };
       return s.askingClient
         ? { head: [`Who is *${roleText(a.role) ?? "this role"}* for?`], quiet: "Just the client's company name. That's all I need." }
         : { head: [`Is *${roleText(a.role) ?? "this role"}* for a client?`], quiet: "Each client's roles and preferences stay separate, so nothing gets mixed up." };
     case "powers":
       return { head: ["Here's what you've *unlocked*."], quiet: "Six powers, switched on for you." };
     case "finish":
+      if (roleSkipped(a)) {
+        const org = a.team?.kind === "create" ? a.team.name : null;
+        return { head: [org ? `Setting up *${org}*.` : "Setting up *Personal*."], quiet: "This takes a few seconds." };
+      }
       return { head: ["Setting up your *first campaign*."], quiet: s.hasJd ? "Mind starts on the job description as soon as this is ready." : "This takes a few seconds." };
   }
 }
@@ -339,7 +387,7 @@ export type TeamAsk = "create" | "ask" | "loading";
 export function teamWords(ask: TeamAsk, _a: Answers, domainName: string): Words {
   switch (ask) {
     case "ask":
-      return { head: ["Which *organisation* do you work with?"], quiet: "If your company or agency is already on SuperHyre, you can ask to join it. Or skip this and start on your own." };
+      return { head: ["Which *organisation* do you work with?"], quiet: null };
     case "create":
       return {
         head: [domainName ? `Is this for *${domainName}*, or just you?` : "Is this for a *team*, or just you?"],
@@ -363,8 +411,11 @@ export function readyWords(a: Answers): Words {
   const first = firstName(a.name);
   const head = [first ? `You're set, *${first}*.` : "You're set."];
   const org = a.team?.kind === "create" ? a.team.name : null;
+  if (roleSkipped(a)) {
+    return { head, quiet: org ? `You're the owner of ${org}. You can invite your team and add your first role whenever you're ready.` : "Personal is yours alone, so only you can see what's in it. Tell Mind which role to start with whenever you're ready." };
+  }
   if (org) return { head, quiet: `You're the owner of ${org}. You can invite your team, assign work and see every campaign.` };
-  if (a.jd) return { head, quiet: "Mind is reading the job description and starting your first search. Personal is yours alone, so only you can see what's in it." };
+  if (a.jd) return { head, quiet: "Mind is reading the job description and drafting your first role spec for you to approve. Personal is yours alone, so only you can see what's in it." };
   return { head, quiet: "Your first campaign is ready. Mind will ask for the job description. Personal is yours alone, so only you can see what's in it." };
 }
 

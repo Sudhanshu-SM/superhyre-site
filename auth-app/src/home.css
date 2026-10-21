@@ -53,7 +53,7 @@
 .hm-camps { grid-column: span 5; animation-delay: 120ms; }
 /* Coming up: what the agent has set up for later, the next five. Its list scrolls inside the tile. */
 .hm-coming { grid-column: span 5; animation-delay: 160ms; }
-.hm-coming-b { flex: 1; min-height: 0; overflow-y: auto; padding: 0 var(--hm-tx) 14px; scrollbar-width: thin; scrollbar-color: #e8e1da transparent; }
+.hm-coming-b { flex: 1; min-height: 0; overflow-y: auto; padding: 0 var(--hm-tx) 14px; scrollbar-width: none; }
 .hm-coming-b .sc-more { padding-top: 6px; }
 
 /* ── tile header (`.bx-h` values; the padding lives here so bodies can bleed) ──
@@ -89,7 +89,7 @@
 .hm-cl button:focus-visible, .hm-done-h:focus-visible, .hm-fact:focus-visible, .hm-ins .hm-story:focus-visible, .hm-car .hm-feat:focus-visible {
   outline: 2px solid var(--focus); outline-offset: -2px;
 }
-.hm-today-b, .hm-cl { scrollbar-width: thin; scrollbar-color: #e8e1da transparent; }
+.hm-today-b, .hm-cl { scrollbar-width: none; }
 
 /* ═══ tasks: Up next, a quiet checklist, finished work folded ═══ */
 /* the day line: what the day feels like ("Good start") over the count, and
@@ -203,7 +203,7 @@
 
 /* the done fold: outside the scroller, always in view above quick add */
 .hm-done { flex: none; margin: 0 var(--hm-fx); padding-top: 4px; border-top: 1px solid #f3eee9; }
-.hm-done .hm-list { max-height: 120px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #e8e1da transparent; }
+.hm-done .hm-list { max-height: 120px; overflow-y: auto; scrollbar-width: none; }
 .hm-done-h { width: 100%; display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 8px 0 var(--hm-ix); border: 0; border-radius: 10px; background: none; color: #2f7a47; cursor: pointer; transition: background 160ms; }
 .hm-done-h:hover { background: #f4faf5; }
 .hm-done-s { flex: none; margin-left: -4px; color: #f3a172; }
@@ -269,35 +269,58 @@
 .hm-spark-l { fill: none; stroke: var(--hue); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .hm-spark-d { fill: #fff; stroke: var(--hue); stroke-width: 1.6; }
 
-/* ═══ active campaigns: a name, one quiet line, hires in words ═══
-   Fixed 46px rows. The hires sit on the tile's text edge at rest, with a slim
-   mint bar of the way to goal; the hover arrow is laid over that edge and
-   the hires slide left to make room. */
-.hm-cl { flex: 1; min-height: 0; margin: 0 0 6px; padding: 0 10px 0 var(--hm-fx); list-style: none; overflow: hidden; }
-.hm-cl li { position: relative; animation: hm-in 320ms var(--ease-out) backwards; }
-.hm-cl li.hm-cl-more { animation: none; }
-.hm-cl li + li button::before { content: ""; position: absolute; left: var(--hm-ix); right: 10px; top: 0; height: 1px; background: #f3eee9; transition: opacity 160ms; }
-.hm-cl li:hover button::before, .hm-cl li:hover + li button::before { opacity: 0; }
-.hm-cl button {
-  position: relative; width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 14px;
-  height: 46px; padding: 0 10px 0 var(--hm-ix); border: 0; border-radius: 12px; background: none; text-align: left; cursor: pointer; transition: background 160ms;
+/* ═══ active campaigns: a bento of tiles ═══
+   Each campaign is one tile of a six-column bento (HomeCards.tsx says where each goes, as grid lines, and what each says
+   for its size): its ring (StageDonut.tsx) and its name, a slim hires bar, one row per funnel step reached with a bar as long
+   as its share, on a soft vertical gradient. The first (latest) tile has a warm brand wash, in tokens so it follows the
+   theme. On hover or focus the ring lifts a hair, the tile gets a soft shadow, and a card with the stage counts opens
+   beside the ring. A strip or the whole card puts the ring beside its words; the others hang the words under it. */
+.hm-cl {
+  flex: 1; min-height: 0; margin: 0 0 6px; padding: 0 var(--hm-fx); list-style: none; overflow: hidden; overflow: clip; overflow-clip-margin: 18px;
+  display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); grid-template-rows: repeat(var(--rows, 3), var(--rh, 150px));
+  gap: 12px; align-content: start;
 }
-.hm-cl button:hover { background: #fbf8f6; }
-.hm-cl-t { min-width: 0; display: grid; gap: 4px; }
-.hm-cl-t strong { color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hm-cl-t small { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--ink-2); white-space: nowrap; }
-.hm-cl-t small span { overflow: hidden; text-overflow: ellipsis; }
-.hm-cl-t small::before { content: ""; flex: none; width: 6px; height: 6px; border-radius: 50%; background: #ddd5ce; }
-.hm-cl-t small.is-you::before { background: #f0b65a; }
-.hm-cl-t small.is-good::before { background: #4ea566; }
-.hm-cl-r { display: inline-flex; align-items: center; gap: 10px; transition: transform 220ms var(--ease-out); }
-.hm-cl button:hover .hm-cl-r, .hm-cl button:focus-visible .hm-cl-r { transform: translateX(-18px); }
-.hm-cl-bar { flex: none; width: 44px; height: 4px; border-radius: 2px; background: #f1ebe5; overflow: hidden; }
-.hm-cl-bar i { display: block; height: 100%; min-width: 4px; border-radius: 2px; background: #7cc191; }
-.hm-cl-n { color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.hm-cl-n b { font-weight: 600; color: var(--ink); }
-.hm-cl-go { position: absolute; right: 10px; top: 50%; translate: 0 -50%; color: var(--ink-2); opacity: 0; transform: translateX(-4px); transition: opacity 160ms, transform 220ms var(--ease-out); }
-.hm-cl button:hover .hm-cl-go, .hm-cl button:focus-visible .hm-cl-go { opacity: 1; transform: none; }
+.hm-cl li { position: relative; min-width: 0; min-height: 0; animation: hm-in 320ms var(--ease-out) backwards; }
+.hm-cl li.hm-cl-more { animation: none; grid-column: 1 / -1; grid-row: calc(var(--rows, 3) + 1); }
+.hm-cl button {
+  width: 100%; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 6px;
+  padding: 14px; overflow: hidden; border: 1px solid #efe9e4; border-radius: 18px; background: linear-gradient(180deg, #fff 0, #f1ebe6 100%);
+  text-align: left; cursor: pointer; transition: box-shadow 200ms var(--ease-out), border-color 160ms;
+}
+.hm-cl button:hover, .hm-cl button:focus-visible { border-color: #e6dfd8; box-shadow: 0 12px 24px -16px rgba(58, 35, 23, 0.3); }
+.hm-cl li.is-first button {
+  border-color: color-mix(in srgb, var(--accent-fill) 20%, var(--card));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent-fill) 4%, var(--card)), color-mix(in srgb, var(--accent-fill) 11%, var(--card)));
+}
+.hm-cl li.is-first button:hover, .hm-cl li.is-first button:focus-visible { border-color: color-mix(in srgb, var(--accent-fill) 34%, var(--card)); }
+.hm-cl-d { flex: none; display: inline-grid; place-items: center; transition: transform 220ms var(--ease-out); }
+.hm-cl button:hover .hm-cl-d, .hm-cl button:focus-visible .hm-cl-d { transform: translateY(-2px); }
+.hm-cl-t { min-width: 0; max-width: 100%; display: grid; gap: 2px; }
+.hm-cl-t strong { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; color: var(--ink); }
+.hm-cl-t small { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; overflow: hidden; overflow-wrap: anywhere; color: var(--ink-2); font: var(--type-caption); letter-spacing: var(--track-caption); }
+.hm-cl li.is-hero .hm-cl-t strong { font: var(--type-title-sm); letter-spacing: var(--track-title-sm); }
+.hm-cl li.is-tall small.hm-cl-need, .hm-cl li.is-hero small.hm-cl-need { -webkit-line-clamp: 2; }
+.hm-cl-need { color: var(--accent-text); }
+/* the strip and the whole card: the ring beside its words */
+.hm-cl li.is-wide button, .hm-cl li.is-full button { flex-direction: row; align-items: center; justify-content: flex-start; gap: 18px; }
+.hm-cl li.is-wide .hm-cl-t { flex: 1; }
+.hm-cl-g { display: contents; }
+/* a big tile fills: the name and client at the top, the progress rows in the middle, the hires bar and what waits at the foot, spread over the tile's height */
+.hm-cl li.is-hero .hm-cl-t, .hm-cl li.is-tall .hm-cl-t { flex: 1; align-self: stretch; display: flex; flex-direction: column; justify-content: space-between; gap: 8px; }
+.hm-cl-top, .hm-cl-bot { display: grid; gap: 2px; min-width: 0; }
+/* how far people got: each funnel step's name in its colour (Found in the quiet ink), a bar as long as its share of the most, the count */
+.hm-cl-pp { display: grid; grid-template-columns: minmax(0, auto) minmax(24px, 1fr) auto; align-items: center; gap: 4px 10px; grid-auto-rows: calc(16px + var(--x, 0px)); min-width: 0; font: var(--type-caption); letter-spacing: var(--track-caption); }
+.hm-cl-pr { display: contents; }
+.hm-cl-pr .sd-name, .hm-cl-pn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hm-cl-pn { color: var(--ink-2); }
+.hm-cl-pr b { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; text-align: right; }
+.hm-cl-h { display: grid; gap: 4px; }
+/* the slim bar (a stage's share, the hires so far): a track, and a fill that grows in from the left */
+.hm-cl-bar { display: block; height: var(--bh, 4px); border-radius: 4px; overflow: hidden; background: var(--stage-track); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 6%, transparent); }
+.hm-cl-bar::after { content: ""; display: block; height: 100%; width: calc(var(--w, 1) * 100%); border-radius: inherit; background: var(--m); transform-origin: left center; animation: hm-cl-grow 640ms var(--ease-out) var(--d, 0ms) backwards; }
+.hm-cl li.is-mini .hm-cl-bar { height: 3px; margin-top: 6px; }
+.hm-cl li.is-wide .hm-cl-bar { margin-top: 6px; }
+@keyframes hm-cl-grow { from { transform: scaleX(0); } }
 .hm-cl-more { display: flex; align-items: center; height: 30px; box-sizing: border-box; padding: 6px 10px 0 var(--hm-ix); }
 .hm-cl-more a { color: var(--ink-2); text-decoration: none; border-radius: 4px; transition: color 160ms; }
 .hm-cl-more a:hover { color: var(--accent-text); }
@@ -400,7 +423,7 @@
   -webkit-mask-image: linear-gradient(180deg, transparent, #000 28px, #000 calc(100% - 40px), transparent);
   mask-image: linear-gradient(180deg, transparent, #000 28px, #000 calc(100% - 40px), transparent);
 }
-.hm-ticker.is-static { overflow-y: auto; scrollbar-width: thin; scrollbar-color: #e8e1da transparent; }
+.hm-ticker.is-static { overflow-y: auto; scrollbar-width: none; }
 .hm-stories { display: grid; gap: 2px; margin: 0; padding: 18px var(--hm-fx) 12px; list-style: none; will-change: transform; }
 .hm-ticker.is-static .hm-stories { will-change: auto; }
 .hm-story { display: flex; align-items: center; gap: 14px; padding: 10px 12px 10px var(--hm-ix); border-radius: 14px; text-decoration: none; color: inherit; transition: background 160ms; }
@@ -456,9 +479,10 @@
   .hm-ins { grid-column: 8 / span 5; grid-row: 1; }
   .hm-week { grid-column: 1 / span 7; grid-row: 2; }
   .hm-camps { grid-column: 8 / span 5; grid-row: 2; }
-  /* The live console has no Insights tile (nothing real to put there): the day's work beside the campaigns, and
-     the week's four numbers across the foot. */
-  .hm-bento.is-three .hm-camps { grid-column: 8 / span 5; grid-row: 1; }
+  /* The live console has no Insights tile (nothing real to put there): the day's work beside the campaigns, half
+     and half (the campaigns' bento wants the width), and the week's four numbers across the foot. */
+  .hm-bento.is-three .hm-today { grid-column: 1 / span 6; }
+  .hm-bento.is-three .hm-camps { grid-column: 7 / span 6; grid-row: 1; }
   .hm-bento.is-three .hm-week { grid-column: 1 / -1; grid-row: 2; }
   .hm-bento.is-three .hm-quad { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: 1fr; }
   .hm-bento.is-three .hm-quad-c,
@@ -468,10 +492,10 @@
   .hm-bento.is-three .hm-quad-c::before,
   .hm-bento.is-three .hm-quad-c:nth-child(n)::after { display: none; }
   .hm-bento.is-three .hm-quad-c:not(:last-child)::after { display: block; left: auto; right: 0; top: 8px; bottom: 8px; width: 1px; height: auto; }
-  /* With Coming up on the page the week shares its row: seven columns hold the four numbers two by two, as in the
-     fixtures' tile, and Coming up takes the five beside it. */
-  .hm-bento.is-three:has(> .hm-coming) .hm-week { grid-column: 1 / span 7; }
-  .hm-bento.is-three:has(> .hm-coming) .hm-coming { grid-column: 8 / span 5; grid-row: 2; }
+  /* With Coming up on the page the week shares its row: six columns hold the four numbers two by two and Coming up
+     takes the other six, so both rows share one gutter with the day's work and the campaigns above. */
+  .hm-bento.is-three:has(> .hm-coming) .hm-week { grid-column: 1 / span 6; }
+  .hm-bento.is-three:has(> .hm-coming) .hm-coming { grid-column: 7 / span 6; grid-row: 2; }
   .hm-bento.is-three:has(> .hm-coming) .hm-quad { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
   .hm-bento.is-three:has(> .hm-coming) .hm-quad-c { padding: 8px 24px 8px 0; }
   .hm-bento.is-three:has(> .hm-coming) .hm-quad-c:nth-child(even) { padding: 8px 0 8px 24px; }
@@ -526,6 +550,13 @@
   .hm-ticker { height: 340px; flex: none; }
   .hm-quad { min-height: 200px; }
 }
+/* A small laptop with the sidebar open, a tablet, a phone: the tiles stack in one column, each as wide as the page
+   (Your week and Active campaigns side by side were 330px each at 1024, and the campaigns' rings had two columns of
+   nothing). The campaigns' grid then re-counts its columns from the tile's own width (HomeCards useFit). */
+@media (max-width: 1100px) {
+  .hm-bento { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .hm-bento > * { grid-column: auto !important; }
+}
 /* touch tablets: the page scrolls, so no list scrolls inside it */
 @media (max-width: 1240px) and (hover: none) {
   .hm-ticker, .hm-ticker.is-static { height: auto; overflow: visible; -webkit-mask-image: none; mask-image: none; }
@@ -555,7 +586,6 @@
   .hm-spark { margin-left: 0; }
   .hm-quad-c:nth-child(n + 3) { padding-bottom: 14px; }
   .hm-quad-c:nth-child(3)::after { bottom: 14px; }
-  .hm-cl-bar { display: none; }
   .con-main .orc-main:has(.hm-bento) .orc-page { min-width: 0; flex-wrap: wrap; gap: 12px; }
   .con-main .orc-stream:has(> .hm-bento) { min-width: 0; }
   /* the select takes the row, the button shrinks to a round "+", so the
@@ -583,11 +613,11 @@
   .hm-car-btns button::after { content: ""; position: absolute; inset: -4px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .hm-card, .hm-quad-c, .hm-cl li, .hm-list li, .hm-next, .hm-clear, .hm-live,
+  .hm-card, .hm-quad-c, .hm-cl li, .hm-cl-bar::after, .hm-cl-hint, .hm-list li, .hm-next, .hm-clear, .hm-live,
   .is-leaving .hm-check, .hm-ring.is-pop, .hm-burst i, .hm-done.is-cheer .hm-done-s, .hm-done.is-cheer .hm-done-n { animation: none; }
   .hm-burst { display: none; }
-  .hm-go-i svg, .hm-cl-r, .hm-cl-go, .hm-check svg, .hm-next, .hm-list li, .hm-row-hand, .hm-feat-media > img, .hm-ring-f, .hm-car-prog button::before, .hm-feat-go, .hm-story-go, .hm-fact-go, .hm-th-go, .hm-car-btns button, .hm-cl-r, .hm-next-done { transition: none; }
-  .hm-list li.is-leaving, .hm-next.is-leaving, .hm-feat:hover .hm-feat-media > img { transform: none; }
+  .hm-go-i svg, .hm-cl-d, .hm-check svg, .hm-next, .hm-list li, .hm-row-hand, .hm-feat-media > img, .hm-ring-f, .hm-car-prog button::before, .hm-feat-go, .hm-story-go, .hm-fact-go, .hm-th-go, .hm-car-btns button, .hm-next-done { transition: none; }
+  .hm-list li.is-leaving, .hm-next.is-leaving, .hm-feat:hover .hm-feat-media > img, .hm-cl button:hover .hm-cl-d, .hm-cl button:focus-visible .hm-cl-d { transform: none; }
 }
 
 /* ═══════════ v6: depth & edges ═══════════
@@ -642,7 +672,7 @@
 .hm-logo, .hm-badge { box-shadow: 0 0 0 1px rgba(58, 35, 23, 0.06), 0 2px 5px -2px rgba(58, 35, 23, 0.22); }
 
 /* controls: a soft raised edge, pressed on :active */
-.hm-th-go, .hm-car-btns button, .hm-cl-go {
+.hm-th-go, .hm-car-btns button {
   border-color: var(--hm-edge); border-bottom-color: var(--hm-edge-b);
   box-shadow: var(--hm-hl), 0 1px 2px rgba(58, 35, 23, 0.06);
 }
@@ -658,7 +688,7 @@
 .hm-add:focus-within { box-shadow: 0 0 0 4px #fdeae0; }
 
 /* rows lift a hair on hover instead of only changing colour */
-.hm-story, .hm-fact, .hm-list li, .hm-cl li > * { transition: background 160ms, box-shadow 200ms var(--ease-out); }
+.hm-story, .hm-fact, .hm-list li, .hm-cl li > * { transition: background 160ms, border-color 160ms, box-shadow 200ms var(--ease-out); }
 .hm-story:hover, .hm-fact:hover { box-shadow: 0 0 0 1px rgba(58, 35, 23, 0.04), 0 6px 14px -10px rgba(58, 35, 23, 0.22); }
 
 @media (prefers-reduced-motion: reduce) { .hm-card, .hm-story, .hm-fact { transition: none; } }
@@ -727,7 +757,7 @@
 }
 .hm-card > .hm-th::after { background: linear-gradient(90deg, transparent, #ebe3db 10%, #ebe3db 90%, transparent); }
 .hm-next { border-color: #efd9c8; border-bottom-color: #e6c9b3; }
-.hm-list li + li::before, .hm-cl li + li button::before { background: #eee7e0 !important; }
+.hm-list li + li::before { background: #eee7e0 !important; }
 .hm-quad-c { border-color: #ebe3db !important; }
 .hm-quad > *::before, .hm-quad::before, .hm-quad::after { background-color: #ebe3db; }
 .hm-story, .hm-fact { box-shadow: 0 0 0 1px transparent; }
@@ -829,13 +859,13 @@ a.hm-tl-t { text-decoration: none; }
 .hm-date { font: var(--type-body); letter-spacing: var(--track-body); }
 .hm-th h2, .hm-feat-t strong, .hm-clear p strong { font: var(--type-title-sm); letter-spacing: var(--track-title-sm); }
 .hm-n { padding: 0; border-radius: 0; background: none; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-3); font-variant-numeric: tabular-nums; }
-.hm-th > small, .hm-quad-l, .hm-quad-v small, .hm-cl-t small, .hm-cl-n, .hm-tl-camp { font: var(--type-body-sm); letter-spacing: var(--track-body-sm); }
+.hm-th > small, .hm-quad-l, .hm-quad-v small, .hm-tl-camp { font: var(--type-body-sm); letter-spacing: var(--track-body-sm); }
 .hm-prog small, .hm-feat-m, .hm-story-m, .hm-tl-due, .hm-add kbd { font: var(--type-caption); letter-spacing: var(--track-caption); font-variant-numeric: tabular-nums; }
-.hm-prog small b, .hm-next-done, .hm-done-h, .hm-cl-more a, .hm-feed-more, .hm-feed-h, .hm-fact-k, .hm-tl-cols, .hm-tl-gt { font: var(--type-label); letter-spacing: var(--track-label); text-transform: none; }
+.hm-prog small b, .hm-next-done, .hm-done-h, .hm-cl-t strong, .hm-cl-more a, .hm-feed-more, .hm-feed-h, .hm-fact-k, .hm-tl-cols, .hm-tl-gt { font: var(--type-label); letter-spacing: var(--track-label); text-transform: none; }
 .hm-feed-h { color: var(--ink-2); }
 .hm-ring b { font: var(--type-caption); font-weight: 600; font-variant-numeric: tabular-nums; }
 .hm-clear p, .hm-add input, .hm-feat-s, .hm-fact-x { font: var(--type-body); letter-spacing: var(--track-body); }
-.hm-cl-t strong, .hm-story-t strong, .hm-tl-t { font: var(--type-body-strong); letter-spacing: var(--track-body-strong); }
+.hm-story-t strong, .hm-tl-t { font: var(--type-body-strong); letter-spacing: var(--track-body-strong); }
 .hm-quad-v strong { font: var(--type-num-lg); letter-spacing: var(--track-num-lg); font-variant-numeric: tabular-nums; }
 .hm-up { font: var(--type-caption); font-weight: 500; letter-spacing: var(--track-caption); }
 .hm-empty { font: var(--type-body-lg); letter-spacing: var(--track-body-lg); }
@@ -844,7 +874,7 @@ a.hm-tl-t { text-decoration: none; }
 .hm-tl-st, .hm-tl-st.is-todo, .hm-tl-st.is-doing, .hm-tl-st.is-wait, .hm-tl-st.is-done { height: auto; padding: 0; border: 0; border-radius: 0; background: none; font: var(--type-caption); font-weight: 500; }
 /* no decorative dots: group, quarter, campaign and status markers */
 .hm-tl-dot, .hm-tl-camp i, .hm-live { display: none; }
-.hm-quad-l::before, .hm-cl-t small::before { content: none; }
+.hm-quad-l::before { content: none; }
 .hm-tl-camp i { margin: 0; }
 /* fit with the bigger numbers: Your week's quarters need ~200px, so the
    context row keeps that and the top tiles (which scroll inside) give it */
@@ -942,41 +972,20 @@ a.hm-tl-t { text-decoration: none; }
 }
 
 /* ═══ active campaigns, v2: room to read ═══
-   24px of padding; 16px between the header and the list; rows of 58px (12px above and below a name and one
-   muted line) in a plain three-column grid: the name, a fixed 96px bar, and "N of M hired" right-aligned in
-   its own column in tabular figures. The heading rule is a hairline here. The arrow on hover is laid over the
-   row's right padding, so nothing shifts. At most six rows; the rest fold into one quiet link. */
+   24px of padding; 16px between the header and the bento. The heading rule is a hairline here. The "+N more / View
+   all" line spans the grid and its text sits on the tile's own text edge, the same 24px as the header's title. */
 .hm-camps { --hm-tx: 24px; --hm-fx: 12px; }
 .hm-camps .hm-th { padding: 24px 24px 0 var(--hm-tx); }
 .hm-camps > .hm-th::after { display: none; }
 .hm-camps .hm-n { padding: 0; border-radius: 0; background: none; color: var(--ink-2); font-weight: 400; }
 .hm-camps .hm-cl { margin: 16px 0 12px; padding: 0 var(--hm-fx); }
-.hm-camps .hm-cl li + li button::before { left: var(--hm-ix); right: var(--hm-ix); }
-.hm-camps .hm-cl button {
-  display: grid; grid-template-columns: minmax(0, 1fr) 96px 80px; align-items: center; column-gap: 16px;
-  height: auto; min-height: 58px; padding: 12px var(--hm-ix) 12px var(--hm-ix); border-radius: 12px;
-}
-.hm-camps .hm-cl-t { gap: 0; }
-.hm-camps .hm-cl-t strong { font: 500 15px/18px var(--ui); letter-spacing: -0.006em; }
-.hm-camps .hm-cl-t small { font: 400 13px/16px var(--ui); gap: 0; color: var(--ink-2); }
-.hm-camps .hm-cl-t small::before { display: none; }
-.hm-camps .hm-cl-bar { width: 96px; height: 4px; }
-.hm-camps .hm-cl-n { text-align: right; font-variant-numeric: tabular-nums; transition: transform 220ms var(--ease-out); }
-/* the arrow is laid over the right edge; the hires slide left to make room for it, as they always did */
-.hm-camps .hm-cl button:hover .hm-cl-n, .hm-camps .hm-cl button:focus-visible .hm-cl-n { transform: translateX(-20px); }
-.hm-camps .hm-cl-go { right: var(--hm-ix); }
-.hm-camps .hm-cl-more { height: auto; padding: 0 var(--hm-fx); }
+.hm-camps .hm-cl-more { height: auto; padding: 0; }
 .hm-camps .hm-cl-more a {
   flex: 1; display: flex; align-items: center; justify-content: space-between; padding: 12px var(--hm-ix);
   border-radius: 12px; color: var(--ink-2);
 }
 .hm-camps .hm-cl-more a span { color: var(--ink-2); }
 .hm-camps .hm-cl-more a:hover, .hm-camps .hm-cl-more a:hover span { color: var(--accent-text); }
-@media (max-width: 760px) {
-  /* phones: no bar, the hires on the right; the arrow stays out of the way */
-  .hm-camps .hm-cl button { grid-template-columns: minmax(0, 1fr) auto; }
-  .hm-camps .hm-cl-go { display: none; }
-}
 
 
 /* ═══ an empty card: picture, headline, one line, one action ═══
@@ -1001,12 +1010,12 @@ a.hm-tl-t { text-decoration: none; }
 .hm-coming-b:has(> .hm-es) { display: flex; flex-direction: column; padding-top: 0; }
 @media (prefers-reduced-motion: reduce) { .hm-es { animation: none; } }
 
-/* ═══ active campaigns, filled: the list takes the card's height ═══
-   Rows are measured against the card (HomeCards.tsx, 4 to 10 of them). When some are left out, the one quiet
-   "+N more / View all" line is pinned to the card's bottom, so what is left over is never more than a row. */
-.hm-camps .hm-cl { display: flex; flex-direction: column; }
-.hm-camps .hm-cl > li { flex: none; }
-.hm-camps .hm-cl > .hm-cl-more { margin-top: auto; }
+/* ═══ active campaigns, filled: the bento sits under the title ═══
+   The rows of tiles share the card's height (HomeCards.tsx counts three rows, or two in a short card, and sets their
+   height), and the rings grow with their tile. When every campaign is still waiting for its first people, one calm
+   line and a quiet link sit under the grid. */
+.hm-cl-hint { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0 var(--hm-tx) 22px; text-align: center; animation: hm-in 420ms var(--ease-out) 360ms backwards; }
+.hm-cl-hint p { margin: 0; max-width: 34ch; color: var(--ink-2); font: var(--type-body-sm); letter-spacing: var(--track-body-sm); }
 
 /* ═══ coming up, v2: room to read ═══
    24px above the title and 16px from it to the first row; rows 64px tall with 12px above and below, the time and
@@ -1020,3 +1029,7 @@ a.hm-tl-t { text-decoration: none; }
 .hm-coming-b .sc-list.is-compact .sc-row:first-child { padding-top: 12px; }
 .hm-coming-b .sc-list.is-compact > .sc-row:last-child { border-bottom: 0; }
 .hm-coming-b .sc-list.is-compact .sc-when, .hm-coming-b .sc-list.is-compact .sc-acts { align-self: center; }
+
+/* Home's lists scroll without a bar: the bar's pale thumb was the loudest thing in a card. */
+.hm-coming-b::-webkit-scrollbar, .hm-today-b::-webkit-scrollbar, .hm-cl::-webkit-scrollbar,
+.hm-done .hm-list::-webkit-scrollbar, .hm-ticker.is-static::-webkit-scrollbar { display: none; }

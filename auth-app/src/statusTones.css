@@ -1,29 +1,19 @@
-/* The colour of a status word (statusTones.ts). Text only. Light on the left, dark below; every value is
-   measured on the surfaces a status lands on: the card, a hovered row and a chosen row.
-
-   light (on #ffffff / #fcfaf8 / #fff7f1 / #f3f2f0)        dark (on #171717 / #1f1f1f / #262626)
-     outreach     #8a5a00   5.93  5.69  5.60  5.30            #e2b24f   9.15  8.41  7.72
-     replied      #1d7a3a   5.39  5.18  5.09  4.82            #6fcf8c   9.37  8.62  7.91
-     interviewing #1f5fb8   6.20  5.95  5.85  5.54            #86b4f2   8.39  7.71  7.08
-     hired        #a8400f   6.17  5.92  5.82  5.51            #ff8f5c   7.97  7.33  6.73
-     passed       #9a4535   6.41  6.16  6.05  5.73            #dc8f80   7.07  6.50  5.97
+/* The colour of a status word (statusTones.ts). Text only. A word that is also a pipeline stage wears that stage's text
+   colour (the --stage-<key>-text tokens: access.css for light, theme/theme.css for dark), so Hired, In outreach,
+   Interviewing and Passed read the same here as on the board, the donut and the funnel. Replied is teal, apart from
+   them. Each is measured at 4.5:1 or better on every surface a status lands on (the card, a hovered row, a chosen
+   row, a plane inside a card) by __tests__/statusTones.test.ts and __tests__/stageColors.test.ts.
+     outreach blue, replied teal, interviewing amber, hired green, passed rose.
    muted and ink are the console's own --ink-2 and --ink. */
 
 :root {
   --st-muted: var(--ink-2);
   --st-ink: var(--ink);
-  --st-outreach: #8a5a00;
-  --st-replied: #1d7a3a;
-  --st-interviewing: #1f5fb8;
-  --st-hired: #a8400f;
-  --st-passed: #9a4535;
-}
-html:root[data-theme="dark"] {
-  --st-outreach: #e2b24f;
-  --st-replied: #6fcf8c;
-  --st-interviewing: #86b4f2;
-  --st-hired: #ff8f5c;
-  --st-passed: #dc8f80;
+  --st-outreach: var(--stage-blue-text);
+  --st-replied: var(--stage-teal-text);
+  --st-interviewing: var(--stage-amber-text);
+  --st-hired: var(--stage-green-text);
+  --st-passed: var(--stage-rose-text);
 }
 
 /* `html` first: one step more specific than the stage colours the pages had, whatever order they arrive in. */

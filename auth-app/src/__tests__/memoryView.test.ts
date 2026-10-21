@@ -16,7 +16,7 @@ let n = 0;
 const note = (over: Partial<MemoryItem> = {}): MemoryItem => ({
   id: `m${++n}`, text: "Acme wants a budget under 40 lakh", kind: "fact", scope: "client", level: "client",
   clientId: "cl1", clientName: "Acme Robotics", campaignId: null, campaignName: null, personLabel: null,
-  about: [], at: "2026-10-08T10:00:00.000Z", type: "facts", episode: null, basis: null, lastUsedAt: null, expiresAt: null,
+  about: [], at: "2026-10-08T10:00:00.000Z", type: "facts", episode: null, basis: null, lastUsedAt: null, expiresAt: null, doubted: null, turnedDown: 0,
   status: "active", trust: "agent", source: "distil", quote: null, confidence: 0.8,
   createdAt: "2026-10-08T10:00:00.000Z", updatedAt: "2026-10-08T10:00:00.000Z", supersededBy: null, usedCount: 0, ...over,
 });
@@ -257,7 +257,7 @@ describe("how often and when a note was used", () => {
       now,
     );
     expect(line).toBe(
-      "Turned down · For Data Engineer (Acme Robotics) · About Diya Thomas · Used 2 times, last yesterday · 4 Oct",
+      "Rejected · For Data Engineer (Acme Robotics) · About Diya Thomas · Used 2 times, last yesterday · 4 Oct",
     );
     expect(happenedLine(note({ kind: "episode", type: "happened", episode: "session", level: "recruiter", at: at(10, 12, 9) }), now)).toBe(
       "A chat · Just for you · Today",

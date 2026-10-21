@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Invitation, OrgMatch } from "../api/onboarding";
-import { landingPlace, needsSetup } from "../setup/lean/gate";
+import { finishedFrom, landingPlace, needsSetup } from "../setup/lean/gate";
 import { padBeat, padRows } from "../setup/lean/Pad";
 import {
   type Answers,
@@ -18,9 +18,12 @@ import {
   finishBody,
   firstBeatOf,
   firstName,
+  foundClientOf,
   fromSaved,
   initialsOf,
   isBareUrl,
+  JD_FILE_ACCEPT,
+  jdFileProblem,
   JD_MAX,
   nameFromDomain,
   nameProblem,
@@ -32,6 +35,8 @@ import {
   reachable,
   readyWords,
   roleProblem,
+  ROLE_LATER,
+  roleSkipped,
   roleText,
   settle,
   teamWords,
@@ -121,6 +126,17 @@ describe("what counts as a role, a job description and a company", () => {
     expect(checkJd("Backend dev")).toMatchObject({ ok: false });
   });
 
+  it("takes a PDF, Word or text file for the description, and says why not for anything else", () => {
+    expect(JD_FILE_ACCEPT).toBe(".pdf,.docx,.txt,.md");
+    for (const name of ["jd.pdf", "role.DOCX", "notes.txt", "jd.md"]) {
+      expect(jdFileProblem({ name, type: "", size: 2048 }), name).toBeNull();
+    }
+    expect(jdFileProblem({ name: "jd.docx", type: "", size: 0 })).toMatch(/empty/);
+    expect(jdFileProblem({ name: "jd.pdf", type: "application/pdf", size: 11 * 1024 * 1024 })).toMatch(/over 10 MB/);
+    expect(jdFileProblem({ name: "jd.doc", type: "application/msword", size: 2048 })).toMatch(/\.docx or PDF/);
+    expect(jdFileProblem({ name: "scan.png", type: "image/png", size: 2048 })).toMatch(/PDF, Word \(\.docx\) or text/);
+  });
+
   it("takes only a name for a client or an organisation: no address", () => {
     expect(validCompany("  Acme   Corp ")).toBe("Acme Corp");
     expect(validCompany("A")).toBeNull();
@@ -155,7 +171,7 @@ describe("the words", () => {
   it("asks for the job description right after the role, and says when sourcing starts", () => {
     expect(words("role", EMPTY).head).toEqual(["Which role should we start with?"]);
     expect(words("jd", EMPTY).head).toEqual(["Paste the *job description*."]);
-    expect(words("jd", EMPTY).quiet).toBe("Mind starts sourcing as soon as you finish setting up.");
+    expect(words("jd", EMPTY).quiet).toBe("Mind reads it and drafts the role spec. You approve it before anything starts.");
   });
 
   it("asks about a client by name only, and says so", () => {
@@ -165,9 +181,29 @@ describe("the words", () => {
     expect(ask.quiet).toMatch(/company name/);
   });
 
+  it("when the job description names the client, offers it to confirm instead of asking blank", () => {
+    const named = { ...forClient, forClient: null, client: null, jd: "Senior Data Engineer\nClient: Tessellate Analytics\nPune, hybrid. 6+ years of Spark." };
+    expect(foundClientOf(named)).toBe("Tessellate Analytics");
+    const found = words("client", named, { foundClient: "Tessellate Analytics" });
+    expect(found.head).toEqual(["The client is *Tessellate Analytics*.", "Right?"]);
+    expect(found.quiet).toMatch(/job description/);
+    // Changing it asks for the name, as before.
+    expect(words("client", named, { foundClient: "Tessellate Analytics", askingClient: true }).head[0]).toBe("Who is *Data Engineer* for?");
+    // Nothing named, nothing offered: the usual question.
+    expect(foundClientOf({ ...named, jd: JD })).toBeNull();
+    expect(words("client", named, { foundClient: null }).head[0]).toBe("Is *Data Engineer* for a client?");
+    // Their own organisation is not their client, and a skipped description or role offers nothing.
+    expect(foundClientOf({ ...named, jd: "Client: Northstar Talent Pvt Ltd" })).toBeNull();
+    expect(foundClientOf({ ...named, jd: null })).toBeNull();
+    expect(foundClientOf({ ...named, role: ROLE_LATER })).toBeNull();
+    expect(foundClientOf({ ...named, team: null, jd: "Hiring for Orbit Staffing" }, "Orbit Staffing")).toBeNull();
+  });
+
   it("asks the personal address for an organisation, and a work address whether this is for a team or just them", () => {
     const a = { ...EMPTY, name: "Arnab Jay" };
     expect(teamWords("ask", a, "").head.at(-1)).toBe("Which *organisation* do you work with?");
+    // The question stands on its own: no explaining line under it.
+    expect(teamWords("ask", a, "").quiet).toBeNull();
     expect(teamWords("create", a, "Acme").head.at(-1)).toBe("Is this for *Acme*, or just you?");
     expect(teamWords("create", a, "").head.at(-1)).toMatch(/team/);
     expect(teamWords("create", a, "Acme").quiet).toMatch(/Personal, which only you can see/);
@@ -182,7 +218,7 @@ describe("the words", () => {
   it("says Personal is private when no organisation was made, and what Mind does next", () => {
     const solo: Answers = { ...forClient, team: { kind: "personal" } };
     expect(readyWords(solo).quiet).toMatch(/Personal is yours alone/);
-    expect(readyWords(solo).quiet).toMatch(/reading the job description and starting your first search/);
+    expect(readyWords(solo).quiet).toMatch(/reading the job description and drafting your first role spec for you to approve/);
     expect(readyWords({ ...solo, jd: null }).quiet).toMatch(/ask for the job description/);
     // Asked to join and carrying on: not an admin of anything yet.
     expect(readyWords({ ...forClient, team: { kind: "asked", name: "Northstar Talent" } }).quiet).not.toMatch(/admin/);
@@ -401,6 +437,81 @@ describe("your team", () => {
   it("carries on in Personal while a request is waiting, whether it was made now or before", () => {
     expect(resolveTeam({ invitations: [], domain: acme }, 0, { ...work, pending: "Acme Hire" }, none)).toEqual({ v: "sent", name: "Acme Hire" });
     expect(resolveTeam({ invitations: [], domain: acme }, 0, work, { team: { kind: "asked", name: "Acme Hire" } })).toEqual({ v: "sent", name: "Acme Hire" });
+  });
+});
+
+describe("carrying on without a first role", () => {
+  const later: Answers = { ...EMPTY, name: "Arnab Jay", team: { kind: "create", name: "Northstar Talent" }, role: ROLE_LATER };
+
+  it("is an answer of its own, with no title", () => {
+    expect(ROLE_LATER).toEqual({ kind: "later" });
+    expect(roleSkipped(later)).toBe(true);
+    expect(roleSkipped(forClient)).toBe(false);
+    expect(roleSkipped(EMPTY)).toBe(false);
+    expect(roleText(ROLE_LATER)).toBeNull();
+  });
+
+  it("leaves out the description and the client, which belong to a role", () => {
+    expect(beatsFor(later)).toEqual(["name", "team", "role", "powers", "finish"]);
+    expect(nextBeat("role", later)).toBe("powers");
+    expect(nextBeat("team", later)).toBe("role");
+    expect(progressOf("powers", later)).toBeCloseTo(0.75);
+    // A role that is not skipped keeps every beat.
+    expect(beatsFor(forClient)).toEqual(["name", "team", "role", "jd", "client", "powers", "finish"]);
+  });
+
+  it("forgets a description and a client given before the role was skipped", () => {
+    expect(settle({ ...forClient, role: ROLE_LATER })).toMatchObject({ role: { kind: "later" }, jd: null, forClient: null, client: null });
+  });
+
+  it("tells the server there is no role, so it makes no campaign", () => {
+    expect(finishBody(later)).toEqual({ fullName: "Arnab Jay", organisation: "Northstar Talent", role: null, jd: null, client: null });
+    expect(finishBody({ ...later, team: { kind: "personal" } })).toMatchObject({ organisation: null, role: null });
+    // Anything left over from before is not sent.
+    expect(finishBody({ ...forClient, role: ROLE_LATER })).toMatchObject({ role: null, jd: null, client: null });
+    // The person and their team are still needed.
+    expect(finishBody({ ...later, team: null })).toBeNull();
+    // A title is sent as it was.
+    expect(finishBody(forClient)).toMatchObject({ role: { kind: "title", title: "Data Engineer" }, jd: JD, client: "Acme" });
+  });
+
+  it("is kept between visits, and resumes past the beats it skips", () => {
+    const saved = toSaved("powers", later, true);
+    expect(saved.role).toEqual({ kind: "later" });
+    const back = fromSaved(JSON.parse(JSON.stringify(saved)));
+    expect(back?.answers.role).toEqual({ kind: "later" });
+    expect(back?.beat).toBe("powers");
+    // A beat that does not exist without a role lands on the next one that does.
+    expect(reachable("jd", later)).toBe("powers");
+    expect(reachable("client", later)).toBe("powers");
+    expect(fromSaved({ ...saved, beat: "jd" })?.beat).toBe("powers");
+    // The finish needs the same answers as it always did.
+    expect(reachable("finish", later)).toBe("finish");
+    expect(reachable("finish", { ...later, team: null })).toBe("team");
+  });
+
+  it("says what is being set up, and never a campaign that was not made", () => {
+    const head = (a: Answers) => words("finish", a).head.join(" ");
+    expect(head(later)).toBe("Setting up *Northstar Talent*.");
+    expect(head({ ...later, team: { kind: "personal" } })).toBe("Setting up *Personal*.");
+    expect(head(forClient)).toMatch(/first campaign/);
+    for (const a of [later, { ...later, team: { kind: "personal" } as const }]) {
+      const ready = readyWords(a);
+      expect(`${ready.head.join(" ")} ${ready.quiet}`).not.toMatch(/campaign|job description|search/i);
+      expect(ready.quiet).toMatch(/whenever you're ready/);
+    }
+    expect(readyWords({ ...later, team: { kind: "personal" } }).quiet).toMatch(/Personal is yours alone/);
+    expect(readyWords(later).quiet).toMatch(/owner of Northstar Talent/);
+  });
+
+  it("opens the console on Home when there is no campaign, and on its chat when there is", () => {
+    expect(finishedFrom({ campaignId: null, conversationId: null, organisationId: "o1" })).toEqual({ hash: "#/", conversationId: null, organisationId: "o1" });
+    expect(finishedFrom({ campaignId: "c1", conversationId: "t1", organisationId: null })).toEqual({ hash: "#/agent?campaign=c1", conversationId: "t1", organisationId: null });
+  });
+
+  it("has nothing on her pad for a role that is not there", () => {
+    expect(padRows("powers", later, {})).toEqual([]);
+    expect(padRows("team", later, {}).map((r) => r.key)).toEqual(["name", "organisation"]);
   });
 });
 

@@ -2,6 +2,7 @@ import { ArrowRight, Check } from "@phosphor-icons/react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Fragment, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError } from "../../api/client";
+import { isPlainText } from "../../attachments";
 import { Loader } from "../../components/Loader";
 import { readable } from "../../api/identity";
 import type { Invitation, OrgMatch } from "../../api/onboarding";
@@ -26,8 +27,11 @@ import {
   EMPTY,
   firstBeatOf,
   firstName,
+  foundClientOf,
   fromSaved,
   isBareUrl,
+  JD_FILE_ACCEPT,
+  jdFileProblem,
   JD_MAX,
   jdTryable,
   nameProblem,
@@ -38,7 +42,9 @@ import {
   progressOf,
   readyWords,
   roleProblem,
+  ROLE_LATER,
   ROLE_SUGGESTIONS,
+  roleSkipped,
   roleText,
   type Saved,
   settle,
@@ -82,12 +88,14 @@ export type Props = {
   resume?: unknown;
   /** Keeps the answers as they are given (live). Never holds the screen up. */
   onSave?: (saved: Saved) => void;
-  /** Makes the first campaign (and the organisation, if one was chosen) and starts the first search (live). */
+  /** Makes the first campaign (and the organisation, if one was chosen); Mind drafts its role spec for the person to approve (live). */
   onFinish?: (answers: Answers) => Promise<Finished>;
   /** She has gone through the door: open the console (live). */
   onComplete?: (done: Finished) => void;
   /** The team question's server calls (live). */
   team?: TeamApi;
+  /** The text of a file picked for the job description (live: the server reads it). Without it only a text file is read. */
+  readFile?: (file: File) => Promise<string>;
   onSignOut?: () => void;
 };
 
@@ -176,7 +184,7 @@ const variantOf = (): TeamVariant => {
   return VARIANTS.find((x) => x === v) ?? "work";
 };
 
-export function LeanSetup({ mode = "preview", account, resume, onSave, onFinish, onComplete, team: liveTeam, onSignOut }: Props): JSX.Element {
+export function LeanSetup({ mode = "preview", account, resume, onSave, onFinish, onComplete, team: liveTeam, readFile, onSignOut }: Props): JSX.Element {
   const systemReduce = useReducedMotion() ?? false;
   const [forceReduce, setForceReduce] = useState(false);
   const reduce = systemReduce || forceReduce;
@@ -382,12 +390,14 @@ export function LeanSetup({ mode = "preview", account, resume, onSave, onFinish,
   }
 
   const at = CHAPTER_OF[beat];
+  /* The client the job description names is asked as a question to confirm, not asked blank. */
+  const foundClient = beat === "client" ? foundClientOf(answers, domainName) : null;
   const w: Words =
     beat === "finish" && finish.ready
       ? readyWords(answers)
       : beat === "team"
         ? teamWords(team.view.v === "ask" ? "ask" : team.view.v === "create" ? "create" : "loading", answers, domainName)
-        : words(beat, answers, { askingClient: asking, hasJd: !!answers.jd });
+        : words(beat, answers, { askingClient: asking, hasJd: !!answers.jd, foundClient });
   const turnKey = awaken ? "awake" : beat === "finish" && finish.ready ? "ready" : beat === "team" ? `team-${team.view.v}` : beat === "client" && asking ? "client-asking" : beat;
 
   return (
@@ -473,6 +483,7 @@ export function LeanSetup({ mode = "preview", account, resume, onSave, onFinish,
                 exists={finish.exists}
                 retry={finish.retry}
                 asking={asking}
+                foundClient={foundClient}
                 setAsking={setAsking}
                 setDraft={setDraft}
                 give={give}
@@ -482,6 +493,7 @@ export function LeanSetup({ mode = "preview", account, resume, onSave, onFinish,
                 teamView={team.view.v}
                 domainName={domainName}
                 api={api}
+                readFile={readFile}
                 showTeam={team.show}
                 back={() => {
                   team.refresh();
@@ -603,21 +615,26 @@ function useFinishRows(on: boolean, reduce: boolean, a: Answers, run?: (a: Answe
   const role = roleText(a.role);
   const org = organisationOf(a);
   const creating = a.team?.kind === "create";
+  const first: ProgressRow = creating
+    ? { id: "organisation", label: `Setting up ${org}`, detail: "You're its owner, so you can invite people.", status: problem ? "waiting" : status(0) }
+    : { id: "organisation", label: "Setting up Personal", detail: "Only you can see it", status: problem ? "waiting" : status(0) };
+  // No role yet: no campaign is made, so there is nothing to tick off for one.
+  const rows: ProgressRow[] = roleSkipped(a)
+    ? [first, { id: "mind", label: "Getting Mind ready", detail: "It will ask which role to start with", status: status(1) }]
+    : [
+        first,
+        { id: "campaign", label: "Setting up your first campaign", detail: role ? `${role}${a.forClient && a.client ? ` for ${a.client}` : ""}` : "From the role you chose", status: status(1) },
+        a.jd
+          ? { id: "mind", label: "Handing it to Mind", detail: "It reads the job description and drafts the role spec for you", status: status(2) }
+          : { id: "mind", label: "Mind is drafting the role", detail: "It will ask for the job description", status: status(2) },
+      ];
   return {
     ready: n >= 6,
     result,
     problem,
     exists,
     retry: () => setAttempt((x) => x + 1),
-    rows: [
-      creating
-        ? { id: "organisation", label: `Setting up ${org}`, detail: "You're its owner, so you can invite people.", status: problem ? "waiting" : status(0) }
-        : { id: "organisation", label: "Setting up Personal", detail: "Only you can see it", status: problem ? "waiting" : status(0) },
-      { id: "campaign", label: "Setting up your first campaign", detail: role ? `${role}${a.forClient && a.client ? ` for ${a.client}` : ""}` : "From the role you chose", status: status(1) },
-      a.jd
-        ? { id: "mind", label: "Handing it to Mind", detail: "It reads the job description, then starts the search", status: status(2) }
-        : { id: "mind", label: "Mind is drafting the role", detail: "It will ask for the job description", status: status(2) },
-    ],
+    rows,
   };
 }
 
@@ -635,6 +652,8 @@ type TurnProps = {
   exists: boolean;
   retry: () => void;
   asking: boolean;
+  /** The client the job description names, to confirm. */
+  foundClient: string | null;
   setAsking: (v: boolean) => void;
   setDraft: (d: Draft) => void;
   give: (patch: Partial<Answers>) => void;
@@ -643,6 +662,7 @@ type TurnProps = {
   teamView: "loading" | "invitation" | "match" | "sent" | "ask" | "create";
   domainName: string;
   api: TeamApi | undefined;
+  readFile: ((file: File) => Promise<string>) | undefined;
   showTeam: (v: { v: "match"; org: OrgMatch; via: "name"; typed: string } | { v: "create"; name: string }) => void;
   back: () => void;
 };
@@ -725,19 +745,33 @@ function Turn(p: TurnProps): JSX.Element {
           </>
         );
       }
+      /* The look for their team can take several seconds: a quiet placeholder where the answer will land, so the
+         screen never looks stuck. */
+      if (p.teamView === "loading") {
+        return (
+          <>
+            {words_}
+            <div className={`nx-wait${reduce ? " is-still" : ""}`} role="status" style={{ "--delay": `${inputAt}ms` } as React.CSSProperties}>
+              <span className="nx-wait-bar" aria-hidden="true" />
+              <span className="nx-wait-bar is-short" aria-hidden="true" />
+              <span className="nx-wait-t">Looking for your team. This can take a few seconds.</span>
+            </div>
+          </>
+        );
+      }
       return words_;
     case "role":
       return (
         <>
           {words_}
-          <RoleAsk previous={roleText(answers.role)} delay={inputAt} reduce={reduce} onDraft={(t) => p.setDraft({ role: t })} onPick={(r) => p.give({ role: r })} />
+          <RoleAsk previous={roleText(answers.role)} delay={inputAt} reduce={reduce} onDraft={(t) => p.setDraft({ role: t })} onPick={(r) => p.give({ role: r })} onSkip={() => p.give({ role: ROLE_LATER })} />
         </>
       );
     case "jd":
       return (
         <>
           {words_}
-          <JdAsk initial={answers.jd ?? ""} delay={inputAt} reduce={reduce} onDraft={(t) => p.setDraft({ jd: t })} onGive={(text) => p.give({ jd: text })} onLater={() => p.give({ jd: null })} />
+          <JdAsk initial={answers.jd ?? ""} delay={inputAt} reduce={reduce} readFile={p.readFile} onDraft={(t) => p.setDraft({ jd: t })} onGive={(text) => p.give({ jd: text })} onLater={() => p.give({ jd: null })} />
         </>
       );
     case "client":
@@ -748,6 +782,7 @@ function Turn(p: TurnProps): JSX.Element {
             delay={inputAt}
             reduce={reduce}
             asking={p.asking}
+            found={p.foundClient}
             setAsking={p.setAsking}
             onDraft={(t) => p.setDraft({ client: t })}
             onOwn={() => p.give({ forClient: false })}
@@ -894,7 +929,7 @@ function AskOrganisation({ delay, reduce, lookup, onDraft, onFound, onNone, onSk
   );
 }
 
-function RoleAsk({ previous, delay, reduce, onDraft, onPick }: { previous: string | null; delay: number; reduce: boolean; onDraft: (t: string | undefined) => void; onPick: (r: NonNullable<ReturnType<typeof parseRole>>) => void }) {
+export function RoleAsk({ previous, delay, reduce, onDraft, onPick, onSkip }: { previous: string | null; delay: number; reduce: boolean; onDraft: (t: string | undefined) => void; onPick: (r: NonNullable<ReturnType<typeof parseRole>>) => void; /** Carry on without a role: nothing is made for one until there is one. */ onSkip: () => void }) {
   const [other, setOther] = useState(false);
   const [v, setV] = useState("");
   const [problem, setProblem] = useState<string | null>(null);
@@ -918,38 +953,73 @@ function RoleAsk({ previous, delay, reduce, onDraft, onPick }: { previous: strin
         problem={problem}
         maxLength={200}
         extra={
-          <TextAction
-            onClick={() => {
-              setOther(false);
-              onDraft(undefined);
-            }}
-          >
-            See suggestions
-          </TextAction>
+          <>
+            <TextAction
+              onClick={() => {
+                setOther(false);
+                onDraft(undefined);
+              }}
+            >
+              See suggestions
+            </TextAction>
+            <TextAction onClick={onSkip}>Skip for now</TextAction>
+          </>
         }
       />
     );
   }
   return (
-    <Options<string>
-      delay={delay}
-      reduce={reduce}
-      items={[...ROLE_SUGGESTIONS.map((t) => ({ id: t, label: previous === t ? `${t} ✓` : t })), { id: "__other", label: "Something else…" }]}
-      onEnter={(id) => onDraft(id === "__other" ? undefined : id)}
-      onLeave={() => onDraft(undefined)}
-      onPick={(id) => (id === "__other" ? setOther(true) : onPick({ kind: "title", title: id }))}
-    />
+    <>
+      <Options<string>
+        delay={delay}
+        reduce={reduce}
+        items={[...ROLE_SUGGESTIONS.map((t) => ({ id: t, label: previous === t ? `${t} ✓` : t })), { id: "__other", label: "Something else…" }]}
+        onEnter={(id) => onDraft(id === "__other" ? undefined : id)}
+        onLeave={() => onDraft(undefined)}
+        onPick={(id) => (id === "__other" ? setOther(true) : onPick({ kind: "title", title: id }))}
+      />
+      {/* Under the list, after it has come in: the same quiet link as "I'll add it later" on the next step. */}
+      <div className="nx-after" style={{ "--delay": `${reduce ? 0 : delay + 520}ms` } as React.CSSProperties}>
+        <TextAction onClick={onSkip}>Skip for now</TextAction>
+      </div>
+    </>
   );
 }
 
-/** The job description: pasted text. "I'll add it later" is a plain link; a link is gently turned back. */
-function JdAsk({ initial, delay, reduce, onDraft, onGive, onLater }: { initial: string; delay: number; reduce: boolean; onDraft: (t: string) => void; onGive: (text: string) => void; onLater: () => void }) {
+/**
+ * The job description: pasted text, or a file whose text fills the same box. "I'll add it later" and "Upload a
+ * file" are plain links; a link is gently turned back.
+ */
+function JdAsk({ initial, delay, reduce, readFile, onDraft, onGive, onLater }: { initial: string; delay: number; reduce: boolean; readFile: ((file: File) => Promise<string>) | undefined; onDraft: (t: string) => void; onGive: (text: string) => void; onLater: () => void }) {
   const [v, setV] = useState(initial);
   const [problem, setProblem] = useState<string | null>(null);
+  const [reading, setReading] = useState(false);
+  const picker = useRef<HTMLInputElement>(null);
   const check = checkJd(v);
   // A pasted link, or text past the limit, is said so at once, with the count: nothing is cut without a word.
   const tooLong = v.trim().length > JD_MAX;
   const shown = problem ?? ((isBareUrl(v) || tooLong) && !check.ok ? check.problem : null);
+
+  const take = (file: File) => {
+    const refused = jdFileProblem(file);
+    if (refused) return setProblem(refused);
+    // Without the server (the preview) only a text file can be read, as the browser has it.
+    const got = readFile ? readFile(file) : isPlainText(file) ? file.text() : Promise.reject(new Error("I can read a text file here. Paste the rest."));
+    setProblem(null);
+    setReading(true);
+    got.then(
+      (text) => {
+        setV(text);
+        onDraft(text);
+        setReading(false);
+      },
+      (err: unknown) => {
+        setProblem(err instanceof Error && err.message ? err.message : "I couldn't read that file. Paste the text instead.");
+        setReading(false);
+      },
+    );
+  };
+
   return (
     <AreaInput
       id="nx-jd"
@@ -967,22 +1037,47 @@ function JdAsk({ initial, delay, reduce, onDraft, onGive, onLater }: { initial: 
       delay={delay}
       reduce={reduce}
       problem={shown}
-      extra={<TextAction onClick={onLater}>I'll add it later</TextAction>}
+      extra={
+        <>
+          <TextAction onClick={onLater}>I'll add it later</TextAction>
+          <TextAction onClick={() => !reading && picker.current?.click()}>{reading ? "Reading the file…" : "Upload a file"}</TextAction>
+          <input
+            ref={picker}
+            type="file"
+            hidden
+            accept={JD_FILE_ACCEPT}
+            aria-label="Job description file"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = "";
+              if (f) take(f);
+            }}
+          />
+        </>
+      }
     />
   );
 }
 
-/** "Is this role for a client?" Yes asks for one thing: the client's company name. */
-function ClientAsk({ delay, reduce, asking, setAsking, onDraft, onOwn, onClient }: { delay: number; reduce: boolean; asking: boolean; setAsking: (v: boolean) => void; onDraft: (t: string) => void; onOwn: () => void; onClient: (name: string) => void }) {
+/**
+ * "Is this role for a client?" Yes asks for one thing: the client's company name. When the job description names the
+ * client, that name is the question ("The client is Tessellate Analytics. Right?"): Yes takes it, Change opens it to edit.
+ */
+function ClientAsk({ delay, reduce, asking, found, setAsking, onDraft, onOwn, onClient }: { delay: number; reduce: boolean; asking: boolean; found: string | null; setAsking: (v: boolean) => void; onDraft: (t: string) => void; onOwn: () => void; onClient: (name: string) => void }) {
+  // The name shows on her pad while it is being confirmed.
+  useEffect(() => {
+    if (found && !asking) onDraft(found);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [found, asking]);
   if (asking)
     return (
       <TextLine
         id="nx-client"
         label="Client's company name"
-        initial=""
+        initial={found ?? ""}
         placeholder="Client's company name"
         check={validCompany}
-        delay={0}
+        delay={found ? delay : 0}
         reduce={reduce}
         maxLength={200}
         whenEmpty={companyProblem("", "client")}
@@ -990,15 +1085,31 @@ function ClientAsk({ delay, reduce, asking, setAsking, onDraft, onOwn, onClient 
         onDraft={onDraft}
         onSend={onClient}
         extra={
-          <TextAction
-            onClick={() => {
-              setAsking(false);
-              onDraft("");
-            }}
-          >
-            Choose again
-          </TextAction>
+          found ? (
+            <TextAction onClick={onOwn}>It's for my own company</TextAction>
+          ) : (
+            <TextAction
+              onClick={() => {
+                setAsking(false);
+                onDraft("");
+              }}
+            >
+              Choose again
+            </TextAction>
+          )
         }
+      />
+    );
+  if (found)
+    return (
+      <Options<"yes" | "change">
+        delay={delay}
+        reduce={reduce}
+        items={[
+          { id: "yes", label: "Yes, that's right" },
+          { id: "change", label: "Change", sub: "A different client, or my own company" },
+        ]}
+        onPick={(id) => (id === "yes" ? onClient(found) : setAsking(true))}
       />
     );
   return (

@@ -168,7 +168,7 @@
 .cw-col-name { display: inline-flex; align-items: center; gap: 8px; padding: 2px 2px; border: 0; background: none; font: 600 12.5px/1 var(--ui); color: var(--ink); cursor: pointer; }
 .cw-col-name:hover { color: var(--accent-text); }
 .cw-col-n { padding: 2px 7px; border-radius: 6px; background: #fff; box-shadow: inset 0 0 0 1px #ebe6e1; font: 600 11px/1.2 var(--ui); font-variant-numeric: tabular-nums; color: var(--ink-2); }
-.cw-col.is-hired .cw-col-n { background: #f1f8ed; color: #3f7d2a; box-shadow: none; }
+.cw-col.is-hired .cw-col-n { background: var(--stage-green-soft); color: var(--stage-green-text); box-shadow: none; }
 .cw-cards { display: grid; align-content: start; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .cw-col-empty { padding: 18px 8px; border: 1.5px dashed #e8e2dc; border-radius: 12px; font: 400 12px/1.4 var(--ui); color: var(--ink-3); text-align: center; }
 
@@ -238,8 +238,8 @@
 .cw-who strong { font-weight: 500; }
 .cw-who small { font-size: 12px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cw-stage { display: inline-block; padding: 0; font: 500 11.5px/1.2 var(--ui); color: var(--ink); white-space: nowrap; }
-.cw-stage.is-interviewing, .cw-stage.is-offer { color: var(--accent-text); }
-.cw-stage.is-hired { color: #3f7d2a; }
+.cw-stage.is-interviewing, .cw-stage.is-offer { color: var(--stage-amber-text); }
+.cw-stage.is-hired { color: var(--stage-green-text); }
 .cw-muted { color: var(--ink-2); }
 
 /* ── person dialog ── */
@@ -356,7 +356,7 @@
 .cw-col-h { padding: 2px 6px 8px; }
 .cw-col-name { font-size: 12.5px; }
 .cw-col-n { background: transparent; box-shadow: none; padding: 0; font-weight: 500; color: var(--ink-3); }
-.cw-col.is-hired .cw-col-n { background: transparent; color: #3f7d2a; }
+.cw-col.is-hired .cw-col-n { background: transparent; color: var(--stage-green-text); }
 .cw-cards { gap: 6px; }
 .cw-col-empty { padding: 14px 8px; border-width: 1px; font-size: 12px; }
 .cw-col-more {
@@ -413,10 +413,10 @@
    cards are borderless on soft shadows, and match strength reads as
    temperature (snowflake, sun, flame). Colour is light everywhere; the
    glyphs carry it, not the surfaces. */
-.cw-col.is-shortlisted { --stage: #8b7ae0; --stage-soft: #f2effc; --stage-mid: #a596e8; }
-.cw-col.is-outreach    { --stage: #4f9ae4; --stage-soft: #ebf4fd; --stage-mid: #78b4ee; }
-.cw-col.is-interviewing{ --stage: #ea8146; --stage-soft: #fdf1e9; --stage-mid: #f3a172; }
-.cw-col.is-hired       { --stage: #4ea566; --stage-soft: #edf7f0; --stage-mid: #7cc191; }
+.cw-col.is-shortlisted { --stage: var(--stage-violet); --stage-soft: var(--stage-violet-soft); --stage-mid: var(--stage-violet-line); --stage-ink: var(--stage-violet-text); }
+.cw-col.is-outreach    { --stage: var(--stage-blue); --stage-soft: var(--stage-blue-soft); --stage-mid: var(--stage-blue-line); --stage-ink: var(--stage-blue-text); }
+.cw-col.is-interviewing{ --stage: var(--stage-amber); --stage-soft: var(--stage-amber-soft); --stage-mid: var(--stage-amber-line); --stage-ink: var(--stage-amber-text); }
+.cw-col.is-hired       { --stage: var(--stage-green); --stage-soft: var(--stage-green-soft); --stage-mid: var(--stage-green-line); --stage-ink: var(--stage-green-text); }
 
 /* ── stats strip ── */
 
@@ -439,8 +439,8 @@
 .cw-col-t { display: grid; gap: 3px; padding: 0; border: 0; background: none; text-align: left; cursor: pointer; min-width: 0; }
 .cw-col-t strong { display: flex; align-items: center; gap: 7px; font: 600 14px/1.2 var(--ui); letter-spacing: -0.01em; color: var(--ink); }
 .cw-col-t small { font: 400 12px/1.2 var(--ui); color: var(--ink-2); }
-.cw-col-t:hover strong { color: var(--stage); }
-.cw-col-count { padding: 1px 7px; border-radius: 99px; background: var(--stage-soft); font: 600 11px/1.4 var(--ui); font-variant-numeric: tabular-nums; color: var(--stage); animation: cw-bump 420ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+.cw-col-t:hover strong { color: var(--stage-ink, var(--stage)); }
+.cw-col-count { padding: 1px 7px; border-radius: 99px; background: var(--stage-soft); font: 600 11px/1.4 var(--ui); font-variant-numeric: tabular-nums; color: var(--stage-ink, var(--stage)); animation: cw-bump 420ms cubic-bezier(0.34, 1.56, 0.64, 1); }
 @keyframes cw-bump { 0% { transform: scale(0.7); } 60% { transform: scale(1.18); } 100% { transform: none; } }
 .cw-col-add {
   display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; height: 34px; margin-bottom: 8px;
@@ -448,11 +448,11 @@
   font: 500 12.5px/1 var(--ui); color: var(--ink-2); cursor: pointer; transition: background-color 180ms, color 180ms, border-color 180ms;
 }
 .cw-col-add svg { transition: transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1); }
-.cw-col-add:hover { background: var(--stage-soft); color: var(--stage); border-color: var(--stage-mid); }
+.cw-col-add:hover { background: var(--stage-soft); color: var(--stage-ink, var(--stage)); border-color: var(--stage-mid); }
 .cw-col-add:hover svg { transform: rotate(90deg); }
 .cw-cards { gap: 8px; }
 .cw-col-more { background: transparent; border: 1px solid #efebe7; }
-.cw-col-more:hover { background: var(--stage-soft); color: var(--stage); border-color: transparent; }
+.cw-col-more:hover { background: var(--stage-soft); color: var(--stage-ink, var(--stage)); border-color: transparent; }
 .cw-col-empty { border: 1.5px dashed #ebe6e1; background: transparent; color: var(--ink-3); }
 .cw-col-empty.has-art { display: grid; justify-items: center; gap: 2px; padding-top: 8px; }
 
@@ -697,10 +697,6 @@ body.is-dragging-card, body.is-dragging-card * { cursor: grabbing !important; us
 .pl-jmain { display: grid; gap: 10px; min-width: 0; }
 .pl-jtrack { display: flex; gap: 4px; height: 10px; }
 .pl-jseg { flex-basis: 0; min-width: 18px; border-radius: 99px; transform-origin: left center; animation: pl-jgrow 800ms cubic-bezier(0.22, 1, 0.36, 1) both; transition: flex-grow 600ms cubic-bezier(0.22, 1, 0.36, 1), filter 160ms; }
-.pl-jseg.is-shortlisted { background: #c3b8f1; }
-.pl-jseg.is-outreach { background: #9ccaf3; }
-.pl-jseg.is-interviewing { background: #f6bc98; }
-.pl-jseg.is-hired { background: #9fd3ae; }
 @keyframes pl-jgrow { from { transform: scaleX(0); opacity: 0; } to { transform: none; opacity: 1; } }
 .pl-jsteps { display: flex; gap: 4px; margin: 0; padding: 0; list-style: none; }
 .pl-jsteps li { position: relative; flex-basis: 0; min-width: 0; display: flex; align-items: center; gap: 6px; padding-left: 2px; }
@@ -1447,16 +1443,13 @@ li.is-closing .hz-move-t strong > span { background-size: 100% 1.5px; color: var
 .ov2-bar-col { position: relative; width: 100%; max-width: 64px; height: 100%; display: flex; align-items: flex-end; }
 .ov2-bar-col i {
   display: block; width: 100%; height: var(--h); min-height: 4px; border-radius: 12px 12px 6px 6px;
-  background: linear-gradient(180deg, #e4def9 0%, #f1eefc 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  background: var(--stage-slate); /* a stage's bar takes its hue (boardStages.css); the Found bar is the quiet slate */
+  box-shadow: none;
   transform-origin: bottom; animation: ov2-grow 620ms cubic-bezier(0.22, 1, 0.36, 1) calc(160ms + var(--i) * 50ms) backwards;
   transition: filter 200ms, transform 220ms var(--ease-out);
 }
-.ov2-bar.is-out .ov2-bar-col i, .ov2-bar.is-rep .ov2-bar-col i { background: linear-gradient(180deg, #d9e9fb 0%, #edf5fd 100%); }
-.ov2-bar.is-int .ov2-bar-col i { background: linear-gradient(180deg, #fde0cd 0%, #fef0e7 100%); }
-.ov2-bar.is-hired .ov2-bar-col i { background: linear-gradient(180deg, #f6a273 0%, #f8c4a3 100%); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 8px 16px -10px rgba(236, 138, 85, 0.6); }
 @keyframes ov2-grow { from { transform: scaleY(0); } }
-.ov2-bar:hover .ov2-bar-col i { filter: saturate(1.35) brightness(0.98); transform: translateY(-2px); }
+.ov2-bar:hover .ov2-bar-col i { filter: brightness(1.08); transform: translateY(-2px); }
 .ov2-bar-l { color: var(--ink); white-space: nowrap; }
 .ov2-bar-s { color: var(--ink-3); white-space: nowrap; }
 .ov2-bar:focus-visible { outline: 2px solid var(--focus); outline-offset: 4px; border-radius: 10px; }
@@ -1480,10 +1473,6 @@ li.is-closing .hz-move-t strong > span { background-size: 100% 1.5px; color: var
 /* client */
 .ov2-client-a { display: flex; gap: 8px; }
 
-/* shimmer for this layout */
-.sh-bento.is-ov2 { gap: 18px; }
-.sh-ov2-bars { flex: 1; display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; align-items: end; padding: 10px 6px 30px; }
-.sh-ov2-bars .sh-b { border-radius: 12px 12px 6px 6px; }
 
 @media (max-width: 1180px) {
   .ov2-client { grid-column: span 12; }
@@ -1565,9 +1554,6 @@ li.is-closing .hz-move-t strong > span { background-size: 100% 1.5px; color: var
 
 /* ── activity: rhythm strip + filters on the left, day-grouped log on the right ── */
 
-/* shimmer: match */
-.sh-bento.is-ov2 { gap: 14px; }
-.sh-bento.is-ov2 .sh-tile { border-radius: 14px; }
 
 /* ═════════ overview v14: breathing room, quiet header, a richer log ═════════ */
 .ov2 { max-width: 1260px; gap: 16px; padding: 8px 12px 40px; }
@@ -1686,21 +1672,13 @@ li.is-closing .hz-move-t strong > span { background-size: 100% 1.5px; color: var
 @media (min-width: 1200px) and (min-height: 720px) {
   .con-main:has(> .ov2) { overflow: hidden; }
   .ov2 { height: calc(100dvh - 8px); display: flex; flex-direction: column; overflow: hidden; }
-  .ov2 > .ov4, .ov2 > .sh-bento { flex: 1; min-height: 0; }
+  .ov2 > .ov4 { flex: 1; min-height: 0; }
   .ov4-low { flex: 1; }
   .ov4-low .ov2-card { display: flex; flex-direction: column; overflow: hidden; }
   .ov4-act .ov3-act { flex: 1; min-height: 0; display: flex; flex-direction: column; }
   .ov4-act .ov3-log { flex: 1; min-height: 0; max-height: none; }
 }
 
-/* shimmer for this layout */
-.sh-ov4-sec { min-height: 330px; }
-.sh-ov4-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
-.sh-ov4-panels { flex: 1; display: grid; grid-template-columns: 1.25fr 1fr; gap: 12px; }
-.sh-ov4-panels .sh-ov2-bars { padding: 26px 12px 18px; }
-.sh-ov2-bars.is-14 { grid-template-columns: repeat(14, 1fr); gap: 5px; }
-.sh-ov4-low { min-height: 300px; }
-@media (min-width: 1200px) and (min-height: 720px) { .sh-bento.is-ov2 { grid-template-rows: auto minmax(0, 1fr); } }
 
 @media (max-width: 980px) {
   .ov4-panels, .ov4-low { grid-template-columns: minmax(0, 1fr); }
@@ -2131,7 +2109,7 @@ li.is-closing .hz-move-t strong > span { background-size: 100% 1.5px; color: var
   position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden;
   border: 1px solid var(--sl-edge); border-bottom-color: var(--sl-edge-b); border-radius: 16px; background: #fff; box-shadow: var(--sl-sh);
 }
-.sl-scroll { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.sl-scroll { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; container: slist / inline-size; }
 .sl-table { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0; color: var(--ink); }
 .sl-table th {
   position: sticky; top: 0; z-index: 2; height: 40px; padding: 0 10px; overflow: hidden; background: var(--sl-head);
@@ -2147,7 +2125,9 @@ li.is-closing .hz-move-t strong > span { background-size: 100% 1.5px; color: var
 .sl-c-status { width: 150px; }
 .sl-c-owner { width: 122px; }
 .sl-c-added { width: 96px; color: var(--ink-2); }
-.sl-c-name { width: 16%; }
+/* The name has a width of its own and is the last thing to give: at 16% of a 700px table it was 110px, two letters
+   of a name once the star took its share. The columns around it go first (see the container rules below). */
+.sl-c-name { width: 240px; }
 .sl-c-role { color: var(--ink-2); }
 /* The header says "Organization" with its sort arrow, which needs about 115px: a share of the table is 104px at 1280,
    and the header's button spilled past the card (an 8px scroller). A fixed width keeps it inside at every size. */
@@ -2324,17 +2304,32 @@ a.sl-menu-i { justify-content: flex-start; }
 @media (max-width: 999px) {
   .cx-split.has-sel { grid-template-columns: minmax(0, 1fr); }
   .cx-split .cx-list { max-height: 60vh; }
-  .sl-c-role, .sl-c-owner { display: none; }
-  /* With role and owner gone the name and organisation take what they left, so two people with the same first
-     name ("Harpreet G…", "Harpreet S…") are not cut at eleven characters. */
-  .sl-c-name { width: 30%; }
-  .sl-c-org { width: 16%; }
 }
-/* A phone: who they are and where they stand. The fixed columns (profiles, status, added) took the whole row and
-   squeezed the name and organisation to nothing, so the table showed everything but the person. */
-@media (max-width: 640px) {
-  .sl-c-prof, .sl-c-added, .sl-c-org { display: none; }
-  .sl-c-name { width: auto; }
+/* The shortlisted table gives up its columns by the room the table itself has (not the window's: the sidebar, the
+   drawer and the page's gutters all change that), the least useful first, and the name keeps its 240px through all
+   of it: role, then owner and the contact columns, then added, then profiles. */
+@container slist (max-width: 1000px) { .sl-c-role { display: none; } }
+@container slist (max-width: 900px) { .sl-c-owner, .sl-c-email, .sl-c-phone { display: none; } }
+@container slist (max-width: 780px) { .sl-c-added { display: none; } }
+@container slist (max-width: 700px) { .sl-c-prof { display: none; } }
+/* A phone: each person is a card, not a row of squeezed cells. Who they are and where they stand, with their
+   organisation under the name; everything else is in the person's sheet. */
+@container slist (max-width: 660px) {
+  .sl-table, .sl-table thead, .sl-table tbody { display: block; }
+  .sl-table thead tr { display: flex; align-items: center; }
+  .sl-table th:not(.sl-c-check, .sl-c-name) { display: none; }
+  .sl-table th.sl-c-name { flex: 1 1 auto; width: auto; }
+  .sl-table tbody tr {
+    display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; grid-template-areas: "ck nm st" "ck og og";
+    align-items: center; column-gap: 8px; row-gap: 2px; padding: 10px 12px 10px 0; border-bottom: 1px solid var(--sl-line);
+  }
+  .sl-table tbody tr:last-child { border-bottom: 0; }
+  .sl-table td { display: block; height: auto; padding: 0; border-bottom: 0; }
+  .sl-table td.sl-c-check { grid-area: ck; width: auto; padding: 0 0 0 16px !important; }
+  .sl-table td.sl-c-name { grid-area: nm; width: auto; }
+  .sl-table td.sl-c-status { grid-area: st; width: auto; }
+  .sl-table td.sl-c-org { grid-area: og; width: auto; padding-left: 4px; }
+  .sl-table td:is(.sl-c-prof, .sl-c-owner, .sl-c-added, .sl-c-role, .sl-c-email, .sl-c-phone) { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .cx-detail { animation: none; } }
 
@@ -2494,19 +2489,20 @@ a.sl-menu-i { justify-content: flex-start; }
 @media (max-width: 900px) {
   /* A plain 78%, not minmax(0, 78%): a track whose minimum is 0 only grows into the free space, so four of them
      shared the row at 76px each and their cards ran over the next column. */
-  .cw-cols { grid-auto-columns: 78%; scroll-snap-type: x mandatory; scroll-padding-inline: 2px; }
+  .cw-cols { grid-auto-columns: max(240px, 78%); scroll-snap-type: x mandatory; scroll-padding-inline: 2px; }
   .cw-col { scroll-snap-align: start; }
   .cw-col:last-child { scroll-snap-align: end; }
   .pl-jsteps { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 10px; }
 }
 @media (min-width: 560px) and (max-width: 900px) {
-  /* A tablet has the room for the four stages side by side: nothing is off to the side waiting to be found. */
-  .cw-cols { grid-auto-columns: minmax(0, 1fr); scroll-snap-type: none; }
+  /* A tablet: a stage never narrows below 240px (four of them at minmax(0, 1fr) crushed to 40px each and broke words
+     mid-word); what does not fit scrolls sideways, as the board does at every other width. */
+  .cw-cols { grid-auto-columns: minmax(240px, 1fr); scroll-snap-type: none; }
   .pl-jsteps { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 /* Narrow stages: a person's name takes two lines before it is cut, so "Priya Krish…" is the whole name more often. */
 @media (max-width: 900px) {
-  .cw-pc-name { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal; overflow-wrap: anywhere; }
+  .cw-pc-name { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal; overflow-wrap: break-word; }
 }
 
 /* ═════ a column is a stack from its top ═════
@@ -2678,3 +2674,9 @@ a.tp-t:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; bor
 /* The person's stage, under the header of the profile sheet a campaign page opens (PersonSheet). */
 .cw-pd-stage { padding-top: 12px; }
 .cw-pd-stage h3 { margin: 0 0 8px; font: 600 12px/1.2 var(--ui); letter-spacing: .02em; color: var(--ink-2); }
+
+/* A stage that cannot be changed from here (the campaign is closed, or the person only follows it) looks it: muted, no
+   hover, the chosen one lightly filled instead of the dark fill that says "press me". */
+.cw-stagepick button:disabled, .cw-stagepick button[aria-disabled="true"] { cursor: default; color: var(--ink-2); background: transparent; border-color: #efeae5; box-shadow: none; }
+.cw-stagepick button:disabled:hover, .cw-stagepick button[aria-disabled="true"]:hover { background: transparent; }
+.cw-stagepick button.is-on:disabled, .cw-stagepick button.is-on[aria-disabled="true"] { background: #f3f1ef; border-color: #d8d2cc; color: var(--ink); font-weight: 600; }

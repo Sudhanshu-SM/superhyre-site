@@ -1,16 +1,22 @@
-import { Sparkle } from "@phosphor-icons/react";
-import { useEffect, useId, useState } from "react";
+import { ArrowClockwise, PencilSimple, Sparkle } from "@phosphor-icons/react";
+import { useEffect, useState } from "react";
+import { useStreamLine } from "./api/streamLine";
 import type { Match } from "./api/agent";
 import { waitLabel } from "./api/client";
 import { chartedCampaigns, isRememberAction, TIER_LABEL } from "./chatCards";
-import { ApprovalCard, Cards, PhaseSummary, PhaseTimeline } from "./agentCards";
+import { ApprovalCard, Cards, ChoiceCard, Cta, PhaseSummary, PhaseTimeline } from "./agentCards";
 import { TOOL_LABEL, WORKING_LABEL } from "./agentCards/labels";
+import { carriesGmailConnect } from "./agentCards/outcome";
+import { isMeetingAction, productsNeeded, withoutMetAccess } from "./agentCards/meetingModel";
+import { schedulingState } from "./connectStates";
+import { useConnections } from "./connectionsStore";
 import { approvalLines } from "./agentPhases";
 import type { PhaseLine } from "./agentPhases";
 import { FormLinkChips } from "./FormLinkChip";
 import { Prose } from "./ReplyProse";
+import { covers } from "./restated";
 import { vendorWords } from "./displayText";
-import { askOptions, resendTurn, stalled, stopTurn, TURN_LIMIT_MS } from "./liveChat";
+import { answerQuestion, resendTurn, sendAction, stalled, stopTurn, TURN_LIMIT_MS } from "./liveChat";
 import type { Approval, LiveTurn as Turn, Question } from "./liveChat";
 import { SearchRun } from "./liveViews/SearchRun";
 import "./agentLive.css";
@@ -53,17 +59,70 @@ export function failedTurnState(turn: Pick<Turn, "error" | "errorCode" | "retryA
 }
 
 /**
- * The agent's lead-in to a note it proposed ("Got it. This is waiting for your approval…") says what
- * the card's state was when it was written. Once the card has been answered it is out of date, and the
- * card's own line ("Remembered.", "Not saved.") is the news; so the lead goes when it is one short
- * paragraph about waiting. Anything longer or about something else stays.
+ * What the agent's lead-in says about a card that was waiting: "I've proposed saving 6 people to Candidates, waiting
+ * for your approval", "This is waiting for your approval", "Approve it below". True when it was written, a stale
+ * claim once the card has been answered.
+ */
+const WAITING_ON_YOU = new RegExp(
+  [
+    String.raw`\b(?:waiting|waits?|awaiting|pending)\b[^.!?\n]{0,24}\b(?:approval|approve|ok|yes|confirmation|confirm|go-?ahead|decision|you)\b`,
+    String.raw`\b(?:needs?|awaits?)\s+your\s+(?:approval|ok|yes|confirmation|go-?ahead|decision)\b`,
+    String.raw`\bfor\s+your\s+(?:approval|ok|yes|confirmation|go-?ahead)\b`,
+    String.raw`\b(?:once|when|if)\s+you\s+(?:approve|confirm|say\s+yes|are\s+happy)\b`,
+    String.raw`\bapprove\s+(?:it|this|them|that)\b`,
+    String.raw`\b(?:i['’]ve|i\s+have|i)\s+(?:proposed|prepared|drafted|lined\s+up)\b`,
+  ].join("|"),
+  "i",
+);
+
+/** "Here's the note.", "Here's the change.": words that only point at a card, which has been answered since. */
+const POINTS_AT_CARD = /^here(?:['’]s| is| are)\s+(?:the|a|an|your)\s+(?:note|change|draft|drafts|emails?|reminder|task|invitation|invite|proposal|plan|message)\b[^.!?]{0,30}[.:]?$/i;
+
+/**
+ * The agent's lead-in to something it proposed ("Got it. This is waiting for your approval…") says what the
+ * card's state was when it was written. Once every card has been answered it is out of date, and the card's own
+ * line ("Remembered.", "Saved 5 people to Candidates.", "Not saved.") is the news. A note's lead goes when it is
+ * one short paragraph about waiting; for any other card the sentences that talk about waiting or about the
+ * proposal go, and anything else the agent said stays.
  */
 export function settledLead(reply: string, approvals: ReadonlyArray<Pick<Approval, "action" | "decided">>): string {
-  const cards = approvals.filter((a) => isRememberAction(a.action));
-  if (!reply || cards.length === 0 || approvals.some((a) => !a.decided)) return reply;
+  if (!reply || approvals.length === 0 || approvals.some((a) => !a.decided)) return reply;
   const text = reply.trim();
   const short = text.length <= 280 && !/\n\s*\n/.test(text);
-  return short && /\b(waiting|wait|pending|approv|confirm|review)/i.test(text) ? "" : reply;
+  if (approvals.some((a) => isRememberAction(a.action))) {
+    return short && /\b(waiting|wait|pending|approv|confirm|review)/i.test(text) ? "" : reply;
+  }
+  const kept: string[] = [];
+  for (const line of reply.split("\n")) {
+    if (!line.trim()) {
+      kept.push("");
+      continue;
+    }
+    // Cut after a full stop that is followed by a space, so "3.5 years" stays whole.
+    const left = line.split(/(?<=[.!?])\s+/).filter((s) => !WAITING_ON_YOU.test(s) && !POINTS_AT_CARD.test(s.trim())).join(" ").trim();
+    if (left) kept.push(left);
+  }
+  return kept.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+/**
+ * The agent's words without the question a card already asks: the heading is on the card once, so a sentence that
+ * is a question, or says what the heading says, is left out. Words of turns kept from before this was done on the
+ * server are cleaned the same way.
+ */
+export function leaveOutAsked(reply: string, questions: ReadonlyArray<Pick<Question, "text">>): string {
+  if (!reply || questions.length === 0) return reply;
+  const kept = reply.split("\n").map((line) =>
+    line.split(/(?<=[.!?])\s+/).filter((s) => !/\?["')\]]*\s*$/.test(s) && !questions.some((q) => covers(s, q.text))).join(" ").trim(),
+  );
+  return kept.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+/** The question settled on the answer a later turn was started by, when its own event has not been read yet (a chat just reopened). */
+function answeredBy(q: Question, later: readonly Turn[]): Question {
+  if (q.answer) return q;
+  const by = later.find((t) => t.quiet?.answer?.runId === q.runId && t.quiet.answer.seq === q.seq);
+  return by?.quiet?.answer ? { ...q, answer: { ids: by.quiet.answer.ids, line: by.quiet.label } } : q;
 }
 
 function FailedTurn({ turn, onEdit }: { turn: Turn; onEdit: (text: string) => void }): JSX.Element {
@@ -82,17 +141,13 @@ function FailedTurn({ turn, onEdit }: { turn: Turn; onEdit: (text: string) => vo
       {state.canResend && (
         <>
           {" "}
-          <button type="button" className="lt-link" onClick={() => resendTurn(turn.key)}>
-            Send again
-          </button>
+          <Cta small icon={ArrowClockwise} onClick={() => resendTurn(turn.key)}>Send again</Cta>
         </>
       )}
       {state.canEdit && (
         <>
           {" "}
-          <button type="button" className="lt-link" onClick={() => onEdit(turn.said)}>
-            Edit your message
-          </button>
+          <Cta small icon={PencilSimple} onClick={() => onEdit(turn.said)}>Edit your message</Cta>
         </>
       )}
     </p>
@@ -100,66 +155,157 @@ function FailedTurn({ turn, onEdit }: { turn: Turn; onEdit: (text: string) => vo
 }
 
 /** The clock, ticking only while a turn is working, so a lost one is noticed without a reload. */
-function useNow(ticking: boolean): number {
+function useNow(ticking: boolean, every: number = Math.min(15_000, TURN_LIMIT_MS / 4)): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (!ticking) return;
-    const t = window.setInterval(() => setNow(Date.now()), Math.min(15_000, TURN_LIMIT_MS / 4));
+    const t = window.setInterval(() => setNow(Date.now()), every);
     return () => window.clearInterval(t);
-  }, [ticking]);
+  }, [ticking, every]);
   return now;
+}
+
+/** How long a turn with a card waiting must have said nothing before the row says it is waiting for the person. */
+export const WAITING_QUIET_MS = 4_000;
+
+/**
+ * Whether a turn that still reads "working" is really waiting for the person: a card is open for their yes, they
+ * have not answered it, and the run has said nothing for a few seconds (a run that is working keeps saying what it is
+ * doing: even its thinking line is refreshed every few seconds). It is then no longer "Thinking it through": nothing is
+ * running, and Stop would stop nothing.
+ */
+export function waitingOnPerson(
+  turn: Pick<Turn, "status" | "approvals" | "touchedAt">,
+  now: number,
+  quietMs: number = WAITING_QUIET_MS,
+): boolean {
+  if (turn.status !== "working") return false;
+  if (!turn.approvals.some((a) => !a.decided)) return false;
+  // They have said yes to one: that is work being done, and its own lines say what.
+  if (turn.approvals.some((a) => a.deciding)) return false;
+  return turn.touchedAt !== undefined && now - turn.touchedAt >= quietMs;
 }
 
 /** The lines a working turn shows: the run's own phases, or the tools it has used where the server sends none. */
 export function linesOf(turn: Pick<Turn, "phases" | "steps">): readonly PhaseLine[] {
-  if (turn.phases.length) return turn.phases;
+  /* What an approved action is doing is said on its own card, where the yes was given: a second copy up here would
+     put the run's Stop beside a send that is the card's to finish. */
+  const own = turn.phases.filter((l) => !l.id.startsWith("approval:"));
+  if (own.length) return own;
+  if (turn.phases.length) return [];
   return turn.steps.flatMap((s, i): PhaseLine[] => {
     const label = s.status === "running" ? (WORKING_LABEL[s.tool] ?? TOOL_LABEL[s.tool]) : TOOL_LABEL[s.tool];
     return label ? [{ id: `tool-${i}`, phase: "search", state: s.status, label, seq: i + 1 }] : [];
   });
 }
 
+/**
+ * The cards of a turn in two groups: those that come before the agent's words, and the changes whose own
+ * sentence those words already say. Said once: the agent's sentence is the one that stays, and the change's
+ * counts and next steps sit under it.
+ */
+export function splitByTelling(
+  cards: readonly Turn["cards"][number][],
+  lead: string,
+): { before: Turn["cards"]; told: Turn["cards"]; quiet: ReadonlySet<string> } {
+  const quiet = new Set<string>();
+  if (lead.trim()) {
+    for (const c of cards) if (c.kind === "outcome" && covers(lead, c.summary)) quiet.add(c.key);
+  }
+  return { before: cards.filter((c) => !quiet.has(c.key)), told: cards.filter((c) => quiet.has(c.key)), quiet };
+}
+
+/**
+ * The connect cards of a turn that already ask for what an approval waits on, so the approval does not ask a second time.
+ * A meeting or reminder waits on Calendar or Tasks, which a card for Gmail's sign-in alone does not ask for.
+ */
+export function connectShownFor(a: Approval, cards: readonly Turn["cards"][number][]) {
+  const part = isMeetingAction(a.action) ? productsNeeded([a])[0] : null;
+  return cards.flatMap((c) => (c.kind === "connect" && (!part || c.provider !== "google" || (c.products ?? []).includes(part)) ? [c.provider] : []));
+}
+
 export function LiveTurnBody({
-  turn, onAnswer, onChoose,
+  turn, onAnswer, later = [],
 }: {
   turn: Turn;
   /** Puts words back in the composer to edit (a failed message). */
   onAnswer: (text: string) => void;
-  /** What a press on one of the agent's choices does: sends it, where the page can. Defaults to `onAnswer`. */
-  onChoose?: (text: string) => void;
+  /** The turns after this one: a question it left open can no longer be answered once the chat has gone on, and an answer given since settles its card. */
+  later?: readonly Turn[];
 }): JSX.Element {
-  const now = useNow(turn.status === "sending" || turn.status === "working");
+  const openCard = turn.approvals.some((a) => !a.decided);
+  /* The line that carries the run's words dropped and has not come back for a few seconds: said quietly, once. */
+  const reconnecting = useStreamLine() === "reconnecting";
+  const now = useNow(turn.status === "sending" || turn.status === "working", openCard ? 1_000 : undefined);
   const lost = stalled(turn, now);
   const working = !lost && (turn.status === "sending" || turn.status === "working");
-  const lead = settledLead(turn.reply, turn.approvals);
+  /* A card is open and the run has gone quiet: it is the person's turn, not the agent's. */
+  const waiting = working && waitingOnPerson(turn, now);
+  /* "Google Calendar needs to be connected first", once it is (or the meeting was sent), is no longer true: the card says what happened. */
+  const conns = useConnections();
+  const need = productsNeeded(turn.approvals);
+  const accessMet = need.length > 0 && (
+    turn.approvals.some((a) => isMeetingAction(a.action) && a.decided?.decision === "approve")
+    || (conns.status === "ready" && schedulingState(conns, need).s === "connected")
+  );
+  const lead = leaveOutAsked(settledLead(accessMet ? withoutMetAccess(turn.reply) : turn.reply, turn.approvals), turn.questions);
   const lines = linesOf(turn);
+  /* Said once, but only when the words are all there: a sentence still being written must not move a card. */
+  const told = working ? "" : lead;
+  /* An email card carries Gmail's Connect itself: a separate connect card above or beside it would say it twice, in a
+     different place each time. */
+  const gmailInCard = turn.approvals.some((a) => carriesGmailConnect(a.action));
+  const cards = turn.cards.filter((c) => !(gmailInCard && c.kind === "connect" && c.provider === "google"));
+  const { before, told: toldCards, quiet } = splitByTelling(cards.filter((c) => c.kind !== "view" && c.kind !== "role_spec"), told);
   return (
     <div className="rep">
-      {turn.focus && <p className="lt-focus">Now working on {turn.focus}</p>}
       {/* While it works, what it is doing; once it has answered, how long it thought, with those lines behind it.
           How long it thought says nothing about a turn that failed: the line under it says what happened. */}
-      {working
-        ? <PhaseTimeline lines={lines} working onStop={turn.runId ? () => void stopTurn(turn.key) : undefined} />
-        : turn.status !== "failed" && <Thought turn={turn} lines={lines} />}
+      {waiting
+        ? <p className="rep-thought" role="status">Waiting for your OK</p>
+        : working
+          ? <PhaseTimeline lines={lines} working since={turn.startedAt} onStop={turn.runId ? () => void stopTurn(turn.key) : undefined} />
+          : turn.status !== "failed" && <Thought turn={turn} lines={lines} />}
 
-      <Cards cards={turn.cards.filter((c) => c.kind !== "view")} turnSaid={turn.said} charted={chartedCampaigns(turn.cards)} />
+      {working && !waiting && reconnecting && <p className="rep-thought" role="status">Reconnecting…</p>}
+
+      <Cards
+        cards={before}
+        turnSaid={turn.said}
+        charted={chartedCampaigns(cards)}
+        approvalOpen={turn.approvals.some((a) => !a.decided)}
+      />
 
       {/* The words stream in as they are written, under the lines that say what it is doing. */}
       {lead && <Prose text={vendorWords(lead)} />}
       {lead && <FormLinkChips text={lead} />}
 
+      {/* A change's own sentence, when the words above already say it: said once, and its counts and next
+          steps stay, under the words. */}
+      <Cards cards={toldCards} turnSaid={turn.said} quiet={quiet} />
+
       {/* A view is the answer itself: the agent's one line leads into it. */}
-      <Cards cards={turn.cards.filter((c) => c.kind === "view")} turnSaid={turn.said} />
+      <Cards cards={cards.filter((c) => c.kind === "view")} turnSaid={turn.said} />
 
       {turn.questions.map((q, i) => (
-        <Ask key={`${q.kind}${i}`} question={q} onAnswer={onChoose ?? onAnswer} />
+        <ChoiceCard key={`${q.kind}${i}`} question={answeredBy(q, later)} closed={later.length > 0} onAnswer={(ids, value) => void answerQuestion(turn.key, i, ids, value)} />
       ))}
       {turn.approvals.map((a) => (
-        <ApprovalCard key={a.seq} turnKey={turn.key} approval={a} turnSaid={turn.said} phases={approvalLines(turn.phases, a.seq)} />
+        <ApprovalCard
+          key={a.seq}
+          turnKey={turn.key}
+          approval={a}
+          turnSaid={turn.said}
+          said={told}
+          phases={approvalLines(turn.phases, a.seq)}
+          connectShown={connectShownFor(a, cards)}
+        />
       ))}
+      {/* A drafted role spec stands under the sentence that says the campaign was made, with its own Approve. */}
+      <Cards cards={cards.filter((c) => c.kind === "role_spec")} turnSaid={turn.said} />
       {turn.searches.map((s, i) => (
         // Only the newest batch offers to find more; older ones would repeat the button.
-        <SearchRun key={s.runId} turnKey={turn.key} search={s} latest={i === turn.searches.length - 1} onAsk={onChoose ?? onAnswer} />
+        <SearchRun key={s.runId} turnKey={turn.key} search={s} latest={i === turn.searches.length - 1} onAsk={(text, label) => sendAction(text, label, s.campaignId)} />
       ))}
       {turn.notices.map((n) => (
         <p key={n} className="lt-note">{vendorWords(n)}</p>
@@ -167,9 +313,7 @@ export function LiveTurnBody({
       {lost && !turn.error && (
         <p className="lt-note" role="status">
           This one stopped before it finished.{" "}
-          <button type="button" className="lt-link" onClick={() => resendTurn(turn.key)}>
-            Send again
-          </button>
+          <Cta small icon={ArrowClockwise} onClick={() => resendTurn(turn.key)}>Send again</Cta>
         </p>
       )}
       {turn.error && <FailedTurn turn={turn} onEdit={onAnswer} />}
@@ -187,41 +331,12 @@ export function thoughtLabel(ms: number): string {
 
 /** The thought line, measured from send to done; opens onto what the run actually did. */
 function Thought({ turn, lines }: { turn: Turn; lines: readonly PhaseLine[] }): JSX.Element | null {
-  if (!turn.finishedAt) return null;
+  // A line the agent said on its own (a reminder come due) was not thought about: no run, no "Thought for 0.0s".
+  if (!turn.finishedAt || (!turn.runId && turn.quiet?.label === "")) return null;
   const label = thoughtLabel(turn.finishedAt - turn.startedAt);
   const spark = <Sparkle size={13} weight="fill" aria-hidden="true" />;
   if (!lines.length) return <p className="rep-thought">{spark}{label}</p>;
   return <PhaseSummary lines={lines} label={label} lead={spark} />;
-}
-
-/** The agent's question. A press answers it (one tap), and the choices then stay as they were, no longer pressable. */
-function Ask({ question, onAnswer }: { question: Question; onAnswer: (text: string) => void }): JSX.Element {
-  const askId = useId();
-  const options = askOptions(question);
-  const [chosen, setChosen] = useState<number | null>(null);
-  return (
-    <>
-      <p className="rep-ask" id={askId}>{question.text}</p>
-      {question.note && <p className="rep-why">{question.note}</p>}
-      {options.length > 0 && (
-        <ul className="rep-opts" aria-labelledby={askId}>
-          {options.map((o, i) => (
-            <li key={`${i}:${o.label}`}>
-              <button
-                type="button"
-                className="rep-opt"
-                disabled={chosen !== null}
-                aria-pressed={chosen === i}
-                onClick={() => { setChosen(i); onAnswer(o.text); }}
-              >
-                {o.label}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </>
-  );
 }
 
 /** "Staff Engineer at PhonePe, Bengaluru · Good fit", leaving out whatever isn't known. */
@@ -241,6 +356,6 @@ export function resultLine(shown: number, asked: number | null, unscored = 0): s
   /* Some of them have no score yet (the number the notice and the last line say): "worth a look" would say
      they were scored. They are found, and the best fit of the scored ones is first. */
   if (unscored > 0) return unscored < shown ? `${people} found, best fit first` : `${people} found`;
-  // More than asked is normal (our own database adds to a first search); only fewer needs saying.
+  // More than asked is normal (a first search can add to it); only fewer needs saying.
   return asked && shown < asked ? `${people} worth a look, of the ${asked} asked for` : `${people} worth a look`;
 }

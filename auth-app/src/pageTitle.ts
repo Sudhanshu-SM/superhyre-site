@@ -16,7 +16,6 @@ const join = (...parts: ReadonlyArray<string | null | undefined | false>): strin
 const SETTINGS: Readonly<Record<SettingsSection, string>> = {
   profile: "Profile",
   organisation: "Organisation",
-  members: "Members",
   connections: "Connections",
 };
 
@@ -38,6 +37,7 @@ const PAGES: Readonly<Record<RouteId, string>> = {
   "campaign-calls": OUTREACH_LABEL,
   "campaign-shortlisted": "Shortlisted",
   settings: "Settings",
+  teams: "Teams",
   support: "Support",
 };
 

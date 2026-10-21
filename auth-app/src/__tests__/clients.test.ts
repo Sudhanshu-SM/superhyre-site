@@ -6,7 +6,7 @@ import {
 import { CAMPAIGN_ROWS } from "../campaignsData";
 import {
   CLIENT_SEED, EMPTY_DRAFT, NO_CLIENT_FILTER, SEED_CLIENT_OF, agoLabel, agoMinutes, clientFromDraft, clientNameIn, clientProblems,
-  clientSummary, domainOf, draftOf, matchesClient, normaliseClient, primaryContact, sortClients,
+  clientSummary, clientsLine, domainOf, draftOf, matchesClient, normaliseClient, primaryContact, sortClients,
 } from "../clients";
 
 afterEach(() => { resetClients(); resetCampaignRows(); });
@@ -158,4 +158,13 @@ describe("clientNameIn", () => {
     ["add a client", null],
     ["new client", null],
   ])("%s", (said, want) => { expect(clientNameIn(said)).toBe(want); });
+});
+
+describe("the line under the Clients title", () => {
+  it("is one calm line, never a row of zeros", () => {
+    expect(clientsLine(0, 0, 0)).toBe("The companies you hire for show up here.");
+    expect(clientsLine(1, 1, 0)).toBe("1 company, 1 active, none with an open campaign.");
+    expect(clientsLine(3, 2, 1)).toBe("3 companies, 2 active, with 1 open campaign between them.");
+    expect(clientsLine(3, 2, 4)).toBe("3 companies, 2 active, with 4 open campaigns between them.");
+  });
 });

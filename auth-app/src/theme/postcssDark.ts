@@ -23,9 +23,10 @@ const SCOPE = ':root[data-theme="dark"]';
 const SKIP_FILES = /[\\/]setup[\\/]|[\\/]index\.html\b/;
 /**
  * The candidate's page is light by design, wherever it is shown: the form builder edits the same components in
- * place, so their dark rules apply only inside the builder, never in the preview or on the page itself.
+ * place, so their dark rules apply only inside the builder, never in the preview or on the page itself. The client's
+ * review page (review.css) is light the same way; it has no builder, so it has no dark rules at all.
  */
-const BUILDER_ONLY = /apply\.css$/;
+const BUILDER_ONLY = /(apply|review)\.css$/;
 const BUILDER = ".fm-canvas-wrap:not(.is-preview)";
 
 /**

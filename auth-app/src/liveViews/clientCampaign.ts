@@ -1,6 +1,6 @@
 import type { Option } from "../clarify";
 import { FEE_OPTIONS, newCampaignAnswers } from "../clarify";
-import { SENIORITIES, compLabel, draftProblems, num } from "../campaignDraft";
+import { SENIORITIES, canonicalCity, compLabel, draftProblems, num } from "../campaignDraft";
 import type { CampaignDraft } from "../campaignDraft";
 import { WORK_MODE_LABEL } from "../campaignDraft";
 import { DEPARTMENTS } from "../campaignsData";
@@ -60,9 +60,10 @@ export const cityOf = (location: string | null | undefined): string => (location
  */
 export function cityOptions(rows: readonly PlaceRow[], client: Pick<Client, "name" | "location"> | undefined, limit = 4): Option[] {
   const out: Option[] = [];
-  const home = client?.location?.trim();
+  /* One name for a city however it was written: "Bangalore" in a campaign and "Bengaluru" for the client are one tile. */
+  const home = canonicalCity(client?.location);
   if (home) out.push({ id: home, label: home, meta: `Where ${client?.name ?? "the client"} is` });
-  for (const u of rankedValues(rows.map((r) => cityOf(r.location)))) {
+  for (const u of rankedValues(rows.map((r) => canonicalCity(cityOf(r.location))))) {
     if (out.length >= limit) break;
     if (!out.some((o) => key(o.id) === key(u.value))) out.push({ id: u.value, label: u.value, meta: campaigns(u.n) });
   }
@@ -148,16 +149,32 @@ export function campaignFacts(d: CampaignDraft): [string, string][] {
   const near = d.locations[0];
   const where = d.workMode === "remote" ? (near ? `Remote, near ${near}` : "Remote") : `${WORK_MODE_LABEL[d.workMode]}, ${near ?? "no city yet"}`;
   const exp = experienceLabel(d);
+  const words = d.jd.trim().split(/\s+/).filter(Boolean).length;
   return [
-    ["Team", d.department],
+    ["Department", d.department],
     ["Where", where],
     ["Openings", `${d.openings} ${d.openings === 1 ? "hire" : "hires"}`],
     ["Experience", exp || "Not set"],
     ["CTC", comp || "Not set"],
     ["Must-haves", d.mustHave.join(", ") || "None yet"],
+    ...(words ? [["Job description", `${words.toLocaleString("en-IN")} words, the role spec is drafted from it`] as [string, string]] : []),
     ...(d.seniority ? [["Level", d.seniority] as [string, string]] : []),
     ["Fee", d.fee || "Not set"],
   ];
+}
+
+/**
+ * What the done card says once a campaign made with a job description exists: the role spec is drafted from it,
+ * so the card says where that stands. On its way, there to read, or not made (and how to ask again). `why` is
+ * the server's own sentence for a draft it could not make.
+ */
+export function draftingLine(name: string, draft: "drafting" | "drafted" | "failed" = "drafting", why = ""): string {
+  if (draft === "drafted") return `${name} created. The role spec is drafted from your job description. Read it, approve it and the search starts.`;
+  if (draft === "failed") {
+    const reason = why.replace(/[.\s]+$/, "");
+    return `${name} created, but its role spec isn't drafted yet${reason ? `: ${reason}` : ""}. Ask me to draft it from your job description.`;
+  }
+  return `${name} created. I'm drafting its role spec from your job description.`;
 }
 
 /* ── what stops a record, before the server has to ───────────────────────── */

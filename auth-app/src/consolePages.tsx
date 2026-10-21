@@ -1,3 +1,4 @@
+import { resetSectionState } from "./sectionState";
 import { Component, lazy } from "react";
 import type { ComponentType, ReactNode } from "react";
 import { Loader } from "./components/Loader";
@@ -28,12 +29,12 @@ const loaders = {
   contacts: () => import("./Contacts"),
   clients: () => import("./Clients"),
   settings: () => import("./Settings"),
+  teams: () => import("./Teams"),
   analytics: () => import("./AnalyticsPages"),
   /* Dormant: no route and no nav row. Kept so the page can be brought back (see AnalyticsUsage.tsx). */
   usage: () => import("./AnalyticsUsage"),
   activity: () => import("./AgentActivity"),
   board: () => import("./CampaignBoard"),
-  fleet: () => import("./Fleet"),
 };
 
 export const Home = page(loaders.home, "Home");
@@ -48,6 +49,8 @@ export const CampaignForms = page(loaders.forms, "CampaignForms");
 export const ContactsPage = page(loaders.contacts, "ContactsPage");
 export const ClientsPage = page(loaders.clients, "ClientsPage");
 export const SettingsPage = page(loaders.settings, "SettingsPage");
+export const TeamsPage = page(loaders.teams, "TeamsPage");
+export const TeamsNotHere = page(loaders.teams, "NotHere");
 export const OverviewAnalyticsPage = page(loaders.analytics, "OverviewAnalyticsPage");
 export const RecruitersAnalyticsPage = page(loaders.analytics, "RecruitersAnalyticsPage");
 export const OutreachAnalyticsPage = page(loaders.analytics, "OutreachAnalyticsPage");
@@ -56,7 +59,6 @@ export const CampaignsAnalyticsPage = page(loaders.analytics, "CampaignsAnalytic
 export const UsageAnalyticsPage = page(loaders.usage, "UsageAnalyticsPage");
 export const AgentActivity = page(loaders.activity, "AgentActivity");
 export const CampaignBoard = page(loaders.board, "CampaignBoard");
-export const Fleet = page(loaders.fleet, "Fleet");
 
 /** In the order people are most likely to go next from the first page. */
 const ORDER: ReadonlyArray<() => Promise<unknown>> = [
@@ -97,13 +99,22 @@ export function PageFallback(): JSX.Element {
  * A page's file that could not be fetched (the link dropped, or a new release replaced the old file). The rest
  * of the console is still there; this says what happened and offers the one thing that fixes it.
  */
-export class PageBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
-  override state = { failed: false };
+export class PageBoundary extends Component<{ children: ReactNode; /** Changes with the page on screen: a new page is a fresh start. */ resetKey?: string }, { failed: boolean; key: string | undefined }> {
+  override state = { failed: false, key: this.props.resetKey };
   static getDerivedStateFromError(): { failed: boolean } {
     return { failed: true };
   }
+  /* Moving to another page leaves the failure behind: it belongs to the page that failed, not to the console. */
+  static getDerivedStateFromProps(props: { resetKey?: string }, state: { failed: boolean; key: string | undefined }): { failed: boolean; key: string | undefined } | null {
+    return props.resetKey === state.key ? null : { failed: false, key: props.resetKey };
+  }
+  /* A page that broke must not break again from what it had saved (its page, filters, tab): that is forgotten, so
+     "Try again" and a reload start clean. */
+  override componentDidCatch(): void {
+    resetSectionState();
+  }
   override render(): ReactNode {
     if (!this.state.failed) return this.props.children;
-    return <div className="con-page"><LoadFailed what="This page" onRetry={() => window.location.reload()} /></div>;
+    return <div className="con-page"><LoadFailed what="This page" onRetry={() => { resetSectionState(); window.location.reload(); }} /></div>;
   }
 }

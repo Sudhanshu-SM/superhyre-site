@@ -29,7 +29,20 @@
   outline: none;
   animation: tr-rise 260ms var(--ease-out) both;
 }
-.tri-pic { display: grid; place-items: center; min-height: 150px; animation: tr-fade 240ms var(--ease-out) both; }
+.tri-pic { position: relative; display: grid; place-items: center; min-height: 150px; animation: tr-fade 240ms var(--ease-out) both; }
+/* A quiet shape where the drawing will be, so the first moments are never an empty hole; the drawing covers it. */
+.tri-pic::before {
+  content: "";
+  position: absolute;
+  inset: 14px 10%;
+  border-radius: 16px;
+  background: var(--rule);
+  opacity: 0.5;
+  animation: tri-ghost 1.4s var(--ease-in-out) both;
+  pointer-events: none;
+}
+.tri-pic > svg { position: relative; }
+@keyframes tri-ghost { 0% { opacity: 0.35; } 35% { opacity: 0.55; } 70% { opacity: 0.2; } 100% { opacity: 0; } }
 .tri-text { display: grid; gap: 6px; animation: tr-fade 240ms var(--ease-out) both; }
 .tri-title { margin: 0; color: var(--ink); }
 .tri-line { margin: 0; color: var(--ink-2); }
@@ -113,6 +126,8 @@
   animation: tr-rise 200ms var(--ease-out) both;
 }
 .tr-pop.is-sheet { width: calc(100vw - 24px); }
+/* A step just asked for: the card has already moved on and is waiting for the page, so it reads as settling. */
+.tr-pop.is-busy .tr-title, .tr-pop.is-busy .tr-body { opacity: 0.7; transition: opacity 160ms var(--ease-out); }
 .tr-count { margin: 0; color: var(--ink-3); }
 .tr-title { margin: 0; color: var(--ink); }
 .tr-body { margin: 0; color: var(--ink-2); }
@@ -134,7 +149,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tr-scrim, .tri, .tri-pic, .tri-text, .tr-pop, .trd-pop, .trd-line, .trd-spoke { animation: none; }
+  .tr-scrim, .tri, .tri-pic, .tri-pic::before, .tri-text, .tr-pop, .trd-pop, .trd-line, .trd-spoke { animation: none; }
   .trd-pulse { animation: none; opacity: 0; }
   .tr-veil, .tri-dots li { transition: none; }
 }

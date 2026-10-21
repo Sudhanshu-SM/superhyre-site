@@ -56,17 +56,24 @@ export function saveTurns(turns: readonly SavedTurn[]): void {
   write();
 }
 
-export const savedTrail = (turnId: number): readonly SavedStep[] => thread.trails[String(turnId)] ?? [];
+/**
+ * A turn's key here: the number of a local turn, or, connected, the key of the server's turn with the
+ * card's own key behind it ("<turn>#<view:form:<campaign>:>"), so two cards of one turn, or the same
+ * card in two chats, never share an answered trail.
+ */
+export type TurnKey = number | string;
 
-export function saveTrail(turnId: number, steps: readonly SavedStep[]): void {
+export const savedTrail = (turnId: TurnKey): readonly SavedStep[] => thread.trails[String(turnId)] ?? [];
+
+export function saveTrail(turnId: TurnKey, steps: readonly SavedStep[]): void {
   thread = { ...thread, trails: { ...thread.trails, [String(turnId)]: steps.map((s) => ({ ...s, ids: [...s.ids] })) } };
   write();
 }
 
-/** The record a turn's card made (a campaign's id), so a restored card shows it done instead of offering Create again. */
-export const savedMade = (turnId: number): string | null => thread.made[String(turnId)] ?? null;
+/** The record a turn's card made (a campaign's or a form's id), so a restored card shows it done instead of offering Create again. */
+export const savedMade = (turnId: TurnKey): string | null => thread.made[String(turnId)] ?? null;
 
-export function saveMade(turnId: number, id: string): void {
+export function saveMade(turnId: TurnKey, id: string): void {
   thread = { ...thread, made: { ...thread.made, [String(turnId)]: id } };
   write();
 }
@@ -82,4 +89,10 @@ export function clearThread(): void {
  * `restored` is true when the turn came back from an earlier visit, so
  * phases that already ran show as done instead of playing again.
  */
-export const TurnContext = createContext<{ id: number; restored: boolean } | null>(null);
+export const TurnContext = createContext<{ id: TurnKey; restored: boolean } | null>(null);
+
+/** The scope of one card inside a turn: the turn's own, with the card's key behind it. */
+export const cardScope = (turn: { id: TurnKey; restored: boolean }, cardKey: string): { id: TurnKey; restored: boolean } => ({
+  id: `${turn.id}#${cardKey}`,
+  restored: turn.restored,
+});

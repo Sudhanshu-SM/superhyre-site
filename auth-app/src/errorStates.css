@@ -15,3 +15,9 @@
 .es.is-compact { padding: 4px 4px 6px; }
 .es.is-compact .es-p { font: var(--type-body-sm); letter-spacing: var(--track-body-sm); }
 .es.is-compact .es-act { margin-top: 8px; }
+
+/* A wait that has gone on too long (SlowNote): one calm line and, where there is something to do, plain actions. */
+.sn { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); }
+.sn.is-stuck { color: var(--ink); }
+.sn-act { appearance: none; background: none; border: 0; padding: 0; font: inherit; letter-spacing: inherit; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.sn-act:hover { text-decoration-thickness: 2px; }

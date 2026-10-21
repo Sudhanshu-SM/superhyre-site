@@ -71,15 +71,17 @@ describe("the preview", () => {
 
 describe("what approving did", () => {
   it("says where a message went", () => {
-    expect(outsideOutcome("slack_message", slack, { provider: "slack", posted: true, channel: "#hiring", ts: "1" })).toEqual({ text: "Posted to #hiring.", link: null });
-    expect(outsideOutcome("slack_message", slack, {}).text).toBe("Posted to #hiring.");
-    expect(outsideOutcome("slack_message", { text: "x" }, {}).text).toBe("Posted to Slack.");
+    expect(outsideOutcome("slack_message", slack, { provider: "slack", posted: true, channel: "#hiring", ts: "1" })).toEqual({ text: "Posted in #hiring.", link: null });
+    expect(outsideOutcome("slack_message", slack, {}).text).toBe("Posted in #hiring.");
+    expect(outsideOutcome("slack_message", { text: "x" }, {}).text).toBe("Posted in Slack.");
   });
 
   it("links to the page that was made, and only to a real web address", () => {
     expect(outsideOutcome("notion_note", notion, { created: true, url: "https://www.notion.so/abc" })).toEqual({
-      text: "Added to Notion.", link: { href: "https://www.notion.so/abc", label: "Open in Notion" },
+      text: "Saved “Senior Android shortlist” to Notion.", link: { href: "https://www.notion.so/abc", label: "Open in Notion" },
     });
+    // A note with no title in what was approved still says it was added.
+    expect(outsideOutcome("notion_note", { action: "notion_note" }, {}).text).toBe("Added to Notion.");
     expect(outsideOutcome("notion_note", notion, { url: "javascript:alert(1)" }).link).toBeNull();
     expect(outsideOutcome("notion_note", notion, { url: "http://insecure.example" }).link).toBeNull();
     expect(outsideOutcome("notion_note", notion, {}).link).toBeNull();

@@ -52,9 +52,10 @@ describe("the sidebar's head", () => {
   it("keeps the unread count inside the row's top edge, clear of Quick find's border", () => {
     const badge = rule(".nav-bell-badge");
     expect(px(badge, "top")).toBeGreaterThanOrEqual(0);
-    // Hung off the bell's far corner, not its near one: the pill is a whole bell (42) and a gap (10) away.
-    expect(px(badge, "right")).toBeLessThanOrEqual(0);
-    expect(px(badge, "right")).toBeGreaterThanOrEqual(-4);
+    // Centred on the glyph's own top-right corner, inside the bell's circle: the bell and its count read as one
+    // centred object, and the pill is a whole bell (42) and a gap (10) away.
+    expect(px(badge, "right")).toBeGreaterThanOrEqual(0);
+    expect(px(badge, "right")).toBeLessThanOrEqual(6);
   });
 
   it("leaves the navigation rows at 34px", () => {
@@ -62,10 +63,10 @@ describe("the sidebar's head", () => {
   });
 
   it("does not shrink the head in a short window: only the gap above the campaign tree gives", () => {
-    const short = /@media \(min-width: 900px\) and \(max-height: 640px\) \{([^]*?)\n\}/.exec(css)?.[1] ?? "";
+    const short = /@media \(min-width: 1024px\) and \(max-height: 640px\) \{([^]*?)\n\}/.exec(css)?.[1] ?? "";
     expect(short).toContain(".nav-me-org { display: none; }");
     expect(short).not.toMatch(/\.nav-head|\.nav-ws|\.nav-tools|\.nav-find|\.nav-bell/);
-    expect(css).toMatch(/@media \(min-width: 900px\) and \(max-height: 800px\) \{\s*\.nav-campaign \{ margin-top: 6px; \}\s*\}/);
+    expect(css).toMatch(/@media \(min-width: 1024px\) and \(max-height: 800px\) \{\s*\.nav-campaign \{ margin-top: 6px; \}\s*\}/);
   });
 
   it("leaves the collapsed rail's head as it was", () => {

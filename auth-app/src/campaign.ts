@@ -1,3 +1,5 @@
+import type { MatchDisplay } from "./api/agent";
+import type { ClientVerdict } from "./api/stages";
 import type { Contact } from "./contacts";
 import { MEMBERS, contactNames, makePeople } from "./contacts";
 import { CAMPAIGN_ROWS } from "./campaignsData";
@@ -43,7 +45,7 @@ export const STATUSES: readonly { id: StatusId; label: string }[] = [
   { id: "replied", label: "Replied" },
   { id: "interviewing", label: "Interviewing" },
   { id: "hired", label: "Hired" },
-  { id: "passed", label: "Passed" },
+  { id: "passed", label: "Rejected" },
 ];
 
 /**
@@ -71,6 +73,12 @@ export const moveTarget = (to: StatusId): { stage: StageId; step?: Step } =>
     : to === "outreach" ? { stage: "outreach", step: "waiting" }
       : { stage: to };
 
+/**
+ * Where a move goes: a status (a kind of stage, Replied included), or one of the campaign's own stages by id.
+ * Moving by kind lands in the first stage of that kind; moving by stage id lands in exactly that column.
+ */
+export type MoveTo = StatusId | { stageId: string };
+
 /** Whether moving this person to `to` would change anything. */
 export const wouldMove = (p: { stage: StageId; step: Step }, to: StatusId): boolean => {
   const t = moveTarget(to);
@@ -80,8 +88,13 @@ export const wouldMove = (p: { stage: StageId; step: Step }, to: StatusId): bool
 export type Source = "Agent search" | "Extension" | "Referral" | "Added by hand" | "Form" | "Import";
 
 export type PipelinePerson = Contact & {
+  /** The kind of stage they are in (what every count and analytic goes by). */
   stage: StageId;
   step: Step;
+  /** The campaign's own column they are in. Absent from fixtures and older servers: then the first stage of their kind. */
+  stageId?: string;
+  /** What the client said on their review page, when they did. */
+  clientVerdict?: ClientVerdict | null;
   /** Days in the current stage. */
   inStage: number;
   owner: string;
@@ -92,6 +105,8 @@ export type PipelinePerson = Contact & {
   last: string;
   /** How well they match the campaign's criteria, out of 3; null until someone rates them. */
   fit: 1 | 2 | 3 | null;
+  /** How they match the role now (the server's one resolved state); the stored `fit` is only the older server's. */
+  display?: MatchDisplay;
   /** The candidate behind this pipeline entry, when it came from the API. */
   candidateId?: string;
   /** A reply was logged at some point (from the API); the step alone forgets it once they move on. */
@@ -126,7 +141,7 @@ const LAST: Readonly<Record<string, readonly string[]>> = {
   loop: ["Tech round booked", "Hiring manager round next", "Panel feedback in"],
   offer: ["Offer drafted", "Offer sent, awaiting reply"],
   hired: ["Accepted the offer"],
-  passed: ["Passed after screening", "Not the right level", "Withdrew"],
+  passed: ["Rejected after screening", "Not the right level", "Withdrew"],
 };
 
 function plan(id: string): { stage: StageId; step: Step; key: string; n: number }[] {

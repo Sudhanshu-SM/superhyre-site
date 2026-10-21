@@ -3,7 +3,7 @@ import "./agentLive.css";
 import { clip, conversationOf, didLine, didOf, questionOf } from "./activityView";
 import type { RunDetail } from "./activityView";
 import { api, messageOf } from "./api/client";
-import { Loader } from "./components/Loader";
+import { Shimmer, ShimmerRegion } from "./components/Shimmer";
 import { EmptyArt } from "./EmptyArt";
 import { openChat } from "./liveChat";
 import { campaignLink } from "./nav";
@@ -154,7 +154,18 @@ export function AgentActivity(): JSX.Element {
       {failed ? (
         <LoadFailed what="Agent activity" onRetry={load} />
       ) : !runs ? (
-        <Loader size="lg" label="Loading what the agent has done" block />
+        <ShimmerRegion label="Loading what the agent has done">
+          <ol className="aa-list" aria-hidden="true">
+            {Array.from({ length: 6 }, (_, i) => (
+              <li key={i} className="aa-row">
+                <div className="aa-open is-plain">
+                  <span className="aa-what"><Shimmer h={13} lh={20} w={`${40 + ((i * 17) % 40)}%`} /></span>
+                  <span className="aa-meta"><Shimmer h={11} lh={20} w={`${28 + ((i * 13) % 30)}%`} /></span>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </ShimmerRegion>
       ) : runs.length === 0 ? (
         <div className="aa-empty">
           <EmptyArt name="empty-agent-activity" size={180} />

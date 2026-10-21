@@ -9,9 +9,10 @@ import type { Standing } from "./can";
  *
  * Two roles. An ADMIN manages the organisation's recruiting: creates
  * campaigns, assigns recruiters to them, closes or completes them and
- * deletes contacts. A RECRUITER is an assignee: they see the campaigns they
- * are on and do the day-to-day work there (shortlist, reach out, move
- * stages, calls, forms).
+ * deletes contacts. A RECRUITER opens campaigns of their own (theirs alone
+ * until an admin adds teammates), sees the campaigns they are on and does
+ * the day-to-day work there (shortlist, reach out, move stages, calls,
+ * forms). `can()` in can.ts is the table of who may do what.
  *
  * Fixtures: no backend. The session is kept in sessionStorage
  * so a reload keeps the role being demoed; it is per tab and never leaves the
@@ -38,6 +39,8 @@ export type Assignable = {
   ownerId?: string | null;
   teamIds?: readonly string[];
   visibility?: "team" | "org";
+  /** Live rows: the server's own answer to "may this viewer change it" (an admin only on their teams' campaigns and their own). */
+  canManage?: boolean;
 };
 
 /**

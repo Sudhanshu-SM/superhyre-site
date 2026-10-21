@@ -2,17 +2,17 @@ import "./statusTones.css";
 
 /**
  * The colour of a status word, in one place. Text colour only: never a dot, a pill or a background, and the word
- * is always there, so colour is never the only thing that says it. The values are CSS variables with their own
- * numbers for the light and dark themes (statusTones.css), each measured at 4.5:1 or better on the surfaces a
- * status lands on (the test reads that file and checks).
+ * is always there, so colour is never the only thing that says it. The values are CSS variables that point at the
+ * stage tokens (statusTones.css), which have their own numbers for the light and dark themes, each measured at 4.5:1
+ * or better on the surfaces a status lands on (the tests read the files and check).
  *
  *   Not contacted, Found, Saved        muted neutral
  *   Shortlisted                        ink
- *   In outreach, Contacted             amber
- *   Replied                            green
- *   Interviewing, Offer out            blue
- *   Hired                              brand orange, heavier
- *   Passed, Not interested, Do not contact   muted red-brown
+ *   In outreach, Contacted             blue (the stage's colour)
+ *   Replied                            teal
+ *   Interviewing, Offer out            amber (the stage's colour)
+ *   Hired                              green (the stage's colour), heavier
+ *   Rejected, Not interested, Do not contact   soft rose (the stage's colour)
  *   anything else                      ink
  */
 
@@ -30,7 +30,7 @@ export const STATUS_TONE: Readonly<Record<string, StatusTone>> = {
   Interviewing: "interviewing",
   "Offer out": "interviewing",
   Hired: "hired",
-  Passed: "passed",
+  Rejected: "passed",
   "Not interested": "passed",
   "Do not contact": "passed",
 };

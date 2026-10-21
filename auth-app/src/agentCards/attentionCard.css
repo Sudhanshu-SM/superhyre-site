@@ -1,0 +1,15 @@
+/* What needs the person: a short list on the canvas, a row each, one fact and one quiet button. No box round it. */
+.at { display: grid; gap: 4px; max-width: 62ch; }
+.at-h { margin: 0 0 2px; font: var(--type-body-strong); letter-spacing: var(--track-body-strong); color: var(--ink); }
+.at-rows { list-style: none; margin: 0; padding: 0; display: grid; }
+.at-item { display: grid; }
+.at-facts { margin: 0 0 4px; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); }
+.at-group { margin: 10px 0 2px; font: var(--type-label); letter-spacing: var(--track-label); color: var(--ink-3); }
+.at-item:first-child .at-group { margin-top: 4px; }
+.at-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0; }
+.at-what { display: grid; gap: 1px; min-width: 0; }
+.at-campaign { margin: 0; font: var(--type-label); letter-spacing: var(--track-label); color: var(--ink); overflow-wrap: anywhere; }
+.at-line { margin: 0; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); }
+.at-row .cta { flex: none; }
+.at-more, .at-none { margin: 0; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-3); }
+.at-link { margin: 0; }

@@ -1,4 +1,5 @@
 import { can } from "../can";
+import { findKey } from "../platform";
 import type { Capability, Standing } from "../can";
 import { OUTREACH_LABEL } from "../nav";
 import type { RouteId } from "../nav";
@@ -45,9 +46,10 @@ export const TOUR_STEPS: readonly TourStep[] = [
   { id: "campaign-forms", target: "nav-campaign-forms", area: "nav", title: "Forms and responses", text: "Screening questions you send to candidates, and the answers that come back.", place: "right" },
   { id: "campaign-outreach", target: "nav-campaign-calls", area: "nav", title: `${OUTREACH_LABEL} for this campaign`, text: "Every message and call for this campaign, ready to open.", place: "right" },
   { id: "campaign-shortlisted", target: "nav-campaign-shortlisted", area: "nav", title: "Shortlisted", text: "The people you have moved forward, ready for a decision.", place: "right" },
-  { id: "quick-find", target: "quick-find", area: "nav", title: "Quick find", text: "Jump to any page or campaign, or ask the agent, from anywhere with Ctrl K.", place: "right" },
+  { id: "quick-find", target: "quick-find", area: "nav", title: "Quick find", text: `Jump to any page or campaign, or ask the agent, from anywhere with ${findKey()}.`, place: "right" },
   { id: "bell", target: "bell", area: "nav", title: "Notifications", text: "Replies, approvals and anything waiting on you show up here.", place: "right" },
-  { id: "settings", target: "nav-settings", area: "nav", title: "Settings", text: "Your profile, your team and what the agent is connected to.", place: "right" },
+  { id: "teams", target: "nav-teams", area: "nav", capability: "teams.manage", title: "Teams", text: "Group people and campaigns into teams, and see everyone in the organisation.", place: "right" },
+  { id: "settings", target: "nav-settings", area: "nav", title: "Settings", text: "Your profile, your organisation and what the agent is connected to.", place: "right" },
   { id: "support", target: "nav-support", area: "nav", title: "Support", text: "Stuck or curious? Write to us here and we reply within a working day.", place: "right" },
   { id: "composer", target: "composer", fallback: ".orc-composer-field", route: "agent", area: "page", title: "Brief the agent", text: "Say what you need in your own words, then press Enter.", place: "top" },
   { id: "jd", target: "jd-slot", fallback: ".orc-slots .orc-gslot:nth-child(1)", route: "agent", area: "page", title: "Job description", text: "Attach the job description so the agent knows exactly who to look for.", place: "top" },
@@ -66,6 +68,61 @@ export function stepsFor(standing: Standing | null | undefined): TourStep[] {
 export function selectorFor(step: Pick<TourStep, "target" | "fallback">): string {
   const attr = `[data-tour="${step.target}"]`;
   return step.fallback ? `${attr}, ${step.fallback}` : attr;
+}
+
+/**
+ * What can be told before the walk starts: a sidebar step whose row is not in the sidebar (the campaign's rows
+ * when no campaign is open) is left out up front, so the count the person sees at step one is the count they get.
+ */
+export function presentUpFront(plan: readonly TourStep[], has: (selector: string) => boolean): TourStep[] {
+  return plan.filter((s) => s.area !== "nav" || has(selectorFor(s)));
+}
+
+/** The plan once the pages have been looked at: a step on a page whose target was not found is gone before any is numbered. */
+export const withPagesFound = (plan: readonly TourStep[], found: ReadonlySet<string>): TourStep[] =>
+  plan.filter((s) => s.area !== "page" || found.has(s.id));
+
+/**
+ * Walks a frozen plan from `index` going `dir` to the first step `prepare` can show. The plan is never cut and the
+ * total never changes: a step whose target turns out to be missing is remembered in `missing` and stepped over, so
+ * the numbers only ever go forwards (or back) through the same list. Forwards, running out is the end (null); back,
+ * it stays on the first step that is there.
+ */
+export async function walkSteps(
+  plan: readonly TourStep[],
+  index: number,
+  dir: 1 | -1,
+  prepare: (step: TourStep) => Promise<boolean>,
+  missing: Set<string>,
+): Promise<number | null> {
+  let i = Math.max(index, 0);
+  if (i >= plan.length && dir === -1) i = plan.length - 1;
+  for (; i >= 0 && i < plan.length; i += dir) {
+    const s = plan[i]!;
+    if (missing.has(s.id)) continue;
+    if (await prepare(s)) return i;
+    missing.add(s.id);
+  }
+  return dir === -1 && plan.length > 0 ? walkSteps(plan, 0, 1, prepare, missing) : null;
+}
+
+/**
+ * The whole run from one frozen list: the label each step is shown with, in order. The tour's card, its counter and
+ * its Done button all read the one array, so the total is the number of steps walked (less any that turn out to be
+ * missing on the day, which are stepped over and never recounted).
+ */
+export async function walkLabels(
+  plan: readonly TourStep[],
+  prepare: (step: TourStep) => Promise<boolean> = async () => true,
+): Promise<string[]> {
+  const missing = new Set<string>();
+  const labels: string[] = [];
+  let at = await walkSteps(plan, 0, 1, prepare, missing);
+  while (at !== null) {
+    labels.push(counter(at, plan.length));
+    at = await walkSteps(plan, at + 1, 1, prepare, missing);
+  }
+  return labels;
 }
 
 /* ── skipping what is not there ──────────────────────────────────────────── */

@@ -40,7 +40,7 @@ export type AgentFeed = { step: "feed"; phase: string; kind: string; text: strin
 
 /** The views a write can leave stale. `invalidate()` refetches exactly these. */
 export const CAPABILITY_EFFECTS = [
-  "campaign", "pipeline", "candidates", "clients", "team", "connections", "memory", "schedules", "spec", "sourcing", "calls",
+  "campaign", "pipeline", "candidates", "clients", "team", "connections", "memory", "schedules", "spec", "sourcing", "calls", "meetings",
 ] as const;
 export type CapabilityEffect = (typeof CAPABILITY_EFFECTS)[number];
 

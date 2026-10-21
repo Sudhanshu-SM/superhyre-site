@@ -86,8 +86,8 @@ describe("the Configuration rows", () => {
     const open = vi.fn();
     const slots = railSlots("workspace", [], { inOrg: true, go: { "Job description": { onClick: open } } });
     const by = Object.fromEntries(slots.map((s) => [s.label, s.go]));
-    expect(by.Owner).toEqual({ href: "#/settings/members" });
-    expect(by.Team).toEqual({ href: "#/settings/members" });
+    expect(by.Owner).toEqual({ href: "#/teams" });
+    expect(by.Team).toEqual({ href: "#/teams" });
     expect(by.Campaigns).toEqual({ href: "#/campaigns" });
     expect(by.Channels).toEqual({ href: "#/settings/connections" });
     expect(by["Job description"]).toEqual({ onClick: open });

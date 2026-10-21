@@ -1,13 +1,22 @@
+import { AttentionCard } from "./AttentionCard";
+import { CaretDown } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
 import type { CardPerson, ChatCard } from "../api/agent";
-import { campaignFacts, campaignHref, funnel, peopleHeading, peopleSubline, personLine, personStatus, searchLine, specLine } from "../chatCards";
+import { campaignFacts, campaignHref, funnel, type PersonField, peopleHeading, peopleSubline, personLine, personStatus, searchLine, specLine } from "../chatCards";
 import { candidateFromCardPerson } from "../liveCandidate";
 import { putSet } from "../liveCandidates";
 import { LiveView } from "../liveViews";
 import { useLiveMoment } from "../liveViews/LiveMoment";
 import { ConnectCard } from "./ConnectCard";
+import { CountsCard } from "./CountsCard";
+import { Cta } from "./Cta";
+import { DraftsCard } from "./DraftsCard";
 import { ExportCard } from "./ExportCard";
+import { FileCard } from "./FileCard";
 import { OutcomeCard } from "./OutcomeCard";
+import { RoleSpecCard } from "./RoleSpecCard";
+import { EmailNeededCard } from "./EmailNeededCard";
+import { SlotsCard } from "./SlotsCard";
 
 /**
  * What the agent looked up, drawn where the answer is: the people with their fit and a way to
@@ -27,7 +36,7 @@ import { OutcomeCard } from "./OutcomeCard";
  */
 const FIRST = 8;
 
-export function PeopleList({ setKey, campaignId, people, actions }: { setKey: string; campaignId: string | null; people: readonly CardPerson[]; actions: boolean }): JSX.Element {
+export function PeopleList({ setKey, campaignId, people, actions, fields }: { setKey: string; campaignId: string | null; people: readonly CardPerson[]; actions: boolean; fields?: readonly PersonField[] | undefined }): JSX.Element {
   const ctx = useLiveMoment();
   const [more, setMore] = useState(false);
   const shown = more ? people : people.slice(0, FIRST);
@@ -56,8 +65,8 @@ export function PeopleList({ setKey, campaignId, people, actions }: { setKey: st
         {shown.map((p, i) => {
           const id = idOf(p);
           const verdict = id ? ctx?.verdicts[id] : undefined;
-          const status = personStatus(p);
-          const line = [personLine(p), status].filter(Boolean).join(" · ");
+          const status = personStatus(p, fields);
+          const line = [personLine(p, fields), status].filter(Boolean).join(" · ");
           return (
             <li key={id ?? p.campaignCandidateId ?? `${p.name}${i}`} className="lt-person">
               <div className="lt-person-main">
@@ -65,18 +74,23 @@ export function PeopleList({ setKey, campaignId, people, actions }: { setKey: st
                   {p.name}
                 </button>
                 {line && <span className="lt-person-meta">{line}</span>}
-                {p.strengths[0] && <span className="lt-person-why">{p.strengths[0]}</span>}
+                {(p.email !== undefined || p.phone !== undefined) && (
+                  <span className="lt-person-meta">
+                    {[p.email, p.phone].filter(Boolean).join(" · ") || "No email or phone on file"}
+                  </span>
+                )}
+                {p.strengths[0] && (!fields || fields.includes("fit")) && <span className="lt-person-why">{p.strengths[0]}</span>}
               </div>
               {canAct && p.personId &&
                 (verdict ? (
-                  <span className="lt-person-done">{verdict === "shortlisted" ? "Shortlisted" : "Passed"}</span>
+                  <span className="lt-person-done">{verdict === "shortlisted" ? "Shortlisted" : "Rejected"}</span>
                 ) : (
                   <span className="lt-person-acts">
                     <button type="button" className="rep-opt" onClick={() => ctx?.onVerdict(p.personId as string, "shortlisted")}>
                       Shortlist
                     </button>
                     <button type="button" className="rep-act" onClick={() => ctx?.onVerdict(p.personId as string, "rejected")}>
-                      Not a fit
+                      Reject
                     </button>
                   </span>
                 ))}
@@ -86,9 +100,7 @@ export function PeopleList({ setKey, campaignId, people, actions }: { setKey: st
       </ol>
       {people.length > shown.length && (
         <p className="lt-more">
-          <button type="button" className="lt-link" onClick={() => setMore(true)}>
-            Show {people.length - shown.length} more
-          </button>
+          <Cta small bare icon={CaretDown} onClick={() => setMore(true)}>Show {people.length - shown.length} more</Cta>
         </p>
       )}
     </>
@@ -105,12 +117,12 @@ function PeopleCard({ card }: { card: Extract<ChatCard, { kind: "people" }> }) {
         <h3 className="lk-title">{peopleHeading(card)}</h3>
         {sub && <p className="lk-sub">{sub}</p>}
       </header>
-      <PeopleList setKey={card.key} campaignId={card.campaignId} people={card.people} actions={card.source === "matches"} />
+      <PeopleList setKey={card.key} campaignId={card.campaignId} people={card.people} actions={card.source === "matches"} fields={card.fields} />
       {card.campaignId && (
         <p className="lk-foot">
-          <a className="lt-link" href={campaignHref(card.campaignId, card.source === "pipeline" ? "pipeline" : "")}>
-            {card.source === "pipeline" ? "Open the pipeline" : "Open the campaign"}
-          </a>
+          <Cta small href={campaignHref(card.campaignId, card.source === "pipeline" ? "pipeline" : "")}>
+            {card.source === "pipeline" ? "Open pipeline" : "Open campaign"}
+          </Cta>
         </p>
       )}
     </section>
@@ -151,9 +163,9 @@ function CampaignCard({ card, charted = false }: { card: Extract<ChatCard, { kin
         ))}
       </ul>
       <p className="lk-foot">
-        <a className="lt-link" href={campaignHref(card.campaignId)}>Open the campaign</a>
-        <a className="lt-link" href={campaignHref(card.campaignId, "pipeline")}>Pipeline</a>
-        <a className="lt-link" href={campaignHref(card.campaignId, "shortlisted")}>Shortlisted</a>
+        <Cta small href={campaignHref(card.campaignId)}>Open campaign</Cta>
+        <Cta small href={campaignHref(card.campaignId, "pipeline")}>Pipeline</Cta>
+        <Cta small href={campaignHref(card.campaignId, "shortlisted")}>Shortlisted</Cta>
       </p>
     </section>
   );
@@ -188,11 +200,15 @@ function CampaignsCard({ card }: { card: Extract<ChatCard, { kind: "campaigns" }
 }
 
 /** The cards a turn collected, in the order they were looked up. `turnSaid` is what a connect card sends again. */
-export function Cards({ cards, turnSaid = null, charted }: {
+export function Cards({ cards, turnSaid = null, charted, approvalOpen = false, quiet }: {
   cards: readonly ChatCard[];
   turnSaid?: string | null;
+  /** Outcome cards (by key) whose sentence the agent's own words already say: they show only their counts and next steps. */
+  quiet?: ReadonlySet<string>;
   /** Campaigns whose charts are drawn in the same answer (see chartedCampaigns). */
   charted?: ReadonlySet<string>;
+  /** An approval of this turn is still waiting for a yes: a connect card does not send the request again. */
+  approvalOpen?: boolean;
 }): JSX.Element | null {
   if (!cards.length) return null;
   return (
@@ -203,9 +219,17 @@ export function Cards({ cards, turnSaid = null, charted }: {
           case "campaign": return <CampaignCard key={c.key} card={c} charted={charted?.has(c.campaignId) ?? false} />;
           case "view": return <LiveView key={c.key} card={c} />;
           case "campaigns": return <CampaignsCard key={c.key} card={c} />;
-          case "outcome": return <OutcomeCard key={c.key} summary={c.summary} counts={c.counts} next={c.next} undo={c.undo} campaignId={c.campaignId} />;
+          case "counts": return <CountsCard key={c.key} card={c} />;
+          case "outcome": return <OutcomeCard key={c.key} summary={c.summary} counts={c.counts} next={c.next} undo={c.undo} campaignId={c.campaignId} quiet={quiet?.has(c.key) ?? false} />;
+          case "role_spec": return <RoleSpecCard key={c.key} card={c} />;
+          case "link": return <p key={c.key} className="at-link"><Cta href={c.href}>{c.label}</Cta></p>;
+          case "attention": return <AttentionCard key={c.key} items={c.items} more={c.more} tasks={c.tasks} />;
           case "export": return <ExportCard key={c.key} campaignId={c.campaignId} campaignName={c.campaignName} list={c.list} format={c.format} />;
-          case "connect": return <ConnectCard key={c.key} provider={c.provider} url={c.url} mode={c.mode} field={c.field} reason={c.reason} retryText={c.retryText} turnSaid={turnSaid} />;
+          case "file": return <FileCard key={c.key} card={c} />;
+          case "connect": return <ConnectCard key={c.key} provider={c.provider} url={c.url} mode={c.mode} field={c.field} reason={c.reason} retryText={c.retryText} turnSaid={turnSaid} waiting={c.waiting !== false} approvalOpen={approvalOpen} products={c.products ?? []} label={c.label ?? null} />;
+          case "slots": return <SlotsCard key={c.key} card={c} />;
+          case "need_email": return <EmailNeededCard key={c.key} card={c} />;
+          case "drafts": return <DraftsCard key={c.key} card={c} />;
           default: return null;
         }
       })}

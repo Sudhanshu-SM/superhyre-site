@@ -158,7 +158,7 @@ export function metaLine(item: MemoryItem, now = Date.now()): string {
 
 /** What a sort of episode is called in a timeline of what happened. */
 const EPISODE_LABEL: Readonly<Record<string, string>> = {
-  pass: "Turned down",
+  pass: "Rejected",
   hire: "Hired",
   stage_move: "Moved on the board",
   shortlist: "Shortlisted",
@@ -201,6 +201,20 @@ export function happenedLine(item: MemoryItem, now = Date.now()): string {
 /** The meta line of a pattern the agent noticed and is waiting to have confirmed. */
 export function noticedLine(item: MemoryItem): string | null {
   return item.basis && item.basis > 1 ? `Noticed across ${item.basis} pieces of work` : null;
+}
+
+/* ── the notes the agent is unsure about ── */
+
+/** What the Agent page asks for, quietly, when a task about doubted notes is opened (the server shows the card without a model turn). */
+export const DOUBTS_ASK = "Which notes are you unsure about?";
+export const DOUBTS_LABEL = "Notes I'm not sure about";
+export const DOUBTS_SHOW = "memory-doubts";
+
+/** Why the agent doubts a note, in a few words: the answers that used it which were turned down. */
+export function doubtLine(item: Pick<MemoryItem, "turnedDown">): string {
+  const n = item.turnedDown;
+  if (n <= 0) return "Answers that used it were turned down";
+  return n === 1 ? "An answer that used it was turned down" : `Answers that used it were turned down ${n} times`;
 }
 
 /* ── who may do what ── */

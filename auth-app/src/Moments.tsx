@@ -7,7 +7,9 @@ import type { Form, Question } from "./campaign";
 import { answerable, missedMustHaves, mustHaveOf, mustHaves, responsesFor } from "./campaign";
 import type { Family, RoleFacts } from "./formKit";
 import { builtAround, draftForm, draftNameAlts, estMinutes, familyConflict, idealDomain, idealMustHaves, roleTitle, shortTitle, subLabel, tintOf, titleCase } from "./formKit";
-import { addCampaignStub, campaignById, ensureDraft, liveForms, retryDraft, useForm, useFormMeta } from "./formsStore";
+import { addCampaignStub, campaignById, ensureDraft, getFormMeta, isRefusal, liveForms, publishForm, refreshFormCount, retryDraft, useForm, useFormMeta } from "./formsStore";
+import { publishProblem } from "./api/forms";
+import { messageOf } from "./api/client";
 import { AgentStrip, AgentsOverview } from "./AgentsOverview";
 import type { AgentView } from "./AgentsOverview";
 import { CampaignReport } from "./CampaignReport";
@@ -347,7 +349,7 @@ function Report({ ctx }: { ctx: MomentCtx }) {
             <Line label={bounces.length ? `Bounced · ${bounces.map((b) => b.who).join(", ")}'s email` : "Bounced"} n={bounces.length} bad={bounces.length > 0} />
             <p className="mo-total">
               <span>Reply rate</span>
-              <span>{replies} of {sent.length} · {sent.length ? Math.round((replies / sent.length) * 100) : 0}%</span>
+              <span>{replies} of {sent.length} · {sent.length ? Math.min(100, Math.round((replies / sent.length) * 100)) : 0}%</span>
             </p>
           </div>
 
@@ -561,7 +563,7 @@ function Leak({ ctx }: { ctx: MomentCtx }) {
   const chain = stages.filter((s) => s.id !== "shortlisted");
   const pairs = chain.slice(1).map((s, i) => ({ from: chain[i]!, to: s }));
   const leak = pairs.reduce((a, b) => (b.to.count / b.from.count < a.to.count / a.from.count ? b : a));
-  const kept = Math.round((leak.to.count / leak.from.count) * 100);
+  const kept = Math.min(100, Math.round((leak.to.count / leak.from.count) * 100));
   const [grown, setGrown] = useState(false);
   useLayoutEffect(() => { const id = requestAnimationFrame(() => setGrown(true)); return () => cancelAnimationFrame(id); }, []);
 
@@ -789,17 +791,9 @@ export function FormDraft({ ctx, live: given }: { ctx: MomentCtx; live?: LiveDra
     return { form, created };
   });
   const live: Form = useForm(made.form.id) ?? made.form;
-  const [preview, setPreview] = useState(false);
-  const saved = useFormMeta(live.id);
 
   const camp = campaignById(live.campaign);
   const campName = camp?.name ?? made.created ?? live.campaign;
-  const qs = answerable(live);
-  const must = mustHaves(live);
-  const rest = qs.filter((q) => !mustHaveOf(q));
-  const min = estMinutes(live);
-  const tint = tintOf(live);
-  const also = [...new Set(rest.map(shortTitle).filter(Boolean))].slice(0, 3);
   const around = builtAround(a.ideal ?? "");
 
   /* Counts come from the draft as it was made, so the phase lines don't
@@ -833,80 +827,191 @@ export function FormDraft({ ctx, live: given }: { ctx: MomentCtx; live?: LiveDra
         : given?.source && given.source !== "none" ? `Marked ${m0} must-haves from the ${given.source === "spec" ? "role spec" : "campaign"}` : `Marked ${m0} must-haves`,
       ms: 700,
       steps: mustHaves(made.form).map((q) => q.title),
-      says: `Here's a first draft for ${campName}: ${n0} questions, about ${min0} minutes for a candidate. Must-haves flag a response for you to look at. Nobody is turned down automatically.${
+      says: `Here's a first draft for ${campName}: ${n0} questions, about ${min0} minutes for a candidate. Must-haves flag a response for you to look at. Nobody is rejected automatically.${
         made.created ? ` I've set up ${made.created} as a draft campaign. Finish its brief whenever you're ready.` : ""}${clash ? ` ${clash}` : ""}`,
     },
     // Fixed for the turn.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   ], []);
 
-  const formName = live.name || `${live.title ?? campName} screening`;
-  /* The sub-type is a fact about the form, not part of its name. */
-  const sub = subLabel((a.family as Family) ?? "other", a.sub);
-
   return (
     <div className="src mo is-formflow">
       <Staged phases={phases} onBusy={ctx.onBusy} onGrow={ctx.onGrow}>
-        <article className="mo-card mo-form" aria-label={`Form draft: ${formName}`}
-          style={{ ["--mo-form-wash" as string]: tint.wash, ["--mo-form-fill" as string]: tint.fill }}>
-          <header className="mo-form-h">
-            <p className="mo-form-eyebrow t-caption">
-              <span className="mo-form-mark" aria-hidden="true"><ClipboardText size={14} weight="bold" /></span>
-              Screening form, {live.status === "draft" ? "draft" : "live"}
-            </p>
-            <h3 className="mo-form-title t-title-sm">{formName}</h3>
-            <p className="mo-form-meta t-body-sm">
-              <span>For {campName}</span>
-              {sub && <span>{sub}</span>}
-              <span>{qs.length} questions</span>
-              <span>About {min} min</span>
-            </p>
-          </header>
+        <FormCard ctx={ctx} form={live} answers={a} created={made.created} around={around} given={!!given} />
+      </Staged>
+    </div>
+  );
+}
 
-          <div className="mo-form-b">
-            <p className="mo-form-sub t-label">Must-haves</p>
-            {must.length ? (
-              <ul className="mo-form-must">
-                {must.slice(0, 3).map((q) => (
-                  <li key={q.id}>
-                    <CheckCircle size={15} weight="fill" aria-hidden="true" />
-                    <span className="t-body">{q.title}</span>
-                    <span className="mo-form-need">Must be {needs(q, !!given)}</span>
-                  </li>
-                ))}
-              </ul>
+/**
+ * A form that was made earlier in the chat, as it stands now: its name, the link to send and a
+ * copy of it, a preview, the way into the builder and how many have answered. Drawn when the
+ * chat is left and come back to, instead of asking for the form again.
+ */
+export function FormMade({ ctx, form }: { ctx: MomentCtx; form: Form }) {
+  useEffect(() => { ctx.onGrow(); }, [ctx]);
+  return (
+    <div className="src mo is-formflow">
+      <FormCard ctx={ctx} form={form} answers={{}} created={null} around={null} given />
+    </div>
+  );
+}
+
+/**
+ * The form drafted in the chat, and what can be done with it: build it, preview it, send it, read what came back.
+ * A draft has one primary action, "Publish and copy link", and the link then shows in place; a live form shows its
+ * link, Copy link and how many have answered. Its status, link and counts are the store's, so a form the agent
+ * publishes or closes from the chat changes here without a reload.
+ */
+function FormCard({ ctx, form, answers: a, created, around, given }: {
+  ctx: MomentCtx; form: Form; answers: Readonly<Record<string, string>>; created: string | null; around: string | null;
+  /** With the API: the form is the server's, so its link and its answers are real. */
+  given: boolean;
+}) {
+  const live: Form = useForm(form.id) ?? form;
+  const [preview, setPreview] = useState(false);
+  const [copied, setCopied] = useState(false);
+  /* Publishing from the card: idle, working, or why it was refused. */
+  const [publish, setPublish] = useState<{ state: "idle" | "working" | "failed" | "refused"; problem?: string }>({ state: "idle" });
+  const saved = useFormMeta(live.id);
+  /* Its status and link, and who has answered it, are read again as the card comes up: the agent, a colleague and
+     applicants all change them from outside this card. */
+  useEffect(() => { if (given) void refreshFormCount(live.id); }, [given, live.id]);
+  useEffect(() => { ctx.onGrow(); }, [saved.status, saved.responses, publish.state, ctx]);
+
+  const camp = campaignById(live.campaign);
+  const campName = camp?.name ?? created ?? live.campaign;
+  const qs = answerable(live);
+  const must = mustHaves(live);
+  const rest = qs.filter((q) => !mustHaveOf(q));
+  const min = estMinutes(live);
+  const tint = tintOf(live);
+  const also = [...new Set(rest.map(shortTitle).filter(Boolean))].slice(0, 3);
+  const formName = live.name || `${live.title ?? campName} screening`;
+  /* The sub-type is a fact about the form, not part of its name. */
+  const sub = subLabel((a.family as Family) ?? "other", a.sub);
+  const status = given ? saved.status : live.status;
+  const link = given && saved.status === "live" ? saved.publicLink : null;
+  const answered = given ? saved.responses : 0;
+  const copyText = (text: string | null) => {
+    if (!text) return;
+    void navigator.clipboard?.writeText(text).then(() => {
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    }, () => {});
+  };
+  const copy = () => copyText(link);
+  /* A form made in the chat is a draft: one click publishes it and copies the link, which then shows here. */
+  /* A refusal that is for good (not on a team that may do it) settles the card: nothing to publish, nothing to retry, said once. */
+  const refused = saved.refused || publish.state === "refused";
+  const refusal = publish.state === "refused" ? publish.problem ?? saved.error : saved.refused ? saved.error : null;
+  const canPublish = given && status === "draft" && !refused;
+  const publishNow = () => {
+    if (publish.state === "working") return;
+    setPublish({ state: "working" });
+    void publishForm(live.id).then(
+      () => {
+        setPublish({ state: "idle" });
+        copyText(getFormMeta(live.id).publicLink);
+      },
+      (err: unknown) => setPublish({ state: isRefusal(err) ? "refused" : "failed", problem: publishProblem(err) ?? messageOf(err) }),
+    );
+  };
+
+  return (
+    <>
+      <article className="mo-card mo-form" aria-label={`Form draft: ${formName}`}
+        style={{ ["--mo-form-wash" as string]: tint.wash, ["--mo-form-fill" as string]: tint.fill }}>
+        <header className="mo-form-h">
+          <p className="mo-form-eyebrow t-caption">
+            <span className="mo-form-mark" aria-hidden="true"><ClipboardText size={14} weight="bold" /></span>
+            Screening form, {status === "draft" ? "draft" : status === "closed" ? "closed" : "live"}
+          </p>
+          <h3 className="mo-form-title t-title-sm">{formName}</h3>
+          <p className="mo-form-meta t-body-sm">
+            <span>For {campName}</span>
+            {sub && <span>{sub}</span>}
+            <span>{qs.length} questions</span>
+            <span>About {min} min</span>
+            {answered > 0 && <span>{answered} {answered === 1 ? "response" : "responses"}{saved.newApplicants > 0 ? `, ${saved.newApplicants} new` : ""}</span>}
+          </p>
+        </header>
+
+        <div className="mo-form-b">
+          <p className="mo-form-sub t-label">Must-haves</p>
+          {must.length ? (
+            <ul className="mo-form-must">
+              {must.slice(0, 3).map((q) => (
+                <li key={q.id}>
+                  <CheckCircle size={15} weight="fill" aria-hidden="true" />
+                  <span className="t-body">{q.title}</span>
+                  <span className="mo-form-need">Must be {needs(q, given)}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mo-form-none t-body-sm">No must-haves yet. You can mark any yes/no or single-choice question as one in the builder.</p>
+          )}
+          {must.length > 3 && <p className="mo-form-none t-body-sm">And {must.length - 3} more in the builder.</p>}
+          {also.length > 0 && <p className="mo-form-also t-body-sm">Also asks about {joinAnd(also)}.</p>}
+          {around && <p className="mo-form-around t-body-sm"><span>Built around:</span> {around}</p>}
+        </div>
+
+        {given && (link || status === "closed") && (
+          <div className="mo-form-link">
+            {link ? (
+              <>
+                <a className="mo-form-url t-body-sm" href={link} target="_blank" rel="noreferrer" title={link}>{link}</a>
+                <button type="button" className="src-btn is-quiet mo-small" onClick={copy}>{copied ? "Copied" : "Copy link"}</button>
+              </>
             ) : (
-              <p className="mo-form-none t-body-sm">No must-haves yet. You can mark any yes/no or single-choice question as one in the builder.</p>
+              <p className="t-body-sm">The link now says the form has closed.</p>
             )}
-            {must.length > 3 && <p className="mo-form-none t-body-sm">And {must.length - 3} more in the builder.</p>}
-            {also.length > 0 && <p className="mo-form-also t-body-sm">Also asks about {joinAnd(also)}.</p>}
-            {around && <p className="mo-form-around t-body-sm"><span>Built around:</span> {around}</p>}
           </div>
+        )}
 
-          <footer className="mo-form-f">
-            {saved.save === "error" && (
-              <p className="mo-form-none t-body-sm" role="alert">
-                This draft isn't saved yet. {saved.error}{" "}
-                <button type="button" className="lt-link" onClick={() => void retryDraft(live.id)}>Try again</button>
-              </p>
+        <footer className="mo-form-f">
+          {refused && refusal && <p className="mo-form-none t-body-sm" role="alert">{refusal}</p>}
+          {saved.save === "error" && !refused && (
+            <p className="mo-form-none t-body-sm" role="alert">
+              This draft isn't saved yet. {saved.error}{" "}
+              <button type="button" className="lt-link" onClick={() => void retryDraft(live.id)}>Try again</button>
+            </p>
+          )}
+          {publish.state === "failed" && !refused && (
+            <p className="mo-form-none t-body-sm" role="alert">
+              I couldn't publish it. {publish.problem}{" "}
+              <button type="button" className="lt-link" onClick={publishNow}>Try again</button>
+            </p>
+          )}
+          <div className="mo-acts">
+            {canPublish && (
+              <button type="button" className="src-btn is-primary mo-small" disabled={publish.state === "working"} aria-busy={publish.state === "working" || undefined} onClick={publishNow}>
+                {publish.state === "working" ? <><Loader size="sm" tone="inherit" />Publishing</> : "Publish and copy link"}
+              </button>
             )}
-            <div className="mo-acts">
-              <button type="button" className="src-btn is-primary mo-small" onClick={() => ctx.openForm?.(live.campaign, live.id, "build")}>
-                <ArrowSquareOut size={14} aria-hidden="true" />Open in builder
+            <button type="button" className={`src-btn mo-small ${canPublish ? "is-quiet" : "is-primary"}`} onClick={() => ctx.openForm?.(live.campaign, live.id, "build")}>
+              <ArrowSquareOut size={14} aria-hidden="true" />Open in builder
+            </button>
+            <button type="button" className="src-btn is-quiet mo-small" onClick={() => setPreview(true)}>
+              <Eye size={14} aria-hidden="true" />Preview
+            </button>
+            {answered > 0 && (
+              <button type="button" className="src-btn is-quiet mo-small" onClick={() => ctx.openForm?.(live.campaign, live.id, "responses")}>
+                Open responses<ArrowRight size={13} aria-hidden="true" />
               </button>
-              <button type="button" className="src-btn is-quiet mo-small" onClick={() => setPreview(true)}>
-                <Eye size={14} aria-hidden="true" />Preview
-              </button>
+            )}
+            {!canPublish && (
               <button type="button" className="src-btn is-quiet mo-small" onClick={() => ctx.openForm?.(live.campaign, live.id, "share")}>
                 <ShareFat size={14} aria-hidden="true" />Share
               </button>
-            </div>
-          </footer>
-        </article>
-        <FormPreviewDialog form={live} open={preview} onClose={() => setPreview(false)}
-          link={given ? (saved.status === "live" ? saved.publicLink : null) : undefined} />
-      </Staged>
-    </div>
+            )}
+          </div>
+        </footer>
+      </article>
+      <FormPreviewDialog form={live} open={preview} onClose={() => setPreview(false)}
+        link={given ? (saved.status === "live" ? saved.publicLink : null) : undefined} />
+    </>
   );
 }
 

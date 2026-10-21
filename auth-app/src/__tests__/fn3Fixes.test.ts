@@ -52,7 +52,7 @@ describe("an applicant who might already be a candidate", () => {
   });
 });
 
-describe("why someone was passed on", () => {
+describe("why someone was rejected", () => {
   it("sends the picked reason, the note, both, or nothing", () => {
     expect(passReasonText("Skills", "")).toBe("Skills");
     expect(passReasonText(null, " wants remote only ")).toBe("wants remote only");

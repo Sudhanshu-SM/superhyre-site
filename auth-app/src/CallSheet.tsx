@@ -3,7 +3,7 @@ import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { CallDetail, CallRow, ChoosableOutcome, RecordingLink } from "./api/calls";
-import { attachTranscript, getCall, patchCall, recordingLink, uploadRecording, CHOOSABLE_OUTCOMES } from "./api/calls";
+import { attachTranscript, getCall, patchCall, recordingLink, removeLoggedCall, uploadRecording, CHOOSABLE_OUTCOMES } from "./api/calls";
 import { createTask } from "./api/tasks";
 import { LIVE, messageOf } from "./api/client";
 import { clock, decodePeaks, fakePeaks, parseTranscript, readDuration } from "./callMedia";
@@ -19,6 +19,7 @@ import {
 import { fixtureDetail } from "./callsFixtures";
 import { openerNow, restoreFocus, trapTab } from "./components/focusTrap";
 import { Loader } from "./components/Loader";
+import { Shimmer, ShimmerRegion, ShimmerText } from "./components/Shimmer";
 import { useToast } from "./toast";
 import { useBackCloses } from "./ui";
 
@@ -319,6 +320,54 @@ function AddTranscript({ call, onDone }: { call: CallDetail; onDone: (c: CallDet
   );
 }
 
+/* ═════════════════════════ a call logged by hand ═════════════════════════ */
+
+/**
+ * What stands where the recording and the transcript would be, for a call somebody logged by hand: nothing was recorded,
+ * and that is said once and calmly. The caller can still add either, and can take the log back while nothing is on it.
+ */
+export function LoggedByHand({ call, editable, onDone }: { call: CallDetail; editable: boolean; onDone: (c: CallDetail) => void }) {
+  const toast = useToast();
+  const [asking, setAsking] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const who = call.caller.mine ? "You logged" : `${callerFirstName(call.caller)} logged`;
+  const remove = async () => {
+    setBusy(true);
+    try {
+      if (LIVE) await removeLoggedCall(call.id);
+      invalidateViews(["calls"]);
+      toast("Taken back.");
+    } catch (err) {
+      toast(messageOf(err), "error");
+      setBusy(false);
+      setAsking(false);
+    }
+  };
+  return (
+    <section className="kl-sec kl-norec kl-byhand" aria-label="Logged by hand">
+      <h3 className="kl-sec-h">Logged by hand</h3>
+      <p className="t-body kl-quiet">{who} this call, so there is no recording or transcript.</p>
+      {editable && (
+        <>
+          <AddRecording call={call} onDone={onDone} />
+          <AddTranscript call={call} onDone={onDone} />
+          <div className="kl-add">
+            {asking ? (
+              <span className="kl-form-row">
+                <span className="t-body-sm kl-quiet">Take this call out of the log?</span>
+                <button type="button" className="kl-link" disabled={busy} onClick={() => void remove()}>{busy ? <><Loader size="sm" tone="inherit" /> Taking it out</> : "Yes, take it out"}</button>
+                <button type="button" className="kl-link" disabled={busy} onClick={() => setAsking(false)}>Keep it</button>
+              </span>
+            ) : (
+              <button type="button" className="kl-link" onClick={() => setAsking(true)}>Take this call back</button>
+            )}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 /* ═════════════════════════ the next step ═════════════════════════ */
 
 /**
@@ -530,7 +579,7 @@ export function CallBody({ id, hint, campaigns, bare = false, focusNote = 0 }: {
   useEffect(() => {
     if (call && noteFor !== call.id) { setNote(call.notes ?? ""); setNoteFor(call.id); }
   }, [call, noteFor]);
-  // "Log a call note" in the Outreach sheet asks for the cursor here, once the note's box is there.
+  // "Add a call note" in the Outreach sheet asks for the cursor here, once the note's box is there.
   useEffect(() => {
     if (focusNote > 0 && call?.canEdit) noteBox.current?.focus();
   }, [focusNote, call?.canEdit]);
@@ -550,6 +599,8 @@ export function CallBody({ id, hint, campaigns, bare = false, focusNote = 0 }: {
   const callerRole = roleWord(members.find((m) => m.userId === shown.caller.id)?.role);
   const editable = call?.canEdit === true;
   const hasSegments = (call?.segments.length ?? 0) > 0;
+  /* A call logged by hand, with nothing added to it: one calm line stands for the recording and the transcript. */
+  const bareByHand = call?.byHand === true && !call.recording.available && !hasSegments && !call.transcript;
 
   return (
     <>
@@ -568,14 +619,22 @@ export function CallBody({ id, hint, campaigns, bare = false, focusNote = 0 }: {
         </section>
       )}
 
-      {phase === "loading" && <div className="kl-wait is-small" aria-busy="true"><Loader size="md" label="Opening the call" block /></div>}
+      {phase === "loading" && (
+        <ShimmerRegion label="Opening the call">
+          <section className="kl-sec kl-rec" aria-hidden="true"><h3 className="kl-sec-h">Recording</h3><Shimmer h={44} r={12} /></section>
+          <section className="kl-sec" aria-hidden="true"><h3 className="kl-sec-h">Summary</h3><ShimmerText lines={3} h={12} gap={8} /></section>
+          <section className="kl-sec" aria-hidden="true"><h3 className="kl-sec-h">Transcript</h3><ShimmerText lines={4} h={12} gap={10} last="44%" /></section>
+        </ShimmerRegion>
+      )}
       {phase === "failed" && (
         <p className="t-body kl-quiet kl-pad">This call couldn't be opened. Close it and try again in a moment.</p>
       )}
 
       {call && (
         <>
-          {call.recording.available ? (
+          {bareByHand && call ? (
+            <LoggedByHand call={call} editable={editable} onDone={(c) => setCall(c)} />
+          ) : call.recording.available ? (
             <section className="kl-sec kl-rec" aria-label="Recording">
               <h3 className="kl-sec-h">Recording</h3>
               <div className="kl-player">
@@ -638,7 +697,7 @@ export function CallBody({ id, hint, campaigns, bare = false, focusNote = 0 }: {
             </section>
           )}
 
-          <section className="kl-sec" aria-label="Transcript">
+          {!bareByHand && <section className="kl-sec" aria-label="Transcript">
             <h3 className="kl-sec-h">Transcript</h3>
             {hasSegments ? (
               <ol
@@ -673,7 +732,7 @@ export function CallBody({ id, hint, campaigns, bare = false, focusNote = 0 }: {
               <p className="t-body kl-quiet">No transcript for this call yet.</p>
             )}
             {editable && !hasSegments && !call.transcript && <AddTranscript call={call} onDone={(c) => setCall(c)} />}
-          </section>
+          </section>}
 
           <section className="kl-sec" aria-label="Your note">
             <h3 className="kl-sec-h">{call.caller.mine ? "Your note" : `${callerFirstName(call.caller)}'s note`}</h3>
@@ -740,7 +799,7 @@ export function CallBody({ id, hint, campaigns, bare = false, focusNote = 0 }: {
                 <dt>Length</dt>
                 <dd className="kl-num">{length || <span className="kl-quiet">Not known</span>}</dd>
                 <dt>Source</dt>
-                <dd>{call.direction === "inbound" ? "Inbound call" : "Outbound call"}{call.recording.available ? <span className="kl-quiet">, recorded</span> : null}</dd>
+                <dd>{call.direction === "inbound" ? "Inbound call" : "Outbound call"}{call.byHand ? <span className="kl-quiet">, logged by hand</span> : call.recording.available ? <span className="kl-quiet">, recorded</span> : null}</dd>
               </dl>
             </section>
           )}

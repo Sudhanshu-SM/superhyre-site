@@ -8,7 +8,7 @@ import { ChannelMark } from "../ChannelMark";
 import { ChannelSwitch, OutreachHead, OutreachLine } from "../OutreachPage";
 import { OutreachThread } from "../OutreachSheet";
 import {
-  bandOfActivity, byLine, CHANNEL_TABS, callHead, callRowFromActivity, countWord, emailHead, emailStatus, excerpt, followUpPrompt, itemsOf, lastWord,
+  bandOfActivity, byLine, CHANNEL_TABS, callHead, callRowFromActivity, countWord, emailHead, emailStatus, excerpt, failureReason, followUpPrompt, itemsOf, lastWord,
   lengthOf, lineOf, personChoices, personOf, readRemembered, SHEET_TABS, STATUS_FILTERS, STATUS_LABEL, STATUS_TONE, statusFilterOf,
   summaryLine, tabCount, WHATSAPP_REASON, WHATSAPP_WAITING, whenOf, writeRemembered,
 } from "../outreachActivityView";
@@ -36,13 +36,15 @@ describe("the line under the title", () => {
   const c = (over: Partial<ChannelCounts>): ChannelCounts => ({ all: 0, email: 0, whatsapp: 0, call: 0, callsConnected: 0, ...over });
 
   it("says the counts and the share of calls that were answered, in the owner's words", () => {
-    expect(summaryLine(c({ email: 412, whatsapp: 31, call: 96, callsConnected: 36 }))).toBe("412 emails, 31 WhatsApp chats, 96 calls, 38% answered");
+    expect(summaryLine(c({ email: 412, whatsapp: 31, call: 96, callsConnected: 36 }))).toBe("412 emails, 31 WhatsApp chats, 96 calls, 38% of calls answered");
   });
 
   it("leaves out what there is none of, and says one in the singular", () => {
     expect(summaryLine(c({ email: 1 }))).toBe("1 email");
-    expect(summaryLine(c({ email: 5, call: 1, callsConnected: 0 }))).toBe("5 emails, 1 call, 0% answered");
+    expect(summaryLine(c({ email: 5, call: 1, callsConnected: 0 }))).toBe("5 emails, 1 call, 0% of calls answered");
     expect(summaryLine(c({}))).toBe("");
+    // No calls, no answered rate beside the emails.
+    expect(summaryLine(c({ email: 13, call: 0, callsConnected: 0 }))).toBe("13 emails");
   });
 
   it("counts a group in the words of the channel being looked at", () => {
@@ -58,7 +60,7 @@ describe("the line under the title", () => {
     expect(empty).toContain(">Outreach</h1>");
     expect(empty).toContain("Emails, WhatsApp chats and calls, by campaign.");
     const full = renderToStaticMarkup(<OutreachHead counts={c({ email: 4, call: 2, callsConnected: 1 })} />);
-    expect(full).toContain("4 emails, 2 calls, 50% answered");
+    expect(full).toContain("4 emails, 2 calls, 50% of calls answered");
     expect((full.match(/<p /g) ?? []).length).toBe(1);
   });
 });
@@ -90,10 +92,13 @@ describe("the channel switch", () => {
 });
 
 describe("status", () => {
-  it("offers the six owner words, in order, and reads anything else as no filter", () => {
-    expect(STATUS_FILTERS.map((s) => s.label)).toEqual(["Replied", "Waiting for a reply", "Bounced", "Scheduled", "Connected", "No answer"]);
+  it("offers the email words, then the call outcomes, in order, and reads anything else as no filter", () => {
+    expect(STATUS_FILTERS.map((s) => s.label)).toEqual([
+      "Replied", "Waiting for a reply", "Bounced", "Didn't send", "Scheduled", "Draft", "Connected", "Voicemail", "No answer", "Call back", "Not interested",
+    ]);
     expect(statusFilterOf("waiting")).toBe("waiting");
-    expect(statusFilterOf("voicemail")).toBe("");
+    expect(statusFilterOf("voicemail")).toBe("voicemail");
+    expect(statusFilterOf("in_progress")).toBe("");
     expect(statusFilterOf("<script>")).toBe("");
   });
 
@@ -161,7 +166,7 @@ describe("a person's whole outreach", () => {
   const mail = (id: string, minutes: number, over: Partial<Extract<TimelineItem, { kind: "email" }>> = {}): TimelineItem => ({
     kind: "email", id, at: iso(minutes), direction: "out", status: "waiting", subject: "Hello", body: "Hi Asha", scheduledFor: null,
     sentAt: iso(minutes), by: { id: "u1", name: "Meera Pillai", mine: true }, campaignId: "k1", campaignName: "Staff Platform Engineer",
-    canApprove: false, canCancel: false, ...over,
+    canApprove: false, canCancel: false, error: null, canRetry: false, ...over,
   });
   const call = (id: string, minutes: number): TimelineItem => ({
     kind: "call", id, at: iso(minutes),
@@ -170,7 +175,7 @@ describe("a person's whole outreach", () => {
   const chat = (id: string, minutes: number, direction: "in" | "out" = "in"): TimelineItem => ({
     kind: "whatsapp", id, at: iso(minutes), direction, text: "Can we talk Friday?", by: null,
   });
-  const items = [mail("e1", 600), call("c1", 60), chat("w1", 300), mail("e2", 10, { status: "scheduled", canCancel: true })];
+  const items = [mail("e1", 600), call("c1", 60), chat("w1", 300), mail("e2", 10, { status: "scheduled", canCancel: true, scheduledFor: new Date(Date.now() + 3_600_000).toISOString() })];
 
   it("merges everything newest first in the timeline, and a channel's tab lists its own", () => {
     expect(itemsOf(items, "timeline").map((i) => i.id)).toEqual(["e2", "c1", "w1", "e1"]);
@@ -195,6 +200,8 @@ describe("a person's whole outreach", () => {
     expect(h).toContain("Called by Meera");
     expect(h).toContain("Interested");
     expect(h).toContain("Open the call");
+    // The whole call card opens and closes it, not only its link.
+    expect(h).toMatch(/class="ko-card is-call is-toggle"/);
     // Newest first, in the page's order.
     expect(h.indexOf("Cancel the send")).toBeLessThan(h.indexOf("Called by Meera"));
     expect(h.indexOf("Called by Meera")).toBeLessThan(h.indexOf("Can we talk Friday?"));
@@ -210,10 +217,53 @@ describe("a person's whole outreach", () => {
     expect(emailStatus(draft as Extract<TimelineItem, { kind: "email" }>)).toBe("");
   });
 
+  it("says why an email did not go, with a plain default, and offers Try again when it can be sent again", () => {
+    const thread = (item: TimelineItem, onRetry?: (id: string) => void) =>
+      renderToStaticMarkup(
+        <OutreachThread items={[item]} busy={null} openCall={null} focusNote={0} onApprove={() => undefined} onCancel={() => undefined} onToggleCall={() => undefined} {...(onRetry ? { onRetry } : {})} />,
+      );
+    // A reason that was kept is said as it is, with where to fix it when it is elsewhere.
+    const real = thread(
+      mail("f1", 5, { status: "failed", error: "Gmail isn't switched on for the Google project this app signs in with. Someone with access to that Google Cloud project has to enable the Gmail API.", canRetry: true }),
+      () => undefined,
+    );
+    expect(real).toContain("Didn&#x27;t send");
+    expect(real).toContain("has to enable the Gmail API");
+    expect(real).toContain("Open Google Cloud");
+    expect(real).toContain(">Try again<");
+    // No reason kept (older and seeded rows): still "Didn't send", the plain default, and Try again.
+    const none = thread(mail("f2", 5, { status: "failed", error: null, canRetry: true }), () => undefined);
+    expect(none).toContain("Didn&#x27;t send");
+    expect(none).toContain("It didn&#x27;t go out.");
+    expect(none).toContain(">Try again<");
+    // Not allowed to send it again (another person's, or Gmail already took it): the reason, and no button.
+    const theirs = thread(mail("f3", 5, { status: "failed", error: null, canRetry: false }), () => undefined);
+    expect(theirs).toContain("It didn&#x27;t go out.");
+    expect(theirs).not.toContain("Try again");
+    // An email that went, or is lined up, has no reason to give.
+    expect(thread(mail("f4", 5, { status: "waiting" }), () => undefined)).not.toContain("It didn&#x27;t go out.");
+    expect(failureReason({ direction: "out", status: "scheduled", error: "x" })).toBeNull();
+    expect(failureReason({ direction: "out", status: "failed", error: "  " })).toBe("It didn't go out.");
+  });
+
+  it("reads the reason and whether it can be sent again from the server, and a failed one is sendable when the server is silent", () => {
+    const read = (over: object) => candidateOutreachOf({
+      candidate: { id: "c1", name: "Asha" },
+      items: [{ kind: "email", id: "e", at: "2026-10-12T10:00:00Z", direction: "out", status: "failed", subject: "Hi", body: "Hi", ...over }],
+    })?.items[0] as Extract<TimelineItem, { kind: "email" }>;
+    expect(read({ error: "Gmail needs to be reconnected, so this email didn't go out.", canRetry: false })).toMatchObject({
+      error: "Gmail needs to be reconnected, so this email didn't go out.", canRetry: false,
+    });
+    expect(read({})).toMatchObject({ error: null, canRetry: true });
+  });
+
   it("says whose an email is, and what became of it", () => {
     const e = (over: object) => ({ direction: "out" as const, status: "waiting" as const, by: { id: "u", name: "Meera Pillai", mine: false }, ...over });
     expect(emailHead(e({}))).toBe("Sent by Meera");
     expect(emailHead(e({ by: { id: "u", name: "Meera Pillai", mine: true } }))).toBe("Sent by you");
+    // An email that never left is not "Sent by" anyone: it is theirs, and the status word says it did not send.
+    expect(emailHead(e({ status: "failed", by: { id: "u", name: "Meera Pillai", mine: true } }))).toBe("From you");
+    expect(emailHead(e({ status: "failed" }))).toBe("From Meera");
     expect(emailHead(e({ status: "scheduled" }))).toBe("Going out from Meera");
     expect(emailHead(e({ direction: "in" }))).toBe("Reply");
     expect(emailStatus(e({ status: "bounced" }))).toBe("Bounced");

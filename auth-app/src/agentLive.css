@@ -36,6 +36,9 @@
   color: var(--ink);
 }
 
+/* A bullet under a bullet: one line each under its label. */
+.lt-sub { margin-top: 4px; gap: 3px; max-width: none; }
+
 /* A numbered list: the same column, a little more air between the items. */
 .lt-list-ol { padding-left: 1.4em; gap: 8px; list-style: decimal; }
 .lt-list-ol > li::marker { color: var(--ink-2); font-variant-numeric: tabular-nums; }
@@ -74,6 +77,8 @@
 .lt-quote p { margin: 0; white-space: pre-wrap; }
 .lt-quote-t { font: var(--type-body-strong); letter-spacing: var(--track-body-strong); }
 .lt-quote-w { font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-3); }
+/* Which Gmail an email goes from, under the message, quietly. */
+.lt-from { display: flex; align-items: center; gap: 6px; margin: 0; }
 /* What a remembered note rests on: the recruiter's own words, quietly under the note. */
 .lt-said { margin: 0; max-width: 62ch; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); overflow-wrap: anywhere; }
 
@@ -86,8 +91,8 @@
 .lt-search {
   display: grid;
   gap: 10px;
-  max-width: 72ch;
-  justify-items: start;
+  /* The same width as the cards above it (the role spec, an approval): one column, not three widths. */
+  justify-items: stretch;
 }
 
 .lt-search > .lt-people {

@@ -1,4 +1,5 @@
 import type { Hue } from "./orchestrator";
+import type { MatchResultView } from "./matchResult";
 
 /**
  * Sourcing — the fixtures behind a sourcing run in the agent transcript.
@@ -156,6 +157,14 @@ export type Candidate = {
   meets: readonly boolean[];
   /** False when the ranking has not judged this person yet: their marks are unknown, not misses. */
   scored?: boolean;
+  /** Per ranking criterion, what the judge found: a mark can say "can't tell yet", which a miss does not. */
+  checks?: ReadonlyArray<"met" | "partial" | "not_met" | "unknown">;
+  /** What the server says about this person's fit (score, coverage, status, verdicts with quotes, override); absent for the demo. */
+  result?: MatchResultView;
+  /** The campaign the result is for, so a recruiter's call on it can be sent. */
+  resultCampaignId?: string;
+  /** The shared person behind a workspace candidate: what a match is keyed by (its `id` is the candidate's own). */
+  personId?: string;
   totalYears: number;
   avgTenure: number;
   about: string;

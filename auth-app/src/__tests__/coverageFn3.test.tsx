@@ -44,15 +44,17 @@ describe("a role spec waiting for a yes can be read first", () => {
   it("offers the spec panel on the approval that asks for it, with the version it asks about", () => {
     const a = approvalFor({ action: "approve_spec", campaignId: "c1", specId: "s1" });
     const html = renderToStaticMarkup(<ApprovalCard turnKey="t1" approval={a} turnSaid="Approve the spec" />);
-    expect(html).toContain("Read the role spec first");
+    // A button that opens the spec in a popup, not a written link; the decision stays on the approval's own Approve.
+    expect(html).toContain("View the role spec");
+    expect(html).not.toContain("lt-link");
     expect(html).toContain(">Approve</button>");
   });
 
   it("offers nothing to read when no draft exists yet (it is drafted when approved), and nothing on other approvals", () => {
     const none = approvalFor({ action: "approve_spec", campaignId: "c1" });
-    expect(renderToStaticMarkup(<ApprovalCard turnKey="t1" approval={none} turnSaid="x" />)).not.toContain("Read the role spec first");
+    expect(renderToStaticMarkup(<ApprovalCard turnKey="t1" approval={none} turnSaid="x" />)).not.toContain("View the role spec");
     const other = approvalFor({ action: "shortlist", campaignId: "c1" });
-    expect(renderToStaticMarkup(<ApprovalCard turnKey="t1" approval={other} turnSaid="x" />)).not.toContain("Read the role spec first");
+    expect(renderToStaticMarkup(<ApprovalCard turnKey="t1" approval={other} turnSaid="x" />)).not.toContain("View the role spec");
   });
 });
 
@@ -202,14 +204,19 @@ describe("a campaign's real calls feed the Overview's cards", () => {
 describe("what is coming up is answered in the chat with the list Home shows", () => {
   it("is one of the views the chat draws, and the server's list says so too", () => {
     expect(isViewKind("coming-up")).toBe(true);
-    expect(VIEW_KINDS).toHaveLength(17);
+    expect(VIEW_KINDS).toHaveLength(18);
   });
 
   it("draws Home's own rows (the same List, the same feed) narrowed to the campaign the request named", () => {
     const view = src("liveViews/ComingUp.tsx");
     expect(view).toContain('import { List, useNow } from "../ComingUp"');
     expect(view).toContain("{ ...UPCOMING, campaignId }");
-    expect(view).toContain("const campaignId = card.campaignId;");
+    // Narrowed to the request's campaign; "Show everything" widens it in place (no message), and meetings are among the rows.
+    expect(view).toContain("const campaignId = everything ? null : card.campaignId;");
+    expect(view).toContain("kind: \"reminder\", campaignId: null");
+    expect(view).toContain("onClear={() => setEverything(true)}");
+    expect(view).not.toContain("ctx.send");
+    expect(view).toContain("meetings={meetings}");
     expect(src("liveViews/index.tsx")).toContain('"coming-up": lazy(() => import("./ComingUp"))');
   });
 });

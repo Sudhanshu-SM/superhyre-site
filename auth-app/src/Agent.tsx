@@ -39,7 +39,7 @@ import {
 } from "./attachments";
 import type { Attachment, PasteOutcome } from "./attachments";
 import { diffFilters, filtersLine, summariseFilters, valuesFromSetup, valuesFromSpec, withSaved } from "./liveFilters";
-import { orcClass } from "./agentLayout";
+import { TRANSCRIPT_TAIL, orcClass, tailPadding } from "./agentLayout";
 import { keepsDraft, slotsFor } from "./agentDraft";
 import { AttachChips } from "./AttachChips";
 import { BriefSignals } from "./BriefSignals";
@@ -47,7 +47,9 @@ import { refreshCampaign, refreshCampaignList, useCampaignRow, useCampaignRows }
 import { useMayChangeCampaign } from "./campaignRights";
 import { useCampaignSpec } from "./specDraft";
 import type { Conversation } from "./api/agent";
-import { CHAT_LIMIT, chatLength, chatOver, newChat, openChat, resumeChat, sendMessage, useLiveChat } from "./liveChat";
+import { CHAT_LIMIT, chatLength, chatNow, chatOver, newChat, onChatFocus, openChat, resumeChat, sendAction, sendMessage, useLiveChat } from "./liveChat";
+import { DOUBTS_ASK, DOUBTS_LABEL, DOUBTS_SHOW } from "./memoryView";
+import { showFromHash, withoutShow } from "./nav";
 import { chatTitle, titleFromMessage, UNTITLED } from "./chatTitle";
 import { tidySeed } from "./seedText";
 import { useToast } from "./Contacts";
@@ -59,6 +61,7 @@ import { homeOverview } from "./api/home";
 import { getCandidate } from "./api/candidates";
 import { candidateFromDetail, candidateFromMatch } from "./liveCandidate";
 import type { CandidateSet } from "./liveCandidate";
+import { matchFromProfile } from "./liveViews/compareLogic";
 import { campaignIds, campaignOfCandidate, candidateById, clearSets, getSet, setOfCandidate, updateCandidate, useCandidateSets } from "./liveCandidates";
 import { LiveMomentProvider } from "./liveViews/LiveMoment";
 import { PassReasonDialog } from "./PassReason";
@@ -90,6 +93,8 @@ type Turn = {
   id: number;
   /** What the recruiter sent. */
   said: string;
+  /** Started by a press (an answer on a card, a button): there is no message of the recruiter's to show, and the reply carries on from the card above. */
+  quiet?: boolean;
   mode: ModeId;
   /** Which stage the agent is on, or -1 once it has answered. */
   stage: number;
@@ -131,10 +136,12 @@ function briefOf(c: Conversation): Brief {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function Agent({
-  campaign, campaignIsCurrent = false, inOrg = false, handoff, handoffSend = false, onHandoffTaken, onOpenForm, onOpenCampaign, onNewChat,
+  campaign, campaignIsCurrent = false, inOrg = false, handoff, handoffSend = false, onHandoffTaken, onOpenForm, onOpenCampaign, onFocusCampaign, onNewChat,
 }: {
   /** Leaves the chat for a campaign, making it current. */
   onOpenCampaign?: (campaignId: string) => void;
+  /** The chat moved to a campaign as it went (one it just made, or one chosen): the page makes it current, staying where it is. */
+  onFocusCampaign?: (campaignId: string, name: string) => void;
   /** A fresh chat was started: the page no longer treats the campaign it was on as in focus. */
   onNewChat?: () => void;
   /** Send the handoff at once instead of leaving it in the composer. */
@@ -188,11 +195,26 @@ export function Agent({
   useEffect(() => {
     if (LIVE) void resumeChat();
   }, []);
+  useEffect(() => (LIVE && onFocusCampaign ? onChatFocus(onFocusCampaign) : undefined), [onFocusCampaign]);
+  /* A task that counts the notes the agent is unsure about opens the Agent with "?show=memory-doubts": the card of
+     them is asked for quietly (no message of the person's, no model turn) in the chat they were in. The link is
+     spent at once, so a second pass (or the page drawn twice) asks nothing more. */
+  useEffect(() => {
+    if (!LIVE) return undefined;
+    const open = () => {
+      if (showFromHash(window.location.hash) !== DOUBTS_SHOW) return;
+      history.replaceState(null, "", withoutShow(window.location.hash));
+      void (chatNow().conversationId ? Promise.resolve() : resumeChat()).then(() => { sendAction(DOUBTS_ASK, DOUBTS_LABEL); });
+    };
+    open();
+    window.addEventListener("hashchange", open);
+    return () => window.removeEventListener("hashchange", open);
+  }, []);
   const liveTurns = useMemo<Turn[]>(
     () =>
       live.turns.map((lt, i) => ({
         id: i + 1, said: lt.said, mode: "agent", stage: -1, startedAt: lt.startedAt, thoughtMs: null,
-        replyIndex: 0, kind: "reply", liveKey: lt.key,
+        replyIndex: 0, kind: "reply", liveKey: lt.key, ...(lt.quiet ? { quiet: true } : {}),
       })),
     [live.turns],
   );
@@ -465,21 +487,34 @@ export function Agent({
     setVerdict(id, "rejected");
     agentApi.reject(cid, [id], reason).catch(() => setVerdict(id, null));
   }, [passing, setVerdict]);
-  /* What was already decided about the people in view, from the server, once per campaign. */
+  /* What was already decided about the people in view, from the server, once per campaign, and again whenever
+     something is written about people (a shortlist or a rejection made in another card, the sheet, or by the agent):
+     every card that shows a person then shows what was decided. */
   const decidedFor = useRef(new Set<string>());
+  const readDecisions = useCallback((cid: string) => {
+    agentApi.decisions(cid).then((d) => {
+      setVerdicts((all) => {
+        const next = { ...all };
+        for (const id of d.passed) next[id] = "rejected";
+        for (const id of d.shortlisted) next[id] = "shortlisted";
+        return next;
+      });
+    }).catch(() => decidedFor.current.delete(cid));
+  }, []);
+  useEffect(() => onInvalidate((effects, campaigns) => {
+    if (!LIVE || !(effects.has("pipeline") || effects.has("candidates"))) return;
+    /* The campaign that was written to, whether or not a card of this chat is about it (an earlier card of found people has
+       no campaign of its own, and shows a shortlist or a pass made elsewhere all the same), and every campaign in view. */
+    const written = [...campaigns].filter((c): c is string => c !== null);
+    const ids = new Set(campaigns.has(null) ? [...campaignIds(), ...written] : [...written, ...campaignIds()]);
+    for (const cid of ids) readDecisions(cid);
+  }), [readDecisions]);
   useEffect(() => {
     if (!LIVE) return;
     for (const cid of campaignIds()) {
       if (decidedFor.current.has(cid)) continue;
       decidedFor.current.add(cid);
-      agentApi.decisions(cid).then((d) => {
-        setVerdicts((all) => {
-          const next = { ...all };
-          for (const id of d.passed) next[id] = "rejected";
-          for (const id of d.shortlisted) next[id] = "shortlisted";
-          return next;
-        });
-      }).catch(() => decidedFor.current.delete(cid));
+      readDecisions(cid);
     }
   }, [sets]);
   /* The full profile of whoever is open: the list gives the header and the fit, this the history. */
@@ -488,8 +523,9 @@ export function Agent({
     const set = setOfCandidate(profile.id);
     if (!set) return;
     let current = true;
-    /* Someone already on a board or found by name: their own candidate row has the history. */
-    if (set.key !== set.campaignId || !set.campaignId) {
+    /* Someone already on a board or found by name: their own candidate row has the history. A person a search found
+       (not in the workspace) is read from the campaign's match, whichever set holds them. */
+    if (candidateById(profile.id)?.inWorkspace === true || !set.campaignId) {
       getCandidate(profile.id).then((d) => { if (current) updateCandidate(candidateFromDetail(d)); }).catch(() => {});
       return () => { current = false; };
     }
@@ -498,10 +534,8 @@ export function Agent({
       const base = set.candidates.find((c) => c.id === profile.id);
       if (!current || !base) return;
       updateCandidate(candidateFromMatch(
-        { personId: profile.id, fullName: base.name, headline: base.headline, currentTitle: mp.profile.currentTitle, currentCompanyName: mp.profile.currentCompanyName,
-          city: mp.profile.city, linkedinUrl: mp.profile.linkedinUrl, profileImageUrl: mp.profileImageUrl, yearsOfExperience: mp.profile.yearsOfExperience, source: "ours",
-          stage: mp.stage ?? "judged", score: mp.score, tier: mp.tier, knockedOut: null, judgement: mp.judgement },
-        { criteria: set.criteria, profile: mp },
+        { ...matchFromProfile(profile.id, mp), fullName: base.name, headline: base.headline, stage: mp.stage ?? "judged" },
+        { criteria: set.criteria, profile: mp, campaignId: cid },
       ));
     }).catch(() => {});
     return () => { current = false; };
@@ -861,19 +895,27 @@ export function Agent({
      while it runs only moves its target, so a reply that arrives in steps
      still reads as one glide. It runs only while `pinned`: the reader is at
      (or within 64px of) the bottom. Scrolling up unpins it, coming back down
-     re-pins it. Reduced motion jumps instead of easing. */
+     re-pins it. Reduced motion jumps instead of easing.
+
+     The bottom it follows to is TRANSCRIPT_TAIL (28px) under the newest line
+     and that is all there is: no padding is held back for a turn that got
+     shorter. A run finishing (its lines fold into one, the feed goes) or a
+     card collapsing used to be "held" as up to ~250px of padding under the
+     turn for as long as it was working and a beat after, which read as an
+     empty band between the last message and the composer. Now the end of the
+     transcript stays where the composer is and what is above it moves. */
   const pageGap = useCallback((): number => {
     const last = logRef.current?.querySelector(":scope > article.orc-turn:last-of-type");
     const comp = composerRef.current;
     if (!last || !comp) return 0;
-    return last.getBoundingClientRect().bottom - (window.innerHeight - comp.offsetHeight) + 56;
+    return last.getBoundingClientRect().bottom - (window.innerHeight - comp.offsetHeight) + TRANSCRIPT_TAIL;
   }, []);
   const nudge = useCallback(() => {
     if (!pinned.current) return;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     /* ── GROWTH OF A FEW LINES IS FOLLOWED AT ONCE, BEFORE IT IS PAINTED ──
        A phase line arriving or a card appearing is tens of pixels: easing toward it left the newest line
-       closer than 56px to the composer for a few frames. Called from the resize observer, which runs after
+       closer than its clearance to the composer for a few frames. Called from the resize observer, which runs after
        layout and before paint, a small distance is closed on the spot, so no frame shows the newest line
        nearer than its clearance. Only a long jump (a whole answer arriving) glides. */
     const log0 = logRef.current;
@@ -907,9 +949,17 @@ export function Agent({
   useEffect(() => {
     const log = logRef.current;
     if (!log) return;
+    /* ── ONLY THE READER UNPINS ──
+       A card appearing or growing moves the layout, and the browser clamping the scroll position then looked like
+       the reader moving up: the transcript stopped following and the newest card sat under the composer. The
+       position-based unpin below now needs a gesture in the last second (wheel, touch, key, a press on the
+       scrollbar), so only a reader who scrolled up on purpose is left where they are. */
+    let gestureAt = 0;
+    const gesture = () => { gestureAt = Date.now(); };
     const unpin = (e: WheelEvent | TouchEvent | KeyboardEvent) => {
       if (e instanceof WheelEvent && e.deltaY >= 0) return;
       if (e instanceof KeyboardEvent && !["ArrowUp", "PageUp", "Home"].includes(e.key)) return;
+      gesture();
       pinned.current = false;
     };
     const onScroll = () => {
@@ -923,7 +973,7 @@ export function Agent({
          before it is kept, because the resize handler puts it back. */
       if (top < lastTop.current - 1 && d < 1 && pinned.current) return;
       if (d < 64) pinned.current = true;
-      else if (top < lastTop.current - 1) pinned.current = false;
+      else if (top < lastTop.current - 1 && Date.now() - gestureAt < 1000) pinned.current = false;
       lastTop.current = top;
     };
     /* The page-scrolling (stacked) layout's equivalent of `onScroll`. */
@@ -940,56 +990,29 @@ export function Agent({
     log.addEventListener("touchmove", unpin, { passive: true });
     log.addEventListener("keydown", unpin);
     log.addEventListener("scroll", onScroll, { passive: true });
+    log.addEventListener("pointerdown", gesture, { passive: true });
     window.addEventListener("scroll", onPageScroll, { passive: true });
-    /* ── WHILE PINNED, ONLY THE NEWEST TURN MOVES THE TRANSCRIPT ──
-       Two things used to shove the transcript around with the reader
-       sitting at the bottom.
-
+    /* ── WHILE PINNED, AN EARLIER TURN CHANGING HEIGHT DOES NOT MOVE THE END ──
        An EARLIER turn changing height (a run still finishing after the
        next brief was sent) pushed everything below it down, and the
        follower then glided it back up. Its change is now absorbed in the
        scroll position before the frame is painted, so the bottom stays
        put.
 
-       The NEWEST turn getting shorter: the form flow answers a question by
-       collapsing its card to one line and then, a beat later, asking the
-       next one. Bottom-anchored, that dropped the transcript ~300px and
-       lifted it back for every answer. The lost height is held as padding
-       under the turn instead, the next growth spends the hold first, and
-       whatever is left is eased away once the turn is idle.
+       The NEWEST turn getting shorter is not given anything back. It used to
+       be "held" as padding under the turn (so the form flow's collapsed
+       card did not drop the transcript ~300px and lift it again), and that
+       hold stayed for as long as the turn worked: a 200-250px empty band
+       between the last message and the composer. The end of the log is the
+       end of the log; what is above it moves.
 
-       Both read the scroll position from before the change (`lastTop`):
-       by the time this runs the browser may already have clamped it. */
+       Reads the scroll position from before the change (`lastTop`): by the
+       time this runs the browser may already have clamped it. */
     const heights = new WeakMap<Element, number>();
-    let hold = 0;
-    let basePad = 0;
-    let release = 0;
-    let ease = 0;
-    const setHold = (h: number) => {
-      if (hold === 0 && h > 0) basePad = parseFloat(getComputedStyle(log).paddingBottom) || 0;
-      hold = Math.max(0, h);
-      log.style.paddingBottom = hold > 0 ? `${basePad + hold}px` : "";
-    };
-    const letGo = () => {
-      /* Not while the turn is still working: its next block is coming. */
-      if (log.querySelector(".orc-mark.is-working")) { release = window.setTimeout(letGo, 400); return; }
-      cancelAnimationFrame(ease);
-      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { setHold(0); return; }
-      const from = hold;
-      const t0 = performance.now();
-      const tick = (t: number) => {
-        const k = Math.min(1, (t - t0) / 280);
-        setHold(from * (1 - k) ** 3);
-        if (k < 1 && hold > 0) ease = requestAnimationFrame(tick);
-        else setHold(0);
-      };
-      ease = requestAnimationFrame(tick);
-    };
     const onResize = (entries: ResizeObserverEntry[]) => {
       const turns = log.querySelectorAll<HTMLElement>(":scope > article.orc-turn");
       const newest = turns[turns.length - 1];
       let above = 0;
-      let own = 0;
       for (const e of entries) {
         const el = e.target as HTMLElement;
         if (!el.matches("article.orc-turn")) continue;
@@ -997,30 +1020,13 @@ export function Agent({
         const was = heights.get(el);
         heights.set(el, h);
         if (was === undefined) continue;
-        if (el === newest) own += h - was;
-        else above += h - was;
+        if (el !== newest) above += h - was;
       }
       const live = log.closest(".orc-stream.is-live") !== null
         && getComputedStyle(log).overflowY !== "visible";
-      if (live && pinned.current && (above !== 0 || own < -1)) {
-        let top = lastTop.current + above;
-        if (own < -1) {
-          cancelAnimationFrame(ease);
-          setHold(hold - own);
-          window.clearTimeout(release);
-          release = window.setTimeout(letGo, 900);
-        }
-        log.scrollTop = top;
-        top = log.scrollTop;
-        lastTop.current = top;
-      }
-      if (live && own > 1 && hold > 0) {
-        cancelAnimationFrame(ease);
-        setHold(hold - own);
-        /* Something arrived and did not fill the space: settle soon, before
-           the reader has started on it, rather than under their eyes. */
-        window.clearTimeout(release);
-        if (hold > 0) release = window.setTimeout(letGo, 250);
+      if (live && pinned.current && above !== 0) {
+        log.scrollTop = lastTop.current + above;
+        lastTop.current = log.scrollTop;
       }
       nudge();
     };
@@ -1035,16 +1041,57 @@ export function Agent({
       log.removeEventListener("touchmove", unpin);
       log.removeEventListener("keydown", unpin);
       log.removeEventListener("scroll", onScroll);
+      log.removeEventListener("pointerdown", gesture);
       window.removeEventListener("scroll", onPageScroll);
       ro.disconnect();
       mo.disconnect();
-      window.clearTimeout(release);
-      cancelAnimationFrame(ease);
-      log.style.paddingBottom = "";
       cancelAnimationFrame(follow.current);
       follow.current = 0;
     };
   }, [nudge, pageGap]);
+
+  /* ── THE LOG ENDS TRANSCRIPT_TAIL ABOVE THE INPUT, WHATEVER THE INPUT HAS GROWN TO ──
+     Beside the rail the composer is bottom-aligned in a dock of fixed height, so a taller input (a long message,
+     attached files) rises into the foot of the log instead of pushing it up, and a dock with room to spare
+     leaves some between them. The log's own bottom padding (`--log-tail`, 28px in chat.css) is what makes the
+     distance from its last line to the input the same 28px in every case: this measures where the input's top
+     is against the log's bottom edge and sets the padding that closes the difference.
+
+     Measured in layout coordinates (offsetTop), which the composer's FLIP and a card's entrance cannot skew, and
+     only where the log is the scrollport. Stacked under 1100px the page scrolls and the composer follows the
+     log in the flow: there is nothing to measure, and the stylesheet's 28px stands. */
+  useLayoutEffect(() => {
+    const log = logRef.current;
+    const comp = composerRef.current;
+    if (!log || !comp || !started) return;
+    const apply = () => {
+      const paged = getComputedStyle(log).overflowY === "visible";
+      let pad: string | null = null;
+      if (!paged && log.offsetParent !== null && log.offsetParent === comp.offsetParent) {
+        const inputTop = comp.offsetTop + (parseFloat(getComputedStyle(comp).paddingTop) || 0);
+        pad = `${tailPadding(inputTop - (log.offsetTop + log.offsetHeight))}px`;
+      }
+      const was = log.style.getPropertyValue("--log-tail");
+      if ((pad ?? "") === was) return;
+      if (pad === null) log.style.removeProperty("--log-tail");
+      else log.style.setProperty("--log-tail", pad);
+      /* The end moved: the follower takes the reader there if they were at it. */
+      nudge();
+    };
+    apply();
+    if (typeof ResizeObserver === "undefined") {
+      return () => log.style.removeProperty("--log-tail");
+    }
+    const ro = new ResizeObserver(apply);
+    ro.observe(comp);
+    ro.observe(log);
+    window.addEventListener("resize", apply);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", apply);
+      log.style.removeProperty("--log-tail");
+    };
+  }, [started, nudge]);
 
   /* Walks the running turn through its stages, then answers. Intervals rather
      than one long timeout so each stage is legible, and cleared on unmount so
@@ -1380,7 +1427,6 @@ export function Agent({
               flyFrom={flight?.id === t.id ? flight : null}
               onFlown={clearFlight}
               onAnswer={seed}
-              onChoose={sendText}
               sourcingProps={{
                 verdicts,
                 onVerdict,
@@ -1503,7 +1549,7 @@ export function Agent({
           {LIVE && started && (
             <button type="button" className="rail-new orc-newchat" onClick={startNew}>
               <Plus size={12} weight="bold" aria-hidden="true" />
-              New chat
+              <span className="orc-newchat-l">New chat</span>
             </button>
           )}
         </div>
@@ -1652,7 +1698,7 @@ export function Agent({
 /* ── a turn ──────────────────────────────────────────────────────────────── */
 
 function TurnView({
-  turn, restored = false, flyFrom, onFlown, onAnswer, onChoose, sourcingProps, momentCtx,
+  turn, restored = false, flyFrom, onFlown, onAnswer, sourcingProps, momentCtx,
 }: {
   turn: Turn;
   /** Came back from an earlier visit: shown as it was left, not replayed. */
@@ -1661,8 +1707,6 @@ function TurnView({
   onFlown: () => void;
   /** A clarifying question's options seed the composer; they never act. */
   onAnswer: (text: string) => void;
-  /** A press on one of the agent's own choices (which client, which campaign) sends it. */
-  onChoose?: (text: string) => void;
   sourcingProps: Omit<React.ComponentProps<typeof SourcingRun>, "onBusy">;
   /** Everything a Moment may do, minus its own busy flag. */
   momentCtx: Omit<MomentCtx, "onBusy">;
@@ -1672,7 +1716,10 @@ function TurnView({
      phases, idle while it waits for Run search, then working again. */
   const selfRun = turn.kind !== "reply";
   const [busy, setBusy] = useState(selfRun);
-  const liveTurn = useLiveChat().turns.find((t) => t.key === turn.liveKey);
+  const chatTurns = useLiveChat().turns;
+  const liveTurn = chatTurns.find((t) => t.key === turn.liveKey);
+  /* A question the chat has gone past is no longer asked. */
+  const later = chatTurns.slice(chatTurns.findIndex((t) => t.key === liveTurn?.key) + 1);
   const running = liveTurn
     ? liveTurn.status === "sending" || liveTurn.status === "working"
     : selfRun ? busy : turn.stage >= 0;
@@ -1705,7 +1752,10 @@ function TurnView({
     onBusy: setBusy,
   }), []);
   const mark = useRef<HTMLSpanElement>(null);
-  const turnInfo = useMemo(() => ({ id: turn.id, restored }), [turn.id, restored]);
+  /* Connected, a turn is the server's: its own key (a turn's position moves between chats), so the answered
+     questions and the records its cards made are found again whichever chat is open. */
+  const turnKey = turn.liveKey ?? turn.id;
+  const turnInfo = useMemo(() => ({ id: turnKey, restored }), [turnKey, restored]);
 
   /* ── THE FOCAL MOMENT, as a FLIP ──
      The mark's final position is its ordinary layout position in this turn.
@@ -1765,9 +1815,10 @@ function TurnView({
   }, [flyFrom, onFlown]);
 
   return (
-    <article className="orc-turn">
-      <Prompt text={turn.said} />
-      <FormLinkChips text={turn.said} />
+    <article className={`orc-turn${turn.quiet ? " is-continued" : ""}`}>
+      {liveTurn?.opening && <Opening line={liveTurn.opening.line} jdWords={liveTurn.opening.jdWords} />}
+      {!turn.quiet && !liveTurn?.opening && <Prompt text={turn.said} />}
+      {!turn.quiet && !liveTurn?.opening && <FormLinkChips text={turn.said} />}
 
       <div className="orc-answer">
         {/* The mark, which is the agent. It stays still: what the turn is doing is said, line by line, beside it,
@@ -1778,9 +1829,13 @@ function TurnView({
 
         <div className="orc-answer-body">
           {liveTurn ? (
-            <LiveMomentProvider value={ctx}>
-              <LiveTurnBody turn={liveTurn} onAnswer={onAnswer} {...(onChoose ? { onChoose } : {})} />
-            </LiveMomentProvider>
+            /* The turn's scope reaches the views its cards draw: without it they could not tell a visit
+               from a return, and a form made here would be asked for again. */
+            <TurnContext.Provider value={turnInfo}>
+              <LiveMomentProvider value={ctx}>
+                <LiveTurnBody turn={liveTurn} onAnswer={onAnswer} later={later} />
+              </LiveMomentProvider>
+            </TurnContext.Provider>
           ) : turn.kind === "sourcing" ? (
             <SourcingRun {...sourcingProps} onBusy={setBusy} />
           ) : turn.kind !== "reply" ? (
@@ -1807,6 +1862,25 @@ function TurnView({
         </div>
       </div>
     </article>
+  );
+}
+
+/**
+ * How a chat that the app opened begins: one quiet line that says what this is ("Your first campaign: Senior Data
+ * Engineer"), with the job description as a calm file beside it. It is the app's, not the person's, so it is not a bubble.
+ */
+function Opening({ line, jdWords }: { line: string; jdWords: number | null }) {
+  return (
+    <div className="orc-opening">
+      <p className="orc-opening-t">{line}</p>
+      {jdWords !== null && (
+        <span className="rep-prompt-file orc-opening-file">
+          <FileText size={13} aria-hidden="true" />
+          <b>Job description</b>
+          <small>{jdWords.toLocaleString("en-IN")} words</small>
+        </span>
+      )}
+    </div>
   );
 }
 

@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { RunEvent } from "../api/events";
-import { applyEvent, askOptions, newTurn, questionChoices } from "../liveChat";
-import type { ChatState, Question } from "../liveChat";
+import { applyEvent, newTurn, questionChoices } from "../liveChat";
+import type { ChatState } from "../liveChat";
 
 /**
- * The agent's question about which campaign to fetch contact details for. Its choices carry the exact words to
- * send, so "All campaigns" needs no guessing and no campaign has to be spelled back into a sentence.
+ * The agent's question about which campaign to fetch contact details for. Its choices carry the exact words the
+ * agent reads, so "All campaigns" needs no guessing and no campaign has to be spelled back into a sentence.
  */
 
 const ev = (payload: Record<string, unknown>): RunEvent => ({
@@ -40,31 +40,9 @@ describe("a question whose choices carry their own words", () => {
     ]);
   });
 
-  it("sends a choice's own words, whatever the kind of question", () => {
-    const q = applyEvent(chat(), ev(SCOPE)).turns[0]?.questions[0] as Question;
-    expect(askOptions(q)).toEqual([
-      { label: "Software Engineer (6 people)", text: "Get contact details for the shortlisted candidates of Software Engineer" },
-      { label: "Data Analyst (3 people)", text: "Get contact details for the shortlisted candidates of Data Analyst" },
-      { label: "All campaigns (9 people)", text: "Get contact details for the shortlisted candidates of all campaigns" },
-    ]);
-    // Another kind with the same shape works the same way.
-    expect(askOptions({ kind: "anything", choices: [{ id: "a", name: "Yes", text: "Yes, go ahead" }] })).toEqual([{ label: "Yes", text: "Yes, go ahead" }]);
-  });
-
-  it("still resends the first request for a campaign question without words of its own, as it always did", () => {
-    const q = applyEvent(chat(), ev({
-      kind: "campaign", text: "Which campaign is this for?", retryText: "Get emails",
-      choices: [{ id: "c1", name: "Software Engineer" }, { id: "c2", name: "Data Analyst" }],
-    })).turns[0]?.questions[0] as Question;
-    expect(askOptions(q)).toEqual([
-      { label: "Software Engineer", text: "Get emails for Software Engineer" },
-      { label: "Data Analyst", text: "Get emails for Data Analyst" },
-    ]);
-  });
-
-  it("keeps the watch question's fixed options, and offers nothing for a kind with no words to send", () => {
-    expect(askOptions({ kind: "watch_setup", choices: [] }).map((o) => o.label)).toEqual(["20 people", "50 people", "For a week", "For 2 weeks"]);
-    expect(askOptions({ kind: "contacts_scope", choices: [{ id: "c1", name: "Software Engineer (6 people)" }] })).toEqual([]);
+  it("keeps where the question was asked, so an answer finds it", () => {
+    const q = applyEvent(chat(), ev(SCOPE)).turns[0]?.questions[0];
+    expect(q).toMatchObject({ runId: "r1", seq: 1 });
   });
 
   it("drops a choice with no name and a text that is not text", () => {

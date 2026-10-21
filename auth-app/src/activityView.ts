@@ -86,6 +86,16 @@ function approved(action: Rec, names: readonly string[], result: Rec): string[] 
       return ["Started a search"];
     case "start_watch":
       return ["Started keeping an eye out for people"];
+    case "meeting":
+      return [text(action.title) ? `Scheduled “${clip(text(action.title), 40)}”` : "Scheduled a meeting"];
+    case "meeting_move":
+      return ["Moved a meeting"];
+    case "meeting_cancel":
+      return ["Cancelled a meeting"];
+    case "meeting_add":
+      return ["Added people to a meeting"];
+    case "reminder":
+      return [text(action.text) ? `Set a reminder: ${clip(text(action.text), 40)}` : "Set a reminder"];
     case "schedule": {
       const items = Array.isArray(action.items) ? action.items.map(rec) : [];
       let emails = 0;
@@ -100,6 +110,7 @@ function approved(action: Rec, names: readonly string[], result: Rec): string[] 
 const DONE_AT_ONCE: Readonly<Record<string, string>> = {
   create_task: "Created a task",
   cancel_schedule: "Cancelled something that was scheduled",
+  save_scheduling_preferences: "Saved how you like to schedule",
   do_not_contact: "Added someone to do not contact",
 };
 

@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApprovalCard } from "../agentCards/ApprovalCard";
 import { ExportCard } from "../agentCards/ExportCard";
-import { OutcomeBody } from "../agentCards/OutcomeCard";
+import { OutcomeBody, OutcomeCard } from "../agentCards/OutcomeCard";
 import { campaignsHeading } from "../agentCards/ReadCards";
 import { PhaseTimeline } from "../agentCards/PhaseTimeline";
 import { ConnectCard, isConnected, linkFor } from "../agentCards/ConnectCard";
@@ -18,7 +18,7 @@ vi.mock("../can", async (importOriginal) => ({ ...(await importOriginal<typeof i
 
 /**
  * The cards in a chat turn: an approval says what it will do, who it is for and what it will not do, and
- * turns into what it did, in place, with the counts and the next step; a declined one says "Not done".
+ * turns into what it did, in place, with the counts and the next step; a declined one says "Not now. Nothing changed.".
  */
 
 let nextId = 0;
@@ -51,13 +51,13 @@ describe("what an answered approval says", () => {
       next: [{ label: "Find people", text: "Find 20 people for Software Engineer" }],
     });
     expect(outcomeModel(a)).toEqual({
-      tone: "done", summary: "Software Engineer is active.", counts: "0 added", next: [{ label: "Find people", text: "Find 20 people for Software Engineer" }],
+      tone: "done", summary: "Software Engineer is active.", counts: "", next: [{ label: "Find people", text: "Find 20 people for Software Engineer" }],
     });
   });
 
   it("says a declined one is not done, quietly, with nothing to click", () => {
     const a = answered(approvalFor({ action: "shortlist", campaignId: "c1" }), { decision: "decline" });
-    expect(outcomeModel(a)).toEqual({ tone: "declined", summary: "Not done.", counts: "", next: [] });
+    expect(outcomeModel(a)).toEqual({ tone: "declined", summary: "Not now. Nothing changed.", counts: "", next: [] });
     const note = answered(approvalFor({ action: "remember", level: "org", text: "x" }), { decision: "decline" });
     expect(outcomeModel(note)?.summary).toBe("Not saved.");
   });
@@ -107,6 +107,31 @@ describe("what an approval will not do", () => {
   });
 });
 
+describe("who an approval is for", () => {
+  const draw = (s: ChatState) => renderToStaticMarkup(<ApprovalCard turnKey="t1" approval={s.turns[0]!.approvals[0]!} turnSaid="go" />);
+
+  it("does not list a person again when the card's own words already name them and all that is said of them", () => {
+    const task = "Give Dev Malhotra a task: Review Helix shortlist for DevOps / Infrastructure Engineer, due Fri 23 Oct";
+    const html = draw(approvalFor({ action: "task" }, {
+      summary: task, people: [{ name: "Dev Malhotra", title: "Review Helix shortlist for DevOps / Infrastructure Engineer, due Fri 23 Oct", company: null, city: null }],
+    }));
+    expect(html).toContain(task);
+    expect(html).not.toContain("Who it is for");
+    expect(html.match(/Dev Malhotra/g)).toHaveLength(1);
+  });
+
+  it("keeps it where the words do not name them, or do not say what is told of them", () => {
+    const asha = { name: "Asha Verma", title: "Staff Engineer", company: "PhonePe", city: "Bengaluru" };
+    expect(draw(approvalFor({ action: "shortlist" }, { summary: "Add 25 people to the shortlist", people: [asha] }))).toContain("Who it is for");
+    // Named, but not the role and city beside the name.
+    expect(draw(approvalFor({ action: "reject" }, { summary: "Reject Asha Verma from Software Engineer", people: [asha] }))).toContain("Staff Engineer at PhonePe, Bengaluru");
+    // Only some of the people are named.
+    expect(draw(approvalFor({ action: "shortlist" }, {
+      summary: "Add Asha Verma to the shortlist", people: [{ ...asha, title: null, company: null, city: null }, { name: "Ravi Rao", title: null, company: null, city: null }],
+    }))).toContain("Who it is for");
+  });
+});
+
 describe("the card markup", () => {
   it("draws an outcome's sentence, counts and next steps as one click each", () => {
     const html = renderToStaticMarkup(
@@ -114,8 +139,38 @@ describe("the card markup", () => {
     );
     expect(html).toContain("Added 25 to the shortlist.");
     expect(html).toContain("25 added");
-    expect(html).toContain('<a class="rep-opt" href="#/x">Open the shortlist</a>');
+    expect(html).toContain('<a class="cta" href="#/x">Open the shortlist');
     expect(html).toContain('<button type="button" class="rep-opt">Start outreach</button>');
+  });
+
+  it("keeps a working run to its newest lines in a clip, and shows every line once it has finished", () => {
+    const lines: PhaseLine[] = ["Understood", "Thought it through", "Looked at the campaign", "Searched", "Thinking it through"].map(
+      (label, i) => ({ id: `l${i}`, phase: "search", state: i === 4 ? "running" : "done", label, seq: i + 1 }),
+    );
+    const working = renderToStaticMarkup(<PhaseTimeline lines={lines} working />);
+    expect(working).toContain('class="pt-roll"');
+    // The clip is the screen's: every line is still in the list, for a screen reader and for the one that follows.
+    expect(working.match(/<li /g)).toHaveLength(5);
+    // Opened from "Thought for …", the whole list stands as it is, with nothing around it that clips.
+    const opened = renderToStaticMarkup(<PhaseTimeline lines={lines} working={false} />);
+    expect(opened).not.toContain("pt-roll");
+    expect(opened.match(/<li /g)).toHaveLength(5);
+  });
+
+  it("says a change that ran at once as plain words, like any other reply, with the next step as a chip", () => {
+    const html = renderToStaticMarkup(
+      <OutcomeCard
+        summary="Saved 23 people to Candidates. They're not on Software Engineer's shortlist."
+        counts={null}
+        next={[{ label: "Find more people", text: "Find more people" }]}
+        campaignId="c1"
+      />,
+    );
+    // No box around it, and the sentence is set as the agent's own prose is.
+    expect(html).not.toContain("rep-card");
+    expect(html).not.toContain("lt-approval");
+    expect(html).toContain('<p class="rep-para">Saved 23 people to Candidates.');
+    expect(html).toContain('<button type="button" class="rep-opt">Find more people</button>');
   });
 
   it("draws the narration with a loader on what is running, a check on what is done and no blank row", () => {

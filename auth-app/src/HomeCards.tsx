@@ -8,14 +8,17 @@ import { HomeEmpty } from "./HomeEmpty";
 import type { WeekCell } from "./api/home";
 import { weekFromHome } from "./api/home";
 import type { DayTask } from "./api/tasks";
-import { dateInput, endOfDate, endOfDayAhead, endOfToday } from "./api/tasks";
-import type { CampaignRow } from "./campaignsData";
+import { dateInput, dayHeading, dayProgress, endOfDate, endOfDayAhead, endOfToday } from "./api/tasks";
+import type { CampaignRow, CampaignStage } from "./campaignsData";
 import { CAMPAIGN_ROWS } from "./campaignsData";
 import { memberIdOf, memberName, useCampaignRows, useTeam } from "./campaignStore";
 import { addTask, editTask, reassignTask, removeTask, setTaskDone, undoRemoveTask, useAssignedTasks, useHomeOverview, useMyTasks } from "./homeStore";
 import { Num, useToast } from "./Contacts";
 import { dayLabel } from "./schedulesView";
 import { initialsOf } from "./ui";
+import { StageDonut, StagePop } from "./StageDonut";
+import type { StageHue } from "./stageDonut";
+import { filledLine, isEmpty, peopleLine, stageHue, stageVar, stagesLine, stagesOf, startLine } from "./stageDonut";
 import { useCan } from "./can";
 import { isMe, useSession, visibleCampaigns } from "./roleStore";
 import type { Scope } from "./orchestrator";
@@ -124,7 +127,7 @@ function FixtureWeek({ scope }: { scope: Scope }) {
   const cells = [
     { key: "hires", n: hires, label: "Offers accepted", note: `of ${planned} planned`, hue: HUES[3] },
     { key: "replies", n: r, label: "Replies", note: `from ${contacted?.n ?? 0} contacted`, hue: HUES[1] },
-    { key: "iv", n: iv, label: "Moved to interview", note: `from ${r} replies`, hue: HUES[0] },
+    { key: "iv", n: iv, label: "Moved to interview", note: `from ${r} ${r === 1 ? "reply" : "replies"}`, hue: HUES[0] },
     { key: "found", n: found, label: "People found", note: "in the last 7 days", up, hue: HUES[2], spark: src.slice(-14).map((d) => d.n) },
   ];
   return <WeekTile cells={cells} />;
@@ -219,15 +222,6 @@ function Burst() {
   return <span className="hm-burst" aria-hidden="true">{[0, 1, 2, 3, 4, 5].map((k) => <i key={k} style={{ ["--a" as string]: `${k * 60 + 15}deg` }} />)}</span>;
 }
 
-/* What the header says about the day, by how much of it is done. */
-function dayLine(finished: number, total: number): string {
-  const left = total - finished;
-  if (!total || left === 0) return "Day cleared";
-  if (left === 1) return "Last one";
-  if (finished === 0) return "Fresh start";
-  return finished / total >= 0.5 ? "Halfway there" : "Good start";
-}
-
 const CHECK = <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.6 6.3 5 8.6l4.4-5" /></svg>;
 
 /* tasks the agent can take over */
@@ -254,7 +248,10 @@ const dueOrder = (d: number | null) => d ?? Number.MAX_SAFE_INTEGER;
 export function TodayCard({ scope, onOpen }: { scope: Scope; onOpen: (prompt: string) => void }) {
   const liveTasks = useMyTasks();
   const rows = useCampaignRows();
-  const base = (LIVE ? liveTasks.items : TASKS.map(fromFixture)).filter((t) => !isScoped(scope) || t.campaignId === scope);
+  const session = useSession();
+  /* My tasks are the ones assigned to me, and only those: what I gave to others is listed apart, and never counted here. */
+  const mineOnly = (t: DayTask) => !LIVE || !t.assigneeId || !session.userId || t.assigneeId === session.userId;
+  const base = (LIVE ? liveTasks.items : TASKS.map(fromFixture)).filter((t) => mineOnly(t) && (!isScoped(scope) || t.campaignId === scope));
   const [added, setAdded] = useState<DayTask[]>([]);
   const mine = [...added, ...base];
   const [fixtureDone, setDone] = useState<Record<string, boolean>>(() => Object.fromEntries(base.filter((t) => t.state === "done").map((t) => [t.id, true])));
@@ -269,7 +266,6 @@ export function TodayCard({ scope, onOpen }: { scope: Scope; onOpen: (prompt: st
   const toast = useToast();
   /* Who a new task is for: yourself unless you pick a teammate. */
   const team = useTeam();
-  const session = useSession();
   /* A recruiter hands work to themselves only; the picker and the reassign menu are an admin's. */
   const mayAssign = useCan("task.assignOthers");
   const others = mayAssign ? team.filter((n) => n !== session.name) : [];
@@ -297,7 +293,9 @@ export function TodayCard({ scope, onOpen }: { scope: Scope; onOpen: (prompt: st
   const open = mine.filter((t) => !done[t.id]).sort((a, b) => dueOrder(a.dueInDays) - dueOrder(b.dueInDays) || Number(a.state === "blocked") - Number(b.state === "blocked"));
   const next = open.find((t) => t.state !== "blocked") ?? open[0];
   const rest = open.filter((t) => t !== next);
-  const finished = mine.length - open.length;
+  /* The day, in plain facts: what was finished today, out of what was due today or is late and what was finished. */
+  const day = dayProgress(mine);
+  const finished = day.finished;
   const handedEmpty = LIVE && handed.ready && assignedRows.length === 0 && others.length > 0 && open.length > 0;
   /* the reward beat: the ring pops and the header says so, briefly */
   const [cheer, setCheer] = useState<{ left: number; n: number } | null>(null);
@@ -359,29 +357,25 @@ export function TodayCard({ scope, onOpen }: { scope: Scope; onOpen: (prompt: st
     if (!removeTask(t.id)) return;
     toast(`Deleted “${short(t.title)}”`, "done", { label: "Undo", onClick: () => undoRemoveTask(t.id) });
   };
-  const k = finished / Math.max(1, mine.length);
+  const k = day.total ? Math.min(1, day.finished / day.total) : 0;
   const groups = [
     { id: "today", title: "Today", items: open.filter((t) => t.dueInDays !== null && t.dueInDays <= 0) },
     { id: "later", title: "Later", items: open.filter((t) => t.dueInDays === null || t.dueInDays > 0) },
     { id: "assigned", title: admin ? "Team tasks" : "Assigned to others", items: assignedRows },
     { id: "done", title: "Done", items: mine.filter((t) => done[t.id]) },
   ];
-  const line = dayLine(finished, mine.length);
   /* The team's tasks arrive on their own request: until they do, "all clear" would be a guess. */
   const waiting = LIVE && !handed.ready;
   /* With nothing of mine at all there is no progress to report, so the header says nothing
      (no "0 of 0 done" and a ring on zero) and the body says it once: all clear. */
-  const hasDay = mine.length > 0;
+  const hasDay = day.total > 0;
   return (
     <section ref={card} className="hm-card hm-today">
       <header className="hm-th">
         <h2>My tasks</h2>
         {hasDay && (
           <span className={`hm-prog${cheer ? " is-cheer" : ""}${k >= 1 ? " is-full" : ""}`}>
-            <small aria-live="polite">
-              <b>{cheer ? (cheer.left > 0 ? "Nice." : "Day cleared") : line}</b>
-              <span>{cheer ? (cheer.left > 0 ? `${cheer.left} left` : "All done") : `${finished} of ${mine.length} done`}</span>
-            </small>
+            <small aria-live="polite"><b>{dayHeading(day)}</b></small>
             <Ring key={cheer?.n ?? 0} k={k} n={finished} pop={!!cheer && !reducedMotion()} />
           </span>
         )}
@@ -390,7 +384,7 @@ export function TodayCard({ scope, onOpen }: { scope: Scope; onOpen: (prompt: st
 
       <div ref={body} className="hm-today-b hm-tl" aria-busy={waiting || undefined}>
         {open.length === 0 && assignedRows.length === 0 && !waiting && (
-          /* The header already says "Day cleared" when there were tasks and they are done: the headline does not say it again. */
+          /* The header already says "All done for today" when there were tasks and they are done: the headline does not say it again. */
           <HomeEmpty
             art="empty-tasks"
             title={hasDay ? "Enjoy the quiet" : "All clear for today"}
@@ -553,54 +547,218 @@ function EditTask({ task, onClose }: { task: DayTask; onClose: () => void }) {
   );
 }
 
-/* ── active campaigns: a name, one quiet line, hires in words ──
-   Each row reads left to right: which campaign, what is next for it, and
-   "1 of 3 hired" in plain words on the right edge, with a slim bar of the
-   way to goal beside it. The small dot says what
-   kind of next: green when something good is waiting (replies, interviews,
-   activity right now), amber only when the campaign genuinely needs a person
-   (no owner, an unfinished brief), grey otherwise. Rows are a fixed 46px;
-   whatever does not fit the tile folds into one quiet "+N more" line that
-   opens the Campaigns page, so nothing ever hides behind a scroll. */
+/* ── active campaigns: a bento of tiles ──
+   The five latest campaigns (latestFirst) are tiles of a six-column bento, the most recent in the biggest tile with a
+   warm wash. How many there are decides the shapes (bentoPlan: one whole-card tile, two halves, a pinwheel of
+   five...), and the size of each tile decides what it says (tileRows): the ring and the name always, then in order
+   the slim hires bar, the progress rows (one per funnel step reached: found, shortlisted, contacted, replied,
+   interviewing, a bar as long as its share of the most), the hires in
+   words, what waits on a person, the client, when it last moved. A small tile drops the last ones first and never
+   clips; a big one has room for all of them and a big ring. Each fact is said once per tile. Resting on a tile (or
+   tabbing to it, or tapping its ring on a touch screen) opens the card of stage counts. A campaign nobody is in yet
+   is a faint ring with a gentle 0 and one quiet line under its name (startLine); when all of them are like that, one
+   calm hint under the grid says what starts them. The rest fold into one quiet "+N more" line that opens the
+   Campaigns page, so nothing hides behind a scroll. */
 
-const ROW = 58;
-const MORE = 44;
-/** The card shows at least this many rows (when there are that many) and at most MAX: the rest fold into "+N more". */
-export const MIN_CAMPAIGN_ROWS = 4;
-export const MAX_CAMPAIGN_ROWS = 10;
-/** Where the card is not fitted to one screen (stacked below 1241px, short windows): it grows with the page. */
-const STACKED_CAMPAIGN_ROWS = 6;
+/** Six columns (two to a half, three to a third), this far apart (home.css), a tile's padding, and the space between its ring and its words. */
+const COLS = 6;
+const GAP = 12;
+const PAD = 14;
+const SPACE = 6;
+/** The most tiles the card shows: the rest are "+N more". */
+export const MAX_TILES = 5;
+/** The least a row of tiles is tall (a mini tile holds a ring, a two-line name, a line and a bar), and where the card is not fitted to one screen (stacked below 1241px, short windows) how tall: it grows with the page. */
+const MIN_ROW = 140;
+const STACKED_ROW = 150;
+/** The "+N more / View all" line under the tiles, and the gap above it. */
+const MORE = 52;
+
+/** One tile: the grid line it starts at, and how many columns and rows it spans (1-based, as CSS counts them). */
+export type BentoTile = { col: number; row: number; c: number; r: number };
+export type BentoPlan = { tiles: BentoTile[]; rows: number; hidden: number };
+type Spec = readonly (readonly [number, number, number, number])[];
+
+/* Where the tiles go, for each number of campaigns, in recency order: the first is the biggest. Every plan fills its grid
+   exactly (six columns, three rows or two), with no gap and no overlap. [column, row, columns, rows]. */
+const PLAN_3: Readonly<Record<number, Spec>> = {
+  1: [[1, 1, 6, 3]],
+  2: [[1, 1, 3, 3], [4, 1, 3, 3]],
+  3: [[3, 2, 4, 2], [1, 1, 2, 3], [3, 1, 4, 1]],
+  4: [[3, 2, 4, 2], [1, 1, 2, 3], [3, 1, 2, 1], [5, 1, 2, 1]],
+  5: [[3, 2, 4, 2], [1, 1, 2, 2], [3, 1, 2, 1], [5, 1, 2, 1], [1, 3, 2, 1]],
+};
+const PLAN_2: Readonly<Record<number, Spec>> = {
+  1: [[1, 1, 6, 2]],
+  2: [[1, 1, 3, 2], [4, 1, 3, 2]],
+  3: [[1, 1, 4, 2], [5, 1, 2, 1], [5, 2, 2, 1]],
+  4: [[3, 1, 4, 1], [1, 1, 2, 2], [3, 2, 2, 1], [5, 2, 2, 1]],
+  5: [[1, 1, 4, 1], [5, 1, 2, 1], [1, 2, 2, 1], [3, 2, 2, 1], [5, 2, 2, 1]],
+};
 
 /**
- * How many rows the card shows in `room` px (the list's own height): as many as fit with the "+N more" line
- * under them when some are left out, so the unused band is always less than one row, and never fewer than
- * MIN_CAMPAIGN_ROWS or more than MAX_CAMPAIGN_ROWS.
+ * Where `count` campaigns' tiles go in a bento of `rowsFit` rows (3 or 2): their places in recency order, how many rows
+ * the grid has, and how many campaigns are left out ("+N more", beyond MAX_TILES). Nothing for no campaigns.
  */
-export function campaignRowsFit(count: number, room: number): number {
-  const fits = count * ROW <= room ? count : Math.floor((room - MORE) / ROW);
-  return Math.min(count, Math.max(MIN_CAMPAIGN_ROWS, Math.min(MAX_CAMPAIGN_ROWS, fits)));
+export function bentoPlan(count: number, rowsFit: 2 | 3): BentoPlan {
+  const n = Math.max(0, Math.floor(count));
+  const shown = Math.min(n, MAX_TILES);
+  const spec = (rowsFit === 2 ? PLAN_2 : PLAN_3)[shown] ?? [];
+  return { tiles: spec.map(([col, row, c, r]) => ({ col, row, c, r })), rows: shown ? rowsFit : 0, hidden: n - shown };
 }
 
-/* The data says what is missing; Home says what is next, and how it feels. */
-function nextStep(needs: string): { text: string; tone: "good" | "you" | "" } {
-  if (/no one assigned|paused/i.test(needs)) return { text: "Ready for an owner", tone: "you" };
-  if (/brief not finished/i.test(needs)) return { text: "Brief almost done", tone: "you" };
-  const m = needs.match(/^(\d+) (replies|interviews?)\b/i);
-  if (m) return { text: /repl/i.test(m[2]!) ? `${m[1]} new replies` : `${m[1]} ${Number(m[1]) === 1 ? "interview" : "interviews"} to book`, tone: "good" };
-  return { text: needs, tone: "" };
+/**
+ * How many rows of tiles the card has room for in `room` px (the list's own height): three when each of them can be at
+ * least MIN_ROW tall (with the "+N more" line under them when some are left out), else two. Three where the card is
+ * not fitted to one screen (`room` null): it grows with the page.
+ */
+export function bentoRowsFit(count: number, room: number | null): 2 | 3 {
+  if (room == null) return 3;
+  return room - (count > MAX_TILES ? MORE : 0) >= 3 * MIN_ROW + 2 * GAP ? 3 : 2;
 }
 
-/* How many 58px rows fit the tile on a one-screen desktop (4 to 10); null elsewhere
-   (the tile grows with the page). The list is measured again whenever the card is resized. */
-function useFit(list: React.RefObject<HTMLUListElement | null>, n: number) {
-  const [fit, setFit] = useState<number | null>(null);
+/** The campaigns, the one that moved last first. Rows without a date keep their order, after the ones with one. */
+export function latestFirst<T extends { updatedAt?: string }>(rows: readonly T[]): T[] {
+  const at = (r: T) => (r.updatedAt ? Date.parse(r.updatedAt) : NaN);
+  const dated = rows.filter((r) => !Number.isNaN(at(r))).sort((a, b) => at(b) - at(a));
+  return [...dated, ...rows.filter((r) => Number.isNaN(at(r)))];
+}
+
+export type BentoKind = "hero" | "tall" | "wide" | "mini";
+/** A tile's kind by its shape: hero (half the card or more, two rows or more), tall (a narrow column), wide (a strip), mini. */
+export function bentoKind(t: BentoTile): BentoKind {
+  return t.c >= 3 && t.r >= 2 ? "hero" : t.r >= 2 ? "tall" : t.c >= 3 ? "wide" : "mini";
+}
+
+/* How large the ring is drawn in each kind of tile (the least, and the most). */
+const RING: Readonly<Record<BentoKind, readonly [number, number]>> = { mini: [44, 60], wide: [56, 80], tall: [64, 120], hero: [88, 200] };
+/* What a tile's rows take, in px: the name (two lines, the hero's in the title type), a line (a caption and its gap), the slim bar and the space above it, the first row of the pipeline (with the space above it) and each one after. */
+const NAME_H: Readonly<Record<BentoKind, number>> = { mini: 32, wide: 32, tall: 32, hero: 48 };
+const LINE = 18;
+const BAR = 10;
+const PIPE_FIRST = 28;
+const PIPE_ROW = 20;
+const MAX_PIPE = 6;
+/* A big tile hangs its words in three groups, 8px apart: the name and client, the progress rows, and the hires bar with what waits and when it moved. The first row of the last group pays for that gap. */
+const BAR_RICH = 6;
+const GROUP_GAP = 8;
+/* The most a progress row grows when the tile has height to spare, the least room a text column beside the ring needs. */
+const MAX_EXTRA = 18;
+const TEXT_BESIDE = 230;
+
+/** What a campaign has to say, as far as the room it gets matters: nobody in it yet, how many progress rows it has (funnel steps or stages), a hires target, how long its "needs" line is (0: none), a client, a last-moved phrase. */
+export type TileHave = { empty: boolean; stages: number; bar: boolean; need: number; client: boolean; updated: boolean };
+export const FULL_HAVE: TileHave = { empty: false, stages: MAX_PIPE, bar: true, need: 30, client: true, updated: true };
+
+/** What a tile shows, and how large its ring is. `caption` is the one quiet line (the tile's headline when the progress rows are not there), `pipe` how many progress rows. */
+export type TileShow = {
+  ring: number; beside: boolean; caption: boolean; bar: boolean; pipe: number; hires: boolean; need: boolean; client: boolean; updated: boolean;
+  /** The px the rows take (the name included, the spare height spent on the progress rows too) and the px the tile has for them (beside the ring, or under it with the ring's own height and gap taken off). */
+  used: number; room: number;
+  /** The height the progress rows grow by when the tile has more than it needs (each row, px), and the slim bars' thickness then. */
+  extra: number; barPx: number;
+  /** The px the tile's content spans, the ring included when it is above the rows. */
+  filled: number;
+};
+
+/**
+ * What a tile of this shape and size has room to say, from its pixel size (a column is `colW` wide, a row `rowH` tall)
+ * and what its campaign has to say (`have`). Rows are taken in order of importance while they fit: the name and the ring
+ * (always), the slim hires bar, the pipeline's first two stages, the hires in words, the third stage, what waits on a
+ * person, the fourth, the client, the fifth, when it last moved. A small tile ends up with the first few and never
+ * clips; whatever room is left grows the ring up to its kind's most. A tile for a strip or the whole card puts the ring
+ * beside the rows, not above them.
+ */
+export function tileRows(t: BentoTile, colW: number, rowH: number, have: TileHave): TileShow {
+  const kind = bentoKind(t);
+  const w = t.c * colW + (t.c - 1) * GAP - 2 * PAD;
+  const h = t.r * rowH + (t.r - 1) * GAP - 2 * PAD;
+  const beside = kind === "wide" || t.c === COLS;
+  const [lo, hi] = RING[kind];
+  const rich = kind === "hero" || kind === "tall";
+  let free = h - NAME_H[kind] - (beside ? 0 : SPACE + lo);
+  const free0 = free;
+  /* The first row that does not fit closes the list: a lower one never shows without the ones above it. */
+  let closed = false;
+  const take = (cost: number, ok = true): boolean => {
+    if (!ok || closed) return false;
+    if (cost <= free) { free -= cost; return true; }
+    closed = true;
+    return false;
+  };
+  const needLines = Math.min(2, Math.ceil((have.need * 6.4) / Math.max(1, w)));
+  const show = { caption: false, bar: false, pipe: 0, hires: false, need: false, client: false, updated: false };
+  if (!rich) {
+    // A strip or a small tile: one line (what waits on a person, else where its people are or what it has made), the bar, and for the strip the client.
+    if (kind === "wide") {
+      show.bar = take(BAR, have.bar);
+      show.caption = take(LINE);
+      show.client = take(LINE, have.client);
+    } else {
+      show.caption = take(LINE);
+      show.bar = take(BAR, have.bar);
+    }
+  } else if (have.empty) {
+    show.caption = take(LINE);
+    show.client = take(LINE, have.client);
+  } else {
+    // A big tile: the progress rows between the name and the hires, what waits and when it moved (three groups, GROUP_GAP apart).
+    let bottom = false;
+    const low = (cost: number, ok = true): boolean => {
+      if (!ok) return false;
+      if (!take(cost + (bottom ? 0 : GROUP_GAP))) return false;
+      bottom = true;
+      return true;
+    };
+    show.bar = low(BAR_RICH, have.bar);
+    const row = (k: number) => {
+      if (have.stages >= k && show.pipe === k - 1 && take(k === 1 ? PIPE_FIRST : PIPE_ROW)) show.pipe = k;
+    };
+    row(1); row(2);
+    show.hires = low(LINE, have.bar);
+    row(3);
+    show.need = low(2 + 16 * needLines, have.need > 0);
+    row(4);
+    show.client = take(LINE, have.client);
+    row(5);
+    row(MAX_PIPE);
+    show.updated = low(LINE, have.updated && kind === "hero");
+    // Not even one stage fitted (or the people are all hired and the bar says it): say where they are in a line instead.
+    if (show.pipe === 0 && (have.stages > 0 || !have.bar) && LINE <= free) { free -= LINE; show.caption = true; }
+  }
+  // Room left over goes to the ring first (up to its kind's most), then to the progress rows, which grow taller with thicker bars.
+  const ring = beside
+    ? Math.max(lo, Math.min(hi, h, Math.max(Math.floor(w * 0.4), w - 18 - TEXT_BESIDE)))
+    : Math.max(lo, Math.min(hi, w, lo + free));
+  const spare = beside ? free : free - (ring - lo);
+  const extra = rich && show.pipe > 0 ? Math.max(0, Math.min(MAX_EXTRA, Math.floor((spare - 4) / show.pipe))) : 0;
+  const barPx = extra >= 12 ? 8 : extra >= 6 ? 6 : 4;
+  const used = NAME_H[kind] + free0 - free + extra * show.pipe + (show.bar ? barPx - 4 : 0);
+  return { ring, beside, ...show, used, room: h - (beside ? 0 : SPACE + ring), extra, barPx, filled: (beside ? 0 : SPACE + ring) + used };
+}
+
+/** How large the ring is in `t` when its campaign has everything to say: as large as the tile allows, within its kind's range. */
+export const tileRing = (t: BentoTile, colW: number, rowH: number): number => tileRows(t, colW, rowH, FULL_HAVE).ring;
+
+type Fit = { rows: 2 | 3; colW: number; rowH: number };
+const FIT: Fit = { rows: 3, colW: 90, rowH: STACKED_ROW };
+
+/* How many rows of tiles fit the card on a one-screen desktop (3 where it grows with the page), and how large a column
+   and a row are, for the tiles. Measured again whenever the card is resized. */
+function useFit(list: React.RefObject<HTMLUListElement | null>, n: number): Fit {
+  const [fit, setFit] = useState<Fit>(FIT);
   useEffect(() => {
     const ul = list.current;
     if (!ul || typeof ResizeObserver === "undefined" || typeof matchMedia !== "function") return;
     const mq = matchMedia("(min-width: 1241px) and (min-height: 680px)");
     const measure = () => {
-      if (!mq.matches) { setFit(null); return; }
-      setFit(campaignRowsFit(n, ul.clientHeight));
+      const cs = getComputedStyle(ul);
+      const inner = ul.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
+      const colW = Math.max(0, Math.floor((inner - (COLS - 1) * GAP) / COLS));
+      const room = mq.matches ? ul.clientHeight : null;
+      const rows = bentoRowsFit(n, room);
+      const plan = bentoPlan(n, rows);
+      const rowH = room == null ? STACKED_ROW : Math.max(96, Math.floor((room - (plan.hidden ? MORE : 0) - (plan.rows - 1) * GAP) / Math.max(1, plan.rows)));
+      setFit((f) => (f.rows === rows && f.colW === colW && f.rowH === rowH ? f : { rows, colW, rowH }));
     };
     const ro = new ResizeObserver(measure);
     ro.observe(ul);
@@ -611,20 +769,193 @@ function useFit(list: React.RefObject<HTMLUListElement | null>, n: number) {
   return fit;
 }
 
+/** How long a mouse rests on a tile before its card opens, so skimming down the list stays still. */
+const REST_MS = 140;
+
+/** One row of a tile's progress: a funnel step or a stage, its people, its colour (null: the quiet ink), and how soon it goes when the tile is short (0 stays longest). */
+export type ProgressRow = { id: string; name: string; count: number; hue: StageHue | null; keep: number };
+const FUNNEL = [
+  { id: "found", name: "Found", kind: null },
+  { id: "shortlisted", name: "Shortlisted", kind: "shortlisted" },
+  { id: "outreach", name: "Contacted", kind: "outreach" },
+  { id: "replied", name: "Replied", kind: "outreach" },
+  { id: "interviewing", name: "Interviewing", kind: "interviewing" },
+  { id: "hired", name: "Hired", kind: "hired" },
+] as const;
+
+/** The rows of a tile's progress, in the order they are drawn, and the count its bars are measured against (the most of any). */
+export function progressRows(r: Pick<CampaignRow, "reached">, stages: readonly CampaignStage[], empty: boolean, hiresBar: boolean): { pipe: ProgressRow[]; pipeMax: number } {
+  if (empty) return { pipe: [], pipeMax: 1 };
+  if (r.reached) {
+    const reached = r.reached;
+    const steps = FUNNEL.filter((f) => !(hiresBar && f.id === "hired")).map((f) => ({ ...f, count: reached[f.id] }));
+    const last = steps.reduce((at, x, i) => (x.count > 0 ? i : at), 0);
+    const pipe = steps
+      .map((x, i) => ({ id: x.id, name: x.name, count: x.count, hue: x.kind ? stageHue({ kind: x.kind, color: null }) : null, keep: i === last ? 0 : i === 0 ? 1 : 2 + i }))
+      .filter((x, i) => i === 0 || x.count > 0);
+    return { pipe, pipeMax: Math.max(1, ...pipe.map((x) => x.count)) };
+  }
+  const have = stages.map((s, k) => ({ s, k })).filter(({ s }) => s.count > 0 && s.kind !== "passed" && !(hiresBar && s.kind === "hired"));
+  const order = [...have].sort((a, b) => b.s.count - a.s.count).map((x) => x.s.id);
+  return {
+    pipe: have.map(({ s, k }) => ({ id: s.id, name: s.name, count: s.count, hue: stageHue(s, k), keep: order.indexOf(s.id) })),
+    pipeMax: Math.max(1, ...have.map(({ s }) => s.count)),
+  };
+}
+
+/** The rows that fit `n`: the ones that stay longest, in the order they are drawn. */
+const topRows = (pipe: readonly ProgressRow[], n: number): ProgressRow[] =>
+  pipe.length <= n ? [...pipe] : [...pipe].sort((a, b) => a.keep - b.keep).slice(0, n).sort((a, b) => pipe.indexOf(a) - pipe.indexOf(b));
+
+/** What a campaign says about itself, once: its stages, whether anyone is in it, how far its hires are, the line under its name. */
+export function factsOf(r: CampaignRow) {
+  const stages = stagesOf(r);
+  /* Nobody yet: no card to open (the line under the name says it), just the faint ring. */
+  const empty = isEmpty(stages);
+  const h = r.hires ?? { count: r.funnel.hired, target: r.target };
+  /* A campaign whose hires reached its target says so ("Filled · 2 hired"), as its row on Campaigns does. */
+  const filled = empty ? null : filledLine(h);
+  /* A ring with people in it always says where they are ("1 shortlisted"): a number alone is a puzzle. */
+  const caption = empty ? startLine(r) : filled ?? peopleLine(stages);
+  /* What waits on a person leads a tile's line, in the brand's text colour; an empty campaign's own line already says a missing spec. */
+  const need = r.needs && !(empty && /spec|brief/i.test(r.needs)) ? r.needs : null;
+  /* How far its hires are: a slim bar and its words. No target, no bar. */
+  const prog = empty || !h.target ? null : { pct: Math.min(1, h.count / h.target), text: filled ?? `${h.count} of ${h.target} hired` };
+  /* How far people got, one row per funnel step reached (found, shortlisted, contacted, replied, interviewing, in the colour of
+     its kind; the hires bar has the hired when it is there). A row without the server's numbers (fixtures, an older server)
+     is each stage with people in it, in the colour its ring arc has. `keep` ranks which rows stay when there is little room:
+     the last step reached, Found, then the rest in order. */
+  const { pipe, pipeMax } = progressRows(r, stages, empty, !!prog);
+  const updated = r.updatedAgo ? `Updated ${r.updatedAgo.charAt(0).toLowerCase()}${r.updatedAgo.slice(1)}` : null;
+  return { stages, empty, filled, caption, client: r.client ?? null, need, line: need ?? caption, prog, pipe, pipeMax, updated };
+}
+
+/** What a campaign has to say, for tileRows. */
+export const haveOf = (f: ReturnType<typeof factsOf>): TileHave => ({
+  empty: f.empty, stages: f.pipe.length, bar: !!f.prog, need: f.need?.length ?? 0, client: !!f.client, updated: !!f.updated,
+});
+
+const barStyle = (m: string, w: number, d: number) => ({ "--m": m, "--w": w, "--d": `${d}ms` }) as React.CSSProperties;
+
+export function CampaignItem({ r, i, tile, show, onOpen }: {
+  r: CampaignRow; i: number; tile: BentoTile; show: TileShow; onOpen: (r: CampaignRow) => void;
+}) {
+  const { stages, empty, caption, client, need, line, prog, pipe, pipeMax, updated } = factsOf(r);
+  const kind = bentoKind(tile);
+  const rich = kind === "hero" || kind === "tall";
+  const rows = topRows(pipe, show.pipe);
+  const delay = 240 + i * 40;
+  const [open, setOpen] = useState(false);
+  const row = useRef<HTMLButtonElement>(null);
+  const ring = useRef<HTMLSpanElement>(null);
+  const timer = useRef<number | undefined>(undefined);
+  const pointer = useRef("mouse");
+  const rest = (on: boolean) => {
+    window.clearTimeout(timer.current);
+    if (on && !empty) timer.current = window.setTimeout(() => setOpen(true), REST_MS);
+    else setOpen(false);
+  };
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+  /* While the card is up it goes away on Escape, on scrolling or resizing (it is fixed to where the tile was), and
+     on a touch outside the tile. */
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    const key = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
+    const away = (e: PointerEvent) => { if (!row.current?.contains(e.target as Node)) close(); };
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    document.addEventListener("keydown", key);
+    document.addEventListener("pointerdown", away);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+      document.removeEventListener("keydown", key);
+      document.removeEventListener("pointerdown", away);
+    };
+  }, [open]);
+  /* A mouse opens it by resting on the tile, a keyboard by landing on it. A finger has no resting: its first tap on
+     the ring opens the card instead of the campaign, and the next tap (or a tap on the name) opens the campaign. */
+  const tapRing = (e: React.MouseEvent) => {
+    if (empty || pointer.current !== "touch" || open) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setOpen(true);
+  };
+  /* The headline line: a small tile and a strip say what waits on a person, else their hires or where their people are; a big one's rows say the rest. */
+  const headline = rich ? line : need ?? (kind === "wide" && prog ? prog.text : caption);
+  const hasLow = !empty && (show.hires || show.bar) || (show.need && !!need && !(show.caption && !empty)) || (show.updated && !!updated);
+  const hiresBar = prog && show.bar && <i className="hm-cl-bar" aria-hidden="true" style={barStyle("var(--stage-green)", prog.pct, delay + 120)} />;
+  return (
+    <li
+      className={`is-${kind}${tile.c === COLS ? " is-full" : tile.c === 3 && tile.r >= 2 ? " is-half" : ""}${i === 0 ? " is-first" : ""}`}
+      style={{ gridColumn: `${tile.col} / span ${tile.c}`, gridRow: `${tile.row} / span ${tile.r}`, animationDelay: `${160 + i * 40}ms` }}
+    >
+      <button
+        ref={row} type="button" onClick={() => onOpen(r)}
+        aria-label={`${r.name}${client ? `, ${client}` : ""}, ${empty ? caption : `${prog ? `${prog.text}, ` : ""}${stagesLine(stages)}`}`}
+        onPointerDown={(e) => { pointer.current = e.pointerType; }}
+        onPointerEnter={(e) => { if (e.pointerType !== "touch") rest(true); }}
+        onPointerLeave={(e) => { if (e.pointerType !== "touch") rest(false); }}
+        onFocus={(e) => { if (!empty && e.currentTarget.matches(":focus-visible")) setOpen(true); }}
+        onBlur={() => rest(false)}
+      >
+        <span ref={ring} className="hm-cl-d" onClick={tapRing}><StageDonut stages={stages} size={show.ring} delay={delay} /></span>
+        <span className="hm-cl-t" style={rich ? ({ "--x": `${show.extra}px`, "--bh": `${show.barPx}px` } as React.CSSProperties) : undefined}>
+          {/* A big tile hangs its words in three groups (the name, the progress rows, the hires and what waits), so they fill the tile. */}
+          <span className={rich ? "hm-cl-top" : "hm-cl-g"}>
+            <strong>{r.name}</strong>
+            {client && show.client && <small className="hm-cl-c">{client}</small>}
+            {show.caption && headline && (
+              <small><span className={need ? "hm-cl-need" : undefined} title={need ?? undefined}>{headline}</span></small>
+            )}
+          </span>
+          {rich && rows.length > 0 && (
+            <span className="hm-cl-pp">
+              {rows.map((x, n) => (
+                <span key={x.id} className="hm-cl-pr">
+                  {x.hue ? <span className="sd-name" data-hue={x.hue}>{x.name}</span> : <span className="hm-cl-pn">{x.name}</span>}
+                  <i className="hm-cl-bar" aria-hidden="true" style={barStyle(x.hue ? stageVar(x.hue) : "color-mix(in srgb, var(--ink) 28%, transparent)", x.count / pipeMax, delay + 80 + n * 60)} />
+                  <b>{x.count}</b>
+                </span>
+              ))}
+            </span>
+          )}
+          {rich ? (
+            (hasLow) && (
+              <span className="hm-cl-bot">
+                {!empty && (show.hires || show.bar) && (
+                  <span className="hm-cl-h">
+                    {prog && show.hires && <small>{prog.text}</small>}
+                    {hiresBar}
+                  </span>
+                )}
+                {show.need && need && !(show.caption && !empty) && <small className="hm-cl-need" title={need}>{need}</small>}
+                {show.updated && updated && <small className="hm-cl-u">{updated}</small>}
+              </span>
+            )
+          ) : hiresBar}
+        </span>
+      </button>
+      {open && <StagePop stages={stages} anchor={ring} heading={client ?? undefined} />}
+    </li>
+  );
+}
+
 export function CampaignsList({ scope, onOpen }: { scope: Scope; onOpen: (r: CampaignRow) => void }) {
-  const rank = (r: CampaignRow) => (r.needs ? (nextStep(r.needs).tone === "you" ? 0 : 1) : 2);
   /* Live rows (so a campaign closed or completed today leaves the list), and
      for a recruiter only the campaigns they are on. Only running campaigns: a paused
      one isn't active, and listing it here would say it was. */
   const live = useCampaignRows();
   const session = useSession();
-  const rows = visibleCampaigns(live, session)
-    .filter((r) => (isScoped(scope) ? r.id === scope : r.status === "active"))
-    .sort((a, b) => rank(a) - rank(b));
+  const rows = latestFirst(visibleCampaigns(live, session).filter((r) => (isScoped(scope) ? r.id === scope : r.status === "active")));
   const ref = useRef<HTMLUListElement>(null);
   const fit = useFit(ref, rows.length);
-  const shown = rows.slice(0, fit == null ? STACKED_CAMPAIGN_ROWS : Math.min(MAX_CAMPAIGN_ROWS, fit));
-  const hidden = rows.length - shown.length;
+  const plan = bentoPlan(rows.length, fit.rows);
+  const shown = rows.slice(0, plan.tiles.length);
+  const hidden = plan.hidden;
+  /* Every campaign is still waiting for its first people (none found yet): one calm line says what starts them. */
+  const allEmpty = rows.length > 0 && rows.every((r) => isEmpty(stagesOf(r)) && r.funnel.sourced === 0);
   const mayCreate = useCan("campaign.create");
   return (
     <section className="hm-card hm-camps">
@@ -648,30 +979,25 @@ export function CampaignsList({ scope, onOpen }: { scope: Scope; onOpen: (r: Cam
           </HomeEmpty>
         )
       ) : (
-      <ul ref={ref} className="hm-cl">
+      <>
+      <ul ref={ref} className="hm-cl" style={{ "--rows": plan.rows, "--rh": `${fit.rowH}px` } as React.CSSProperties}>
         {shown.map((r, i) => {
-          const fresh = r.updatedAgo.endsWith("m ago") || r.updatedAgo === "Just now";
-          const next = r.needs ? nextStep(r.needs) : null;
-          return (
-            <li key={r.id} style={{ animationDelay: `${160 + i * 40}ms` }}>
-              <button type="button" onClick={() => onOpen(r)} aria-label={`${r.name}, ${r.funnel.hired} of ${r.target} hired${next ? `, ${next.text}` : ""}`}>
-                <span className="hm-cl-t">
-                  <strong>{r.name}</strong>
-                  {next ? <small className={next.tone ? `is-${next.tone}` : ""}><span>{next.text}</span></small>
-                    : fresh ? <small className="is-good"><span>Active now</span></small>
-                    : <small><span>Updated {r.updatedAgo}</span></small>}
-                </span>
-                <span className="hm-cl-bar" aria-hidden="true"><i style={{ width: `${Math.min(100, (r.funnel.hired / Math.max(1, r.target)) * 100)}%` }} /></span>
-                <span className="hm-cl-n"><b>{r.funnel.hired}</b> of {r.target} hired</span>
-                <ArrowRight className="hm-cl-go" size={14} weight="bold" aria-hidden="true" />
-              </button>
-            </li>
-          );
+          const tile = plan.tiles[i]!;
+          return <CampaignItem key={r.id} r={r} i={i} tile={tile} show={tileRows(tile, fit.colW, fit.rowH, haveOf(factsOf(r)))} onOpen={onOpen} />;
         })}
         {hidden > 0 && (
           <li className="hm-cl-more"><a href="#/campaigns">+{hidden} more<span>View all</span></a></li>
         )}
       </ul>
+      {allEmpty && (
+        <div className="hm-cl-hint">
+          <p>Approve a role spec and the agent starts finding people</p>
+          {rows.length === 1
+            ? <button type="button" className="st-link" onClick={() => onOpen(rows[0]!)}>Open {rows[0]!.name}</button>
+            : <a className="st-link" href="#/agent">Ask the agent</a>}
+        </div>
+      )}
+      </>
       )}
     </section>
   );

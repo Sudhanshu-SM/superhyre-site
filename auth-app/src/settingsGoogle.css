@@ -1,0 +1,16 @@
+/* The parts of the Google connection. State is coloured text: no dot, no pill, no bar at the side. */
+.gw-list { display: grid; margin: 4px 0 0; padding: 0; list-style: none; }
+.gw-row { display: grid; grid-template-columns: 20px 1fr auto; align-items: start; gap: 12px; padding: 10px 0; border-top: 1px solid var(--hairline, #f1ebe5); }
+.gw-row:first-child { border-top: 0; }
+.gw-row > .conn-logo { margin-top: 2px; }
+.gw-main { display: grid; gap: 2px; min-width: 0; }
+.gw-name { color: var(--ink); }
+.gw-use { color: var(--ink-2); }
+.gw-state { padding-top: 2px; white-space: nowrap; }
+.gw-state.is-on { color: #3f7d2a; }
+:root[data-theme="dark"] .gw-state.is-on { color: #8fc47a; }
+.gw-state.is-needs_access, .gw-state.is-reconnect { color: var(--ink-2); }
+.gw-problem { color: #a2552f; overflow-wrap: anywhere; }
+:root[data-theme="dark"] .gw-problem { color: #e0a183; }
+.gw-link { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+@media (max-width: 520px) { .gw-row { grid-template-columns: 20px 1fr; } .gw-state { grid-column: 2; padding-top: 0; } }

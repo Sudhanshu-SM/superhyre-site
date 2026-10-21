@@ -24,10 +24,10 @@ export function joinParts(parts: ReadonlyArray<string | null | undefined | false
 
 /**
  * A data vendor's name is the product's to know, not the person's: a sentence the server or the agent wrote with
- * it in reads as "our data provider" on screen. A sentence that starts with the name starts with "Our".
+ * it in reads as "the lookup" on screen. A sentence that starts with the name starts with "The".
  */
 export function vendorWords(text: string): string {
   return text
-    .replace(/(^|[.!?:]\s+|\n)Crustdata(['\u2019]s)?(?=\W|$)/g, (_m, lead: string, poss?: string) => `${lead}Our data provider${poss ?? ""}`)
-    .replace(/\bCrustdata(['\u2019]s)?(?=\W|$)/gi, (_m, poss?: string) => `our data provider${poss ?? ""}`);
+    .replace(/(^|[.!?:]\s+|\n)Crustdata(['\u2019]s)?(?=\W|$)/g, (_m, lead: string, poss?: string) => `${lead}The lookup${poss ?? ""}`)
+    .replace(/\bCrustdata(['\u2019]s)?(?=\W|$)/gi, (_m, poss?: string) => `the lookup${poss ?? ""}`);
 }

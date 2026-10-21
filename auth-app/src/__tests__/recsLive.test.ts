@@ -24,8 +24,11 @@ const row = (over: Partial<CampaignRow> = {}): CampaignRow => ({
   funnel: { sourced: 30, shortlisted: 6, contacted: 0, replied: 0, interviews: 0, hired: 0 },
   trend: Array.from({ length: 14 }, () => 1), target: 1, agents: [], updatedAgo: "", createdAgo: "", ...over,
 });
-const admin = { canCreate: true };
-const recruiter = { canCreate: false };
+const admin = { canCreate: true, canAddClient: true };
+/* A recruiter opens campaigns of their own; adding a client is an admin's. */
+const recruiter = { canCreate: true };
+/* Someone who may do neither (not a standing the console has today, held for the rule). */
+const bystander = { canCreate: false };
 
 describe("the general ideas", () => {
   it("offers a new organisation a way to begin, not an empty row", () => {
@@ -33,17 +36,24 @@ describe("the general ideas", () => {
     expect(ideas.map((i) => i.prompt)).toEqual(["Help me set up a new campaign", "Add a client", "What can you help me with?"]);
   });
 
-  it("never offers a recruiter the thing they would be refused", () => {
+  it("never offers a recruiter the thing they would be refused: a client, not a campaign of their own", () => {
     for (const rows of [[], [row()], [row({ status: "closed" })]]) {
       const prompts = liveIdeas(rows, recruiter).map((i) => i.prompt);
+      expect(prompts.length).toBeGreaterThan(0);
+      expect(prompts).toContain("Help me set up a new campaign");
+      expect(prompts).not.toContain("Add a client");
+    }
+    for (const rows of [[], [row()], [row({ status: "closed" })]]) {
+      const prompts = liveIdeas(rows, bystander).map((i) => i.prompt);
       expect(prompts.length).toBeGreaterThan(0);
       expect(prompts).not.toContain("Help me set up a new campaign");
       expect(prompts).not.toContain("Add a client");
     }
   });
 
-  it("offers a recruiter on no campaigns something that works with none", () => {
-    expect(liveIdeas([], recruiter).map((i) => i.prompt)).toEqual(["What can you help me with?"]);
+  it("offers a recruiter on no campaigns a way to begin their own, and a tour", () => {
+    expect(liveIdeas([], recruiter).map((i) => i.prompt)).toEqual(["Help me set up a new campaign", "What can you help me with?"]);
+    expect(liveIdeas([], bystander).map((i) => i.prompt)).toEqual(["What can you help me with?"]);
   });
 
   it("with campaigns but none running, falls back to the general set about them", () => {
@@ -64,14 +74,19 @@ describe("the general ideas", () => {
     const rows = [row({ id: "a" }), row({ id: "b", name: "Designer" })];
     const own = ideasFromCampaigns(rows);
     expect(own.length).toBeGreaterThanOrEqual(3);
-    const ideas = liveIdeas(rows, recruiter);
+    const ideas = liveIdeas(rows, bystander);
     expect(ideas.slice(0, 3).map((i) => i.id)).toEqual(["g-attention", "g-agents", "g-find"]);
     expect(ideas.slice(3)).toEqual(own);
+    // A recruiter has the same three in front, and a way to start a campaign of their own after them.
+    const theirs = liveIdeas(rows, recruiter);
+    expect(theirs.slice(0, 4).map((i) => i.id)).toEqual(["g-attention", "g-agents", "g-find", "g-new"]);
+    expect(theirs.slice(4)).toEqual(own);
   });
 
   it("has unique ids and a sentence for every idea, and claims no figure", () => {
     const all = [
-      ...generalIdeas({ canCreate: true, hasCampaigns: true }), ...generalIdeas({ canCreate: true, hasCampaigns: false }),
+      ...generalIdeas({ canCreate: true, canAddClient: true, hasCampaigns: true }), ...generalIdeas({ canCreate: true, canAddClient: true, hasCampaigns: false }),
+      ...generalIdeas({ canCreate: true, hasCampaigns: false }),
       ...generalIdeas({ canCreate: false, hasCampaigns: true }), ...generalIdeas({ canCreate: false, hasCampaigns: false }),
     ];
     for (const i of all) {

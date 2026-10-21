@@ -43,6 +43,9 @@ describe("what a campaign ranks on", () => {
 
   it("names a column from the skill or the first words", () => {
     expect(shortOf("Kotlin")).toBe("Kotlin");
+    expect(shortOf("Go or Java")).toBe("Go/Java");
+    expect(shortOf("PostgreSQL at scale")).toBe("PostgreSQL");
+    expect(shortOf("Kafka and Kubernetes")).toBe("Kafka/Kubernetes".slice(0, 13) + "…");
     expect(shortOf("5+ years building consumer apps")).toBe("5+ years");
     expect(shortOf("Distributed systems engineering")).toBe("Distributed s…");
   });

@@ -1,7 +1,8 @@
 import { ArrowUpRight, GithubLogo, LinkedinLogo, MapPin, Sparkle } from "@phosphor-icons/react";
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { Avatar, Career, FitMark, Logo, Verdicts } from "./CandidateBits";
+import { Avatar, Career, FitMark, FitState, Logo, Verdicts } from "./CandidateBits";
+import { coverageLine } from "./matchResult";
 import { criteriaFor } from "./clarify";
 import type { MomentCtx } from "./moments";
 import { EVIDENCE, EVIDENCE_SRE } from "./moments";
@@ -88,7 +89,20 @@ export function CompareDialog({
   const rows: { section: string; rows: Row[] }[] = [
     ...(!judged || criteria.length === 0 ? [] : [{
       section: `Fit for ${title}`,
-      rows: criteria.map((cr, i) => {
+      rows: [
+        /* What the server concluded, where it did: the result, how much of the role it could check, never a count of our own. */
+        ...(people.some((p) => p.result) ? [{
+          key: "result",
+          label: "Result",
+          same: false,
+          cells: people.map((p) => p.result ? (
+            <span className="cd-fit">
+              <FitState r={p.result} />
+              {coverageLine(p.result) && <span> · {coverageLine(p.result)}</span>}
+            </span>
+          ) : <span className="cd-none">Not judged</span>),
+        }] : []),
+        ...criteria.map((cr, i) => {
         const vals = people.map((p) => !!fit(p)?.[i]);
         return {
           key: `fit-${i}`,
@@ -97,12 +111,13 @@ export function CompareDialog({
           best: argmax(vals.map(Number)),
           cells: people.map((p) => (fit(p) ? (
             <span className="cd-fit">
-              <FitMark met={!!fit(p)?.[i]} label={cr} />
+              <FitMark met={!!fit(p)?.[i]} label={cr} state={p.checks?.[i]} />
               <span>{evidence[p.id]?.[i] ?? (fit(p)?.[i] ? "Yes" : "Not found")}</span>
             </span>
           ) : <span className="cd-none">Not judged</span>)),
         };
       }),
+      ],
     }]),
     {
       section: "Career",

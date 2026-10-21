@@ -26,7 +26,7 @@ describe("plainText and joinParts", () => {
 
 describe("what an empty Campaigns list says", () => {
   it("calls a zero-count tab none yet: no search picture, no New campaign", () => {
-    const e = campaignsEmpty({ filter: "closed", q: "", total: 6, admin: true });
+    const e = campaignsEmpty({ filter: "closed", q: "", total: 6, mayCreate: true });
     expect(e.kind).toBe("none-yet");
     expect(e.message).toBe("Nothing has been closed yet.");
     expect(e.art.name).not.toBe("empty-search");
@@ -35,14 +35,14 @@ describe("what an empty Campaigns list says", () => {
   });
 
   it("offers Clear, not New campaign, when a name search finds nothing", () => {
-    const e = campaignsEmpty({ filter: "all", q: "zzz", total: 6, admin: true });
+    const e = campaignsEmpty({ filter: "all", q: "zzz", total: 6, mayCreate: true });
     expect(e).toMatchObject({ kind: "no-match", canCreate: false, canClear: true, art: { name: "empty-search" } });
     expect(e.message).toContain("zzz");
   });
 
   it("offers New campaign only where nothing exists at all", () => {
-    expect(campaignsEmpty({ filter: "all", q: "", total: 0, admin: true })).toMatchObject({ kind: "first", canCreate: true });
-    expect(campaignsEmpty({ filter: "all", q: "", total: 0, admin: false })).toMatchObject({ kind: "no-access", canCreate: false });
+    expect(campaignsEmpty({ filter: "all", q: "", total: 0, mayCreate: true })).toMatchObject({ kind: "first", canCreate: true });
+    expect(campaignsEmpty({ filter: "all", q: "", total: 0, mayCreate: false })).toMatchObject({ kind: "no-access", canCreate: false });
   });
 });
 

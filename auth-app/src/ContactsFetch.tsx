@@ -150,7 +150,7 @@ export function ContactValueCell({ campaignId, id, candidateId, name, kind, reac
  * "Email" or "Phone" for a person: the value when it is on the page, else where the lookup stands, with the button
  * that starts it. Found by campaign candidate id (the board) or by candidate id (the profile sidebar).
  */
-export function ContactSideLine({ campaignId, kind, ccId, candidateId, name, value, reach }: {
+export function ContactSideLine({ campaignId, kind, ccId, candidateId, name, value, reach, none, lookLabel }: {
   campaignId: string | null | undefined;
   kind: "email" | "phone";
   ccId?: string | undefined;
@@ -159,6 +159,10 @@ export function ContactSideLine({ campaignId, kind, ccId, candidateId, name, val
   /** What the page already shows (a value, or "on file"). */
   value?: string | null | undefined;
   reach?: boolean | undefined;
+  /** What it says when nothing has been looked up (the sheet says "Not found yet"). */
+  none?: string | undefined;
+  /** What the lookup button is called (the sheet calls it "Look up"). */
+  lookLabel?: string | undefined;
 }) {
   const v = useContacts(campaignId);
   const ask = useAsk(campaignId ?? "");
@@ -171,7 +175,7 @@ export function ContactSideLine({ campaignId, kind, ccId, candidateId, name, val
   const can = may && (kind === "email" ? offer.email : offer.phone);
   const blocked = kind === "phone" ? offer.phoneBlocked : null;
   const looking = busy !== null || side === "looking";
-  const words = value ?? (!campaignId ? "Not on file" : busy !== null ? "Looking" : side === "none" && p && !p.lookupable ? "No profile to look up" : sideLine(kind, side, v.stalled));
+  const words = value ?? (!campaignId ? "Not on file" : busy !== null ? "Looking" : side === "none" && p && !p.lookupable ? "No profile to look up" : (side === "none" && none ? none : sideLine(kind, side, v.stalled)));
   return (
     <span className="cf-side">
       {looking && !value && <Loader size="sm" />}
@@ -183,7 +187,7 @@ export function ContactSideLine({ campaignId, kind, ccId, candidateId, name, val
           aria-label={`Get ${kind === "email" ? "email" : "phone number"} for ${name}`}
           title={blocked ?? (kind === "email" ? "Free" : "Uses a credit when a number is found")}
         >
-          {busy === kind && <Loader size="sm" tone="inherit" />}{kind === "email" ? "Get email" : "Get phone"}
+          {busy === kind && <Loader size="sm" tone="inherit" />}{lookLabel ?? (kind === "email" ? "Get email" : "Get phone")}
         </button>
       )}
     </span>

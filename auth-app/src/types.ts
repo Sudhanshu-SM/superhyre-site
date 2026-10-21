@@ -72,7 +72,7 @@ export type View =
   /** Connected to the API: `/v1/me` decides between onboarding and the console. */
   | { v: "live"; me: Me }
   /** Signed in, but `/v1/me` could not be read. */
-  | { v: "accountError"; message: string; kind?: "network" | "server" | "session" | "rate-limit" | "no-access" };
+  | { v: "accountError"; message: string; kind?: "network" | "server" | "session" | "rate-limit" | "no-access" | "slow" };
 
 /** Per-action request state. Independent per action so a failed sign-up cannot
  *  wipe an error the Google button just produced, and vice versa. */

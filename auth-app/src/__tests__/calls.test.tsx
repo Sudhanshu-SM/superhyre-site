@@ -531,13 +531,18 @@ describe("a campaign's card and its dialog", () => {
     expect(modal).toContain('data-kl-row="${CSS.escape(focusId)}"');
   });
 
-  it("pages a campaign's own calls by fifty, and the list never pages in the card", () => {
+  it("pages a campaign's own calls by numbered pages sized to the window, with the pager in the toolbar and no Load more", () => {
     const hook = src("useCalls.ts");
-    expect(hook).toContain("const OWN_PAGE = 50;");
-    expect(hook).toContain("limit: campaignId ? OWN_PAGE : PAGE");
-    expect(page).toContain("flat && rowsOf.next");
-    expect(page).toContain("data.loadMore(key)");
-    expect(page).toContain('"Load more"');
+    expect(hook).toContain("limit: campaignId ? pageSize : GROUP_ROWS");
+    expect(hook).toContain("offset");
+    expect(hook).not.toContain("loadMore");
+    expect(page).toContain("usePageSize(flat ? 59 : 80");
+    expect(page).toContain("pager={listTotal !== null && listTotal > size");
+    expect(page).toContain("data-pager-list");
+    expect(page).not.toContain('"Load more"');
+    expect(page).not.toContain("rowsOf.next");
+    expect(modal).not.toContain("Load more");
+    expect(modal).toContain("<Pager");
   });
 
   it("reads one count more than the groups, not three: how many connected", () => {

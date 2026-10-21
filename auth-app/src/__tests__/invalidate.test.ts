@@ -263,10 +263,19 @@ describe("after the agent makes a task", () => {
 describe("what a console write leaves stale beyond the place that made it", () => {
   it("names the people who changed and the campaign, never a read", () => {
     expect(inv.effectsOfWrite("PATCH", "/v1/campaigns/c1/candidates/cc-1")).toEqual({ effects: ["candidates"], campaignId: "c1" });
+    // Added to a campaign or taken off one: that board and its figures follow too.
+    expect(inv.effectsOfWrite("POST", "/v1/campaigns/c1/candidates")).toEqual({ effects: ["candidates", "pipeline"], campaignId: "c1" });
+    expect(inv.effectsOfWrite("DELETE", "/v1/campaigns/c1/candidates/cc-1")).toEqual({ effects: ["candidates", "pipeline"], campaignId: "c1" });
+    // Whatever moves people on a board (the agent, a bulk move) is told to Candidates as well.
+    for (const e of ["pipeline", "campaign", "sourcing"] as const) expect([...inv.viewsFor({ effects: [e] })], e).toContain("candidates");
     expect(inv.effectsOfWrite("POST", "/v1/campaigns/c1/candidates/bulk-move")).toEqual({ effects: ["candidates"], campaignId: "c1" });
-    expect(inv.effectsOfWrite("POST", "/v1/campaigns/c1/matches/shortlist")).toEqual({ effects: ["candidates"], campaignId: "c1" });
+    // Deciding matches also counts down Home's "Review N matches".
+    expect(inv.effectsOfWrite("POST", "/v1/campaigns/c1/matches/shortlist")).toEqual({ effects: ["candidates"], campaignId: "c1", views: ["tasks"] });
     expect(inv.effectsOfWrite("POST", "/v1/campaigns/c1/sourcing")).toEqual({ effects: ["sourcing"], campaignId: "c1" });
     expect(inv.effectsOfWrite("POST", "/v1/candidates/import")).toEqual({ effects: ["candidates", "pipeline"], campaignId: null });
+    // A call logged by hand, and one taken back, are told to the lists of calls.
+    expect(inv.effectsOfWrite("POST", "/v1/calls")).toEqual({ effects: ["calls"], campaignId: null });
+    expect(inv.effectsOfWrite("DELETE", "/v1/calls/c1")).toEqual({ effects: ["calls"], campaignId: null });
     expect(inv.effectsOfWrite("DELETE", "/v1/candidates/cand-1")).toEqual({ effects: ["candidates", "pipeline", "campaign"], campaignId: null });
     expect(inv.effectsOfWrite("PATCH", "/v1/candidates/cand-1")).toEqual({ effects: ["candidates"], campaignId: null });
     // Closing or reopening a campaign: its Overview activity, funnel and agents are read again (they stayed on the

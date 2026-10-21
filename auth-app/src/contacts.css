@@ -311,7 +311,8 @@
 }
 @keyframes ct-fade { from { opacity: 0; } to { opacity: 1; } }
 
-.ct-menu { display: grid; padding: 6px; }
+.ct-menu { display: grid; padding: 6px; overflow-x: hidden; }
+.ct-menu-i { min-width: 0; }
 .ct-menu-h { margin: 4px 8px 6px; font: 500 11.5px/1 var(--ui); color: var(--ink-2); }
 .ct-menu-i {
   display: flex;
@@ -329,6 +330,8 @@
 }
 .ct-menu-i:hover, .ct-menu-i:focus-visible { background: rgba(64, 62, 60, 0.05); outline: none; }
 .ct-menu-t { flex: 1; min-width: 0; }
+/* A campaign name in the shortlist menu: one line, cut with an ellipsis, so its "Saved for" tag always fits. */
+.ct-menu-t.is-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ct-menu-box {
   display: grid;
   place-items: center;
@@ -341,7 +344,7 @@
 }
 .ct-menu-box.is-radio { border-radius: 50%; }
 .ct-menu-i.is-on .ct-menu-box { background: var(--accent); border-color: var(--accent); }
-.ct-menu-tag { font: 500 11px/1 var(--ui); color: var(--accent-text); }
+.ct-menu-tag { flex: none; white-space: nowrap; font: 500 11px/1 var(--ui); color: var(--accent-text); }
 
 .ct-filters { display: grid; gap: 14px; padding: 16px 16px 12px; }
 .ct-group { margin: 0; padding: 0; border: 0; min-width: 0; }
@@ -950,7 +953,9 @@ body:has(.ct-dock.is-on) .ct-toast-host { bottom: 92px; }
 .ct-c-act { width: 190px; min-width: 190px; }
 .ct-c-act .ct-sl, .cp-foot .ct-sl, .cc-person .ct-sl { width: 176px; }
 .ct-sl-main { flex: 1; justify-content: flex-start; min-width: 0; }
-.ct-sl-label { flex: 1; text-align: left; }
+/* One line, whatever the campaign is called: "Hired Zz QA Board" ends in an ellipsis inside the pill (the full
+   line is the button's title). */
+.ct-sl-label { flex: 1; min-width: 4.8em; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ct-sl-n {
   display: inline-grid;
   place-items: center;
@@ -1121,7 +1126,9 @@ body:has(.ct-dock.is-on) .ct-toast-host { bottom: 92px; }
 
 /* ── loading ──
    One loader row in the table's own body, as tall as a row is. */
-.ct-wait td { padding: 0; border: 0; cursor: default; }
+.ct-shm .ct-row { cursor: default; }
+.ct-shm .ct-row:hover { background: none; }
+.ct-shm .ct-who-text { display: grid; gap: 7px; min-width: 0; }
 .ct-row { height: 62px; }
 
 /* ── fixed columns ──
@@ -1132,9 +1139,9 @@ body:has(.ct-dock.is-on) .ct-toast-host { bottom: 92px; }
    then act. */
 .ct-table { table-layout: fixed; }
 .ct-table .ct-c-check { width: 44px; }
-.ct-table .ct-c-co { width: 20%; }
-.ct-table .ct-c-sum { width: 24%; }
-.ct-table .ct-c-contact { width: 21%; }
+.ct-table .ct-c-co { width: 18%; }
+.ct-table .ct-c-sum { width: 22%; }
+.ct-table .ct-c-contact { width: 20%; }
 /* The shortlist control (176) and the delete button (32, owners and admins) side by side, and the cell's own padding:
    190px let the trash icon run out of the table and be cut by its edge. */
 .ct-table .ct-c-act { width: 236px; min-width: 0; }
@@ -1153,23 +1160,23 @@ body:has(.ct-dock.is-on) .ct-toast-host { bottom: 92px; }
      contact columns take its room. */
   .ct-table .ct-c-co { display: none; }
   .ct-title-co { display: inline; }
-  .ct-table .ct-c-sum { width: 30%; }
-  .ct-table .ct-c-contact { width: 26%; }
-  .ct-table .ct-c-act { width: 214px; }
+  .ct-table .ct-c-sum { width: 26%; }
+  .ct-table .ct-c-contact { width: 22%; }
+  .ct-table .ct-c-act { width: 228px; }
   .ct-row .ct-copy-ico { display: none; }
-  .ct-c-act .ct-sl { width: 158px; }
+  .ct-c-act .ct-sl { width: 172px; }
 }
 @container (max-width: 900px) {
   .ct-table .ct-c-sum { display: none; }
-  .ct-table .ct-c-contact { width: 40%; }
+  .ct-table .ct-c-contact { width: 34%; }
 }
 /* Narrower still: the table gives up its minimum width rather than scrolling its last column
    (the shortlist control) out of reach, and the contact column steps down to what is left. */
 @container (max-width: 760px) {
   .ct-table { min-width: 0; }
-  .ct-table .ct-c-contact { width: 32%; }
-  .ct-table .ct-c-act { width: 204px; }
-  .ct-c-act .ct-sl { width: 148px; }
+  .ct-table .ct-c-contact { width: 28%; }
+  .ct-table .ct-c-act { width: 220px; }
+  .ct-c-act .ct-sl { width: 164px; }
 }
 /* On a phone the name needs the room: contact details live in the profile, and the shortlist
    control keeps its icon and caret (its words stay for a screen reader). */
@@ -1181,6 +1188,30 @@ body:has(.ct-dock.is-on) .ct-toast-host { bottom: 92px; }
     flex: none; position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
   }
   .ct-table td, .ct-table th { padding-inline: 8px; }
+}
+
+/* Under 660px of table (a phone, or a narrow window with the drawer) a row is a card: the name and the shortlist
+   control on one line, the contact details under them, truncated to the card's width. The columns were rebalanced
+   so the name always has 180px or more above this; below it there is no table to squeeze. */
+@container (max-width: 660px) {
+  .ct-table, .ct-table thead, .ct-table tbody { display: block; width: 100%; min-width: 0; }
+  .ct-table thead tr { display: flex; align-items: center; }
+  .ct-table th:not(.ct-c-check, .ct-c-name) { display: none; }
+  .ct-table th.ct-c-name { flex: 1 1 auto; width: auto; }
+  .ct-table .ct-row {
+    display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; grid-template-areas: "ck who act" "ck ct ct";
+    align-items: center; column-gap: 8px; row-gap: 6px; height: auto; padding: 12px 12px 12px 0; border-bottom: 1px solid var(--hairline);
+  }
+  .ct-table .ct-row:last-child { border-bottom: 0; }
+  .ct-table .ct-row > td { display: block; width: auto; min-width: 0; padding: 0; border-bottom: 0; }
+  .ct-table .ct-row > td.ct-c-check { grid-area: ck; padding-left: 14px; }
+  .ct-table .ct-row > td:nth-child(2) { grid-area: who; }
+  .ct-table .ct-row > td.ct-c-act { grid-area: act; }
+  .ct-table .ct-row > td.ct-c-contact { grid-area: ct; display: block; }
+  .ct-table .ct-row > td:is(.ct-c-co, .ct-c-sum) { display: none; }
+  .ct-table .ct-row .ct-contact { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+  .ct-table .ct-row .ct-contact-l { flex: 0 1 auto; max-width: 100%; }
+  .ct-c-act .ct-sl { width: auto; }
 }
 
 /* ── the new cells ── */
@@ -1342,3 +1373,4 @@ body:has(.ct-dock.is-on) .ct-toast-host { bottom: 92px; }
 .ct-ext { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; color: var(--ink-2); }
 .ct-ext:hover { color: var(--ink); }
 .ct-ext:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.ct-menu-tag.is-quiet { color: var(--ink-3); }

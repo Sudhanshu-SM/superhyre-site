@@ -578,3 +578,13 @@
   .cg-name-t { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; white-space: normal; overflow-wrap: anywhere; }
   .cg-meta { white-space: normal; }
 }
+
+/* A laptop with the sidebar open (a list of 700 to 1000px): the name was left about 230px by 32px gaps, a 276px block of
+   figures and a 128px goal, and ended in an ellipsis after three words. The gaps, the figures and the goal give a little,
+   and what is left is the name's, which takes two lines before it is cut. (The phone's own rule, above, covers 520px and under.) */
+@container (min-width: 521px) and (max-width: 1000px) {
+  .cg-row { gap: 20px; grid-template-columns: minmax(0, 1fr) auto 100px 30px; }
+  .cg-stats { grid-template-columns: repeat(3, 80px); }
+  .cg-name { align-items: flex-start; }
+  .cg-name-t { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; white-space: normal; overflow-wrap: break-word; }
+}

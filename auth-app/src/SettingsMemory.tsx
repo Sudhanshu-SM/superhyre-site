@@ -6,6 +6,7 @@ import type { MemoryItem } from "./api/memory";
 import { useCampaignRows, useClients } from "./campaignStore";
 import { ComingUp } from "./ComingUp";
 import { Loader } from "./components/Loader";
+import { SmPageGhost } from "./settingsGhosts";
 import { useToast } from "./Contacts";
 import { EmptyArt } from "./EmptyArt";
 import { ErrorState, kindOfLastFailure } from "./ErrorStates";
@@ -216,7 +217,7 @@ function union(a: readonly { id: string; name: string }[], b: readonly { id: str
 /* ── states ── */
 
 function Waiting() {
-  return <Loader size="md" label="Loading what the agent remembers" block />;
+  return <SmPageGhost label="Loading what the agent remembers" />;
 }
 
 function Empty({ filters, filtered, queued }: { filters: MemoryFilters; filtered: boolean; queued: boolean }) {

@@ -31,6 +31,7 @@
 .rl-dlg-h h2 { margin: 0 0 6px; color: var(--ink); }
 .rl-dlg-h p, .rl-dlg-b { margin: 0; color: var(--ink-2); }
 .rl-dlg-b b { color: var(--ink); font-weight: 500; }
+.rl-dlg-err { margin: 0; color: #a2552f; }
 .rl-dlg.is-confirm .rl-dlg-h { padding-bottom: 22px; }
 .rl-pick { flex: 1; min-height: 0; overflow-y: auto; margin: 0; padding: 4px 16px 12px; list-style: none; display: grid; gap: 2px; }
 .rl-pick-i {

@@ -8,9 +8,11 @@ import { hashAfterWorkspaceChange } from "./nav";
 import { BlockedCard, CodeCard, SignInCard } from "./Cards";
 import { Console, hasStoredSession, prefetchConsole } from "./consoleChunk";
 import type { LiveAccount } from "./Console";
+import { attachmentApi } from "./api/agent";
+import { typeOf } from "./attachments";
 import { finishWithRetry, onboardingApi } from "./api/onboarding";
 import type { ResearchView, Setup } from "./api/onboarding";
-import { landingPlace, needsSetup } from "./setup/lean/gate";
+import { finishedFrom, landingPlace, needsSetup } from "./setup/lean/gate";
 import { setupLogo } from "./setup/lean/logoDraft";
 import { flight } from "./setup/lean/flight";
 import type { FlightInfo } from "./setup/lean/flight";
@@ -613,6 +615,7 @@ export function App() {
             }}
             resume={kept}
             team={teamApi}
+            readFile={(file) => attachmentApi.read(file, typeOf(file)).then((r) => r.text)}
             onSignOut={() => { setupLogo.set(null); void signOut(); }}
             onSave={(saved) => void onboardingApi.lean(saved).catch(() => {})}
             onFinish={async (answers) => {
@@ -624,8 +627,9 @@ export function App() {
               const logo = answers.team?.kind === "create" ? setupLogo.get() : null;
               const made = await finishWithRetry(logo ? { ...body, logo } : body);
               setupLogo.set(null);
-              // The console opens on the new campaign's chat, so the first search is the first thing seen.
-              return { hash: `#/agent?campaign=${made.campaignId}`, conversationId: made.conversationId, organisationId: made.organisationId };
+              // The console opens on the new campaign's chat, so the first search is the first thing seen (or on
+              // Home, when they carried on without a role).
+              return finishedFrom(made);
             }}
             onComplete={async (done) => {
               setLanding(true);

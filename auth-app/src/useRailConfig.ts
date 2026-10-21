@@ -140,8 +140,8 @@ export function useRailConfig(
     layout: "workspace",
     inOrg,
     go: {
-      Owner: { href: "#/settings/members" },
-      Team: { href: "#/settings/members" },
+      Owner: { href: "#/teams" },
+      Team: { href: "#/teams" },
       Campaigns: { href: `#${ROUTES.campaigns.path}` },
       ...(search ? { "Job description": { onClick: search.onJd }, Filters: { onClick: search.onFilters } } : {}),
     },

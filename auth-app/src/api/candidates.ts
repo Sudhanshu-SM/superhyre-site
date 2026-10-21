@@ -30,7 +30,7 @@ export type CandidateRow = {
   phone: string | null;
   completeness: "basic" | "scraped" | "enriched";
   /** `step`: where within the stage; "replied" at outreach is Replied. Absent from older servers. */
-  campaigns: { id: string; name: string; stage: string; step?: string | null }[];
+  campaigns: { id: string; name: string; stage: string; step?: string | null; stageName?: string | null }[];
   createdAt: string;
 };
 
@@ -44,6 +44,8 @@ export type ListQuery = {
   sort: "recent" | "name";
   cursor?: string | null;
   limit: number;
+  /** Rows to skip, for a numbered page (the API answers with the whole `total`). */
+  offset?: number;
 };
 
 export function listPath(q: ListQuery): string {
@@ -57,6 +59,7 @@ export function listPath(q: ListQuery): string {
   p.set("sort", q.sort);
   if (q.cursor) p.set("cursor", q.cursor);
   p.set("limit", String(q.limit));
+  if (q.offset) p.set("offset", String(q.offset));
   return `/v1/candidates?${p.toString()}`;
 }
 
@@ -100,16 +103,17 @@ export function contactFromRow(r: CandidateRow, now = Date.now()): Contact {
   };
 }
 
-export async function listCandidates(q: ListQuery): Promise<{ rows: CandidateRow[]; nextCursor: string | null }> {
-  const res = await api<{ candidates: CandidateRow[]; nextCursor: string | null }>("GET", listPath(q));
-  return { rows: res.candidates, nextCursor: res.nextCursor };
+export async function listCandidates(q: ListQuery): Promise<{ rows: CandidateRow[]; nextCursor: string | null; total: number | null }> {
+  const res = await api<{ candidates: CandidateRow[]; nextCursor: string | null; total?: unknown }>("GET", listPath(q));
+  const total = typeof res.total === "number" && Number.isFinite(res.total) ? Math.max(0, res.total) : null;
+  return { rows: res.candidates, nextCursor: res.nextCursor, total };
 }
 
 /* ── one candidate ── */
 
 export type Note = { id: string; body: string; authorName: string | null; createdAt: string };
 
-export type DetailCampaign = { id: string; name: string; campaignCandidateId: string; stage: string; step?: string | null };
+export type DetailCampaign = { id: string; name: string; campaignCandidateId: string; stage: string; step?: string | null; stageName?: string | null };
 
 type Experience = {
   company: string | null;
@@ -122,6 +126,8 @@ type Experience = {
 export type CandidateDetail = {
   candidate: {
     id: string;
+    /** The shared person this candidate is, which the campaign's matches are keyed by. */
+    personId?: string | null;
     fullName: string;
     headline: string | null;
     currentTitle: string | null;
@@ -150,6 +156,8 @@ export type CandidateDetail = {
     completeness: "basic" | "scraped" | "enriched";
   };
   campaigns: DetailCampaign[];
+  /** Whether the viewer may change this person's details (the server's answer; absent from older servers: then yes). */
+  canEdit?: boolean;
   notes: Note[];
 };
 
@@ -422,6 +430,17 @@ export async function addToCampaign(campaignId: string, candidateIds: readonly s
   const failed = res.results.filter((r) => "error" in r).map((r) => r.candidateId);
   if (failed.length) throw new NotAddedError(failed, candidateIds.length);
   return res;
+}
+
+/** Someone who was passed on a campaign, back on its shortlist (adding them again would leave them passed). */
+export async function reshortlist(candidateId: string, campaignId: string): Promise<void> {
+  const d = await getCandidate(candidateId);
+  const cc = d.campaigns.find((c) => c.id === campaignId);
+  if (!cc) {
+    await addToCampaign(campaignId, [candidateId]);
+    return;
+  }
+  if (cc.stage === "passed") await api<unknown>("PATCH", `/v1/campaigns/${campaignId}/candidates/${cc.campaignCandidateId}`, { stage: "shortlisted" });
 }
 
 /** Off a campaign. The board keys people by their campaign row, so it is looked up first. */

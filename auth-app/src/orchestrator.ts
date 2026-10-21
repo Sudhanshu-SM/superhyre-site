@@ -146,7 +146,7 @@ export const BRIEFS: readonly Brief[] = [
      control would be a lie about there being more. Seven makes the pattern
      honest: the rail shows the recent ones, the dialog shows everything. */
   { id: "b5", title: "Find platform engineers who have run Kubernetes at scale", campaign: "Platform SRE", when: "6d", mode: "sourcing" },
-  { id: "b6", title: "Draft rejection notes for everyone we passed on", campaign: "Senior Backend Engineers", when: "1w", mode: "agent" },
+  { id: "b6", title: "Draft rejection notes for everyone we rejected", campaign: "Senior Backend Engineers", when: "1w", mode: "agent" },
   { id: "b7", title: "iOS engineers with Swift Concurrency in production", campaign: "iOS Engineers", when: "2w", mode: "sourcing" },
 ];
 

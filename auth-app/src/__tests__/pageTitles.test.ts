@@ -18,7 +18,7 @@ describe("the tab title", () => {
   });
 
   it("names every Settings section, and the analytics pages by what they are called in the sidebar", () => {
-    expect(pageTitle({ route: "settings", section: "members" })).toBe("Members · Settings · SuperHyre");
+    expect(pageTitle({ route: "teams" })).toBe("Teams · SuperHyre");
     expect(pageTitle({ route: "settings", section: "connections" })).toBe("Connections · Settings · SuperHyre");
     expect(pageTitle({ route: "settings", section: null })).toBe("Profile · Settings · SuperHyre");
     expect(pageTitle({ route: "analytics-overview" })).toBe("Overview · Analytics · SuperHyre");

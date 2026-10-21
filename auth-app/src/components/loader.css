@@ -1,6 +1,11 @@
 /* The loader: the mark, with a thin ring travelling round it. One component, three sizes (see Loader.tsx). */
 
 .ldr {
+  /* One beat for the whole loader: the mark's turn and the ring's arc go round together, at the same speed and
+     with the same easing, so they read as one motion (the user's call, Oct 2026: they used to run at 2.4s and
+     1.15s and drifted against each other). */
+  --ldr-period: 2.4s;
+  --ldr-ease: cubic-bezier(0.55, 0.05, 0.45, 0.95);
   position: relative;
   display: inline-grid;
   place-items: center;
@@ -14,7 +19,19 @@
 .ldr.is-md { width: 40px; height: 40px; }
 .ldr.is-lg { width: 64px; height: 64px; }
 
-.ldr-mark { width: 46%; height: 46%; display: block; }
+.ldr-mark {
+  width: 46%;
+  height: 46%;
+  display: block;
+  /* The mark turns on its own axis in 3D, eased so it lingers face-on and sweeps through the edge. */
+  animation: ldr-spin var(--ldr-period) var(--ldr-ease) infinite;
+  will-change: transform;
+}
+
+@keyframes ldr-spin {
+  from { transform: perspective(90px) rotateY(0deg); }
+  to { transform: perspective(90px) rotateY(360deg); }
+}
 
 .ldr-ring {
   position: absolute;
@@ -35,13 +52,13 @@
 
 .ldr-track { opacity: 0.16; }
 
-/* An arc that travels while its own length breathes, so the ring has a pulse rather than reading as a uniform
-   circle going round. Two periods, so the pattern does not settle into one repeating gesture. */
+/* An arc that travels in step with the mark: one lap per turn of the mark, on the same easing, so it lingers
+   where the mark is face-on and sweeps while the mark goes through its edge. Its length breathes once per lap. */
 .ldr-arc {
   transform-origin: 50% 50%;
   animation:
-    ldr-turn 1.15s linear infinite,
-    ldr-breathe 1.9s ease-in-out infinite;
+    ldr-turn var(--ldr-period) var(--ldr-ease) infinite,
+    ldr-breathe var(--ldr-period) ease-in-out infinite;
 }
 
 @keyframes ldr-turn {
@@ -56,12 +73,13 @@
 
 /* Held still, and breathing: an arc that is short of a full ring still reads as waiting. */
 @media (prefers-reduced-motion: reduce) {
+  .ldr-mark { animation: none; }
   .ldr-arc {
     animation: none;
     stroke-dasharray: 28 72;
     transform: rotate(-90deg);
   }
-  .ldr-ring { animation: ldr-pulse 2.4s ease-in-out infinite; }
+  .ldr-ring { animation: ldr-pulse var(--ldr-period) ease-in-out infinite; }
   @keyframes ldr-pulse {
     0%, 100% { opacity: 0.55; }
     50% { opacity: 1; }

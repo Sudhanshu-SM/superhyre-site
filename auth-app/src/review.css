@@ -1,0 +1,107 @@
+/* ═══════════════════════════════ the client's review page ═══════════════════════════════
+   #/review/<token>. No console around it, no sign-in. One calm column on the console's page ground, one white card
+   per person. It is light by design wherever it is shown, like the candidate's form: the tokens it reads are pinned
+   to their light values here, so a reviewer whose device is dark still gets a page that is legible, and this file
+   is kept out of the generated dark theme (theme/postcssDark.ts).                                               */
+
+.rv-page {
+  --ink: #312a23;
+  --ink-2: #5c524b;
+  --ink-3: #776d66;
+  --hairline: #edeae6;
+  --sub: #f3f2f0;
+  --focus: #ea5a1e;
+  --page-2: #f7f7f5;
+  --card: #ffffff;
+  --accent-fill: #cc4d17;
+  --accent-text: #b24c20;
+  --btn-fill: #cc4d17;
+  --btn-fill-hover: #b8400f;
+  --btn-ink: #ffffff;
+  --c-sage-text: #477c35;
+  --rv-edge: #948e88;
+
+  box-sizing: border-box;
+  min-height: 100dvh;
+  padding: 40px 16px 64px;
+  background: var(--page-2);
+  color: var(--ink);
+  color-scheme: light;
+  font-family: var(--ui);
+}
+
+.rv { display: grid; gap: 20px; width: 100%; max-width: 720px; margin: 0 auto; }
+.rv-head { display: grid; gap: 6px; padding-bottom: 4px; }
+.rv-head h1 { margin: 0; color: var(--ink); }
+.rv-org { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; color: var(--ink-2); }
+.rv-logo { width: 22px; height: 22px; border-radius: 6px; object-fit: contain; }
+.rv-sub { margin: 0; color: var(--ink-2); }
+
+.rv-who { display: grid; gap: 6px; padding: 14px 16px 12px; border: 1px solid var(--hairline); border-radius: 12px; background: var(--card); }
+.rv-who .t-label { color: var(--ink); }
+.rv-who small { color: var(--ink-3); }
+.rv-in {
+  box-sizing: border-box; width: 100%; height: 40px; padding: 0 12px; border: 1px solid var(--rv-edge); border-radius: 10px; background: #fff;
+  font: var(--type-body); letter-spacing: var(--track-body); color: var(--ink); outline: none;
+  transition: border-color 150ms, box-shadow 150ms;
+}
+.rv-in::placeholder { color: var(--ink-3); }
+.rv-in:focus { border-color: var(--focus); box-shadow: 0 0 0 3px rgba(234, 90, 30, 0.14); }
+
+.rv-list { display: grid; gap: 16px; margin: 0; padding: 0; list-style: none; }
+
+.rv-card {
+  display: grid; gap: 18px; padding: 24px; border: 1px solid var(--hairline); border-radius: 16px; background: var(--card);
+  box-shadow: 0 1px 2px rgba(49, 42, 35, 0.04);
+}
+.rv-card header { display: grid; gap: 4px; }
+.rv-card h2 { margin: 0; color: var(--ink); }
+.rv-card h3 { margin: 0 0 6px; color: var(--ink); }
+.rv-card p { margin: 0; }
+.rv-headline { color: var(--ink); }
+.rv-meta { color: var(--ink-2); }
+.rv-text { color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+.rv-at { font-weight: 400; color: var(--ink-2); }
+
+.rv-rows { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.rv-rows li { display: grid; gap: 2px; }
+.rv-qa { display: grid; gap: 12px; margin: 0; }
+.rv-qa div { display: grid; gap: 2px; }
+.rv-qa dt, .rv-qa dd { margin: 0; }
+
+.rv-resume a { color: var(--accent-text); font-weight: 500; text-underline-offset: 3px; }
+.rv-resume a:hover { text-decoration: underline; }
+.rv-resume a:focus-visible, .rv-link:focus-visible, .rv-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 8px; }
+
+/* The answer: a note if they like, and two plain choices. */
+.rv-answer { display: grid; gap: 12px; margin-top: 2px; padding-top: 18px; border-top: 1px solid var(--hairline); }
+.rv-btns { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; }
+.rv-btn {
+  min-width: 112px; height: 40px; padding: 0 18px; border: 1px solid var(--rv-edge); border-radius: 999px; background: #fff;
+  font: var(--type-label); letter-spacing: var(--track-label); color: var(--ink); cursor: pointer;
+  transition: background-color 150ms, border-color 150ms;
+}
+.rv-btn:hover:not(:disabled) { background: var(--sub); }
+.rv-btn.is-primary { border-color: transparent; background: var(--btn-fill); color: var(--btn-ink); }
+.rv-btn.is-primary:hover:not(:disabled) { background: var(--btn-fill-hover); }
+.rv-btn:disabled { opacity: 0.6; cursor: default; }
+.rv-link { padding: 4px 2px; border: 0; background: none; font: var(--type-label); letter-spacing: var(--track-label); color: var(--ink-2); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; justify-self: start; }
+.rv-link:hover:not(:disabled) { color: var(--ink); }
+.rv-yes { color: var(--c-sage-text); }
+.rv-no { color: var(--ink-2); }
+.rv-said { padding: 10px 12px; border-radius: 10px; background: var(--sub); }
+.rv-calm { color: var(--ink-2); }
+
+/* Nothing to review, a link that is off, a page that did not come: one calm block, centred. */
+.rv-notice { justify-items: center; gap: 10px; padding-top: 12vh; text-align: center; }
+.rv-notice h1 { margin: 6px 0 0; color: var(--ink); }
+.rv-notice p { margin: 0; max-width: 40ch; }
+
+@media (max-width: 560px) {
+  .rv-page { padding: 24px 12px 48px; }
+  .rv-card { padding: 18px; }
+  .rv-btn { flex: 1 1 120px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rv-in, .rv-btn { transition: none; }
+}

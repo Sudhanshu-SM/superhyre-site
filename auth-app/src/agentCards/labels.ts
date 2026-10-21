@@ -17,8 +17,18 @@ export const TOOL_LABEL: Record<string, string> = {
   propose_schedule: "Prepared something to schedule",
   propose_followup: "Prepared a follow-up",
   cancel_schedule: "Cancelled a scheduled item",
+  find_free_time: "Looked at your calendar",
+  schedule_interview: "Prepared an interview invitation",
+  schedule_meeting: "Prepared an invitation",
+  reschedule_meeting: "Prepared a new time",
+  cancel_meeting: "Prepared a cancellation",
+  list_meetings: "Looked at the meetings",
+  create_reminder: "Prepared a reminder",
+  save_scheduling_preferences: "Saved how you like to schedule",
   create_task: "Created a task",
   do_not_contact: "Added someone to do not contact",
+  add_candidate: "Added someone to Candidates",
+  retry_failed_emails: "Sent the failed emails again",
 };
 
 export const WORKING_LABEL: Record<string, string> = {
@@ -34,8 +44,18 @@ export const WORKING_LABEL: Record<string, string> = {
   propose_schedule: "Scheduling",
   propose_followup: "Preparing a follow-up",
   cancel_schedule: "Cancelling a scheduled item",
+  find_free_time: "Looking at your calendar",
+  schedule_interview: "Preparing an interview invitation",
+  schedule_meeting: "Preparing an invitation",
+  reschedule_meeting: "Preparing a new time",
+  cancel_meeting: "Preparing a cancellation",
+  list_meetings: "Looking at the meetings",
+  create_reminder: "Preparing a reminder",
+  save_scheduling_preferences: "Saving how you like to schedule",
   create_task: "Creating a task",
   do_not_contact: "Adding to do-not-contact",
+  add_candidate: "Adding someone to Candidates",
+  retry_failed_emails: "Sending the failed emails again",
 };
 
 export const ACTION_LABEL: Record<string, string> = {
@@ -46,4 +66,15 @@ export const ACTION_LABEL: Record<string, string> = {
   fetch_contacts: "Get contact details",
   remember: "Remember this",
   schedule: "Schedule this",
+  meeting: "Send this invitation",
+  meeting_move: "Move this meeting",
+  meeting_cancel: "Cancel this meeting",
+  meeting_add: "Add people to the meeting",
+  reminder: "Set this reminder",
+  send_email: "Send this email",
+  send_test_email: "Send yourself a test email",
+  retry_failed_emails: "Send the failed emails again",
+  add_candidate: "Add to Candidates",
+  disconnect_app: "Disconnect",
+  edit_spec: "Edit the role spec",
 };

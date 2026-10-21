@@ -1,8 +1,9 @@
+import { companyIn } from "./campaignAsk";
 import { ArrowRight, ArrowSquareOut, Check, FolderSimplePlus, LinkSimple } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import type { CampaignDraft } from "./campaignDraft";
-import { CHANNEL_LABEL, WORK_MODE_LABEL, blankDraft, compLabel, draftProblems, num, prefillFromClient, rowFromDraft, addTag } from "./campaignDraft";
+import { CHANNEL_LABEL, JD_MAX_CHARS, MOST_OPENINGS, WORK_MODE_LABEL, addTag, blankDraft, canonicalCity, compLabel, draftProblems, num, prefillFromClient, rowFromDraft } from "./campaignDraft";
 import type { WorkMode } from "./campaignsData";
 import { STATUS_LABEL } from "./campaignsData";
 import {
@@ -19,14 +20,14 @@ import { getSession, useSession } from "./roleStore";
 
 /**
  * The agent's add-client and new-campaign moments: what the guided questions
- * end in. Both are admin only; a recruiter gets one calm line instead.
+ * end in. Adding a client is admin only, and a recruiter gets one calm line
+ * instead; anyone opens a campaign, and a recruiter's is their own.
  */
 
 const made = new Map<string, string>();
 const ownerFor = (name: string, team: readonly string[]) => (team.includes(name) ? name : team[0] ?? name);
 
 export const CLIENT_REFUSAL = "Only admins can add clients. Ask an admin on your team to add it, and its campaigns will show up for you once you're on one.";
-export const CAMPAIGN_REFUSAL = "Only admins can set up campaigns. Ask an admin to create it and add you, and it'll appear in your Campaigns.";
 
 export function Refusal({ ctx, text }: { ctx: MomentCtx; text: string }) {
   useEffect(() => { ctx.onBusy(false); ctx.onGrow(); }, [ctx]);
@@ -203,10 +204,6 @@ function ClientCard({ ctx }: { ctx: MomentCtx }) {
 /* ═══════════════════════════════ a campaign ═══════════════════════════════ */
 
 export function NewCampaignMoment({ ctx }: { ctx: MomentCtx }) {
-  const session = useSession();
-  if (session.role !== "admin") {
-    return <Refusal ctx={ctx} text={CAMPAIGN_REFUSAL} />;
-  }
   return <CampaignCard ctx={ctx} />;
 }
 
@@ -225,17 +222,20 @@ export function draftFromAnswers(a: Readonly<Record<string, string>>, owner: str
   /* Years of experience, when the chat asked (the connected chat does). */
   const exp = parseRange(a.exp ?? "");
   const mode = (a.mode as WorkMode) || "hybrid";
-  const loc = (a.location ?? "").trim();
+  /* One name for a city however it was said: "Bangalore" is Bengaluru. */
+  const loc = canonicalCity(a.location);
   return {
     ...d,
     name: (a.role ?? "").trim(),
     department: a.dept || d.department,
     workMode: mode,
     locations: loc ? [loc] : mode === "remote" ? [] : d.locations,
-    openings: Math.max(1, Number(a.openings) || 1),
-    compMin: r.min, compMax: r.max,
+    openings: Math.min(MOST_OPENINGS, Math.max(1, Number(a.openings) || 1)),
+    compMin: r.min, compMax: r.max || (a.compTop ?? ""),
     expMin: exp.min, expMax: exp.max,
     mustHave: addTag([], a.skills ?? ""),
+    /* The job description, when the chat was given one: the role spec is drafted from it. */
+    jd: (a.jd ?? "").trim().slice(0, JD_MAX_CHARS),
     agents: (a.agents ?? "").split(",").filter(Boolean) as CampaignDraft["agents"],
   };
 }
@@ -269,10 +269,10 @@ function CampaignCard({ ctx }: { ctx: MomentCtx }) {
     /* The new client first (a company that is already there is the one used), so the campaign links to it. */
     let clientId = d.clientId;
     if (newClient) {
-      const there = clients.find((c) => c.name.trim().toLowerCase() === newClient.toLowerCase());
+      const there = companyIn(newClient, clients);
       clientId = there
         ? there.id
-        : saveClient(clientFromDraft({ ...EMPTY_DRAFT, name: newClient, status: "prospect", owner: ownerFor(session.name, team) }, `cl-${Date.now().toString(36)}`)).id;
+        : saveClient(clientFromDraft({ ...EMPTY_DRAFT, name: newClient, status: "active", owner: ownerFor(session.name, team) }, `cl-${Date.now().toString(36)}`)).id;
     }
     const r = rowFromDraft({ ...d, clientId }, team);
     addCampaignRow(r);
@@ -285,7 +285,7 @@ function CampaignCard({ ctx }: { ctx: MomentCtx }) {
   const comp = compLabel(d.compMin || d.compMax ? { currency: d.currency, min: num(d.compMin) ?? undefined, max: num(d.compMax) ?? undefined, shown: false } : undefined);
   const where = d.workMode === "remote" ? (d.locations[0] ? `Remote, near ${d.locations[0]}` : "Remote") : `${WORK_MODE_LABEL[d.workMode]}, ${d.locations[0] ?? "no city yet"}`;
   const facts: [string, string][] = [
-    ["Team", d.department],
+    ["Department", d.department],
     ["Where", where],
     ["Openings", `${d.openings} ${d.openings === 1 ? "hire" : "hires"}`],
     ["CTC", comp || "Not set"],

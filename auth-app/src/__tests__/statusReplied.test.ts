@@ -98,11 +98,11 @@ beforeEach(async () => {
 describe("the statuses a menu offers", () => {
   it("has Replied between In outreach and Interviewing, in one list every menu reads", () => {
     expect(campaign.STATUSES.map((s) => s.label)).toEqual([
-      "Not contacted", "In outreach", "Replied", "Interviewing", "Hired", "Passed",
+      "Not contacted", "In outreach", "Replied", "Interviewing", "Hired", "Rejected",
     ]);
   });
 
-  it("offers the board's own menus the same, with Pass left to its own row", () => {
+  it("offers the board's own menus the same, with Reject left to its own row", () => {
     expect(campaign.BOARD_STATUSES.map((s) => s.label)).toEqual(["Shortlisted", "In outreach", "Replied", "Interviewing", "Hired"]);
     expect(campaign.BOARD_STATUSES.map((s) => s.id)).toEqual(campaign.STATUSES.map((s) => s.id).filter((id) => id !== "passed" ));
   });
@@ -189,12 +189,12 @@ describe("where else a status is written", () => {
     expect(shiftFunnel(c, "outreach", "outreach")).toBe(c);
   });
 
-  it("reads Replied in a person's control on the Candidates page", () => {
+  it("keeps Replied out of a person's shortlist control on the Candidates page, which names no stage", () => {
     const stages = stagesFrom(
       [{ id: "p", campaigns: [{ id: "c1", name: "Backend", stage: "outreach", step: "replied" }] }],
       {},
     );
-    expect(controlState(["c1"], stages.p ?? {})).toEqual({ label: "Replied", shortlisted: [], active: true });
+    expect(controlState(["c1"], stages.p ?? {})).toMatchObject({ label: "Shortlisted", active: true });
   });
 
   it("writes Replied in the Stage column of an export, and keeps In outreach for someone still waiting", () => {

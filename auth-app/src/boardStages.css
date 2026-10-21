@@ -1,0 +1,186 @@
+/* ═══════════════════════════ the campaign's own board ═══════════════════════════
+   Loaded after workspace.css, so these sit on top of its per-kind looks. Every stage has a hue, its own colour or
+   the colour of its kind (stageDonut.stageHue, through boardStages.stageText): the one answer the board's titles and
+   columns, its strip, and the stage donut and its tooltip all draw. The hues are the --stage-<key> tokens
+   (access.css, with its dark values in theme.css), so light and dark follow the theme and nothing is hard-coded.
+   A stage's name is coloured TEXT, never a badge.                                                              */
+
+
+/* The column's accent: the hover glow, the landing slot, the count, the arrival ring. Every column has a hue (its
+   colour, or the colour of its kind: boardStages.stageText), so it matches its title, the strip and the donut. */
+.cw-board .cw-col[data-sc="blue"] { --stage: var(--stage-blue); --stage-soft: var(--stage-blue-soft); --stage-mid: var(--stage-blue-line); --stage-ink: var(--stage-blue-text); }
+.cw-board .cw-col[data-sc="teal"] { --stage: var(--stage-teal); --stage-soft: var(--stage-teal-soft); --stage-mid: var(--stage-teal-line); --stage-ink: var(--stage-teal-text); }
+.cw-board .cw-col[data-sc="green"] { --stage: var(--stage-green); --stage-soft: var(--stage-green-soft); --stage-mid: var(--stage-green-line); --stage-ink: var(--stage-green-text); }
+.cw-board .cw-col[data-sc="amber"] { --stage: var(--stage-amber); --stage-soft: var(--stage-amber-soft); --stage-mid: var(--stage-amber-line); --stage-ink: var(--stage-amber-text); }
+.cw-board .cw-col[data-sc="orange"] { --stage: var(--stage-orange); --stage-soft: var(--stage-orange-soft); --stage-mid: var(--stage-orange-line); --stage-ink: var(--stage-orange-text); }
+.cw-board .cw-col[data-sc="rose"] { --stage: var(--stage-rose); --stage-soft: var(--stage-rose-soft); --stage-mid: var(--stage-rose-line); --stage-ink: var(--stage-rose-text); }
+.cw-board .cw-col[data-sc="violet"] { --stage: var(--stage-violet); --stage-soft: var(--stage-violet-soft); --stage-mid: var(--stage-violet-line); --stage-ink: var(--stage-violet-text); }
+
+/* The strip over the board: one segment per stage. */
+.pl-jseg[data-sc="blue"] { background: var(--stage-blue); }
+.pl-jseg[data-sc="teal"] { background: var(--stage-teal); }
+.pl-jseg[data-sc="green"] { background: var(--stage-green); }
+.pl-jseg[data-sc="amber"] { background: var(--stage-amber); }
+.pl-jseg[data-sc="orange"] { background: var(--stage-orange); }
+.pl-jseg[data-sc="rose"] { background: var(--stage-rose); }
+.pl-jseg[data-sc="violet"] { background: var(--stage-violet); }
+
+/* The strip over the board: one slim bar, a segment per stage in its colour sized by who is in it, and one quiet line
+   under it. A stage's name and count show on hover or focus. An empty pipeline is a faint bar. */
+.pl-journey { grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 4px 0 2px; }
+.pl-jtrack { gap: 3px; height: 6px; }
+.pl-jseg { position: relative; flex-basis: 0; min-width: 14px; height: 6px; border-radius: 99px; cursor: default; outline: none; }
+.pl-jseg.is-none { opacity: 0.35; }
+.pl-jtrack.is-empty .pl-jseg { opacity: 0.22; }
+.pl-jseg:hover, .pl-jseg:focus-visible { filter: brightness(1.08); }
+.pl-jseg:focus-visible { box-shadow: 0 0 0 2px var(--focus); }
+.pl-jtip {
+  position: absolute; left: 50%; top: calc(100% + 8px); z-index: 4; transform: translate(-50%, -3px); padding: 5px 10px; border-radius: 8px;
+  background: var(--card, #fff); box-shadow: 0 0 0 1px var(--hairline), var(--shadow-pop, 0 8px 20px rgba(58, 35, 23, 0.14));
+  font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink); white-space: nowrap; pointer-events: none;
+  opacity: 0; transition: opacity 140ms, transform 140ms var(--ease-out);
+}
+.pl-jseg:hover .pl-jtip, .pl-jseg:focus-visible .pl-jtip { opacity: 1; transform: translate(-50%, 0); }
+.pl-jline { margin: 0; color: var(--ink-2); }
+.pl-jline .cw-link { font: inherit; padding: 0; color: var(--ink-2); text-decoration: underline; text-underline-offset: 3px; }
+.pl-jline .cw-link:hover { color: var(--ink); }
+@media (prefers-reduced-motion: reduce) { .pl-jtip { transition: none; } }
+
+/* A column's title may be as long as the stage's name: it wraps between words instead of running under the count. */
+.pl-col-t strong { flex-wrap: wrap; row-gap: 2px; overflow-wrap: break-word; }
+
+/* ── the board: a column keeps its width at every screen size, the rest scrolls sideways ──
+   A column is about a fifth of the board, never under 240px and never over 340px, whatever the window: a tablet or
+   a laptop with the sidebar open scrolls the board sideways instead of crushing four columns to 40px (which broke
+   names mid-word). With more than five stages each is a fifth of the width (less the gaps), and the board scrolls
+   smoothly by hand or wheel, with no snapping, while a dragged card near either edge scrolls it
+   (boardAutoScroll.ts). A soft fade at an edge says there is more that way. On a phone a column is 78% of the
+   screen (240px at least) and snaps, so the next one shows at the edge. */
+.cw-board .cw-cols {
+  grid-auto-columns: clamp(240px, calc((100% - 4 * 14px) / 5), 340px); justify-content: start;
+  overscroll-behavior-x: contain; scrollbar-width: thin;
+}
+/* A column holds about six cards before it grows: tall enough that an empty stage is a real target to drop on,
+   short enough that a wide window does not stretch it into a long empty strip. */
+.cw-board .cw-col { min-height: clamp(420px, 55vh, 620px); }
+@media (min-width: 561px) {
+  .cw-board .cw-cols { scroll-snap-type: none; scroll-behavior: auto; }
+  .cw-board .cw-cols.has-right { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent); }
+  .cw-board .cw-cols.has-left { -webkit-mask-image: linear-gradient(90deg, transparent, #000 40px); mask-image: linear-gradient(90deg, transparent, #000 40px); }
+  .cw-board .cw-cols.has-left.has-right { -webkit-mask-image: linear-gradient(90deg, transparent, #000 40px, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(90deg, transparent, #000 40px, #000 calc(100% - 40px), transparent); }
+}
+@media (max-width: 560px) {
+  .cw-board .cw-cols { grid-auto-columns: max(240px, 78%); }
+}
+/* The mask must not hide a card being dragged near the edge: while dragging it is off. */
+.cw-board.is-dragging .cw-cols { -webkit-mask-image: none !important; mask-image: none !important; }
+
+/* The Overview's funnel: one bar per stage, in the stage's hue (the strip, the columns and the donut draw it the same).
+   With more stages than fit, each bar keeps at least 88px and the row scrolls sideways, smoothly, with a soft fade at
+   the edge that has more; no vertical scrollbar, and the row takes the keyboard (arrow keys scroll it). */
+@media (min-width: 681px) {
+  .ov2-funnel[style*="--n"] {
+    grid-template-columns: repeat(var(--n), minmax(88px, 1fr));
+    overflow-x: auto; overflow-y: hidden; scroll-behavior: smooth; overscroll-behavior-x: contain; scrollbar-width: thin;
+    /* room after the last bar, so its name is never at the very edge, and a bar scrolled to is brought fully into view */
+    padding-inline-end: 36px; scroll-padding-inline: 36px;
+  }
+  .ov2-funnel[style*="--n"]:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 10px; }
+  .ov2-funnel.has-right { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent); }
+  .ov2-funnel.has-left { -webkit-mask-image: linear-gradient(90deg, transparent, #000 32px); mask-image: linear-gradient(90deg, transparent, #000 32px); }
+  .ov2-funnel.has-left.has-right { -webkit-mask-image: linear-gradient(90deg, transparent, #000 32px, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(90deg, transparent, #000 32px, #000 calc(100% - 24px), transparent); }
+  /* The Overview's panel narrows the row's padding; the room after the last bar is kept (Hired is never under the fade),
+     and the row is reached by keyboard: focus it and the arrow keys scroll, or Tab through the bars. */
+  .ov4-panel .ov2-funnel[style*="--n"] { padding-inline-end: 36px; scroll-padding-inline: 36px; }
+  .ov4-panel .ov2-funnel[style*="--n"] .ov2-bar:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 10px; }
+  /* a bar's words sit inside the row, over its top, so the scroller never clips them */
+  .ov2-funnel[style*="--n"] .ov2-tip { bottom: auto; top: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .ov2-funnel { scroll-behavior: auto; } }
+html .ov2-bar[data-sc="blue"] .ov2-bar-col i { background: var(--stage-blue); box-shadow: none; }
+html .ov2-bar[data-sc="teal"] .ov2-bar-col i { background: var(--stage-teal); box-shadow: none; }
+html .ov2-bar[data-sc="green"] .ov2-bar-col i { background: var(--stage-green); box-shadow: none; }
+html .ov2-bar[data-sc="amber"] .ov2-bar-col i { background: var(--stage-amber); box-shadow: none; }
+html .ov2-bar[data-sc="orange"] .ov2-bar-col i { background: var(--stage-orange); box-shadow: none; }
+html .ov2-bar[data-sc="rose"] .ov2-bar-col i { background: var(--stage-rose); box-shadow: none; }
+html .ov2-bar[data-sc="violet"] .ov2-bar-col i { background: var(--stage-violet); box-shadow: none; }
+.ov2-bar[data-sc] .ov2-bar-l { white-space: normal; overflow-wrap: break-word; text-align: center; max-width: 100%; }
+/* A bar's caption stays inside its own column (an ellipsis, not a run over the next bar's), and the card never grows
+   past its grid cell, so the funnel scrolls inside the card instead of pushing under the chart beside or below it. */
+.ov2-bar-s { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.ov4-panel { min-width: 0; }
+/* The Overview stacks its two cards below 800px of page (and in the drawer's widths, whatever the page): the funnel
+   then has a height of its own (a bar column to grow in, a label of two lines, a caption) and scrolls sideways inside
+   it, so its numbers and labels do not meet. (The 1360px rule that gives the cards a 1.45 : 1 split comes after the
+   980px one in workspace.css and kept the pair side by side on a tablet.) */
+@container ovsec (max-width: 800px) {
+  .ov4-panel .ov2-funnel[style*="--n"] { height: 224px; }
+}
+@media (min-width: 681px) and (max-width: 1023px) {
+  .ov4-panels { grid-template-columns: minmax(0, 1fr); row-gap: 14px; }
+  .ov4-panel, .ov4-panel:first-child { padding: 0; border-inline: 0; }
+  .ov4-panel .ov2-funnel[style*="--n"] { height: 224px; }
+}
+/* A phone shows the funnel as rows (label, bar, count): the rows set the height, not the 176px of the bar chart,
+   which ran the rows over "Sourced per day" below. (After the two rules above, at the same weight, on purpose.) */
+@media (max-width: 680px) {
+  .ov4-panel .ov2-funnel, .ov4-panel .ov2-funnel[style*="--n"] { height: auto; min-height: 0; overflow: visible; }
+}
+
+/* A desktop (1200px and over): up to eight bars shrink to fit the card, to 56px each with a 6px gap, and a name too long
+   for its bar ends in an ellipsis (its full name is the bar's tooltip and its label). The row scrolls sideways only
+   with nine or more, which keep their 88px; the room after the last bar is only needed then, for the fade. */
+@media (min-width: 1200px) {
+  .ov4-panel .ov2-funnel[style*="--n"] { grid-template-columns: repeat(var(--n), minmax(56px, 1fr)); gap: 6px; padding-inline-end: 24px; scroll-padding-inline: 24px; }
+  .ov4-panel .ov2-funnel[style*="--n: 9"], .ov4-panel .ov2-funnel[style*="--n: 1"] { grid-template-columns: repeat(var(--n), minmax(88px, 1fr)); gap: 14px; padding-inline-end: 36px; scroll-padding-inline: 36px; }
+  .ov4-panel .ov2-bar { min-width: 0; }
+  .ov4-panel .ov2-bar[data-sc] .ov2-bar-l { max-width: 100%; overflow: hidden; overflow-wrap: normal; text-overflow: ellipsis; }
+}
+
+/* ── the client line ── */
+.pl-client { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 16px; padding: 0 2px 2px; }
+.pl-client-t { flex: 1 1 320px; margin: 0; color: var(--ink-2); }
+.pl-client-t b { color: var(--ink); font-weight: 500; }
+.pl-client-dot { color: var(--ink-3); }
+.pl-client-a { display: inline-flex; align-items: center; gap: 14px; }
+.pl-client-a .cw-link:disabled { opacity: 0.5; cursor: default; }
+/* The link on its own line, to select, when copying was refused. */
+.pl-client-field { flex: 1 1 100%; margin: 0; }
+.pl-client-field .ncx-in { max-width: 560px; height: 34px; font: var(--type-body-sm); }
+
+/* What the client wrote about a person, quoted in the card's detail. */
+.cw-quote { margin: 6px 0 0 !important; padding: 8px 12px; border-radius: 10px; background: var(--sub); color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* "Close campaign" is the one secondary button wherever it stands: the Overview's header and this banner draw it the
+   same size and type (the banner's was the 30px "quiet" step, a different button to look at). */
+.pl-filled .cw-btn.is-quiet, .pl-client-a .cw-btn.is-quiet { height: 36px; padding: 0 14px; font: var(--type-body-strong); letter-spacing: var(--track-body-strong); }
+
+/* Roles filled: one calm line with two quiet choices. */
+.pl-filled { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 16px; padding: 0 2px 2px; }
+.pl-filled-t { flex: 1 1 280px; margin: 0; color: var(--stage-green-text); }
+
+/* A closed campaign's board is read-only: cards open but do not lift, and the pass strip is not drawn. */
+.cw-board.is-readonly .cw-pcard { cursor: default; }
+.cw-board.is-readonly .pl-bin { display: none; }
+.pl-closed .pl-filled-t { color: var(--ink-2); }
+
+/* The Hires card on the Overview: with something under the hires (what needs you, the screening), the hires take the room
+   they need and the card scrolls, instead of the list running over the block below it. */
+@media (min-width: 1200px) {
+  .hp-body > .hp-hires:not(:only-child) { flex: 0 0 auto; min-height: auto; }
+}
+
+/* What is tied to the people in a dialog (TiedBlock.tsx): one calm line, the list on a click. */
+.tb { display: grid; gap: 4px; margin: 0 24px 12px; padding: 10px 12px; border-radius: 10px; background: var(--sub); }
+.tb-line { margin: 0; color: var(--ink); }
+.tb-more { justify-self: start; display: inline-flex; align-items: center; gap: 5px; }
+.tb-list { margin: 2px 0 0; padding: 0; list-style: none; display: grid; gap: 3px; max-height: 160px; overflow-y: auto; color: var(--ink-2); }
+.tb-list b { color: var(--ink); font-weight: 500; }
+.tb-when { color: var(--ink-3); }
+
+/* "Also close its forms" in the close dialog. */
+.cd-forms { display: flex; align-items: center; gap: 10px; margin: 0 24px 16px; color: var(--ink); cursor: pointer; }
+.cd-forms input { width: 16px; height: 16px; accent-color: var(--accent-fill); cursor: pointer; }
+
+/* In the table's stage cell, a quiet note ("Do not contact") sits after the stage's name with a space, never glued to it. */
+.cw-table td span.cw-muted { margin-left: 6px; }

@@ -5,7 +5,7 @@ import { plainText } from "./displayText";
 /**
  * What the Campaigns list says when it has nothing to list, which is one of four different things:
  *
- *   first       there are no campaigns at all (an admin can make one)
+ *   first       there are no campaigns at all (anyone who may open one can make the first)
  *   no-access   there are campaigns, and this person is on none of them
  *   none-yet    a tab with a zero count: nothing is closed yet
  *   no-match    the name search found nothing: the way out is clearing it
@@ -32,7 +32,7 @@ const NONE_YET: Readonly<Record<CampaignStatus, string>> = {
   closed: "Nothing has been closed yet.",
 };
 
-export function campaignsEmpty(a: { filter: "all" | CampaignStatus; q: string; total: number; admin: boolean }): CampaignsEmpty {
+export function campaignsEmpty(a: { filter: "all" | CampaignStatus; q: string; total: number; mayCreate: boolean }): CampaignsEmpty {
   const q = a.q.trim();
   if (q) {
     return {
@@ -44,7 +44,7 @@ export function campaignsEmpty(a: { filter: "all" | CampaignStatus; q: string; t
     };
   }
   if (a.total === 0) {
-    return a.admin
+    return a.mayCreate
       ? {
           kind: "first",
           message: "No campaigns yet.",

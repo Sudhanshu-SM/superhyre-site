@@ -14,7 +14,7 @@ import "./errorStates.css";
  *   <ErrorState kind="network" action={{ label: "Try again", onClick: retry }} />
  *   <NotFound />
  */
-export type ErrorKind = "network" | "server" | "session" | "rate-limit" | "no-access" | "connector";
+export type ErrorKind = "network" | "server" | "session" | "rate-limit" | "no-access" | "connector" | "slow";
 
 const ART: Readonly<Record<ErrorKind, { name: EmptyArtName; size: number }>> = {
   network: { name: "err-network", size: 160 },
@@ -23,6 +23,7 @@ const ART: Readonly<Record<ErrorKind, { name: EmptyArtName; size: number }>> = {
   "rate-limit": { name: "err-rate-limit", size: 160 },
   "no-access": { name: "err-no-access", size: 180 },
   connector: { name: "err-connector", size: 120 },
+  slow: { name: "err-rate-limit", size: 160 },
 };
 
 const COPY: Readonly<Record<ErrorKind, { title: string; text: string }>> = {
@@ -32,6 +33,7 @@ const COPY: Readonly<Record<ErrorKind, { title: string; text: string }>> = {
   "rate-limit": { title: "That was a lot at once", text: "Give it a moment and try again." },
   "no-access": { title: "You don't have access to this", text: "Ask an admin of your organisation to add you." },
   connector: { title: "It's signed out", text: "Connect it again and the agent can use it." },
+  slow: { title: "That took longer than expected", text: "Nothing was changed. Try again." },
 };
 
 /** The picture and words for one kind (exported so the mapping can be tested without rendering). */
@@ -66,6 +68,8 @@ export function errorKindOf(err: unknown): ErrorKind | null {
   /* A service that is not connected (a 503 that says which) is a thing to connect, not a fault. */
   if (connectNeeded(err)) return "connector";
   if (err.status === 0 || err.code === "network") return "network";
+  /* A wait that ran out is neither the person's connection nor a fault of ours: it is slow, and asking again is fine. */
+  if (err.code === "timeout" || err.status === 504) return "slow";
   if (err.status === 401) return "session";
   if (err.status === 403) return "no-access";
   if (err.status === 429) return "rate-limit";
@@ -78,6 +82,7 @@ export function kindOfLastFailure(last: FailureKind | null): ErrorKind {
   switch (last) {
     case "network": return "network";
     case "limited": return "rate-limit";
+    case "timeout": return "slow";
     case "session": return "session";
     case "access": return "no-access";
     default: return "server";
@@ -145,3 +150,5 @@ export function NotFound({ title = "That page isn't here", text = "The link may 
     </div>
   );
 }
+
+export { SlowNote } from "./components/SlowNote";

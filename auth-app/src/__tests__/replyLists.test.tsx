@@ -64,3 +64,45 @@ describe("the reply shows it as a list", () => {
     expect((real.match(/<li>/g) ?? []).length).toBe(2);
   });
 });
+
+describe("the reply shows every mark as what it means", () => {
+  const html = (text: string) => renderToStaticMarkup(<Prose text={text} />);
+
+  it("shows bold as bold and never a raw asterisk", () => {
+    const a = html("**Good fit (2):**\n- **Ravi** - Tier A\n- Mira - Tier B");
+    expect(a).toContain("<strong>Good fit (2):</strong>");
+    expect(a).toContain("<li><strong>Ravi</strong> - Tier A</li>");
+    expect(a).not.toContain("*");
+    // a mark that was never closed loses its asterisks too
+    expect(html("**Your preferences")).toBe('<p class="rep-para">Your preferences</p>');
+  });
+
+  it("shows numbered lines as a numbered list, one item per line", () => {
+    const a = html("To add a team:\n1. Open Teams\n2. Press New team\n3. Name it and save");
+    expect(a).toContain('<p class="rep-para">To add a team:</p>');
+    expect(a).toContain('<ol class="lt-list lt-list-ol">');
+    expect((a.match(/<li>/g) ?? []).length).toBe(3);
+    expect(a).not.toMatch(/Open Teams 2\./);
+  });
+
+  it("keeps one list when a blank line sits between its items, and starts where it was numbered", () => {
+    const a = html("1. One\n\n2. Two\n\n3. Three");
+    expect((a.match(/<ol/g) ?? []).length).toBe(1);
+    expect((a.match(/<li>/g) ?? []).length).toBe(3);
+    expect(html("3. Three\n4. Four")).toContain('start="3"');
+  });
+
+  it("keeps the line breaks of a paragraph and leaves out dividers and heading marks", () => {
+    expect(html("Line one\nLine two")).toBe('<p class="rep-para">Line one<br/>Line two</p>');
+    const a = html("## Summary\nThree matches.\n\n---\n\nNext step.");
+    expect(a).not.toContain("---");
+    expect(a).not.toContain("#");
+    expect(a).toContain("<strong>Summary</strong>");
+    expect(a).toContain('<p class="rep-para">Three matches.</p>');
+    expect(a).toContain('<p class="rep-para">Next step.</p>');
+  });
+
+  it("leaves numbers and dashes inside sentences alone", () => {
+    expect(html("It costs 1.5 lakh - or 2.5 - in total.")).toBe('<p class="rep-para">It costs 1.5 lakh - or 2.5 - in total.</p>');
+  });
+});

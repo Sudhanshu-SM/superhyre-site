@@ -1,0 +1,20 @@
+/* People per stage on each campaign: a plain table on the canvas, no box. */
+.ctt { border-collapse: collapse; max-width: 84ch; width: 100%; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink); }
+.ctt th, .ctt td { padding: 7px 0; text-align: left; font-weight: 400; border-bottom: 1px solid var(--hairline); }
+.ctt thead th { font: var(--type-label); letter-spacing: var(--track-label); color: var(--ink-3); }
+.ctt .ctt-n { text-align: right; padding-left: 16px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ctt th.ctt-name { min-width: 22ch; }
+.ctt .ctt-name a { color: var(--ink); text-decoration: none; overflow-wrap: break-word; }
+.ctt .ctt-name a:hover { text-decoration: underline; text-underline-offset: 2px; }
+.ctt .ctt-name small { display: block; font: var(--type-body-sm); color: var(--ink-3); }
+.ctt tfoot th, .ctt tfoot td { font-weight: 600; border-bottom: 0; color: var(--ink); }
+.ct-none { margin: 0; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-3); }
+
+/* A phone: the table scrolls sideways inside its own width instead of pushing the page wider (a name broke mid-word and
+   the last column was clipped). The campaign column keeps 150px and stays in view; each count keeps 64px. */
+@media (max-width: 560px) {
+  .ctt { display: block; max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; }
+  .ctt th.ctt-name { position: sticky; left: 0; z-index: 1; min-width: 150px; padding-right: 12px; background: var(--page); }
+  .ctt .ctt-n { min-width: 64px; white-space: nowrap; }
+}
+.ctt .ctt-total { font-weight: 600; }

@@ -23,7 +23,8 @@ import {
   useWatchAgents,
 } from "../liveAgents";
 import type { MomentCtx } from "../moments";
-import { act, roleIn } from "../moments";
+import { roleIn } from "../moments";
+import { DraftingSpec, JdStep, useDraftSpec } from "./DraftSpec";
 import { useSession } from "../roleStore";
 import { campaignAsk, resolvedCampaignId } from "./ask";
 import { Checked, useFleet } from "./fleetKit";
@@ -211,12 +212,15 @@ function ForCampaign({ card, ctx }: { card: LiveViewProps["card"]; ctx: MomentCt
       />
     );
   }
-  if (spec === "no" && !started) return <NeedsSpec name={name} ctx={ctx} />;
+  if (spec === "no" && !started) return <NeedsSpec id={id} name={name} ctx={ctx} />;
 
   return <WhenToStop id={id} name={name} ctx={ctx} onHold={setStarted} />;
 }
 
-function NeedsSpec({ name, ctx }: { name: string; ctx: MomentCtx }): JSX.Element {
+function NeedsSpec({ id, name, ctx }: { id: string; name: string; ctx: MomentCtx }): JSX.Element {
+  /* The role spec is drafted here: from the job description on the campaign, or from one given on this card. */
+  const flow = useDraftSpec(id);
+  useEffect(() => { ctx.onGrow(); }, [ctx, flow.stage]);
   return (
     <section className="mo-dispatch is-na" aria-live="polite">
       <Fork go={false} />
@@ -225,15 +229,15 @@ function NeedsSpec({ name, ctx }: { name: string; ctx: MomentCtx }): JSX.Element
         <p className="mo-dispatch-sub">
           The agent needs it to know who fits. Once a spec is approved, it can start looking.
         </p>
-        <div className="lv-acts">
-          <button
-            type="button"
-            className="src-btn is-primary mo-small"
-            onClick={() => act(ctx, `Write the role spec for ${name}`)}
-          >
-            Write the role spec
-          </button>
-        </div>
+        {(flow.going || flow.failed) && <DraftingSpec campaignId={id} name={name} drafting={flow.going} trouble={flow.failed ? flow.why : null} />}
+        {flow.asking && <JdStep name={name} onAnswer={flow.give} onGrow={() => ctx.onGrow()} />}
+        {!flow.going && !flow.failed && !flow.asking && (
+          <div className="lv-acts">
+            <button type="button" className="src-btn is-primary mo-small" onClick={flow.press}>
+              Write the role spec
+            </button>
+          </div>
+        )}
       </div>
     </section>
   );
@@ -291,6 +295,7 @@ function Dispatch({
   const [agentId, setAgentId] = useState<string | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
   const [problem, setProblem] = useState<{ text: string; needsSpec: boolean } | null>(null);
+  const specFlow = useDraftSpec(campaignId);
   const [left, setLeft] = useState(UNDO_MS);
   const [selected, setSelected] = useState<string | null>(null);
   const [overview, setOverview] = useState(false);
@@ -404,7 +409,7 @@ function Dispatch({
                   <button
                     type="button"
                     className="cn-link"
-                    onClick={() => act(ctx, `Write the role spec for ${name}`)}
+                    onClick={specFlow.press}
                   >
                     Write the role spec
                   </button>
@@ -412,6 +417,8 @@ function Dispatch({
               )}
             </p>
           )}
+          {specFlow.asking && <JdStep name={name} onAnswer={specFlow.give} onGrow={() => ctx.onGrow()} />}
+          {(specFlow.going || specFlow.failed) && <DraftingSpec campaignId={campaignId} name={name} drafting={specFlow.going} trouble={specFlow.failed ? specFlow.why : null} />}
         </div>
       </section>
 

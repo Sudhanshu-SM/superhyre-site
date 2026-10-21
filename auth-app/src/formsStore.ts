@@ -1,7 +1,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 import type { FormStatus, ResponseMeta } from "./api/forms";
 import * as formsApi from "./api/forms";
-import { api, LIVE, messageOf } from "./api/client";
+import { ApiError, api, LIVE, messageOf } from "./api/client";
 import { onWorkspaceChange } from "./api/identity";
 import type { Form, FormResponse } from "./campaign";
 import { formsFor } from "./campaign";
@@ -168,9 +168,13 @@ export function addForm(form: Form, alts: readonly string[] = []): void {
   if (LIVE) serverIds.set(made.id, createBehind(made));
 }
 
+/** How many times each form's working copy has been written here: a read that began before one must not write over it. */
+const touched = new Map<string, number>();
+
 function writeLocal(formId: string, next: Form | ((f: Form) => Form)): void {
   const hit = find(formId);
   if (!hit) return;
+  touched.set(formId, (touched.get(formId) ?? 0) + 1);
   const f = typeof next === "function" ? next(hit.form) : next;
   const theme = tintKey(f.theme);
   const done: Form = { ...f, theme, accent: TINTS[theme].fill, updatedAt: Date.now() };
@@ -208,8 +212,13 @@ export type FormMeta = {
   newApplicants: number;
   save: SaveState;
   error: string | null;
+  /** The last save was refused for good (403: not allowed): trying again cannot help, so the card offers nothing to retry. */
+  refused: boolean;
 };
-const NO_META: FormMeta = { status: "draft", publicLink: null, hasDraftChanges: false, responses: 0, newApplicants: 0, save: "saved", error: null };
+const NO_META: FormMeta = { status: "draft", publicLink: null, hasDraftChanges: false, responses: 0, newApplicants: 0, save: "saved", error: null, refused: false };
+
+/** Whether a failure is a permanent refusal (the person may not do this), which no retry changes. */
+export const isRefusal = (err: unknown): boolean => err instanceof ApiError && err.status === 403;
 const metas = new Map<string, FormMeta>();
 /** Local question id → the server's, learned on each save. */
 const questionIds = new Map<string, string>();
@@ -217,6 +226,8 @@ const questionIds = new Map<string, string>();
 const mapsTo = new Map<string, string>();
 /** Forms made here before the server knew them: local id → server id. */
 const serverIds = new Map<string, Promise<string>>();
+/** The other way round, once the server has them: server id → the local id the form lives under in this session. */
+const localIds = new Map<string, string>();
 const madeHere = new Set<string>();
 const requested = new Set<string>();
 const loadErrors = new Map<string, string>();
@@ -234,6 +245,15 @@ export function useFormMeta(id: string): FormMeta {
 }
 
 const idOf = (formId: string): Promise<string> => serverIds.get(formId) ?? Promise.resolve(formId);
+
+/** Where a server id's form lives in this session's store: under the local id it was made with, else its own. */
+const storeIdOf = (serverId: string): string => localIds.get(serverId) ?? serverId;
+
+/**
+ * The server's id for a form, once it has one (a form made in the chat is created behind the card). Rejects
+ * when the server refused it; the form is then only a working copy here, with nothing to find it by later.
+ */
+export const serverIdOf = (formId: string): Promise<string> => idOf(formId);
 
 /** Forms shown with the campaign's name as their title that the server has not been told about yet. */
 const unsavedTitles = new Set<string>();
@@ -253,11 +273,12 @@ async function createBehind(f: Form): Promise<string> {
   try {
     const v = await formsApi.createForm(f.campaign, formsApi.bodyFromForm(f, questionIds, mapsTo));
     madeHere.add(v.id);
+    localIds.set(v.id, f.id);
     for (const [local, server] of formsApi.matchIds(f.questions, v.questions)) questionIds.set(local, server);
     absorb(v, f.id);
     return v.id;
   } catch (err) {
-    setMeta(f.id, { save: "error", error: messageOf(err) });
+    setMeta(f.id, { save: "error", error: messageOf(err), refused: isRefusal(err) });
     throw err;
   }
 }
@@ -275,7 +296,7 @@ export function loadForms(campaignId: string): Promise<void> {
       const { forms } = await formsApi.listForms(campaignId);
       const views = await Promise.all(forms.filter((f) => !madeHere.has(f.id)).map((f) => formsApi.getForm(f.id)));
       for (const v of views) absorb(v);
-      for (const f of forms) setMeta(f.id, { responses: f.responses, newApplicants: f.newApplicants });
+      for (const f of forms) setMeta(storeIdOf(f.id), { responses: f.responses, newApplicants: f.newApplicants });
       const here = (state.get(campaignId) ?? []).filter((f) => !views.some((v) => v.id === f.id));
       state.set(campaignId, [...here, ...views.map(fromView)]);
       loadErrors.delete(campaignId);
@@ -290,15 +311,90 @@ export function loadForms(campaignId: string): Promise<void> {
   return run;
 }
 
-/** A campaign's forms' response counts again, quietly: applicants arrive from outside the console, and a form opened before them says so. */
-export async function refreshFormCounts(campaignId: string): Promise<void> {
-  if (!LIVE || !state.has(campaignId)) return;
+/** Whether a form's working copy holds edits the server has not seen yet: a read must leave them alone. */
+const hasUnsavedEdits = (formId: string): boolean => timers.has(formId) || inflight.has(formId) || getFormMeta(formId).save !== "saved";
+
+/**
+ * The server's copy of a form, taken in quietly: its status and link, what applicants see, its questions.
+ * A working copy with edits that have not saved, or that was written while this was being read (`since` is
+ * how often it had been written when the read began), keeps them: it takes only the server's status and link,
+ * and the next read finds the edits saved.
+ */
+function takeInView(v: formsApi.FormView, since: number | undefined): void {
+  const id = storeIdOf(v.id);
+  const hit = find(id);
+  if (hit && (touched.get(id) ?? 0) !== (since ?? 0)) return;
+  if (hit && hasUnsavedEdits(id)) {
+    setMeta(id, { status: v.status, publicLink: v.shareLink ?? v.publicLink });
+    const status = v.status === "live" ? "live" : "draft";
+    if (hit.form.status !== status) {
+      state.set(hit.campaignId, (state.get(hit.campaignId) ?? []).map((f) => (f.id === id ? { ...f, status } : f)));
+    }
+    return;
+  }
+  absorb(v, id);
+  /* Questions the session already knows keep the ids they have here, so the builder's open question stays open. */
+  const mine = new Map([...questionIds].map(([local, server]) => [server, local]));
+  const read = fromView(v);
+  const next: Form = {
+    ...read,
+    id,
+    origin: hit?.form.origin ?? read.origin,
+    questions: read.questions.map((q) => ({ ...q, id: mine.get(q.id) ?? q.id })),
+  };
+  const list = state.get(v.campaignId) ?? [];
+  if (!hit) {
+    state.set(v.campaignId, [next, ...list]);
+  } else if (JSON.stringify({ ...hit.form, updatedAt: 0 }) !== JSON.stringify({ ...next, updatedAt: 0 })) {
+    state.set(hit.campaignId, list.map((f) => (f.id === id ? next : f)));
+  }
+}
+
+const rereads = new Map<string, Promise<void>>();
+
+async function readAgain(campaignId: string): Promise<void> {
   try {
+    const since = new Map(touched);
     const { forms } = await formsApi.listForms(campaignId);
-    for (const f of forms) setMeta(f.id, { responses: f.responses, newApplicants: f.newApplicants });
+    const views = await Promise.all(forms.map((f) => formsApi.getForm(f.id)));
+    for (const v of views) takeInView(v, since.get(storeIdOf(v.id)));
+    for (const f of forms) setMeta(storeIdOf(f.id), { responses: f.responses, newApplicants: f.newApplicants });
     emit();
   } catch {
     /* what is shown stays; the next read tries again */
+  }
+}
+
+/**
+ * A campaign's forms again, quietly: their status and link, their questions and who has answered. Applicants
+ * arrive, and the agent publishes, closes and changes forms, from outside this page; a card that shows one
+ * says what the server says without a reload. Without a campaign, every campaign whose forms were read is
+ * read again. Reads of one campaign run one after another, so the last answer is the one that stays.
+ */
+export function refreshFormCounts(campaignId: string | null): Promise<void> {
+  if (!LIVE) return Promise.resolve();
+  if (campaignId === null) return Promise.all([...state.keys()].map((id) => refreshFormCounts(id))).then(() => {});
+  if (!state.has(campaignId)) return Promise.resolve();
+  const run = (rereads.get(campaignId) ?? Promise.resolve()).then(() => readAgain(campaignId));
+  rereads.set(campaignId, run);
+  void run.then(() => { if (rereads.get(campaignId) === run) rereads.delete(campaignId); });
+  return run;
+}
+
+/** One form again, quietly (a card that names it): its status and link, and who has answered it. */
+export async function refreshFormCount(formId: string): Promise<void> {
+  if (!LIVE) return;
+  const hit = find(formId);
+  if (!hit) return;
+  try {
+    const since = touched.get(formId);
+    const sid = await idOf(formId);
+    const [{ forms }, v] = await Promise.all([formsApi.listForms(hit.campaignId), formsApi.getForm(sid)]);
+    takeInView(v, since);
+    const row = forms.find((f) => f.id === sid);
+    if (row) setMeta(formId, { responses: row.responses, newApplicants: row.newApplicants });
+  } catch {
+    /* what is shown stays */
   }
 }
 
@@ -312,18 +408,39 @@ export function retryForms(campaignId: string): void {
   void loadForms(campaignId);
 }
 
-/** One form, for a link straight to the builder. */
-async function loadForm(formId: string): Promise<void> {
-  if (find(formId) || requested.has(formId) || !/^[0-9a-f-]{36}$/i.test(formId)) return;
+const oneLoads = new Map<string, Promise<void>>();
+
+/** One form, for a link straight to the builder. Asking again while it is on its way waits for the same read. */
+function loadForm(formId: string): Promise<void> {
+  if (find(formId) || !/^[0-9a-f-]{36}$/i.test(formId)) return Promise.resolve();
+  const going = oneLoads.get(formId);
+  if (going) return going;
+  if (requested.has(formId)) return Promise.resolve();
   requested.add(formId);
-  try {
-    const v = await formsApi.getForm(formId);
-    absorb(v);
-    if (!find(formId)) state.set(v.campaignId, [fromView(v), ...(state.get(v.campaignId) ?? [])]);
-    emit();
-  } catch {
-    requested.delete(formId);
-  }
+  const run = (async () => {
+    try {
+      const v = await formsApi.getForm(formId);
+      absorb(v);
+      if (!find(formId)) state.set(v.campaignId, [fromView(v), ...(state.get(v.campaignId) ?? [])]);
+      emit();
+    } catch {
+      requested.delete(formId);
+    } finally {
+      oneLoads.delete(formId);
+    }
+  })();
+  oneLoads.set(formId, run);
+  return run;
+}
+
+/**
+ * A form a chat card made, found again by its server id: the one in this session's store, else read from the
+ * server. Null when it is gone (deleted since), which is when the card asks again.
+ */
+export async function recallForm(serverId: string): Promise<Form | null> {
+  const id = storeIdOf(serverId);
+  await loadForm(id);
+  return getForm(id);
 }
 
 /** For the builder's "New form": waits for the server so the form opens under its real id. */
@@ -342,7 +459,7 @@ const SAVE_AFTER_MS = 700;
 
 function scheduleSave(formId: string) {
   window.clearTimeout(timers.get(formId));
-  setMeta(formId, { save: "saving", error: null });
+  setMeta(formId, { save: "saving", error: null, refused: false });
   timers.set(formId, window.setTimeout(() => { void flush(formId).catch(() => {}); }, SAVE_AFTER_MS));
 }
 
@@ -364,7 +481,7 @@ async function flush(formId: string): Promise<void> {
   try {
     await run;
   } catch (err) {
-    setMeta(formId, { save: "error", error: messageOf(err) });
+    setMeta(formId, { save: "error", error: messageOf(err), refused: isRefusal(err) });
     throw err;
   } finally {
     if (inflight.get(formId) === run) inflight.delete(formId);
@@ -468,6 +585,7 @@ export async function decideResponse(
   responseId: string,
   decision: "add" | "pass",
   linkTo?: string,
+  reason?: string,
 ): Promise<string | null> {
   const cur = responses.get(formId);
   const before = cur?.meta.get(responseId);
@@ -481,12 +599,36 @@ export async function decideResponse(
   };
   put(optimistic);
   try {
-    await formsApi.decide(await idOf(formId), responseId, decision, linkTo);
+    await formsApi.decide(await idOf(formId), responseId, decision, linkTo, reason);
     // Added as someone already on the board: their real stage comes from the server.
     if (linkTo) void loadResponses(formId);
     return null;
   } catch (err) {
     put(before);
+    return messageOf(err);
+  }
+}
+
+/**
+ * Keeps an applicant in Candidates without shortlisting them or deciding anything about them. Once the
+ * server has them the response names them as the workspace's own person (so the page says they are there);
+ * a refusal comes back as a sentence, and nothing changes.
+ */
+export async function saveResponse(formId: string, responseId: string): Promise<string | null> {
+  const cur = responses.get(formId);
+  if (!cur?.list.some((r) => r.id === responseId)) return null;
+  try {
+    const saved = await formsApi.decide(await idOf(formId), responseId, "save");
+    const candidateId = saved.candidateId;
+    if (candidateId) {
+      const now = responses.get(formId) ?? cur;
+      setResponses(formId, {
+        ...now,
+        list: now.list.map((r) => (r.id === responseId ? { ...r, person: { ...r.person, id: candidateId } } : r)),
+      });
+    }
+    return null;
+  } catch (err) {
     return messageOf(err);
   }
 }
@@ -695,9 +837,13 @@ export function forgetLoadedForms(): void {
   metas.clear();
   madeHere.clear();
   serverIds.clear();
+  localIds.clear();
+  oneLoads.clear();
   questionIds.clear();
   mapsTo.clear();
   unsavedTitles.clear();
+  touched.clear();
+  rereads.clear();
   responses.clear();
   emit();
 }

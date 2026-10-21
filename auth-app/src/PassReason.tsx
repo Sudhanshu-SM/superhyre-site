@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import "./roles.css";
 import { Dialog } from "./ui";
 
@@ -13,11 +14,13 @@ export function passReasonText(picked: string | null, note: string): string | un
 }
 
 /**
- * Asks why before passing on someone. Giving a reason is optional: "Pass without a reason"
+ * Asks why before rejecting someone. Giving a reason is optional: "Reject without a reason"
  * is one click. Reasons teach the matching what to avoid.
  */
-export function PassReasonDialog({ who, onPass, onClose }: {
-  /** Who is being passed on, e.g. "Asha" or "3 people"; null when closed. */
+export function PassReasonDialog({ who, onPass, onClose, note: tied }: {
+  /** What is tied to them and will be cancelled or closed (TiedBlock), when there is something to say. */
+  note?: ReactNode;
+  /** Who is being rejected, e.g. "Asha" or "3 people"; null when closed. */
   who: string | null;
   onPass: (reason: string | undefined) => void;
   onClose: () => void;
@@ -30,7 +33,7 @@ export function PassReasonDialog({ who, onPass, onClose }: {
       setNote("");
     }
   }, [who]);
-  const label = `Why pass on ${who ?? "them"}?`;
+  const label = `Why reject ${who ?? "them"}?`;
   return (
     <Dialog open={who !== null} onClose={onClose} label={label} size="md">
       <form
@@ -44,6 +47,7 @@ export function PassReasonDialog({ who, onPass, onClose }: {
           <h2 className="t-title">{label}</h2>
           <p className="t-body rl-dlg-b">Optional. It helps future searches skip people like this.</p>
         </header>
+        {tied}
         <div className="pr-reasons" role="group" aria-label="Reasons">
           {PASS_REASONS.map((r) => (
             <button
@@ -63,9 +67,9 @@ export function PassReasonDialog({ who, onPass, onClose }: {
         </label>
         <footer className="rl-dlg-f">
           <span />
-          <button type="button" className="ct-btn" onClick={() => onPass(undefined)}>Pass without a reason</button>
+          <button type="button" className="ct-btn" onClick={() => onPass(undefined)}>Reject without a reason</button>
           <button type="button" className="ct-btn" onClick={onClose}>Cancel</button>
-          <button type="submit" className="ct-btn is-primary" disabled={!picked && !note.trim()}>Pass</button>
+          <button type="submit" className="ct-btn is-primary" disabled={!picked && !note.trim()}>Reject</button>
         </footer>
       </form>
     </Dialog>

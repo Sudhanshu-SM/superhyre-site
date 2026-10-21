@@ -2,7 +2,7 @@ import {
   ArrowDownLeft, ArrowUpRight, CaretDown, FileText, SpeakerHigh, WarningCircle,
 } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
-import { Loader } from "./components/Loader";
+import { Shimmer, ShimmerRegion, ShimmerTableRows } from "./components/Shimmer";
 import { Pager } from "./components/Pager";
 import { describeActivityError } from "./activity";
 import type { ActivityFailure } from "./activity";
@@ -65,7 +65,7 @@ export function DialerPage({ section }: { section: Section }) {
     return () => { live = false; };
   }, [days, view, section, offset, group]);
 
-  if (load.s === "loading") return <Frame section={section}><Skeleton /></Frame>;
+  if (load.s === "loading") return <Frame section={section}><Skeleton section={section} days={days} /></Frame>;
 
   if (load.s === "error") {
     return (
@@ -229,7 +229,8 @@ function CallsSection({ d, onPage, group }: {
           </div>
         ) : (
           <>
-            <div className="ex-table-wrap">
+            <Pager offset={d.calls.offset} limit={d.calls.limit} total={d.calls.total} onChange={onPage} unit="calls" className="dl-pager-top" />
+            <div className="ex-table-wrap" data-pager-list>
               <table className="ex-table dl-table dl-calls">
                 <thead>
                   <tr>
@@ -254,6 +255,7 @@ function CallsSection({ d, onPage, group }: {
               total={d.calls.total}
               onChange={onPage}
               unit="calls"
+              variant="foot"
             />
           </>
         )}
@@ -571,7 +573,8 @@ function QueueSection({ d, offset, onPage }: {
           <p className="ex-sec-sub">Highest priority first, then by due date</p>
         </div>
 
-        <div className="ex-table-wrap">
+        <Pager offset={offset} limit={d.calls.limit} total={q.total} onChange={onPage} unit="in the queue" className="dl-pager-top" />
+        <div className="ex-table-wrap" data-pager-list>
           <table className="ex-table dl-table dl-queue">
             <thead>
               <tr>
@@ -590,7 +593,7 @@ function QueueSection({ d, offset, onPage }: {
         </div>
 
         <Pager offset={offset} limit={d.calls.limit} total={q.total}
-               onChange={onPage} unit="in the queue" />
+               onChange={onPage} unit="in the queue" variant="foot" />
       </section>
     </>
   );
@@ -708,8 +711,62 @@ function Segmented({ label: l, options, value, onChange }: {
   );
 }
 
-function Skeleton() {
-  return <Loader size="lg" label="Loading your call activity" block />;
+/** The page while it loads: its own controls, tiles, trend and table head, with tiles where the numbers and rows go. */
+function Skeleton({ section, days }: { section: Section; days: number }) {
+  const calls = section === "calls";
+  const n = calls ? 4 : 3;
+  const bars = [34, 52, 28, 64, 46, 22, 58, 40, 70, 36, 48, 26, 60, 44, 32, 66, 50, 24, 56, 42, 72, 38, 30, 62, 46, 54, 28, 68, 40, 34];
+  return (
+    <ShimmerRegion label="Loading your call activity">
+      {calls && (
+        <div className="ex-controls">
+          <Segmented label="Window" options={WINDOWS.map((w) => ({ value: String(w), label: `${w}d` }))} value={String(days)} onChange={() => undefined} />
+          <Segmented
+            label="Outcome" value=""
+            options={[{ value: "", label: "All" }, { value: "connected", label: "Connected" }, { value: "missed", label: "Missed" }, { value: "errored", label: "Failed" }]}
+            onChange={() => undefined}
+          />
+        </div>
+      )}
+      <div className="ex-tiles" {...(n === 4 ? {} : { "data-n": n })} aria-hidden="true">
+        {Array.from({ length: n }, (_, i) => (
+          <div key={i} className="ex-tile">
+            <Shimmer h={10} lh={16} w={`${52 + ((i * 11) % 24)}%`} />
+            <Shimmer h={24} lh={30} w={`${44 + ((i * 7) % 20)}px`} r={8} />
+            <Shimmer h={11} lh={16} w={`${56 + ((i * 13) % 26)}%`} />
+          </div>
+        ))}
+      </div>
+      {calls && (
+        <section className="ex-sec" aria-hidden="true">
+          <div className="ex-sec-head"><h2 className="ex-sec-title">Calls per day</h2></div>
+          <div className="ex-bars">
+            {bars.map((h, i) => <Shimmer key={i} h={`${h}%`} w="auto" r="2px 2px 0 0" style={{ flex: "1 1 0" }} />)}
+          </div>
+        </section>
+      )}
+      <section className="ex-sec" aria-hidden="true">
+        <div className="ex-sec-head"><h2 className="ex-sec-title">{calls ? "All calls" : "Up next"}</h2></div>
+        <div className="ex-table-wrap">
+          <table className={`ex-table dl-table ${calls ? "dl-calls" : "dl-queue"}`}>
+            <thead>
+              <tr>
+                {(calls ? ["Candidate", "Company", "Call", "When"] : ["Who", "Number", "Priority", "Due", "State"]).map((h) => <th key={h} scope="col">{h}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              <ShimmerTableRows
+                rows={calls ? 8 : 6}
+                cells={calls
+                  ? [{ cls: "ex-cell-name", w: "70%", sub: "48%" }, { cls: "ex-cell-role", w: "64%", sub: "46%" }, { w: "58%" }, { cls: "ex-cell-when", w: 56 }]
+                  : [{ cls: "ex-cell-name", w: "70%", sub: "46%" }, { w: "58%" }, { w: "48%" }, { w: "54%" }, { w: "48%" }]}
+              />
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </ShimmerRegion>
+  );
 }
 
 function label(g: CallGroup): string {

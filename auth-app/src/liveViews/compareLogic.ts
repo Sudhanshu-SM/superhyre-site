@@ -2,6 +2,8 @@ import type { Match, MatchProfile, Verdict as JudgeVerdict } from "../api/agent"
 import type { ApiBoardRow } from "../api/campaigns";
 import { stageLabel } from "../chatCards";
 import type { Criterion } from "../liveCandidate";
+import { stateLabel } from "../matchResult";
+import type { MatchResultView } from "../matchResult";
 
 /**
  * The comparison's decisions, in code a test can read: who a request names, which campaign's
@@ -296,6 +298,11 @@ export type CompareSource = {
   evidence: Readonly<Record<string, readonly string[]>>;
   /** Where someone stands on this campaign's board, for those already on it. */
   status?: Readonly<Record<string, string>>;
+  /**
+   * What the server concluded about each person who has a result (status, tier, score, coverage). When it is there the
+   * comparison reads the lead from it; the console does not count criteria itself.
+   */
+  results?: Readonly<Record<string, MatchResultView>>;
 };
 
 type Judgement = NonNullable<Match["judgement"]>;
@@ -335,12 +342,14 @@ export function fitOf(judgement: Judgement | null | undefined, criteria: readonl
 export function buildSource(input: {
   name: string;
   criteria: readonly Criterion[];
-  people: readonly { id: string; judgement: Judgement | null | undefined; status?: string | null }[];
+  people: readonly { id: string; judgement: Judgement | null | undefined; status?: string | null; result?: MatchResultView | null | undefined }[];
 }): CompareSource {
   const meets: Record<string, readonly boolean[]> = {};
   const evidence: Record<string, readonly string[]> = {};
   const status: Record<string, string> = {};
+  const results: Record<string, MatchResultView> = {};
   for (const p of input.people) {
+    if (p.result) results[p.id] = p.result;
     const fit = fitOf(p.judgement, input.criteria);
     if (fit) {
       meets[p.id] = fit.meets;
@@ -348,7 +357,7 @@ export function buildSource(input: {
     }
     if (p.status) status[p.id] = p.status;
   }
-  return { name: input.name, criteria: input.criteria.map((c) => c.text), meets, evidence, status };
+  return { name: input.name, criteria: input.criteria.map((c) => c.text), meets, evidence, status, ...(Object.keys(results).length ? { results } : {}) };
 }
 
 /** A sourced person's profile as the match the candidate surfaces are built from. */
@@ -368,8 +377,29 @@ export function matchFromProfile(personId: string, mp: MatchProfile): Match {
     stage: mp.stage ?? "judged",
     score: mp.score,
     tier: mp.tier,
-    knockedOut: null,
+    knockedOut: mp.knockedOut ?? null,
     judgement: mp.judgement,
+    ...(mp.status ? fitFieldsOf(mp) : {}),
+  };
+}
+
+/** The server's fit fields from a profile, as the list carries them on a match. */
+function fitFieldsOf(mp: MatchProfile): Partial<Match> {
+  return {
+    ...(mp.status ? { status: mp.status } : {}),
+    ...(mp.fit !== undefined ? { fit: mp.fit } : {}),
+    ...(mp.coverage !== undefined ? { coverage: mp.coverage } : {}),
+    ...(mp.toVerify ? { toVerify: mp.toVerify } : {}),
+    ...(mp.requirements ? { requirements: mp.requirements } : {}),
+    ...(mp.strengths ? { strengths: mp.strengths } : {}),
+    ...(mp.concerns ? { concerns: mp.concerns } : {}),
+    ...(mp.missing ? { missing: mp.missing } : {}),
+    ...(mp.note !== undefined ? { note: mp.note } : {}),
+    ...(mp.knockout !== undefined ? { knockout: mp.knockout } : {}),
+    ...(mp.override !== undefined ? { override: mp.override } : {}),
+    ...(mp.policyVersion ? { policyVersion: mp.policyVersion } : {}),
+    ...(mp.rubricVersion !== undefined ? { rubricVersion: mp.rubricVersion } : {}),
+    ...(mp.evaluatedAt !== undefined ? { evaluatedAt: mp.evaluatedAt } : {}),
   };
 }
 
@@ -388,6 +418,7 @@ const list = (xs: readonly string[]): string => (xs.length <= 1 ? xs.join("") : 
  * fit for anyone the line says it is going on experience alone and names no pick.
  */
 export function compareVerdict(people: readonly Rated[], source: CompareSource | null): { leadId: string | null; line: string } {
+  if (source?.results && people.some((p) => source.results?.[p.id])) return serverVerdict(people, source.results, source.name);
   const criteria = source?.criteria ?? [];
   const judged = source && criteria.length ? people.filter((p) => source.meets[p.id]) : [];
   const metOf = (p: Rated) => (source?.meets[p.id] ?? []).filter(Boolean).length;
@@ -428,4 +459,46 @@ export function compareVerdict(people: readonly Rated[], source: CompareSource |
   const tenure = top.avgTenure > 0 ? `, ${years(top.avgTenure)} average tenure` : "";
   const rest = byYears.slice(1).map((o) => `${called(o.name)} has ${years(o.totalYears)}`);
   return { leadId: null, line: `${why} ${called(top.name)} has the most at ${years(top.totalYears)}${tenure}; ${rest.join(", ")}.` };
+}
+
+
+const TIER_RANK: Readonly<Record<string, number>> = { A: 0, B: 1, C: 2 };
+
+/**
+ * The lead, read from what the server concluded: the tier in force, then the score. Only people with a valid fit
+ * (scored, or put in a tier by a recruiter) can lead; someone who needs more evidence or has not been scored yet is
+ * said so, not ranked, and with fewer than two people to put side by side no one leads.
+ */
+function serverVerdict(people: readonly Rated[], results: Readonly<Record<string, MatchResultView>>, campaign: string): { leadId: string | null; line: string } {
+  const rated = people.filter((p) => {
+    const r = results[p.id];
+    return r?.tier && (r.status === "scored" || r.override);
+  });
+  const waiting = people.filter((p) => !rated.includes(p));
+  const waitingLine = waiting.length
+    ? waiting
+        .map((p) => {
+          const r = results[p.id];
+          return r?.status === "insufficient_evidence" ? `${called(p.name)} needs more evidence` : `${called(p.name)} hasn't been scored yet`;
+        })
+        .join("; ") + "."
+    : "";
+  const order = (p: Rated) => TIER_RANK[results[p.id]?.tier ?? "C"] ?? 3;
+  const scoreOf = (p: Rated) => results[p.id]?.score ?? -1;
+  const ranked = [...rated].sort((a, b) => order(a) - order(b) || scoreOf(b) - scoreOf(a) || b.totalYears - a.totalYears);
+  const named = (p: Rated) => `${called(p.name)}: ${stateLabel(results[p.id] as MatchResultView)}`;
+  if (ranked.length < 2) {
+    const only = ranked[0];
+    return {
+      leadId: null,
+      line: [only ? `Only ${named(only)} has a result to compare${campaign ? ` for ${campaign}` : ""}.` : `None of them has a result for ${campaign || "this role"} to compare yet.`, waitingLine].filter(Boolean).join(" "),
+    };
+  }
+  const top = ranked[0] as Rated;
+  const next = ranked[1] as Rated;
+  const level = order(top) === order(next) && scoreOf(top) === scoreOf(next);
+  const line = level
+    ? `${list(ranked.filter((p) => order(p) === order(top) && scoreOf(p) === scoreOf(top)).map((p) => called(p.name)))} are level on the result. ${ranked.map(named).join("; ")}.`
+    : `${named(top)} leads. ${ranked.slice(1).map(named).join("; ")}.`;
+  return { leadId: level ? null : top.id, line: [line, waitingLine].filter(Boolean).join(" ") };
 }

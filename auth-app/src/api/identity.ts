@@ -113,7 +113,19 @@ export type Invitation = {
   expiresAt: string;
 };
 
-export type GoogleProduct = "gmail" | "sheets";
+export type GoogleProduct = "gmail" | "sheets" | "calendar" | "tasks";
+/**
+ * Where each part of Google stands, as the server reads it (it calls nothing to say it): on; allowed in Google but
+ * not given to SuperHyre yet (`needs_access`); switched off for the Google project this app signs in with
+ * (`api_disabled`, with the page to switch it on in `help`); or the sign-in itself needs making again.
+ */
+export type GoogleProductState = {
+  product: GoogleProduct;
+  label: string;
+  state: "on" | "needs_access" | "api_disabled" | "reconnect";
+  message?: string;
+  help?: string;
+};
 export type GoogleConnection = {
   available: boolean;
   reason?: string;
@@ -121,6 +133,8 @@ export type GoogleConnection = {
   accountEmail: string | null;
   scopes: string[];
   products: GoogleProduct[];
+  /** Absent from a server that predates Calendar and Tasks. */
+  productStates?: GoogleProductState[];
   connectedAt: string | null;
 };
 
@@ -206,6 +220,8 @@ export const identityApi = {
     api<{ url: string }>("POST", "/v1/connections/google/start", { products }),
   completeGoogle: (code: string, state: string) =>
     api<Connections & { missing: GoogleProduct[] }>("POST", "/v1/connections/google/complete", { code, state }),
+  /** Asks Google whether each part the person allowed really works; answers with the connections as they are now. */
+  checkGoogle: (force = false) => api<Connections>("POST", "/v1/connections/google/check", force ? { force: true } : {}),
   disconnectGoogle: () => api<void>("DELETE", "/v1/connections/google"),
   /* Slack and Notion: a pasted token always works; OAuth is offered where the server has it. */
   connectWithToken: (provider: OrgProvider, token: string) =>
@@ -354,7 +370,9 @@ export function orgConnectionOf(raw: unknown, provider: OrgProvider): OrgConnect
 /** Which products a connection still lacks, in words, or null when it has them all. */
 export function missingProductsText(missing: readonly GoogleProduct[]): string | null {
   if (missing.length === 0) return null;
-  const names = missing.map((p) => (p === "gmail" ? "sending from Gmail" : "Google Sheets"));
+  const names = missing.map((p) =>
+    p === "gmail" ? "sending from Gmail" : p === "sheets" ? "Google Sheets" : p === "calendar" ? "Google Calendar" : "Google Tasks",
+  );
   return `Google didn't allow ${names.join(" or ")}. Connect again and leave every box ticked.`;
 }
 

@@ -48,6 +48,17 @@
 
 /* ── toolbar ── */
 .kl-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+/* On the page the toolbar (with the pager at its right end) stays in view while the list scrolls under it. Opaque, on
+   the page's own ground (the strip above it too, so no row shows through there), and a hairline once it is stuck. */
+.kl > .kl-bar { position: sticky; top: 10px; z-index: 4; padding: 6px 0 8px; background: var(--page); box-shadow: 0 -10px 0 var(--page); }
+.kl > .kl-bar.is-stuck { box-shadow: 0 -10px 0 var(--page), 0 1px 0 var(--hairline); }
+@media (min-height: 1001px) {
+  .con-main:has(> .kl) .kl > .kl-bar { top: -12px; }
+}
+/* In a narrow bar the search gives up width first, the pickers' words are cut with an ellipsis, and the pager stays whole. */
+.kl-bar .kl-search { flex: 1 1 160px; min-width: 96px; }
+.kl-pick select { text-overflow: ellipsis; }
+.kl-bar .pager { flex: none; }
 .kl-search {
   display: flex; align-items: center; gap: 8px;
   flex: 1 1 200px; max-width: 440px; min-width: 0; height: 38px; padding: 0 10px;
@@ -156,6 +167,10 @@
 .kl-sum { font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); }
 .kl-sum.is-quiet { color: var(--ink-3); }
 .kl-how { font: var(--type-label); letter-spacing: var(--track-label); }
+/* the quiet line under a status: what a sent email is waiting for, or the way into a draft */
+.kl-how-sub { display: block; font: var(--type-caption); letter-spacing: 0; color: var(--ink-2); text-overflow: ellipsis; overflow: hidden; }
+.kl-how-sub.is-act { color: var(--ink-2); }
+.kl-row:hover .kl-how-sub.is-act, .kl-row:focus-visible .kl-how-sub.is-act { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
 .kl-tail { display: contents; }
 .kl-by.is-tail { display: none; }
 .kl-len { font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -358,11 +373,10 @@
 @media (min-width: 1280px) {
   html.kl-sheet-open .con-main { padding-right: 540px; }
   .kl-scrim { display: none; }
-  /* With the sheet open the list is about half the page: the search and the pickers share one line, each giving up
-     width instead of the row wrapping onto a second line (a custom range, which needs room, may still wrap). */
-  html.kl-sheet-open .kl-bar:not(:has(.kl-dates)) { flex-wrap: nowrap; }
-  html.kl-sheet-open .kl-bar .kl-search { flex: 1 1 80px; min-width: 72px; }
-  html.kl-sheet-open .kl-bar .kl-pick { flex: 1 1 0; min-width: 112px; max-width: 148px; }
+  /* With the sheet open the list is about half the page: the search and the pickers give up width (each keeps enough to
+     read), and the bar wraps rather than clip, with the pager whole at the end of its line. */
+  html.kl-sheet-open .kl-bar .kl-search { flex: 1 1 140px; min-width: 96px; }
+  html.kl-sheet-open .kl-bar .kl-pick { flex: 1 1 104px; min-width: 96px; max-width: 148px; }
   html.kl-sheet-open .kl-bar .kl-pick select { width: 100%; padding: 0 20px 0 8px; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); }
 }
 /* narrower than that the sheet is over the page, with the page dimmed */

@@ -55,6 +55,19 @@ html:root[data-theme="dark"] {
   --c-blue-tint: rgba(88, 138, 205, 0.2);    --c-blue-line: rgba(88, 138, 205, 0.45);  --c-blue-text: #8fb4ec;
   --c-violet-tint: rgba(155, 114, 208, 0.2); --c-violet-line: rgba(155, 114, 208, 0.45); --c-violet-text: #bf9bf0;
   --c-rose-tint: rgba(209, 100, 118, 0.2);   --c-rose-line: rgba(209, 100, 118, 0.45); --c-rose-text: #ee8fa0;
+  --c-slate-tint: rgba(123, 135, 148, 0.18); --c-slate-line: rgba(123, 135, 148, 0.42); --c-slate-text: #a9b4c0;
+
+  /* Stage colours (light: access.css): the same hues, lighter and softer on the near-black card, a wash of the mark for
+     the soft and the line. Marks 4.4:1 or more on the card, text 5.6:1 or more on the card, its hover and its soft. */
+  --stage-slate: #969fab; --stage-slate-text: #9ea7b3; --stage-slate-soft: rgba(150, 159, 171, 0.16); --stage-slate-line: rgba(150, 159, 171, 0.4);
+  --stage-blue: #4583b5; --stage-blue-text: #6aa5d6; --stage-blue-soft: rgba(69, 131, 181, 0.16); --stage-blue-line: rgba(69, 131, 181, 0.4);
+  --stage-teal: #5cadb4; --stage-teal-text: #67b3ba; --stage-teal-soft: rgba(92, 173, 180, 0.16); --stage-teal-line: rgba(92, 173, 180, 0.4);
+  --stage-green: #6ea576; --stage-green-text: #7cb183; --stage-green-soft: rgba(110, 165, 118, 0.16); --stage-green-line: rgba(110, 165, 118, 0.4);
+  --stage-amber: #d8ba79; --stage-amber-text: #d6ba7d; --stage-amber-soft: rgba(216, 186, 121, 0.16); --stage-amber-line: rgba(216, 186, 121, 0.4);
+  --stage-orange: #cb9467; --stage-orange-text: #d09b70; --stage-orange-soft: rgba(203, 148, 103, 0.16); --stage-orange-line: rgba(203, 148, 103, 0.4);
+  --stage-rose: #e2a0a5; --stage-rose-text: #e0a1a5; --stage-rose-soft: rgba(226, 160, 165, 0.16); --stage-rose-line: rgba(226, 160, 165, 0.4);
+  --stage-violet: #b19adb; --stage-violet-text: #b39edc; --stage-violet-soft: rgba(177, 154, 219, 0.16); --stage-violet-line: rgba(177, 154, 219, 0.4);
+  --stage-track: #2b2b2b;
 
   /* The sidebar: the page itself, divided by a hairline; the current page is a quiet neutral fill. */
   --nav-panel: #171717;
@@ -154,16 +167,3 @@ html:root[data-theme="light"] { color-scheme: light; }
   --fm-dot: #bfb5ac;
 }
 
-/* ── bars that carry a number ──
-   What the generator makes of the pale pastels these are drawn in lands within a hair of the card, so the
-   Overview's funnel and the Pipeline's stage strip all but vanished. Each gets a mid-tone of its own hue, over 3:1
-   on the card (#171717): the funnel's (found, shortlisted and the rest), outreach and replies, interviews, hires. */
-:root[data-theme="dark"] .ov2-bar-col i { background: linear-gradient(180deg, #9a90e0 0%, #8076cc 100%); box-shadow: none; }
-:root[data-theme="dark"] .ov2-bar.is-out .ov2-bar-col i,
-:root[data-theme="dark"] .ov2-bar.is-rep .ov2-bar-col i { background: linear-gradient(180deg, #78aeee 0%, #5f98dc 100%); }
-:root[data-theme="dark"] .ov2-bar.is-int .ov2-bar-col i { background: linear-gradient(180deg, #efa47c 0%, #dc8d60 100%); }
-:root[data-theme="dark"] .ov2-bar.is-hired .ov2-bar-col i { background: linear-gradient(180deg, #f28f50 0%, #e27535 100%); box-shadow: none; }
-:root[data-theme="dark"] .pl-jseg.is-shortlisted { background: #8e84da; }
-:root[data-theme="dark"] .pl-jseg.is-outreach { background: #639fe4; }
-:root[data-theme="dark"] .pl-jseg.is-interviewing { background: #e39c70; }
-:root[data-theme="dark"] .pl-jseg.is-hired { background: #72b988; }

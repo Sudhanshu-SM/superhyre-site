@@ -38,9 +38,9 @@ export function sinceLabel(iso: string, now = Date.now()): string {
   return days === 0 ? "today" : days === 1 ? "yesterday" : dateLabel(iso, now);
 }
 
-/** "Added by you", "Added by Priya", "Added by Mind", "Added automatically". */
+/** "Added by you", "Added by Priya", "Added by SuperHyre", "Added automatically". */
 export function addedBy(s: Pick<Suppression, "source" | "createdBy">, viewerId?: string | null): string {
-  if (s.source === "agent") return "Added by Mind";
+  if (s.source === "agent") return "Added by SuperHyre";
   if (s.source === "system") return "Added automatically";
   if (viewerId && s.createdBy.id === viewerId) return "Added by you";
   return s.createdBy.name ? `Added by ${s.createdBy.name}` : "Added by a teammate";

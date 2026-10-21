@@ -1,0 +1,39 @@
+/* A card's buttons (Cta.tsx): one quiet button for a way on, one filled button for the decision. The same shapes as the
+   console's other buttons (pill, hairline, the accent fill), with a small icon where it helps. */
+.cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-pill);
+  background: var(--nav-surface);
+  color: var(--ink);
+  font: 500 13px/1 var(--ui);
+  letter-spacing: -0.006em;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background var(--t), border-color var(--t), color var(--t);
+}
+.cta svg { flex: none; color: var(--ink-3); }
+.cta:hover:not(:disabled) { background: var(--sub); }
+.cta:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.cta:disabled { cursor: default; opacity: 0.55; }
+.cta[aria-busy="true"] { opacity: 1; }
+
+.cta.is-primary { border-color: var(--btn-fill); background: var(--btn-fill); color: var(--btn-ink); }
+.cta.is-primary svg { color: inherit; }
+.cta.is-primary:hover:not(:disabled) { border-color: var(--btn-fill-hover); background: var(--btn-fill-hover); }
+.cta.is-primary:disabled { opacity: 0.7; }
+
+/* Small, for a row of them inside a line of text or a list. */
+.cta.is-sm { height: 28px; padding: 0 11px; font-size: 12.5px; }
+
+/* No box until it is pointed at: for a control that sits in a line, such as Stop. */
+.cta.is-bare { border-color: transparent; background: transparent; color: var(--ink-2); }
+.cta.is-bare:hover:not(:disabled) { background: var(--sub); color: var(--ink); }
+
+/* Where a card's buttons stand: in a row, wrapping, under what they act on. */
+.cta-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; padding: 0; list-style: none; }

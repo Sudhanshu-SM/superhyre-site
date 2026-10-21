@@ -15,7 +15,6 @@ import { LogoPicker } from "./LogoPicker";
 import { isUploadedLogo } from "./logoImage";
 import { canonicalZone } from "./schedulesView";
 import { SettingsConnections } from "./SettingsConnections";
-import { SettingsMembers } from "./SettingsMembers";
 import { nameFromDomain } from "./setup/lean/steps";
 import {
   importedLine, importOfferLine, isolationLine, joinOfferButton, joinOfferLine, joinPolicyLabel, requestSentLine, ROLE_LABEL,
@@ -24,10 +23,11 @@ import "./newcampaign.css";
 import "./workspace.css";
 import "./settings.css";
 import { Loader } from "./components/Loader";
+import { ShimmerRegion, ShimmerText } from "./components/Shimmer";
 
 /**
  * Settings, connected to the API: one short list on the left and one panel
- * on the right. Members exists only in an organisation workspace. Organisation
+ * on the right. The people and teams are on the Teams page now. Organisation
  * is where an owner or admin edits it, and where someone in Personal starts one
  * (or, being in one already, goes back to it).
  */
@@ -35,9 +35,10 @@ import { Loader } from "./components/Loader";
 const LABEL: Record<SettingsSection, string> = {
   profile: "Profile",
   organisation: "Organisation",
-  members: "Members",
   connections: "Connections",
 };
+
+const SECTIONS: readonly SettingsSection[] = ["profile", "organisation", "connections"];
 
 function useSection(): SettingsSection | null {
   const [at, setAt] = useState(() => settingsSectionFromHash(window.location.hash));
@@ -49,15 +50,16 @@ function useSection(): SettingsSection | null {
   return at;
 }
 
-export function SettingsPage({ account }: { account: LiveAccount }) {
+export function SettingsPage({ account, onAgent }: {
+  account: LiveAccount;
+  /** Hands words to the agent and opens it, sent at once: how "Send me a test email" gets to its card. */
+  onAgent?: (text: string) => void;
+}) {
   const org = activeOrg(account.me);
   const manages = org?.role === "owner" || org?.role === "admin";
   const active = account.me.workspaces.find((w) => w.active);
   /* Organisation is where it is managed (a recruiter reads it) and, from Personal, where one is started or gone back to. */
-  const sections = useMemo<SettingsSection[]>(
-    () => ["profile", "organisation", ...(org ? ["members" as const] : []), "connections"],
-    [org],
-  );
+  const sections = SECTIONS;
   const asked = useSection();
   const section = asked && sections.includes(asked) ? asked : "profile";
 
@@ -92,10 +94,8 @@ export function SettingsPage({ account }: { account: LiveAccount }) {
             <Organisation key={org.organizationId} account={account} org={org} manages={manages} />
           ) : section === "organisation" ? (
             <StartOrganisation account={account} />
-          ) : section === "members" && org?.role ? (
-            <SettingsMembers me={account.me.user.id} role={org.role} orgName={org.name} reload={account.reload} say={account.say} />
           ) : (
-            <SettingsConnections canManage={!org || manages} />
+            <SettingsConnections canManage={!org || manages} {...(onAgent ? { onAgent } : {})} />
           )}
         </section>
       </div>
@@ -461,7 +461,7 @@ function StartOrganisation({ account }: { account: LiveAccount }) {
     return (
       <div className="st-sec">
         <h2 className="st-h t-title-sm">Organisation</h2>
-        <p className="st-quiet t-body">Loading organisation</p>
+        <ShimmerRegion label="Loading organisation"><ShimmerText lines={2} /></ShimmerRegion>
       </div>
     );
   }

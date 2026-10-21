@@ -18,9 +18,9 @@ import { getSet, putSet } from "../liveCandidates";
 import { useLiveChat } from "../liveChat";
 import type { CampaignFacts, EventRow, Pool, RunState } from "../liveSourcing";
 import {
-  applyRunEvent, buildPhase, buildingPhase, cameBack, canRun, countLine, criteriaLines, eventFromRow, failedRun, filterLines, idleRun,
+  applyRunEvent, batchOf, buildPhase, buildingPhase, cameBack, canRun, closeVerdict, countLine, criteriaLines, eventFromRow, failedRun, filterLines, idleRun,
   isRunning, judgingDown, mergeSet, nobodyWaitingLine, poolOf, readPhase, readingPhase, resultsCopy, runLabel, runPhases, runSummary,
-  liveStages, searchNote, settleRun, startingRun, unscoredIds, unscoredIn, visibleNotices,
+  liveStages, mustHaveCount, searchNote, settleRun, startingRun, unscoredIds, unscoredIn, visibleNotices,
 } from "../liveSourcing";
 import type { FixedSearch } from "../Sourcing";
 import { PhaseBlock, Results, SearchCard, Written, writeMs } from "../Sourcing";
@@ -435,7 +435,7 @@ function Flow({
     run,
     found: pool?.found ?? 0,
     ranked: set?.total ?? pool?.ranked ?? 0,
-    criteria: set?.criteria.length ?? (spec ? criteriaLines(spec).length : 0),
+    criteria: spec ? mustHaveCount(spec) : (set?.criteria.length ?? 0),
     preview: best.map((c) => c.id),
     verdicts: ctx.verdicts,
   });
@@ -478,7 +478,7 @@ function Flow({
       {plan.stage === "ready" && fixed && !may && <p className="src-note">{FOLLOWING_LINE}</p>}
 
       {running && phases.length > 0 && <PhaseTimeline lines={phases} working feed={said} />}
-      {!running && phases.length > 0 && <PhaseSummary lines={phases} label="How the search went" />}
+      {!running && phases.length > 0 && <PhaseSummary lines={closeVerdict(phases, batchOf(run), run.tiers.A + run.tiers.B + run.tiers.C + run.ruledOut)} label="How the search went" />}
       {legacy.map(({ phase, tookMs }) => (
         <PhaseBlock key={`${runNo}-${phase.id}`} phase={phase} {...(tookMs !== undefined ? { tookMs } : {})} n={0} />
       ))}
@@ -510,14 +510,18 @@ function Flow({
             reasons: set.reasons,
             criteria: set.criteria.map((c) => c.text),
             short: set.criteria.map((c) => c.short),
-            ...resultsCopy({ shown: best.length, total: set.total, unscored: judgingDown(run) ? 0 : unscoredIn(rowsNow, PREVIEW_COUNT) }),
+            ...resultsCopy({
+              shown: best.length, total: set.total, unscored: judgingDown(run) ? 0 : unscoredIn(rowsNow, PREVIEW_COUNT),
+              // This search's own people when it ran here; the campaign's list is "ranked" and says so.
+              ...(run.status === "done" && batchOf(run) > 0 ? { found: batchOf(run) } : {}),
+            }),
             more: may && pool && canRun(pool) ? { label: `Find ${pool.nextSize} more`, busy: running, onClick: start } : null,
           }}
         />
       )}
       {nobodyWaiting && pool && (
         <>
-          <p className="src-note">{nobodyWaitingLine(pool, matchingElsewhere) ?? "Everyone found so far has been shortlisted or passed."}</p>
+          <p className="src-note">{nobodyWaitingLine(pool, matchingElsewhere) ?? "Everyone found so far has been shortlisted or rejected."}</p>
           {may && canRun(pool) && (
             <div className="src-asks">
               <button type="button" className="src-btn is-primary" onClick={start} disabled={running}>{`Find ${pool.nextSize} more`}</button>

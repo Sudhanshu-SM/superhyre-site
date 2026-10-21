@@ -7,10 +7,15 @@ import type { CandidateDetail } from "./api/candidates";
 import { getCandidate } from "./api/candidates";
 import { LIVE } from "./api/client";
 import { Avatar, Career, FitRow, Logo, Summary, Verdicts } from "./CandidateBits";
+import { MatchResult } from "./MatchResult";
+import { ShimmerRegion, ShimmerText } from "./components/Shimmer";
+import { useFullCandidate } from "./profileLoad";
 import { openerNow, restoreFocus, trapTab } from "./components/focusTrap";
 import { ContactSideLine } from "./ContactsFetch";
+import { ContactEditable } from "./ContactEditable";
 import { useContacts } from "./contactsFetch";
 import { plainText } from "./displayText";
+import { isStandardName } from "./boardStages";
 import { statusKey } from "./chatCards";
 import { statusProps } from "./statusTones";
 import type { Candidate, Job, Verdict } from "./sourcing";
@@ -43,14 +48,31 @@ export type ProfileSidebarProps = {
   canDecide?: boolean;
   /** What the opener adds under the header's actions (a campaign page puts the person's stage there). */
   extra?: React.ReactNode;
+  /** The campaign the opener knows the person is in: their match on it is read and shown as the Match tab. */
+  campaignId?: string | null;
+  /** Changes when the person was moved from outside (the board): their places on campaigns are read again, so the Status row never lags. */
+  refresh?: number;
 };
 
 const EXIT_MS = 240;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const STAGE_LABEL: Readonly<Record<string, string>> = {
-  shortlisted: "Shortlisted", outreach: "In outreach", replied: "Replied", interviewing: "Interviewing", hired: "Hired", passed: "Passed",
+  shortlisted: "Shortlisted", outreach: "In outreach", replied: "Replied", interviewing: "Interviewing", hired: "Hired", passed: "Rejected",
 };
+
+/**
+ * What a person's place on a campaign says: the console's word for the default stages ("Interviewing"), and the
+ * campaign's own name for a stage it made ("In Client review"), which the kind-word would otherwise misname.
+ */
+export function placeOf(x: { stage: string; step?: string | null; stageName?: string | null }): { word: string; tone: string; own: boolean } {
+  const tone = STAGE_LABEL[statusKey(x.stage, x.step)] ?? x.stage;
+  const name = x.stageName?.trim();
+  if (name && (x.stage === "shortlisted" || x.stage === "outreach" || x.stage === "interviewing") && !isStandardName(x.stage, name)) {
+    return { word: `In ${name}`, tone, own: true };
+  }
+  return { word: tone, tone, own: false };
+}
 
 /**
  * With the API, a candidate already in the workspace also has its own row:
@@ -73,7 +95,7 @@ function useWorkspaceRow(id: string, inWorkspace: boolean, refresh = 0): Candida
 }
 
 export function ProfileSidebar({
-  candidate, onClose, onPrev, onNext, position, verdict, onVerdict, scrim = true, criteria, canDecide = true, extra,
+  candidate, onClose, onPrev, onNext, position, verdict, onVerdict, scrim = true, criteria, canDecide = true, extra, campaignId = null, refresh = 0,
 }: ProfileSidebarProps): JSX.Element | null {
   /* The last candidate stays rendered through the exit animation. */
   const [shown, setShown] = useState<Candidate | null>(candidate);
@@ -165,6 +187,8 @@ export function ProfileSidebar({
           criteria={criteria}
           canDecide={canDecide}
           extra={extra}
+          campaignId={campaignId}
+          refresh={refresh}
         />
       </aside>
     </div>,
@@ -176,6 +200,7 @@ export function ProfileSidebar({
 
 const SECTIONS = [
   { id: "overview", label: "Overview" },
+  { id: "match", label: "Match" },
   { id: "experience", label: "Experience" },
   { id: "education", label: "Education" },
   { id: "skills", label: "Skills" },
@@ -184,8 +209,10 @@ const SECTIONS = [
 type SectionId = (typeof SECTIONS)[number]["id"];
 
 function Profile({
-  c, dir, verdict, onVerdict, criteria, canDecide, extra,
+  c: summary, dir, verdict, onVerdict, criteria, canDecide, extra, campaignId, refresh,
 }: {
+  campaignId: string | null;
+  refresh: number;
   c: Candidate;
   dir: string;
   verdict?: Verdict;
@@ -194,10 +221,12 @@ function Profile({
   canDecide: boolean;
   extra?: React.ReactNode;
 }) {
+  /* Whoever came as a summary (a list, a card, a search result) has their history read now; ghosts hold its place. */
+  const { candidate: c, loading } = useFullCandidate(summary, campaignId);
   const bodyRef = useRef<HTMLDivElement>(null);
   const actsRef = useRef<HTMLDivElement>(null);
   const [fetched, setFetched] = useState(0);
-  const row = useWorkspaceRow(c.id, c.inWorkspace === true, fetched);
+  const row = useWorkspaceRow(c.id, c.inWorkspace === true, fetched + refresh);
   /* Their contact details can be asked for on the campaign they are on (not passed): the same figures the
      Shortlisted table shows. When something arrives, their own row is read again so the value appears. */
   const contactCampaign = row?.campaigns.find((x) => x.stage !== "passed")?.id ?? null;
@@ -210,6 +239,8 @@ function Profile({
     arrivedSeen.current = arrived;
     setFetched((n) => n + 1);
   }, [arrived]);
+  /* Their details change for who can change a campaign they are on (or own them); anyone else reads them. */
+  const mayEdit = row?.canEdit !== false;
   const email = row ? row.candidate.primaryEmail ?? row.candidate.workEmail ?? row.candidate.email2 : null;
   const phone = row ? row.candidate.primaryPhone ?? row.candidate.phone2 : null;
   const [active, setActive] = useState<SectionId>("overview");
@@ -267,18 +298,20 @@ function Profile({
               <p className="ps-headline">{c.headline}</p>
             </div>
             <div className="ps-socials">
-              {c.linkedinUrl ? (
-                <a className="ps-social is-li" href={c.linkedinUrl} target="_blank" rel="noreferrer" title="LinkedIn"><LinkedinLogo size={18} weight="fill" aria-label={`${c.name} on LinkedIn`} /></a>
-              ) : (
-                <span className="ps-social is-li" title="LinkedIn"><LinkedinLogo size={18} weight="fill" aria-label="LinkedIn" /></span>
+              {c.linkedinUrl && (
+                <a className="ps-li" href={c.linkedinUrl} target="_blank" rel="noopener noreferrer" aria-label={`${c.name} on LinkedIn`}>
+                  <LinkedinLogo size={16} weight="fill" aria-hidden="true" />LinkedIn<ArrowUpRight size={13} aria-hidden="true" />
+                </a>
               )}
               {c.github && <span className="ps-social" title="GitHub"><GithubLogo size={18} weight="fill" aria-label="GitHub" /></span>}
             </div>
           </div>
-          <p className="ps-meta">
-            <span><MapPin size={14} aria-hidden="true" />{c.location}</span>
-            {c.openToWork && <span className="ps-otw">Open to work</span>}
-          </p>
+          {(c.location || c.openToWork) && (
+            <p className="ps-meta">
+              {c.location && <span><MapPin size={14} aria-hidden="true" />{c.location}</span>}
+              {c.openToWork && <span className="ps-otw">Open to work</span>}
+            </p>
+          )}
           <p className="ps-orgs">
             {c.current.name && <span><Logo name={c.current.name} hue={c.current.hue} />{c.current.name}</span>}
             {c.school.name && <span><Logo name={c.school.name} hue={c.school.hue} />{c.school.name}</span>}
@@ -291,7 +324,7 @@ function Profile({
 
         <div className="ps-tabs-wrap">
           <Tabs
-            tabs={SECTIONS.filter((s) => s.id === "overview" || (s.id === "experience" ? c.jobs.length > 0 : s.id === "education" ? c.schools.length > 0 : Object.keys(c.skills).length > 0 || !!c.github))}
+            tabs={SECTIONS.filter((s) => s.id === "overview" || (s.id === "match" ? !!c.result : s.id === "experience" ? c.jobs.length > 0 : s.id === "education" ? c.schools.length > 0 : Object.keys(c.skills).length > 0 || !!c.github))}
             active={active}
             onPick={jump}
             label="Profile sections"
@@ -305,7 +338,7 @@ function Profile({
               {c.meets.length > 0 && (
                 <div>
                   <p className="ps-k">Fit</p>
-                  <FitRow meets={c.meets} unscored={c.scored === false} {...(criteria ? { criteria: criteria.text, short: criteria.short } : {})} />
+                  <FitRow meets={c.meets} unscored={c.scored === false} checks={c.checks} {...(criteria ? { criteria: criteria.text, short: criteria.short } : {})} />
                 </div>
               )}
               {c.jobs.length > 0 && (
@@ -318,15 +351,22 @@ function Profile({
           )}
           <dl className="ps-facts">
             {row ? (
-              <div><dt>Status</dt><dd>{row.campaigns.length ? row.campaigns.map((x, i) => (
-                <span key={`${x.name}-${i}`}>{i > 0 && ", "}<span {...statusProps(STAGE_LABEL[statusKey(x.stage, x.step)] ?? x.stage)}>{STAGE_LABEL[statusKey(x.stage, x.step)] ?? x.stage}</span> in {x.name}</span>
-              )) : "Not in a campaign yet"}</dd></div>
+              <div><dt>Status</dt><dd>{row.campaigns.length ? row.campaigns.map((x, i) => {
+                const place = placeOf(x);
+                return <span key={`${x.name}-${i}`}>{i > 0 && ", "}<span {...statusProps(place.tone)}>{place.word}</span> {place.own ? "for" : "in"} {x.name}</span>;
+              }) : "Not in a campaign yet"}</dd></div>
             ) : (
               <div><dt>Status</dt><dd><span {...statusProps("Not contacted")} className="ps-status st">Not contacted</span></dd></div>
             )}
             <div><dt>Current</dt><dd>{c.headline}</dd></div>
-            {row && <div><dt>Email</dt><dd><ContactSideLine campaignId={contactCampaign} kind="email" candidateId={row.candidate.id} name={c.name} value={email} /></dd></div>}
-            {row && <div><dt>Phone</dt><dd><ContactSideLine campaignId={contactCampaign} kind="phone" candidateId={row.candidate.id} name={c.name} value={phone} /></dd></div>}
+            {row && <div><dt>Email</dt><dd>{mayEdit
+              ? <ContactEditable candidateId={row.candidate.id} kind="email" value={email} onSaved={() => setFetched((n) => n + 1)}><ContactSideLine campaignId={contactCampaign} kind="email" candidateId={row.candidate.id} name={c.name} value={email} none="Not found yet" lookLabel="Look up" /></ContactEditable>
+              : <ContactSideLine campaignId={contactCampaign} kind="email" candidateId={row.candidate.id} name={c.name} value={email} none="Not found yet" lookLabel="Look up" />}</dd></div>}
+            {row && <div><dt>Phone</dt><dd>{mayEdit
+              ? <ContactEditable candidateId={row.candidate.id} kind="phone" value={phone} onSaved={() => setFetched((n) => n + 1)}><ContactSideLine campaignId={contactCampaign} kind="phone" candidateId={row.candidate.id} name={c.name} value={phone} none="Not found yet" lookLabel="Look up" /></ContactEditable>
+              : <ContactSideLine campaignId={contactCampaign} kind="phone" candidateId={row.candidate.id} name={c.name} value={phone} none="Not found yet" lookLabel="Look up" />}</dd></div>}
+            {c.location && <div><dt>Location</dt><dd>{c.location}</dd></div>}
+            {c.totalYears > 0 && <div><dt>Experience</dt><dd>{c.totalYears} years</dd></div>}
             <div><dt>Open to work</dt><dd>{c.openToWork ? "Yes, says so on the profile" : "Not stated"}</dd></div>
           </dl>
           {c.about && (
@@ -346,6 +386,20 @@ function Profile({
             </>
           )}
         </section>
+
+        {c.result && (
+          <section data-sec="match" className="ps-sec" aria-label="How well they match">
+            <MatchResult c={c} />
+          </section>
+        )}
+
+        {/* Their history is on its way: ghosts the shape of what lands, so the sheet does not jump. */}
+        {loading && (
+          <ShimmerRegion as="section" label="Loading the profile" className="ps-sec">
+            <ShimmerText lines={3} />
+            <ShimmerText lines={4} />
+          </ShimmerRegion>
+        )}
 
         {c.jobs.length > 0 && (
           <section data-sec="experience" className="ps-sec">

@@ -90,3 +90,18 @@
 @media (max-width: 999px) { .sl-c-email, .sl-c-phone { width: 176px; } }
 @media (max-width: 640px) { .sl-c-email, .sl-c-phone { display: none; } }
 
+
+/* An email or phone typed by hand, in place (ContactEditable.tsx). */
+.ce-line { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; min-width: 0; }
+.ce { display: grid; gap: 4px; min-width: 0; }
+.ce-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.ce-row .cta { flex: none; }
+.ce-in {
+  flex: 1 1 200px; min-width: 200px; width: auto; height: 32px; padding: 0 10px;
+  font: var(--type-body); letter-spacing: var(--track-body); color: var(--ink);
+  background: var(--field); border: 1px solid var(--rule); border-radius: var(--r-field);
+}
+.ce-in:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.ce-in[aria-invalid="true"] { border-color: #a2552f; }
+.ce-problem { font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: #a2552f; }
+:root[data-theme="dark"] .ce-problem { color: #e0a183; }

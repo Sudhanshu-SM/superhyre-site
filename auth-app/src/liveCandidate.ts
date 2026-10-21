@@ -1,6 +1,7 @@
 import type { Match, MatchProfile, RoleSpec } from "./api/agent";
 import { hueFor } from "./candidateImport";
 import { schoolsOf } from "./chatCards";
+import { reasonLine, resultOf, resultOfProfile } from "./matchResult";
 import type { Candidate, Job } from "./sourcing";
 
 /**
@@ -27,7 +28,11 @@ export function criteriaOf(spec: RoleSpec | null | undefined): Criterion[] {
 
 /** A column head: the skill or the first few words, trimmed to fit. */
 export function shortOf(text: string): string {
-  const words = text.replace(/[()]/g, "").trim().split(/\s+/).slice(0, 2).join(" ");
+  // "Go or Java" is one head ("Go/Java"), never "Go or"; a head does not end on "at" or "of".
+  const alternatives = text.replace(/[()]/g, "").trim().replace(/\s+(?:or|and|&)\s+/gi, "/");
+  const kept = alternatives.split(/\s+/).slice(0, 2);
+  while (kept.length > 1 && /^(?:at|of|in|on|to|for|with|the|a|an)$/i.test(kept[kept.length - 1] ?? "")) kept.pop();
+  const words = kept.join(" ");
   return words.length > 14 ? `${words.slice(0, 13).trimEnd()}…` : words;
 }
 
@@ -121,12 +126,15 @@ const firstName = (name: string) => name.trim().split(/\s+/)[0] ?? name;
  */
 export function candidateFromMatch(
   m: Match,
-  opts: { criteria?: readonly Criterion[]; profile?: MatchProfile | null; now?: Date } = {},
+  opts: { criteria?: readonly Criterion[]; profile?: MatchProfile | null; now?: Date; campaignId?: string } = {},
 ): Candidate {
   const { criteria = [], profile = null, now = new Date() } = opts;
+  // What the server says about the fit: the profile's, which is the freshest, else the list's. Absent from an older server.
+  const result = (profile ? resultOfProfile(profile) : null) ?? resultOf(m);
   const pr = profile?.profile;
   const verdicts = new Map((profile?.judgement ?? m.judgement)?.verdicts.map((v) => [v.requirementId, v.verdict]));
   const strengths = (profile?.judgement ?? m.judgement)?.strengths ?? [];
+  const checkOf = (id: string) => result?.requirements.find((r) => r.id === id)?.verdict ?? verdicts.get(id) ?? "unknown";
   const title = pr?.currentTitle ?? m.currentTitle;
   const company = pr?.currentCompanyName ?? m.currentCompanyName;
   const jobs = pr ? jobsFrom(pr.experiences, now) : [];
@@ -145,10 +153,12 @@ export function candidateFromMatch(
     school: schools[0] ? { name: schools[0].name, hue: hueFor(schools[0].name) } : { name: "", hue: hueFor(m.fullName) },
     summary: read ? `${firstName(m.fullName)}: ${read}.` : "",
     highlights: strengths.slice(0, 2),
-    meets: criteria.map((c) => verdicts.get(c.id) === "met"),
+    meets: criteria.map((c) => checkOf(c.id) === "met"),
     // The marks are the judge's verdicts: a person ranked on features alone (a score, no judgement yet) has none,
     // and "does not meet" would say a judgement nobody made. Only a judged person has marks to read.
-    scored: (profile?.judgement ?? m.judgement) !== null,
+    scored: result ? result.status === "scored" || result.status === "insufficient_evidence" : (profile?.judgement ?? m.judgement) !== null,
+    ...(result ? { checks: criteria.map((c) => checkOf(c.id)), result } : {}),
+    ...(opts.campaignId ? { resultCampaignId: opts.campaignId } : {}),
     totalYears: Math.round(years),
     avgTenure: jobs.length && years ? Math.round(years / jobs.length) : 0,
     about: pr?.summary ?? "",
@@ -161,12 +171,13 @@ export function candidateFromMatch(
 
 /** The sentence on why a person ranks where they do: the judge's strongest point, else their role. */
 export function reasonOf(m: Match): string {
-  return m.judgement?.strengths[0] ?? [m.currentTitle, m.currentCompanyName].filter(Boolean).join(" at ");
+  const role = [m.currentTitle, m.currentCompanyName].filter(Boolean).join(" at ");
+  return reasonLine(resultOf(m), m.judgement?.strengths[0] ?? role);
 }
 
 /**
  * A campaign's matches as a set the list, the sheet and the comparison share. `decided` are the
- * people already shortlisted or passed: they stay in the list, marked with what was decided, so
+ * people already shortlisted or rejected: they stay in the list, marked with what was decided, so
  * the list's counts do not shrink as a person makes calls.
  */
 export function setFromMatches(
@@ -187,7 +198,7 @@ export function setFromMatches(
   return {
     key: campaignId,
     campaignId,
-    candidates: all.map((m) => candidateFromMatch(m, { criteria, now })),
+    candidates: all.map((m) => candidateFromMatch(m, { criteria, now, campaignId })),
     criteria,
     reasons: Object.fromEntries(all.map((m) => [m.personId, reasonOf(m)])),
     total: all.length,

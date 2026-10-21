@@ -208,6 +208,7 @@ const WHY = {
   session: { art: "err-session", head: "Your session has *ended*.", quiet: "Sign in again to carry on where you were." },
   "rate-limit": { art: "err-rate-limit", head: "Let's take a *moment*.", quiet: "There were a lot of requests. Try again in a few seconds." },
   "no-access": { art: "err-no-access", head: "That account can't open *this*.", quiet: "Ask the person who invited you to check your access." },
+  slow: { art: "err-rate-limit", head: "That took longer than *expected*.", quiet: "Nothing was changed. Try again." },
 } as const;
 
 export function AccountErrorScreen({ kind = "server", onRetry, onSignOut }: { kind?: keyof typeof WHY; message?: string; onRetry: () => Promise<void>; onSignOut: () => void }): JSX.Element {

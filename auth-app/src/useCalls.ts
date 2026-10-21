@@ -4,22 +4,25 @@ import { callGroups, listCalls } from "./api/calls";
 import type { OutcomeCounts } from "./callsView";
 import { LIVE } from "./api/client";
 import { fixtureGroups, fixtureRows } from "./callsFixtures";
-import { groupKey, mergeNamed, orderGroups } from "./callsView";
+import { groupKey, GROUP_ROWS, mergeNamed, orderGroups, ROW_PAGE } from "./callsView";
 import { onInvalidate } from "./invalidate";
 
 /**
  * The calls the page shows: the groups (a campaign each, with how many calls and the last), and the rows of
  * the groups that are open, a page at a time. One read of the groups says who is on the page and how many
- * calls each campaign has; a group's rows are read when it opens. Everything quiet: what is on screen stays
+ * calls each campaign has; a group's rows are read when it opens (the latest few), and a campaign's own page reads
+ * its rows a numbered page at a time. Everything quiet: what is on screen stays
  * until the server's answer replaces it, and the model's summaries that are still being written are asked
  * for again a few times.
  */
 
 export type GroupRows = {
   items: CallRow[];
-  next: string | null;
+  /** The whole count under the filters, from the same read as the rows; null until it is read. */
+  total: number | null;
+  /** Where in the list these rows start: the page they answer. */
+  offset: number;
   phase: "loading" | "ready" | "failed";
-  more: "idle" | "loading" | "failed";
 };
 
 export type CallsData = {
@@ -35,9 +38,6 @@ export type CallsData = {
   outcomes: Readonly<Record<string, OutcomeCounts>>;
 };
 
-const PAGE = 25;
-/** A campaign's own page reads it all in one go up to this many, and pages by it after. */
-const OWN_PAGE = 50;
 /** A summary that is still being written is asked for again after this, up to MAX_POLLS times. */
 const POLL_MS = 5000;
 const MAX_POLLS = 6;
@@ -52,8 +52,14 @@ export function useCalls(options: {
   filters: CallFilters;
   /** The groups to read rows for: the open ones. */
   open: ReadonlySet<string>;
+  /** A campaign's own page: where in its calls the page starts (a multiple of ROW_PAGE). */
+  offset?: number;
+  /** A campaign's own page: how many rows a page holds (ROW_PAGE unless the window says otherwise). */
+  pageSize?: number;
 }) {
   const { campaignId, filters, open } = options;
+  const offset = campaignId ? options.offset ?? 0 : 0;
+  const pageSize = options.pageSize ?? ROW_PAGE;
   const [data, setData] = useState<CallsData>(empty);
   // Counts what has been asked: a change of filters or an invalidation is a new view; answers for an old one are dropped.
   const [view, setView] = useState(0);
@@ -145,36 +151,41 @@ export function useCalls(options: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view]);
 
-  // The rows of every open group, read again when the view changes.
-  const loadedFor = useRef<Record<string, number>>({});
+  // The rows of every open group, read again when the view or the page changes.
+  const loadedFor = useRef<Record<string, string>>({});
+  const asked = useRef<Record<string, number>>({});
+  const tickets = useRef(0);
   const keys = useMemo(() => {
     if (campaignId) return [campaignId];
     return data.groups.map(groupKey).filter((k) => open.has(k));
   }, [campaignId, data.groups, open]);
   useEffect(() => {
     for (const key of keys) {
-      if (loadedFor.current[key] === view) continue;
-      loadedFor.current[key] = view;
+      const stamp = `${view}|${offset}|${pageSize}`;
+      if (loadedFor.current[key] === stamp) continue;
+      loadedFor.current[key] = stamp;
       const mine = view;
-      setData((d) => (d.rows[key] ? d : { ...d, rows: { ...d.rows, [key]: { items: [], next: null, phase: "loading", more: "idle" } } }));
+      const ticket = (asked.current[key] = ++tickets.current);
+      setData((d) => (d.rows[key] ? d : { ...d, rows: { ...d.rows, [key]: { items: [], total: null, offset, phase: "loading" } } }));
       const f: CallFilters = { ...filters, campaignId: key, ...(data.byName.has(key) ? { q: undefined } : {}) };
-      const read = LIVE ? listCalls(f, { limit: campaignId ? OWN_PAGE : PAGE }) : Promise.resolve(fixtureRows(f));
+      const page = { limit: campaignId ? pageSize : GROUP_ROWS, offset };
+      const read = LIVE ? listCalls(f, page) : Promise.resolve(fixtureRows(f, page));
       read.then(
-        (page) => {
-          if (mine !== viewNow.current) return;
-          setData((d) => ({ ...d, rows: { ...d.rows, [key]: { items: page.calls, next: page.nextCursor, phase: "ready", more: "idle" } } }));
+        (got) => {
+          if (mine !== viewNow.current || ticket !== asked.current[key]) return;
+          setData((d) => ({ ...d, rows: { ...d.rows, [key]: { items: got.calls, total: got.total, offset, phase: "ready" } } }));
         },
         () => {
-          if (mine !== viewNow.current) return;
+          if (mine !== viewNow.current || ticket !== asked.current[key]) return;
           setData((d) => {
             const kept = d.rows[key];
-            return { ...d, rows: { ...d.rows, [key]: kept && kept.items.length ? kept : { items: [], next: null, phase: "failed", more: "idle" } } };
+            return { ...d, rows: { ...d.rows, [key]: kept && kept.items.length ? kept : { items: [], total: null, offset, phase: "failed" } } };
           });
         },
       );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [keys, view]);
+  }, [keys, view, offset, pageSize]);
 
   // Summaries still being written: look again a few times.
   const waiting = useMemo(
@@ -190,36 +201,7 @@ export function useCalls(options: {
     return () => window.clearTimeout(id);
   }, [waiting, data.rows, refresh]);
 
-  const loadMore = useCallback(
-    (key: string) => {
-      const cur = data.rows[key];
-      if (!cur?.next || cur.more === "loading") return;
-      setData((d) => ({ ...d, rows: { ...d.rows, [key]: { ...cur, more: "loading" } } }));
-      const f: CallFilters = { ...filters, campaignId: key, ...(data.byName.has(key) ? { q: undefined } : {}) };
-      const mine = viewNow.current;
-      listCalls(f, { limit: campaignId ? OWN_PAGE : PAGE, cursor: cur.next }).then(
-        (page) => {
-          if (mine !== viewNow.current) return;
-          setData((d) => {
-            const have = d.rows[key];
-            if (!have) return d;
-            const seen = new Set(have.items.map((r) => r.id));
-            return {
-              ...d,
-              rows: { ...d.rows, [key]: { ...have, items: [...have.items, ...page.calls.filter((r) => !seen.has(r.id))], next: page.nextCursor, more: "idle" } },
-            };
-          });
-        },
-        () => {
-          if (mine !== viewNow.current) return;
-          setData((d) => (d.rows[key] ? { ...d, rows: { ...d.rows, [key]: { ...(d.rows[key] as GroupRows), more: "failed" } } } : d));
-        },
-      );
-    },
-    [data.rows, data.byName, filters],
-  );
-
-  return { ...data, refresh, loadMore };
+  return { ...data, refresh };
 }
 
 /** Every row on the page, in the order the page shows them: the groups as listed, each group's rows as read. */

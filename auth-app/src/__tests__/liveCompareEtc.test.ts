@@ -390,8 +390,8 @@ describe("people found in the workspace", () => {
     expect(nowLine({ title: "Android Engineer", company: "Acko", city: "Pune" })).toBe("Now Android Engineer · Acko");
     expect(nowLine({ title: null, company: null, city: "Pune" })).toBe("Based in Pune");
     expect(happenedLine("interviewing")).toBe("Got as far as interviews.");
-    expect(happenedLine("passed", "Skills")).toBe("Was passed on (skills).");
-    expect(happenedLine("passed")).toBe("Was passed on.");
+    expect(happenedLine("passed", "Skills")).toBe("Was rejected (skills).");
+    expect(happenedLine("passed")).toBe("Was rejected.");
   });
 
   it("reads when each stage began and the latest reason someone was passed on", () => {

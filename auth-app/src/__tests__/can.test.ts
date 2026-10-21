@@ -22,19 +22,23 @@ const MATRIX: ReadonlyArray<readonly [Capability, boolean, boolean, boolean, boo
   // Assign tasks and campaigns to others (to themselves only, for a recruiter; nobody to assign to in Personal)
   ["task.assignOthers", false, true, true, false],
   ["campaign.assign", false, true, true, false],
-  // Invite people, answer requests, change a role, remove a member
+  // Invite people, answer requests, change a role; removing a member from the organisation is the owner's alone
   ["member.invite", false, true, true, false],
   ["member.decideRequests", false, true, true, false],
   ["member.setRole", false, true, true, false],
-  ["member.remove", false, true, true, false],
+  ["member.remove", false, true, false, false],
+  // The Teams page is for the owner and admins; making and deleting a team is the owner's
+  ["teams.manage", false, true, true, false],
+  ["teams.create", false, true, false, false],
   // Organisation name, logo, join policy
   ["org.settings", false, true, true, false],
   // Transfer ownership: the owner alone
   ["org.transferOwnership", false, true, false, false],
   // Leave the organisation: the owner has to hand it on first
   ["org.leave", false, false, true, true],
+  // Anyone who works here opens a campaign; a recruiter's is theirs alone (owner, alone on it)
+  ["campaign.create", true, true, true, true],
   // What the server's isAdmin lets through
-  ["campaign.create", true, true, true, false],
   ["campaign.manage", true, true, true, false],
   ["contact.delete", true, true, true, false],
   // Taking someone off the do-not-contact list: the server's requireAdmin

@@ -5,6 +5,10 @@ import { lastFailureKind } from "./api/client";
 import type { ScheduleDetail, ScheduledItem } from "./api/schedules";
 import { useCampaignRows } from "./campaignStore";
 import { Loader } from "./components/Loader";
+import { Shimmer, ShimmerRegion } from "./components/Shimmer";
+import type { Meeting } from "./api/meetings";
+import { lengthWords } from "./agentCards/meetingModel";
+import { shortWhen, withWhom } from "./meetingsView";
 import { EmptyArt } from "./EmptyArt";
 import { HomeEmpty } from "./HomeEmpty";
 import { useConnections } from "./connectionsStore";
@@ -117,10 +121,30 @@ function Earlier({ query, viewerId, zone, now, filtered, onClear }: {
 
 /* ── the list ── */
 
-export function List({ feed, query, empty, filtered, viewerId, zone, now, onClear, limit, compact }: {
+/** How many ghost rows Home's card holds: its list is the next five, but the card shows what fits. */
+const COMING_GHOST_HOME = 4;
+
+/** The list while it loads: the real list and row classes, so the rows are the real rows' columns and heights. */
+export function ComingGhost({ n = 4, compact = false }: { n?: number; compact?: boolean }) {
+  return (
+    <ul className={`sc-list${compact ? " is-compact" : ""}`} aria-hidden="true">
+      {Array.from({ length: n }, (_, i) => (
+        <li className="sc-row" key={i}>
+          <div className="sc-when"><Shimmer h={13} lh={20} w={compact ? 92 : 124} /><Shimmer h={11} lh={16} w={compact ? 56 : 76} /></div>
+          <div className="sc-main"><Shimmer h={13} lh={20} w={`${56 + ((i * 17) % 30)}%`} /><Shimmer h={11} lh={16} w={`${32 + ((i * 11) % 24)}%`} /></div>
+          <div className="sc-acts"><Shimmer h={12} lh={20} w={compact ? 64 : 88} /></div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+export function List({ feed, query, empty, filtered, viewerId, zone, now, onClear, limit, compact, meetings = [] }: {
   feed: Feed; query: FeedQuery; empty: "upcoming" | "history"; filtered: boolean; viewerId: string | null; zone: string; now: number; onClear: () => void;
   /** Home's card: the next few, soonest first, with the rest one click away; rows stack and the empty state is a line. */
   limit?: number; compact?: boolean;
+  /** Meetings and interviews coming up, shown among the scheduled things by time. */
+  meetings?: readonly Meeting[];
 }) {
   const working = useWorking();
   const unavailable = useSchedulesUnavailable();
@@ -132,8 +156,8 @@ export function List({ feed, query, empty, filtered, viewerId, zone, now, onClea
       <ErrorState kind={kindOfLastFailure(lastFailureKind())} title={null} text="Couldn't load what's coming up." action={{ label: "Try again", onClick: () => void reloadFeed(query) }} />
     );
   }
-  if (feed.phase === "idle" || feed.phase === "loading") return <Loader size="md" label="Loading what's coming up" block />;
-  if (feed.items.length === 0 && compact) {
+  if (feed.phase === "idle" || feed.phase === "loading") return <ShimmerRegion label="Loading what's coming up"><ComingGhost n={compact ? COMING_GHOST_HOME : 4} compact={!!compact} /></ShimmerRegion>;
+  if (feed.items.length + meetings.length === 0 && compact) {
     /* Home's card: the same empty shape as every other card there (picture, headline, one line, one action). */
     return (
       <HomeEmpty
@@ -146,7 +170,7 @@ export function List({ feed, query, empty, filtered, viewerId, zone, now, onClea
       </HomeEmpty>
     );
   }
-  if (feed.items.length === 0) {
+  if (feed.items.length + meetings.length === 0) {
     /* Nothing coming up at all gets its picture; "nothing for this campaign" and "nothing has gone out" are one line. */
     const art = empty === "upcoming" && !filtered;
     return (
@@ -170,18 +194,24 @@ export function List({ feed, query, empty, filtered, viewerId, zone, now, onClea
   }
 
   /* Soonest first; on Home only the next few until someone asks for the rest. */
-  const sorted = limit ? [...feed.items].sort((a, b) => Date.parse(nextTime(a)) - Date.parse(nextTime(b))) : feed.items;
+  const entries: Array<{ at: number; item: ScheduledItem | null; meeting: Meeting | null }> = [
+    ...feed.items.map((item) => ({ at: Date.parse(nextTime(item)), item, meeting: null })),
+    ...meetings.map((meeting) => ({ at: Date.parse(meeting.startsAt), item: null, meeting })),
+  ];
+  const sorted = limit || meetings.length ? entries.sort((a, b) => a.at - b.at) : entries;
   const folded = !!limit && !all && (sorted.length > limit);
   const shown = folded && limit ? sorted.slice(0, limit) : sorted;
   return (
     <>
       <ul className={`sc-list${compact ? " is-compact" : ""}`}>
-        {shown.map((item) => (
+        {shown.map(({ item, meeting }) => meeting ? (
+          <MeetingRow key={`meeting:${meeting.id}`} meeting={meeting} now={now} />
+        ) : item ? (
           <Row
             key={item.id} item={item} viewerId={viewerId} zone={zone} now={now} busy={working.includes(item.id)}
             open={open === item.id} onToggle={() => setOpen(open === item.id ? null : item.id)}
           />
-        ))}
+        ) : null)}
       </ul>
       {folded && (
         <div className="sc-more">
@@ -201,6 +231,29 @@ export function List({ feed, query, empty, filtered, viewerId, zone, now, onClea
 }
 
 /* ── one row ── */
+
+/** A meeting among the scheduled things: when (in the zone it was set up in), what it is and with whom, and the ways in. */
+export function MeetingRow({ meeting: m, now }: { meeting: Meeting; now: number }) {
+  const who = withWhom(m);
+  const meta = [who && !m.title.includes(who) ? `with ${who}` : null, m.campaignName, m.mine ? null : m.organizerName ? `set up by ${m.organizerName}` : null].filter(Boolean).join(" · ");
+  return (
+    <li className="sc-row">
+      <div className="sc-when">
+        <span className="sc-when-t t-body-strong">{shortWhen(m.startsAt, m.timezone, now)}</span>
+        <span className="sc-when-s t-caption">{lengthWords(Math.max(1, Math.round((Date.parse(m.endsAt) - Date.parse(m.startsAt)) / 60_000)))}</span>
+      </div>
+      <div className="sc-main">
+        <p className="sc-what"><span className="sc-what-t t-body">{m.title}</span></p>
+        {meta && <p className="sc-meta t-caption">{meta}</p>}
+      </div>
+      <div className="sc-acts">
+        {m.status === "cancelled" && <span className="sc-status t-body-sm is-bad">Cancelled</span>}
+        {m.status === "scheduled" && m.meetUrl && <a className="st-link" href={m.meetUrl} target="_blank" rel="noopener noreferrer">Join</a>}
+        {m.eventUrl && <a className="st-link" href={m.eventUrl} target="_blank" rel="noopener noreferrer">Calendar</a>}
+      </div>
+    </li>
+  );
+}
 
 function Row({ item, viewerId, zone, now, busy, open, onToggle }: {
   item: ScheduledItem; viewerId: string | null; zone: string; now: number; busy: boolean; open: boolean; onToggle: () => void;

@@ -55,9 +55,11 @@ function matches(r: ActivityRow, f: ActivityFilters): boolean {
   return true;
 }
 
-export function fixtureActivity(f: ActivityFilters): { rows: ActivityRow[]; nextCursor: null } {
+export function fixtureActivity(f: ActivityFilters, page: { limit?: number; offset?: number } = {}): { rows: ActivityRow[]; nextCursor: null; total: number } {
   const key = f.campaignId;
-  return { rows: every().filter((r) => matches(r, f) && (key ? (key === "none" ? !r.campaignId : r.campaignId === key) : true)), nextCursor: null };
+  const all = every().filter((r) => matches(r, f) && (key ? (key === "none" ? !r.campaignId : r.campaignId === key) : true));
+  const from = page.offset ?? 0;
+  return { rows: page.limit === undefined ? all : all.slice(from, from + page.limit), nextCursor: null, total: all.length };
 }
 
 export function fixtureGroups(f: ActivityFilters): ActivityGroups {
@@ -95,6 +97,7 @@ export function fixtureCandidate(id: string): CandidateOutreach | null {
       body: `Hi ${first(r.candidateName) ?? "there"},\n\nI came across your profile and thought of a role we are hiring for. Worth a short chat this week?`,
       scheduledFor: null, sentAt: r.at, by: r.by, campaignId: r.campaignId, campaignName: r.campaignName,
       canApprove: false, canCancel: r.status === "scheduled",
+      error: r.status === "failed" ? "Gmail isn't connected, so this email didn't go out." : null, canRetry: r.status === "failed",
     };
     return e;
   });

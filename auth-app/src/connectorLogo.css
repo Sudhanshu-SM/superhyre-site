@@ -14,8 +14,18 @@
 }
 :root[data-theme="dark"] .conn-logo-tile { background: #fff; border-color: #e4ded8; }
 
+/* Google's wordmark: a wide slot, white in both themes for the same reason (its "Workspace" is grey). */
+.conn-logo-wide {
+  box-sizing: border-box;
+  background: #fff;
+  border: 1px solid #e4ded8;
+}
+:root[data-theme="dark"] .conn-logo-wide { background: #fff; border-color: #e4ded8; }
+
 /* ── Settings → Connections: tile, name and status on the left, the button on the right ── */
 .st-lead { display: flex; align-items: center; gap: 16px; min-width: 0; }
+/* With the wide wordmark, the status wraps under it rather than squeezing it. */
+.st-lead-wide { flex-wrap: wrap; gap: 8px 16px; }
 .st-name { font: 600 15px/20px var(--ui); letter-spacing: -0.006em; color: var(--ink); }
 /* What sits under a row hangs from the name, not from the tile. */
 .st-hang { display: grid; gap: 12px; min-width: 0; padding-left: 56px; }

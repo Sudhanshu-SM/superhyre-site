@@ -9,3 +9,6 @@
 .ce-note { margin: 0; font: 400 13.5px/1.45 var(--ui); color: var(--ink-2); }
 .ce-foot { display: flex; justify-content: flex-end; gap: 8px; padding-top: 4px; }
 @media (max-width: 480px) { .ce-row { grid-template-columns: 1fr; } }
+
+/* The details while they load: the same stacked fields, so the dialog does not change size. */
+.ce-shm { display: grid; gap: 14px; }

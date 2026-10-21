@@ -1,20 +1,26 @@
-import { ArrowUpRight } from "@phosphor-icons/react";
+import { useMayChangeCampaign } from "./campaignRights";
+import { ArrowUpRight, PhoneCall } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { MouseEvent as ReactMouseEvent } from "react";
 import type { ActivityRow, CallItem, CandidateOutreach, EmailItem, TimelineItem, WhatsAppItem } from "./api/outreachActivity";
 import { candidateOutreach } from "./api/outreachActivity";
-import { approve, cancel } from "./api/outreach";
+import { approve, cancel, retry } from "./api/outreach";
 import { LIVE, messageOf } from "./api/client";
 import { CallBody, SheetFrame } from "./CallSheet";
+import { helpLinkLabel, helpLinkOf } from "./chatCards";
 import { candidateHref, lengthLabel, OUTCOME_LABEL, OUTCOME_TONE } from "./callsView";
 import { ChannelMark } from "./ChannelMark";
 import { Loader } from "./components/Loader";
+import { Shimmer, ShimmerRegion, ShimmerText } from "./components/Shimmer";
 import { GhostChart } from "./GhostChart";
-import { invalidateViews } from "./invalidate";
+import { invalidateViews, onInvalidate } from "./invalidate";
+import { isGoingOut, mayCancelSend, watchSend } from "./sendWatch";
 import {
-  callHead, callRowFromActivity, emailHead, emailStatus, excerpt, followUpPrompt, isCall, itemsOf, SHEET_TABS, STATUS_TONE,
+  callHead, callRowFromActivity, emailHead, emailStatus, excerpt, failureReason, followUpPrompt, isCall, itemsOf, SHEET_TABS, STATUS_TONE,
   WHATSAPP_REASON, WHATSAPP_WAITING, whenOf,
 } from "./outreachActivityView";
 import type { SheetTab } from "./outreachActivityView";
+import type { PersonPick } from "./logCallView";
 import { fixtureCandidate } from "./outreachFixtures";
 import { toneProps } from "./statusTones";
 import { useToast } from "./toast";
@@ -35,13 +41,22 @@ type Props = {
   onAgent?: ((prompt: string) => void) | undefined;
   /** Something changed (an approval, a cancelled send): the page's list reads again. */
   onChanged: () => void;
+  /** Opens "Log a call" for this person; absent where a call cannot be logged. */
+  onLogCall?: ((person: PersonPick) => void) | undefined;
 };
 
-function EmailCard({ e, busy, onApprove, onCancel }: { e: EmailItem; busy: boolean; onApprove: () => void; onCancel: () => void }) {
+function EmailCard({ e, busy, onApprove, onCancel, onRetry }: {
+  e: EmailItem; busy: boolean; onApprove: () => void; onCancel: () => void; onRetry?: (() => void) | undefined;
+}) {
   const [open, setOpen] = useState(false);
   const cut = excerpt(e.body);
   const status = emailStatus(e);
   const time = e.status === "scheduled" && e.scheduledFor ? e.scheduledFor : e.at;
+  /* An email that did not go always says so and why (a plain default when none was kept), and can be sent again. */
+  const why = failureReason(e);
+  const help = why ? helpLinkOf(null, why) : null;
+  /* Cancel is for a send that is still ahead; one that is due or has started cannot be taken back. */
+  const cancellable = mayCancelSend(e.canCancel, e.scheduledFor);
   return (
     <article className={`ko-card is-email${e.direction === "in" ? " is-in" : ""}`} aria-label={`Email, ${emailHead(e)}`}>
       <header className="ko-card-h">
@@ -59,14 +74,23 @@ function EmailCard({ e, busy, onApprove, onCancel }: { e: EmailItem; busy: boole
           {open ? "Show less" : "Show the whole email"}
         </button>
       )}
-      {(e.canApprove || e.canCancel) && (
+      {why && <p className="ko-why" role="status">{why}</p>}
+      {help && <a className="kl-link ko-more" href={help} target="_blank" rel="noreferrer noopener">{helpLinkLabel(help)}</a>}
+      {why && e.canRetry && onRetry && (
+        <div className="ko-actions">
+          <button type="button" className="kl-btn" disabled={busy} onClick={onRetry}>
+            {busy ? <><Loader size="sm" tone="inherit" /> Sending again</> : "Try again"}
+          </button>
+        </div>
+      )}
+      {(e.canApprove || cancellable) && (
         <div className="ko-actions">
           {e.canApprove && (
             <button type="button" className="kl-btn is-primary" disabled={busy} onClick={onApprove}>
               {busy ? <><Loader size="sm" tone="inherit" /> Approving</> : "Approve and schedule"}
             </button>
           )}
-          {e.canCancel && (
+          {cancellable && (
             <button type="button" className="kl-btn" disabled={busy} onClick={onCancel}>
               {busy ? <><Loader size="sm" tone="inherit" /> Cancelling</> : "Cancel the send"}
             </button>
@@ -95,12 +119,21 @@ function CallCard({ c, open, onToggle, focusNote }: { c: CallItem; open: boolean
   const length = lengthLabel(call.durationSeconds);
   const line = call.summary ?? call.preview ?? call.outcomeText ?? "";
   const body = useRef<HTMLDivElement>(null);
-  // A card opened by "Log a call note" is brought into view with its note.
+  // A card opened by "Add a call note" is brought into view with its note.
   useEffect(() => {
     if (open && focusNote > 0) body.current?.scrollIntoView({ block: "nearest" });
   }, [open, focusNote]);
+  /* The whole card opens and closes the call, not only its link. A click inside the open call (the player, the
+     note) or on any other control is that control's, and a click that ends a text selection selects. The link
+     stays the keyboard's way in. */
+  const onCard = (ev: ReactMouseEvent<HTMLElement>) => {
+    const t = ev.target as HTMLElement;
+    if (t.closest(".ko-call-open") || t.closest("a, button, input, textarea, select, audio, video, label, [role='button']")) return;
+    if (window.getSelection()?.toString()) return;
+    onToggle();
+  };
   return (
-    <article className="ko-card is-call" aria-label={`Call, ${callHead(call)}`}>
+    <article className={`ko-card is-call is-toggle${open ? " is-open" : ""}`} aria-label={`Call, ${callHead(call)}`} onClick={onCard}>
       <header className="ko-card-h">
         <ChannelMark channel="call" />
         <span className="ko-card-who kl-ell">{callHead(call)}</span>
@@ -121,13 +154,15 @@ function CallCard({ c, open, onToggle, focusNote }: { c: CallItem; open: boolean
 }
 
 /** The cards, newest first: an email, a WhatsApp message or a call each in its own shape. */
-export function OutreachThread({ items, busy, openCall, focusNote, onApprove, onCancel, onToggleCall }: {
+export function OutreachThread({ items, busy, openCall, focusNote, onApprove, onCancel, onRetry, onToggleCall }: {
   items: readonly TimelineItem[];
   busy: string | null;
   openCall: string | null;
   focusNote: number;
   onApprove: (id: string) => void;
   onCancel: (id: string) => void;
+  /** Sends a failed email again; without it a failed email says why and offers nothing. */
+  onRetry?: ((id: string) => void) | undefined;
   onToggleCall: (id: string) => void;
 }) {
   return (
@@ -135,7 +170,13 @@ export function OutreachThread({ items, busy, openCall, focusNote, onApprove, on
       {items.map((i) => (
         <li key={`${i.kind}-${i.id}`}>
           {i.kind === "email" ? (
-            <EmailCard e={i} busy={busy === i.id} onApprove={() => onApprove(i.id)} onCancel={() => onCancel(i.id)} />
+            <EmailCard
+              e={i}
+              busy={busy === i.id}
+              onApprove={() => onApprove(i.id)}
+              onCancel={() => onCancel(i.id)}
+              onRetry={onRetry ? () => onRetry(i.id) : undefined}
+            />
           ) : i.kind === "call" ? (
             <CallCard
               c={i}
@@ -152,7 +193,7 @@ export function OutreachThread({ items, busy, openCall, focusNote, onApprove, on
   );
 }
 
-export function OutreachSheet({ row, onClose, onAgent, onChanged }: Props) {
+export function OutreachSheet({ row, onClose, onAgent, onChanged, onLogCall }: Props) {
   const toast = useToast();
   const [data, setData] = useState<CandidateOutreach | null>(null);
   const [phase, setPhase] = useState<"loading" | "ready" | "failed">(row.candidateId ? "loading" : "ready");
@@ -163,16 +204,18 @@ export function OutreachSheet({ row, onClose, onAgent, onChanged }: Props) {
 
   const reads = useRef(0);
   const read = useCallback(async () => {
-    if (!row.candidateId) return;
+    if (!row.candidateId) return null;
     const mine = ++reads.current;
     try {
       const out = LIVE ? await candidateOutreach(row.candidateId) : fixtureCandidate(row.candidateId);
-      if (mine !== reads.current) return;
-      if (!out) { setPhase("failed"); return; }
+      if (mine !== reads.current) return null;
+      if (!out) { setPhase("failed"); return null; }
       setData(out);
       setPhase("ready");
+      return out;
     } catch {
       if (mine === reads.current) setPhase((p) => (p === "ready" && data ? p : "failed"));
+      return null;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [row.candidateId]);
@@ -186,6 +229,9 @@ export function OutreachSheet({ row, onClose, onAgent, onChanged }: Props) {
     void read();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [read, who]);
+
+  // A call logged by hand (from here or the agent) is on their timeline without a reload.
+  useEffect(() => onInvalidate((effects) => { if (effects.has("calls") && LIVE) void read(); }), [read]);
 
   // Everything of theirs, newest first; a person with no directory entry (a number) is the one call.
   const lone = useMemo<TimelineItem[]>(
@@ -227,6 +273,29 @@ export function OutreachSheet({ row, onClose, onAgent, onChanged }: Props) {
     }
   };
 
+  /* After an approval, a retry or a cancel the send happens a moment later: look again, quickly at first, until what is
+     going out has gone (or failed), and then tell the list and the other views, so the row, the sheet and any open card
+     say the same. A look is only a read: nothing here ever writes. */
+  const moving = emails.some((e) => isGoingOut(e, e.scheduledFor));
+  const changed = useRef({ onChanged, was: moving });
+  changed.current.onChanged = onChanged;
+  useEffect(() => {
+    if (changed.current.was && !moving) {
+      invalidateViews(["calls", "boards", "campaigns", "week"]);
+      changed.current.onChanged();
+    }
+    changed.current.was = moving;
+  }, [moving]);
+  useEffect(() => {
+    if (!LIVE || !moving) return;
+    return watchSend(async () => {
+      const out = await read();
+      // A read that did not come is not an answer: keep looking.
+      return out ? out.items.some((i) => i.kind === "email" && isGoingOut(i, i.scheduledFor)) : true;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [moving, read]);
+
   const lastOut = emails[0];
   const followUp = () => {
     if (!onAgent) return;
@@ -245,8 +314,21 @@ export function OutreachSheet({ row, onClose, onAgent, onChanged }: Props) {
     setFocusNote((n) => n + 1);
   };
 
-  const canFollowUp = Boolean(onAgent) && Boolean(row.candidateId) && (tab === "timeline" || tab === "email");
+  const logHere = () => {
+    if (!onLogCall || !row.candidateId) return;
+    onLogCall({
+      id: row.candidateId,
+      name,
+      title: title ?? null,
+      company: company ?? null,
+      campaigns: data?.campaigns.length ? data.campaigns.map((c) => ({ id: c.id, name: c.name })) : row.campaignId && row.campaignName ? [{ id: row.campaignId, name: row.campaignName }] : [],
+    });
+  };
+  /* Drafting a follow-up and logging a call belong to the campaign's people (the server's rule); anyone else reads the thread. */
+  const may = useMayChangeCampaign(row.campaignId ?? null);
+  const canFollowUp = may && Boolean(onAgent) && Boolean(row.candidateId) && (tab === "timeline" || tab === "email");
   const canNote = calls.length > 0 && (tab === "timeline" || tab === "call");
+  const canLog = may && Boolean(onLogCall) && Boolean(row.candidateId) && (tab === "timeline" || tab === "call");
   const footer = (
     <footer className="ko-compose" aria-label="What you can do from here">
       {tab === "whatsapp" ? (
@@ -254,13 +336,14 @@ export function OutreachSheet({ row, onClose, onAgent, onChanged }: Props) {
           <button type="button" className="kl-btn" disabled aria-describedby="ko-wa-why">Send a message</button>
           <p id="ko-wa-why" className="t-body-sm kl-quiet">{whatsappConnected ? "Sending from here is coming." : WHATSAPP_REASON}</p>
         </div>
-      ) : canFollowUp || canNote ? (
+      ) : canFollowUp || canNote || canLog ? (
         <div className="ko-compose-row">
           {canFollowUp && <button type="button" className="kl-btn" onClick={followUp}>Draft a follow-up</button>}
-          {canNote && <button type="button" className="kl-btn" onClick={logNote}>Log a call note</button>}
+          {canLog && <button type="button" className="kl-btn" onClick={logHere}><PhoneCall size={15} aria-hidden="true" /> Log a call</button>}
+          {canNote && <button type="button" className="kl-btn" onClick={logNote}>Add a call note</button>}
         </div>
       ) : (
-        <p className="t-body-sm kl-quiet">{tab === "call" ? "Calls placed from SuperHyre are logged here." : "Nothing to do here yet."}</p>
+        <p className="t-body-sm kl-quiet">{tab === "call" ? "Calls you place with the extension show up here." : "Nothing to do here yet."}</p>
       )}
     </footer>
   );
@@ -323,7 +406,19 @@ export function OutreachSheet({ row, onClose, onAgent, onChanged }: Props) {
           </div>
 
           <div id="ko-panel" role="tabpanel" aria-labelledby={`ko-tab-${tab}`} className="ko-panel">
-            {phase === "loading" && <div className="kl-wait is-small" aria-busy="true"><Loader size="md" label="Opening their outreach" block /></div>}
+            {phase === "loading" && <ShimmerRegion label="Opening their outreach">
+                <ol className="ko-thread" aria-hidden="true">
+                  {[0, 1, 2].map((i) => (
+                    <li key={i}>
+                      <article className="ko-card">
+                        <div className="ko-card-h"><Shimmer h={13} lh={20} w={96 + i * 14} /><Shimmer h={11} lh={20} w={56} /><Shimmer className="ko-card-when" h={11} lh={20} w={64} /></div>
+                        <Shimmer h={14} lh={22} w={`${52 + ((i * 17) % 30)}%`} />
+                        <ShimmerText lines={2} h={11} gap={7} last="58%" />
+                      </article>
+                    </li>
+                  ))}
+                </ol>
+              </ShimmerRegion>}
             {phase === "failed" && (
               <div className="ko-failed" role="alert">
                 <p className="t-body">Their outreach couldn't be opened.</p>
@@ -347,6 +442,7 @@ export function OutreachSheet({ row, onClose, onAgent, onChanged }: Props) {
                 focusNote={focusNote}
                 onApprove={(id) => void act(id, () => approve([id]), "Approved. It will go out at its time.")}
                 onCancel={(id) => void act(id, () => cancel(id), "Cancelled. It is a draft again.")}
+                onRetry={(id) => void act(id, () => retry(id), "Sending it again. It will go out at its time.")}
                 onToggleCall={(id) => setOpenCall((cur) => (cur === id ? null : id))}
               />
             )}

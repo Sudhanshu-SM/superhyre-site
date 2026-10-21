@@ -6,7 +6,7 @@ import {
   BRIEFS, CAMPAIGN_CONFIG, CAMPAIGN_STATS, CHANNELS, COLLABORATORS, MODES,
 } from "./orchestrator";
 import { ConnectorLogo, isConnectorId } from "./ConnectorLogo";
-import { Loader } from "./components/Loader";
+import { Shimmer, ShimmerRegion } from "./components/Shimmer";
 import { useFocusTrap } from "./components/focusTrap";
 import { ROUTES } from "./nav";
 import { LoadFailed } from "./ui";
@@ -150,7 +150,9 @@ export function Rail({
             week lands, and says so quietly if it never does rather than vanishing. */}
         {statsState === "loading" ? (
           <div className="rail-panel rail-stats-wait">
-            <Loader size="sm" label="Loading the week" />
+            <ShimmerRegion label="Loading the week" className="rail-wait-cols">
+              {[0, 1, 2].map((i) => <span key={i} className="rail-wait-col" aria-hidden="true"><Shimmer w="56%" h={18} r={6} /><Shimmer w="78%" h={10} r={5} /></span>)}
+            </ShimmerRegion>
           </div>
         ) : statsState === "failed" ? (
           <div className="rail-panel rail-stats-wait">
@@ -237,9 +239,13 @@ export function Rail({
 
           <div className="rail-hist-body">
             {history === "loading" ? (
-              <>
-                <div className="rail-hist-wait"><Loader size="sm" label="Loading your chats" block /></div>
-              </>
+              <ShimmerRegion label="Loading your chats">
+                <ol className="rail-briefs is-inline" aria-hidden="true">
+                  {Array.from({ length: HISTORY_SLOTS }, (_, i) => (
+                    <li key={i} className="rail-brief-slot"><Shimmer h={10} w={`${46 + ((i * 19) % 36)}%`} /></li>
+                  ))}
+                </ol>
+              </ShimmerRegion>
             ) : history === "failed" ? (
               <div className="rail-hist-wait">
                 <LoadFailed compact what="Your chats" {...(onRetryHistory ? { onRetry: onRetryHistory } : {})} />

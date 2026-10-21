@@ -55,7 +55,10 @@ export function ThinkingFeed({ lines, now: at, reduced: still }: {
   const clock = useClock(alive && at === undefined);
   const now = at ?? clock;
   const shown = visibleFeed(lines, now);
-  if (!shown.length) return null;
+  /* Between two lines, while the search still works, the slot keeps its height: the box collapsing and opening
+     again every few seconds moved everything above it (and, with the transcript following its end, hopped the
+     whole run up and down). It is gone with the run, which is when PhaseTimeline stops drawing it. */
+  if (!shown.length) return reduced || lines.length === 0 ? null : <ul className="pt-feed" aria-hidden="true" />;
   const rows = reduced ? shown.slice(-1) : shown;
   return (
     <ul className={`pt-feed${reduced ? " is-still" : ""}`} aria-hidden="true" style={{ ["--feed-life" as string]: `${FEED_LIFE_MS}ms` }}>

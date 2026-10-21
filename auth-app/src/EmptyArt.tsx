@@ -43,7 +43,6 @@ export const EMPTY_ART = [
   "err-rate-limit",
   "err-connector",
   "form-closed",
-  "form-thanks",
   "form-clipboard",
   "campaign-paused",
   "su-invite-expired",

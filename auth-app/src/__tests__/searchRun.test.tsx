@@ -21,6 +21,7 @@ import type { MomentCtx } from "../moments";
 
 vi.mock("../campaignRights", () => ({
   FOLLOWING_LINE: "You're following this campaign.",
+  useFollowingLine: () => "You're following this campaign.",
   useMayChangeCampaign: () => true,
 }));
 
@@ -179,19 +180,33 @@ describe("the search in the chat is the sourcing component, not a bare list", ()
     expect(html).not.toContain("lt-people");
     expect(html).not.toMatch(/Show \d+ more/);
     // Nobody is scored yet: said honestly, as the order they are in.
-    expect(html).toContain("First in the list");
-    expect(html).toContain("12 people found, scoring now");
-    expect(html).toContain("Ordered by skills, years and place for now");
+    expect(html).toContain("12 found");
+    expect(html).toContain("Scoring now. People move into place as each group is read.");
+    // One header over the list, and the goal card is the only place the steps are drawn.
+    expect(html).not.toContain("First in the list");
+    expect(html).not.toContain("people found, scoring now");
+    // What is about to appear is a quiet shimmer where the line on why and the fit marks will be.
+    expect(html).toContain("src-shim");
+  });
+
+  it("shimmers only the people whose score has not arrived, and only while scores are coming", () => {
+    const mixed = draw(search({ items: [judged(1), person(2), person(3)] }));
+    expect((mixed.match(/class="src-card-reason is-pending"/g) ?? []).length).toBe(2);
+    expect(mixed).toContain("Runs Airflow pipelines at scale");
+    // Over, with nobody left to catch up: a person without a score is left as they are, not made to look busy.
+    expect(draw(search({ items: [person(1), person(2)], status: "done" }))).not.toContain("src-shim");
   });
 
   it("puts the fit and the line on why in the card as scores arrive", () => {
     const items = [judged(1), judged(2), person(3), person(4)];
     const html = draw(search({ items, status: "done" }));
-    expect(html).toContain("The best fits so far");
+    expect(html).toContain("Top matches");
     expect(html).toContain("Runs Airflow pipelines at scale");
-    expect(html).toContain("4 people found, 2 scored");
-    // A person with no score yet gets no made-up fit: they are not read as met or not met.
-    expect(html).toContain("Score them again to finish");
+    // A person with no score yet gets no made-up fit: they are not read as met or not met. Said once, and
+    // the same count: three shown of the four this search found.
+    expect(html).toContain("2 shown");
+    expect(html).toContain("aren&#x27;t scored yet, so they&#x27;re in the order of keyword match");
+    expect(html).not.toContain("Score them again to finish");
   });
 
   it("says what the run is doing under the matching line while it works, once the people are listed", () => {
@@ -201,7 +216,9 @@ describe("the search in the chat is the sourcing component, not a bare list", ()
       phases: [{ id: "match", phase: "match", state: "running", label: "Matching candidates to the role", done: 0, total: 30, seq: 1 }],
       feed,
     }));
-    expect(html).toContain("Matching candidates to the role");
+    // The steps and their counts are the goal card's; under it only what the search is doing right now.
+    expect(html).toContain("Sourcing progress");
+    expect(html).not.toContain("Matching candidates to the role");
     expect(html).toContain("Reading Chitra Desai, Senior Data Engineer at Nykaa");
     expect(html).toContain("src-card");
   });
@@ -236,6 +253,8 @@ describe("the search in the chat is the sourcing component, not a bare list", ()
     expect(searchCount(32, 10, true)).toBe("32 people found, 10 scored so far");
     expect(searchCount(32, 10, false)).toBe("32 people found, 10 scored");
     expect(searchSub({ running: false, unscored: 0, scored: 5 })).toBeNull();
+    // Done with some unscored: the closing line says it, once.
+    expect(searchSub({ running: false, unscored: 3, scored: 5 })).toBeNull();
   });
 });
 
@@ -247,7 +266,7 @@ describe("the goal tracker follows the search's own counts", () => {
       phases: [{ id: "match", phase: "match", state: "running", label: "Matching candidates to the role", done: 4, total: 30, seq: 2 }],
     }));
     expect(html).toContain('aria-label="Sourcing progress"');
-    expect(html).toContain("Searching");
+    expect(html).toContain("Finding people");
     expect(html).toContain("Matching");
     expect(html).toContain("Deciding");
     expect(html).toContain("Scoring 4 of 30");
@@ -261,12 +280,14 @@ describe("the goal tracker follows the search's own counts", () => {
     expect(run.tiers.A).toBe(3);
     const t = liveStages({ readDone: true, buildDone: true, searched: false, run, found: 3, ranked: 3, criteria: 1, preview: ["p1", "p2", "p3"], verdicts: {} });
     expect(t.stages.map((x) => x.state)).toEqual(["done", "done", "wait"]);
-    expect(t.stages[1]?.note).toBe("3 ranked · best 3 picked");
-    expect(t.stages[2]?.note).toBe("0 of 3 decided, your call");
+    expect(t.stages[0]?.note).toBe("Found");
+    expect(t.stages[1]?.note).toBe("Done");
+    expect(t.stages[2]?.note).toBe("");
     // And the goal is reached when each of them has a call.
     const all = liveStages({ readDone: true, buildDone: true, searched: false, run, found: 3, ranked: 3, criteria: 1, preview: ["p1", "p2", "p3"], verdicts: { p1: "shortlisted", p2: "rejected", p3: "shortlisted" } });
     expect(all.reached).toBe(true);
     expect(all.summary).toBe("Goal reached · 2 shortlisted");
+    expect(all.stages[2]?.note).toBe("Done");
   });
 
   it("does not claim scoring before the search has begun to score", () => {
@@ -276,5 +297,30 @@ describe("the goal tracker follows the search's own counts", () => {
     const t = liveStages({ readDone: false, buildDone: false, searched: false, run, found: 0, ranked: 0, criteria: 0, preview: [], verdicts: {} });
     expect(t.stages[0]?.state).toBe("live");
     expect(t.stages[1]?.state).toBe("todo");
+  });
+});
+
+describe("the best fits are the people who were matched", () => {
+  const withResult = (n: number, status: "scored" | "insufficient_evidence" | "not_scored_yet", tier: "A" | "B" | "C" | null, over: Partial<Match> = {}): Match =>
+    person(n, { stage: "judged", tier, status, coverage: status === "insufficient_evidence" ? 0 : 80, score: tier ? 80 : null, requirements: [], toVerify: [], strengths: [], concerns: [], missing: [], note: null, knockout: null, override: null, policyVersion: "v2", rubricVersion: 2, evaluatedAt: null, fit: tier === "A" ? 3 : tier === "B" ? 2 : tier === "C" ? 1 : null, ...over } as Partial<Match>);
+
+  it("leaves out someone who needs more evidence even when they come first, and says so in the one line everything shares", () => {
+    const items = [withResult(1, "insufficient_evidence", null), withResult(2, "scored", "A"), withResult(3, "scored", "B"), withResult(4, "not_scored_yet", null)];
+    const html = draw(search({ items, status: "done" }));
+    expect(html).toContain("Top matches");
+    expect(html).toContain("Person 2");
+    expect(html).toContain("Person 3");
+    expect(html).not.toContain("Person 1");
+    expect(html).not.toContain("Person 4");
+    // The same words as the role spec card: found, matched closely, needs more evidence, not scored yet.
+    expect(html).toContain("4 found. 2 matched closely, 1 needs more evidence, 1 not scored yet.");
+    expect(html).not.toContain("people found, 4 scored");
+    expect(html).not.toContain("The best fits so far");
+  });
+
+  it("calls the action Reject and the state Rejected, on the cards of the chat as everywhere", () => {
+    const html = draw(search({ items: [withResult(1, "scored", "A")], status: "done" }));
+    expect(html).toContain("Reject");
+    expect(html).not.toContain("Not a fit");
   });
 });

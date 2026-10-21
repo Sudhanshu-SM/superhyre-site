@@ -58,10 +58,9 @@ describe("the add-client flow", () => {
   it("asks nothing for a company that is already a client", () => {
     expect(questionFor("client", "add Razorpay as a client", ctx())).toBeNull();
   });
-  it("asks a recruiter nothing: the reply says only admins can", () => {
+  it("asks a recruiter nothing: the reply says only admins can add a client", () => {
     setSession({ role: "recruiter", name: "Riya K" });
     expect(questionFor("client", "add a client", ctx())).toBeNull();
-    expect(questionFor("campaign-new", "create a campaign", ctx())).toBeNull();
   });
   it("reads a name and email in either order", () => {
     expect(parseContact("Neha Kapoor, neha@acme.in")).toEqual({ name: "Neha Kapoor", email: "neha@acme.in" });
@@ -81,7 +80,41 @@ describe("the new-campaign flow", () => {
       const pick = q.input ? (q.id === "nc-role" ? "Staff Data Engineer" : "") : q.options[0]!.id;
       a = { ...a, ...q.apply([pick]).answers };
     }
-    expect(ids).toEqual(["nc-role", "nc-client", "nc-dept", "nc-mode", "nc-location", "nc-openings", "nc-comp", "nc-skills", "nc-agents"]);
+    expect(ids).toEqual(["nc-role", "nc-client", "nc-dept", "nc-mode", "nc-location", "nc-openings", "nc-jd", "nc-more", "nc-agents"]);
+  });
+  it("asks a recruiter the same questions: a campaign of their own is theirs to open", () => {
+    setSession({ role: "recruiter", name: "Riya K" });
+    expect(questionFor("campaign-new", "create a campaign", ctx())?.id).toBe("nc-role");
+    const said = "Create a New Campaign for DevOps Engineer from Bangalore";
+    // The role and the city are read out of the sentence for anyone, the city under the one name the console uses.
+    expect(campaignBriefIn(said)).toEqual({ role: "DevOps Engineer", client: null, city: "Bengaluru" });
+    expect(newCampaignAnswers(said, {})).toMatchObject({ role: "DevOps Engineer", location: "Bengaluru" });
+    // Who it is for is asked of the clients they have, "No client" among them.
+    const who = questionFor("campaign-new", said, ctx());
+    expect(who?.id).toBe("nc-client");
+    expect(who?.options.some((o) => o.id === "none")).toBe(true);
+  });
+  it("never offers a recruiter to add a company the message names as a new client", () => {
+    const said = "create a new campaign called Data Analyst for the client Orchid Bank in Pune";
+    // An admin: Orchid Bank is not a client yet, so it is cut out of the title and offered as one to add.
+    expect(campaignBriefIn(said)).toEqual({ role: "Data Analyst", client: "Orchid Bank", city: "Pune" });
+    expect(newCampaignAnswers(said, {})).toMatchObject({ newClient: "Orchid Bank", client: "new" });
+    // Not asked about: it is the client to add.
+    expect(questionFor("campaign-new", said, ctx())?.id).not.toBe("nc-client");
+
+    // A recruiter may not add one: the words stay in the role, nothing offers to add them, and the question
+    // is only of the clients they have.
+    setSession({ role: "recruiter", name: "Riya K" });
+    expect(campaignBriefIn(said).client).toBeNull();
+    expect(campaignBriefIn(said).role).toMatch(/Orchid Bank/);
+    expect(newCampaignAnswers(said, {}).newClient).toBeUndefined();
+    const q = questionFor("campaign-new", said, ctx());
+    expect(q?.id).toBe("nc-client");
+    expect(q?.options.map((o) => o.id)).not.toContain("new");
+    expect(q?.options.map((o) => o.label).join(" ")).not.toMatch(/as a new client/);
+    const at = "create a campaign called Backend Engineer at Zorblax Studios";
+    expect(campaignBriefIn(at)).toMatchObject({ role: "Backend Engineer at Zorblax Studios", client: null });
+    expect(newCampaignAnswers(at, {}).newClient).toBeUndefined();
   });
   it("takes the client from the message", () => {
     const q = questionFor("campaign-new", "start a new campaign for Razorpay", ctx({ role: "SRE" }));
@@ -117,8 +150,11 @@ describe("the new-campaign flow", () => {
     // Not "What's the role?" and not "Who is it for?": the first thing left to ask is the team.
     expect(q?.id).toBe("nc-dept");
     const next = questionFor("campaign-new", said, ctx({ dept: "Engineering", mode: "hybrid" }));
-    // The city was said, so the location question is skipped.
-    expect(next?.id).toBe("nc-openings");
+    // The city was said: it is the answer (and shown as one, to change), never a question with an empty field.
+    expect(next).toMatchObject({ id: "nc-location", preset: "Pune" });
+    expect(next?.apply(["Pune"]).answers).toEqual({ location: "Pune" });
+    const after = questionFor("campaign-new", said, ctx({ dept: "Engineering", mode: "hybrid", location: "Pune" }));
+    expect(after?.id).toBe("nc-openings");
   });
   it("turns answers into a draft, prefilled from the client", () => {
     const d = draftFromAnswers({ role: "SRE", client: "cl-razorpay", dept: "Engineering", mode: "hybrid", location: "", openings: "2", comp: "30 to 45", skills: "Go, Kubernetes", agents: "Sourcing,Outreach" }, "Punith S", [...CLIENT_SEED]);

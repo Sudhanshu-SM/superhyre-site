@@ -1,0 +1,62 @@
+/* The role spec edited in place (SpecEditor.tsx): the whole spec at once, no controls that belong to one row but a small
+   move and a small remove. */
+.se { display: grid; gap: 22px; }
+.se-fields { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
+.se-field { display: grid; gap: 4px; min-width: 0; }
+.se-field.is-title { grid-column: 1 / -1; }
+.se-field.is-level { grid-column: span 3; }
+.se-field.is-years { grid-column: span 3; }
+.se-field.is-where { grid-column: span 4; }
+.se-field.is-work { grid-column: span 2; align-content: end; }
+.se-label { font: var(--type-caption); letter-spacing: 0.02em; color: var(--ink-3); }
+.se-input {
+  width: 100%; height: 36px; padding: 0 12px;
+  font: var(--type-body); letter-spacing: var(--track-body); color: var(--ink);
+  background: var(--field); border: 1px solid var(--rule); border-radius: var(--r-field);
+}
+.se-input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.se-check { display: inline-flex; align-items: center; gap: 8px; height: 36px; font: var(--type-body); letter-spacing: var(--track-body); color: var(--ink); cursor: pointer; }
+.se-check input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent-fill); }
+
+.se-group { display: grid; gap: 4px; }
+.se-group-head { display: flex; align-items: baseline; gap: 8px; margin: 0; }
+.se-group-title { margin: 0; font: var(--type-body-strong); letter-spacing: var(--track-body-strong); color: var(--ink); }
+.se-group-n { font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.se-rows { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--hairline); }
+.se-row { display: flex; align-items: flex-start; gap: 4px; border-bottom: 1px solid var(--hairline); }
+
+/* The words are the field: plain until pointed at, then a quiet box, so a click edits them where they stand. */
+.se-text {
+  flex: 1 1 auto; min-width: 0; resize: none; overflow: hidden;
+  padding: 8px 8px; margin: 0; border: 1px solid transparent; border-radius: var(--r-field); background: transparent;
+  font: var(--type-body); letter-spacing: var(--track-body); color: var(--ink);
+  transition: background var(--t), border-color var(--t);
+}
+.se-text:hover { background: var(--sub); }
+.se-text:focus-visible { outline: none; background: var(--field); border-color: var(--rule-strong); }
+.se-text[aria-invalid="true"] { border-color: #a2552f; }
+
+.se-act {
+  flex: none; display: grid; place-items: center; width: 32px; height: 36px; padding: 0;
+  border: 0; border-radius: var(--r-field); background: transparent; color: var(--ink-3); cursor: pointer;
+  transition: background var(--t), color var(--t);
+}
+.se-act:hover:not(:disabled), .se-act:focus-visible { background: var(--sub); color: var(--ink); }
+.se-act:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.se-act:disabled { opacity: 0.35; cursor: default; }
+
+.se-add { display: flex; align-items: center; gap: 4px; }
+.se-add-mark { flex: none; display: grid; place-items: center; width: 32px; height: 36px; color: var(--ink-3); }
+.se-add-input { flex: 1 1 auto; min-width: 0; height: 36px; padding: 0 8px; border: 1px solid transparent; border-radius: var(--r-field); background: transparent; font: var(--type-body); letter-spacing: var(--track-body); color: var(--ink); }
+.se-add-input::placeholder { color: var(--ink-3); }
+.se-add-input:hover { background: var(--sub); }
+.se-add-input:focus-visible { outline: none; background: var(--field); border-color: var(--rule-strong); }
+
+.se-problem { margin: 0; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: #a2552f; }
+:root[data-theme="dark"] .se-problem, :root[data-theme="dark"] .se-text[aria-invalid="true"] { color: #e0a183; }
+:root[data-theme="dark"] .se-text[aria-invalid="true"] { border-color: #e0a183; }
+@media (max-width: 640px) {
+  .se-fields { grid-template-columns: 1fr 1fr; }
+  .se-field.is-level, .se-field.is-years { grid-column: span 1; }
+  .se-field.is-where, .se-field.is-work { grid-column: 1 / -1; }
+}

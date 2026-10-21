@@ -11,6 +11,7 @@ import {
 } from "./sourcing";
 import { Avatar, Career, FitRow, Verdicts } from "./CandidateBits";
 import { Loader } from "./components/Loader";
+import { Shimmer } from "./components/Shimmer";
 import "./sourcing.css";
 
 /**
@@ -81,7 +82,7 @@ export function SourcingRun({
   const startedAt = useRef(Date.now());
   const planned = useRef(false);
 
-  /* Removing a filter widens the pool. A fixture figure, but a consistent
+  /* Removing a filter widens the search. A fixture figure, but a consistent
      one: the card, the phases and the results header all read this. */
   const matches = Math.round(TOTAL_MATCHES * (1 + removed.length * 0.62));
 
@@ -186,7 +187,7 @@ function stagesFor({ step, took, ran, matches, criteria, verdicts }: {
     progress: searchDone / 4,
     creep: running && ["brief", "build", "search"].includes(running.id) ? { to: (searchDone + 1) / 4, ms: running.ms } : undefined,
     state: took.search != null ? "done" : step?.kind === "confirm" ? "wait" : "live",
-    note: took.search != null ? `${n} profiles scanned`
+    note: took.search != null ? "Found"
       : step?.kind === "confirm" ? "Waiting for you to run it"
       : running?.id === "brief" ? "Reading your brief"
       : running?.id === "build" || took.build == null ? "Building the search"
@@ -198,7 +199,7 @@ function stagesFor({ step, took, ran, matches, criteria, verdicts }: {
     progress: took.calibrate != null ? 1 : 0,
     creep: running?.id === "calibrate" ? { to: 1, ms: running.ms } : undefined,
     state: took.calibrate != null ? "done" : took.search != null ? "live" : "todo",
-    note: took.calibrate != null ? `${CANDIDATES.length} ranked · best ${PREVIEW_COUNT} picked`
+    note: took.calibrate != null ? "Done"
       : took.search != null ? `Ranking on ${criteria} criteria`
       : "Rank on your criteria",
   };
@@ -212,9 +213,8 @@ function stagesFor({ step, took, ran, matches, criteria, verdicts }: {
     id: "decide",
     progress: called.length / preview.length,
     state: reached ? "done" : atResults ? "wait" : "todo",
-    note: reached ? `${kept} shortlisted · ${preview.length - kept} passed`
-      : atResults ? `${called.length} of ${preview.length} decided, your call`
-      : "Your call on the best fits",
+    /* Nothing is said until it is finished: the count is the header's, once the goal is reached. */
+    note: reached ? "Done" : "",
   };
 
   return {
@@ -311,7 +311,7 @@ export type FixedSearch = {
   criteria: readonly string[];
   /** What the filters come from, after "I've set these Filters …". */
   basis: string;
-  /** In the lede's brackets, e.g. "up to 20 new profiles". Omitted when there is no figure to give. */
+  /** In the lede's brackets, e.g. "up to 20 people". Omitted when there is no figure to give. */
   count: string | null;
   /** A search already ran: the card is its record, with no button. */
   ran: boolean;
@@ -510,12 +510,17 @@ export function SearchCard({
 
 /* ── results ─────────────────────────────────────────────────────────────── */
 
+/** The most fit marks a card shimmers for: the row wraps past this, and nobody needs to see a dozen bars. */
+const MAX_PENDING_FITS = 5;
+
 /** What a connected campaign's results show, in place of the demo's fixtures. */
 export type ResultsData = {
   /** The few to show as cards, best first. */
   candidates: readonly Candidate[];
   /** People nobody has scored yet: their cards show no one-line read and no fit marks. */
   unscored?: ReadonlySet<string>;
+  /** Scores are still arriving: an unscored card shimmers where its line and marks will be, rather than sitting bare. */
+  scoring?: boolean;
   reasons: Readonly<Record<string, string>>;
   /** What the fit marks stand for, and the column heads for them. */
   criteria: readonly string[];
@@ -577,7 +582,12 @@ export function Results({
               onOpen={() => onOpenProfile(c.id)}
               {...(data
                 ? data.unscored?.has(c.id)
-                  ? { reason: "", criteria: [] as readonly string[], short: [] as readonly string[] }
+                  ? {
+                      reason: "",
+                      criteria: [] as readonly string[],
+                      short: [] as readonly string[],
+                      ...(data.scoring ? { pending: { fits: Math.min(data.criteria.length, MAX_PENDING_FITS) } } : {}),
+                    }
                   : { reason: data.reasons[c.id] ?? "", criteria: data.criteria, short: data.short }
                 : {})}
             />
@@ -594,7 +604,7 @@ export function Results({
  * verdict buttons are the only things inside it that do something else.
  */
 export function CandidateCard({
-  c, verdict, onVerdict, onOpen, reason, criteria, short,
+  c, verdict, onVerdict, onOpen, reason, criteria, short, pending,
 }: {
   c: Candidate;
   verdict?: Verdict;
@@ -604,6 +614,8 @@ export function CandidateCard({
   reason?: string;
   criteria?: readonly string[];
   short?: readonly string[];
+  /** The score is on its way: soft bars stand where the line on why and `fits` marks will be. */
+  pending?: { fits: number };
 }) {
   /* A sourced person known only from a search result has no work history yet:
      the card then reads the headline the search gave, and drops the career strip. */
@@ -631,7 +643,12 @@ export function CandidateCard({
       </div>
       {/* One sentence of why, instead of a highlighted paragraph: the rest is
           in the profile, one click away. */}
-      {text && (
+      {pending ? (
+        <div className="src-card-reason is-pending" aria-hidden="true">
+          <Shimmer className="src-shim" w="min(78%, 420px)" h={10} r={5} />
+          <Shimmer className="src-shim is-short" w="min(44%, 240px)" h={10} r={5} />
+        </div>
+      ) : text && (
         <p className="src-card-reason">
           <Sparkle size={13} weight="fill" aria-hidden="true" />
           {text}
@@ -643,6 +660,16 @@ export function CandidateCard({
             {c.totalYears > 0 && <span className="src-card-k">{c.totalYears} yrs</span>}
             {c.jobs.length > 0 && <Career c={c} />}
           </div>
+        )}
+        {pending && pending.fits > 0 && (
+          <ul className="cb-fitrow is-pending" aria-hidden="true">
+            {Array.from({ length: pending.fits }, (_, i) => (
+              <li key={i}>
+                <Shimmer className="src-shim is-dot" circle w={16} h={16} />
+                <Shimmer className="src-shim is-word" w={[44, 58, 36][i % 3]!} h={8} r={4} />
+              </li>
+            ))}
+          </ul>
         )}
         {fit.length > 0 && <FitRow meets={c.meets} {...(criteria ? { criteria, short: short ?? [] } : {})} />}
       </div>

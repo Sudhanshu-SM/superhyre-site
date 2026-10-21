@@ -1,3 +1,4 @@
+import { useMayChangeCampaign } from "./campaignRights";
 import { ArrowRight, Check, CheckCircle, PencilSimple } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError, LIVE, messageOf } from "./api/client";
@@ -5,6 +6,7 @@ import { boardRows } from "./api/campaigns";
 import type { Item, Outcome, Thread } from "./api/outreach";
 import * as out from "./api/outreach";
 import { suppressedNotice } from "./dncView";
+import { helpLinkLabel, helpLinkOf } from "./chatCards";
 import { hueFor } from "./candidateImport";
 import { googleHint, useGoogle } from "./googleSetup";
 import { Avatar } from "./CandidateBits";
@@ -23,6 +25,7 @@ import type { Candidate } from "./sourcing";
 import { CANDIDATES } from "./sourcing";
 import { Staged } from "./Staged";
 import { Loader } from "./components/Loader";
+import { Shimmer, ShimmerRegion } from "./components/Shimmer";
 import { EmptyArt } from "./EmptyArt";
 
 /**
@@ -600,6 +603,8 @@ type Waiting = Pick<ScopePerson, "campaignCandidateId" | "fullName"> & Partial<P
  */
 export function LiveOutreach({ campaign, onGrow = noGrow, hosted }: { campaign: { id: string; name: string } | null; onGrow?: () => void; hosted?: OutreachHost }): JSX.Element {
   const campaignId = campaign?.id ?? null;
+  /* Reading a campaign's emails is for anyone who can see it; writing, approving, sending and logging are the people on it. */
+  const may = useMayChangeCampaign(campaignId);
   const [threads, setThreads] = useState<readonly Thread[] | null>(null);
   /* On the shortlist with an email and no thread yet: who a first draft can go to. */
   const [unreached, setUnreached] = useState<readonly Waiting[]>([]);
@@ -748,6 +753,23 @@ export function LiveOutreach({ campaign, onGrow = noGrow, hosted }: { campaign: 
     mark([id], null);
   };
 
+  /* A failed message is sent again from the same Gmail by whoever approved it: the row says what is happening to it,
+     and, if it is refused again, why, beside it. */
+  const retry = async (i: Item) => {
+    const id = i.message.id;
+    setNote(null);
+    setRowNote((r) => { const n = { ...r }; delete n[id]; return n; });
+    mark([id], "Sending again");
+    try {
+      const r = await out.retry(id);
+      setThreads((cur) => (cur ? out.patchMessage(out.applyScheduled(cur, r.scheduled), id, { error: null }) : cur));
+    } catch (err) {
+      setRowNote((r) => ({ ...r, [id]: messageOf(err) }));
+      if (err instanceof ApiError && err.status === 409) await load();
+    }
+    mark([id], null);
+  };
+
   const logIt = async (i: Item, outcome: Outcome, reply?: string) => {
     setNote(null);
     mark([i.message.id], "Saving");
@@ -783,7 +805,20 @@ export function LiveOutreach({ campaign, onGrow = noGrow, hosted }: { campaign: 
   if (!threads) {
     return (
       <div className="src mo">
-        {failedLoad ? <p className="mo-note">{failedLoad}</p> : <Loader size="md" label={`Loading outreach for ${campaign.name}`} block />}
+        {failedLoad ? <p className="mo-note">{failedLoad}</p> : <ShimmerRegion label={`Loading outreach for ${campaign.name}`}>
+          <section className="mo-card" aria-hidden="true">
+            <div className="mo-card-h"><Shimmer h={13} lh={18} w={96} /><Shimmer h={11} lh={16} w="38%" /></div>
+            <div className="mo-stack">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="mo-draft-h">
+                  <Shimmer circle w={26} h={26} />
+                  <span className="mo-draft-id"><Shimmer h={13} lh={18} w={`${96 + ((i * 29) % 60)}px`} /><Shimmer h={11} lh={16} w={`${120 + ((i * 37) % 70)}px`} /></span>
+                  <Shimmer h={26} w={64} r={8} />
+                </div>
+              ))}
+            </div>
+          </section>
+        </ShimmerRegion>}
         {failedLoad && <div className="mo-acts"><button type="button" className="src-btn is-quiet mo-small" onClick={() => void load()}>Try again</button></div>}
       </div>
     );
@@ -833,11 +868,14 @@ export function LiveOutreach({ campaign, onGrow = noGrow, hosted }: { campaign: 
         </p>
       )}
       {drafts.length > 0 && sending && !note && !askGmail && <p className="mo-note">{sending}</p>}
-      {drafts.length > 0 && (
+      {!may && (drafts.length > 0 || unreached.length > 0) && (
+        <p className="mo-note" role="status">You can read this campaign's emails. The people on it write, approve and send them.</p>
+      )}
+      {may && drafts.length > 0 && (
         <LiveDeck drafts={drafts} busy={busy} onApprove={(ids) => void approve(ids)} onSave={(i, s, b) => void save(i, s, b)}
           onSkip={(i) => setSkipped((s) => new Set(s).add(i.message.id))} />
       )}
-      {unreached.length > 0 && (hosted || drafts.length === 0) ? (
+      {may && unreached.length > 0 && (hosted || drafts.length === 0) ? (
         <section className="mo-card" aria-label={drafts.length > 0 ? "Not drafted yet" : "Drafts"}>
           <div className="mo-card-h"><b>{drafts.length > 0 ? "Not drafted yet" : "Drafts"}</b><span>{hosted ? nameList(unreached.map((c) => c.fullName)) : unreachedLine(unreached.length, noEmail)}</span></div>
           <div className="mo-ready">
@@ -850,7 +888,7 @@ export function LiveOutreach({ campaign, onGrow = noGrow, hosted }: { campaign: 
             </div>
           </div>
         </section>
-      ) : drafts.length === 0 && nothing && !hosted && (
+      ) : may && drafts.length === 0 && nothing && !hosted && (
         <div className="mo-none">
           <EmptyArt name="empty-approvals" size={160} />
           <p className="mo-note">
@@ -923,23 +961,17 @@ export function LiveOutreach({ campaign, onGrow = noGrow, hosted }: { campaign: 
         <section className="mo-card" aria-label="Sent">
           <div className="mo-card-h"><b>Sent</b><span>SuperHyre can't read replies yet, so log what happened</span></div>
           <div className="mo-stack">
-            {sent.map((i) => <SentRow key={i.message.id} item={i} busy={busy[i.message.id]} onLog={(o, reply) => void logIt(i, o, reply)} />)}
+            {sent.map((i) => <SentRow key={i.message.id} item={i} may={may} busy={busy[i.message.id]} onLog={(o, reply) => void logIt(i, o, reply)} />)}
           </div>
         </section>
       )}
 
       {failed.length > 0 && (
         <section className="mo-card" aria-label="Didn't send">
-          <div className="mo-card-h"><b>Didn't go out</b></div>
+          <div className="mo-card-h"><b>Didn't send</b></div>
           <div className="mo-stack">
             {failed.map((i) => (
-              <div key={i.message.id} className="mo-draft-h">
-                <Avatar name={i.thread.candidate.name} hue={hueFor(i.thread.candidate.name)} size={26} />
-                <span className="mo-draft-id">
-                  <b>{i.thread.candidate.name}</b>
-                  <span>{i.message.error === "bounced" ? "Bounced" : i.message.error ?? "Not sent"}</span>
-                </span>
-              </div>
+              <FailedRow key={i.message.id} item={i} may={may} busy={busy[i.message.id]} note={rowNote[i.message.id]} onRetry={() => void retry(i)} />
             ))}
           </div>
         </section>
@@ -1078,7 +1110,30 @@ function LiveEdit({ item, onSave, onCancel }: { item: Item; onSave: (subject: st
   );
 }
 
-function SentRow({ item, busy, onLog }: { item: Item; busy?: string; onLog: (o: Outcome, reply?: string) => void }) {
+/** An email that did not go: who, the plain reason in colour, where the fix is when it is elsewhere, and the way to send it again. */
+export function FailedRow({ item, busy, note, onRetry, may = true }: { item: Item; busy?: string | undefined; note?: string | undefined; onRetry: () => void; may?: boolean }) {
+  const c = item.thread.candidate;
+  /* A reason that was kept is said as it is; none (an older or seeded row) is the plain default, never nothing. */
+  const why = out.plainReason(item.message.error);
+  const help = helpLinkOf(null, why);
+  return (
+    <div className="mo-stack">
+      <div className="mo-draft-h">
+        <Avatar name={c.name} hue={hueFor(c.name)} size={26} />
+        <span className="mo-draft-id"><b>{c.name}</b><span>Didn't send</span></span>
+        {busy
+          ? <span className="mo-foot">{busy}</span>
+          : may && out.canRetry(item.message) && (
+            <button type="button" className="src-btn is-quiet mo-small" onClick={onRetry}>Try again</button>
+          )}
+      </div>
+      <p className="mo-why" role={note ? "alert" : undefined}>{note ?? why}</p>
+      {help && <a className="lt-link" href={help} target="_blank" rel="noreferrer noopener">{helpLinkLabel(help)}</a>}
+    </div>
+  );
+}
+
+function SentRow({ item, busy, onLog, may = true }: { item: Item; busy?: string; may?: boolean; onLog: (o: Outcome, reply?: string) => void }) {
   const [pasting, setPasting] = useState(false);
   const [reply, setReply] = useState("");
   const c = item.thread.candidate;
@@ -1090,7 +1145,7 @@ function SentRow({ item, busy, onLog }: { item: Item; busy?: string; onLog: (o: 
           <b>{c.name}</b>
           <span>{item.message.sentAt ? `Sent ${out.whenLabel(item.message.sentAt).toLowerCase()}` : "Sent"}</span>
         </span>
-        {item.message.outcome ? <span className="mo-foot">{out.OUTCOME_WORDS[item.message.outcome]}</span> : busy ? <span className="mo-foot">{busy}</span> : !pasting && (
+        {item.message.outcome ? <span className="mo-foot">{out.OUTCOME_WORDS[item.message.outcome]}</span> : busy ? <span className="mo-foot">{busy}</span> : may && !pasting && (
           <span className="mo-draft-acts">
             <button type="button" className="src-btn is-quiet mo-small" onClick={() => setPasting(true)}>Replied</button>
             <button type="button" className="src-btn is-quiet mo-small" onClick={() => onLog("no_reply")}>No reply</button>

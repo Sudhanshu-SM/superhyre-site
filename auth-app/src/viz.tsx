@@ -449,7 +449,7 @@ export function Funnel({
             <li key={s.id} className="vz-funnel-pcell">
               {i > 0 && (
                 <span className="vz-funnel-pct">
-                  {s.of > 0 ? Math.round((s.n / s.of) * 100) : 0}%
+                  {s.of > 0 ? Math.min(100, Math.round((s.n / s.of) * 100)) : 0}%
                 </span>
               )}
             </li>
@@ -656,6 +656,16 @@ export function Area({
   /* Before the early return, so the hook count never changes between renders
      of the same component. */
   const [hover, setHover] = useState<number | null>(null);
+  /* The chart's own width, so the date labels thin out before they touch ("Sun 18Wed 21" at 420px). */
+  const chartRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    const el = chartRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => setWidth(Math.round(el.getBoundingClientRect().width)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [data.length < 2]);
 
   if (data.length < 2) return null;
 
@@ -737,9 +747,12 @@ export function Area({
      18/24, and scoped to one campaign 8 -> 0/2/4/6/8. */
   const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => Math.round(top * f)).reverse();
 
+  /* At least 60px between two labels' centres (the widest, "Wed 21" or "21 Sep", is about 42px): a narrow chart shows
+     fewer, never fewer than the two ends. */
+  const shown = width > 0 ? Math.max(2, Math.min(labels, Math.floor((width - GX) / 60) + 1)) : labels;
   const xlabs = [...new Map(
-    Array.from({ length: labels }, (_, k) => k)
-      .map((k) => Math.round((k * (data.length - 1)) / (labels - 1)))
+    Array.from({ length: shown }, (_, k) => k)
+      .map((k) => Math.round((k * (data.length - 1)) / (shown - 1)))
       .map((i) => [i, data[i]?.day ?? ""] as const)
       .filter(([, day]) => day !== ""),
   ).entries()];
@@ -759,6 +772,7 @@ export function Area({
 
   return (
     <div
+      ref={chartRef}
       className="vz-chart"
       style={{ height: h }}
       role="img"

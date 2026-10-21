@@ -1,6 +1,34 @@
 import { ArrowRight, Plus } from "@phosphor-icons/react";
 import type { CampaignRow } from "./campaignsData";
+import { Shimmer, ShimmerRegion } from "./components/Shimmer";
 import "./nocampaign.css";
+
+/** The page while the campaigns load: its own art and heading, the lede and the list's rows as tiles (a name over a line, the arrow's slot). */
+export function NoCampaignGhost(): JSX.Element {
+  return (
+    <div className="con-page nc-page">
+      <ShimmerRegion as="section" label="Loading the campaign" className="nc">
+        <WaitingFolder />
+        <div className="nc-body" aria-hidden="true">
+          <h1 className="nc-h">No campaign selected</h1>
+          <p className="nc-lede"><Shimmer h={13} lh={20} w="min(340px, 80%)" /></p>
+          <ul className="nc-list">
+            {[0, 1, 2].map((i) => (
+              <li key={i}>
+                <div className="nc-row">
+                  <span className="nc-row-main">
+                    <span className="nc-row-name"><Shimmer h={13} lh={20} w={`${130 + ((i * 41) % 80)}px`} /></span>
+                    <span className="nc-row-sub"><Shimmer h={11} lh={20} w={`${180 + ((i * 29) % 90)}px`} /></span>
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </ShimmerRegion>
+    </div>
+  );
+}
 
 /**
  * A campaign page with no campaign chosen. It says so plainly, points at the sidebar

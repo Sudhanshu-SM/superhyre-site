@@ -5,10 +5,10 @@
  * candidate names or half-written campaign.
  *
  * Kept on purpose: an invite link waiting to be accepted, and the interface preferences that are not
- * about anyone (the collapsed sidebar, the board view).
+ * about anyone (the collapsed sidebar, the board view, light or dark).
  */
-const KEEP = new Set(["superhyre.invite", "superhyre.nav.railed", "cw-view"]);
-const MINE = (key: string) => (key.startsWith("sh.") || key.startsWith("sh-") || key.startsWith("superhyre:") || key.startsWith("superhyre.")) && !KEEP.has(key);
+const KEEP = new Set(["superhyre.invite", "superhyre.nav.railed", "cw-view", "superhyre.theme"]);
+const MINE = (key: string) => (key.startsWith("sh.") || key.startsWith("sh-") || key.startsWith("superhyre:") || key.startsWith("superhyre.")) && !KEEP.has(key) && !key.startsWith("superhyre.tour.seen.");
 
 function sweep(store: Storage | null): void {
   if (!store) return;

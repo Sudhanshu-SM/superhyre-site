@@ -1,19 +1,22 @@
+import { TIER_LABEL } from "./chatCards";
 import { PassReasonDialog } from "./PassReason";
 import { PersonSheet } from "./PersonSheet";
+import { CampaignComing, MeetingLinesContext, MeetingNote, PersonMeetings, useMeetingLines } from "./campaignMeetings";
 import { useCampaignCalls } from "./campaignCalls";
 import { useForms, useResponses } from "./formsStore";
 import {
-  ArrowRight, Briefcase, Buildings, CalendarBlank, CaretDown, CaretLeft, CaretRight, CaretUp, CaretUpDown, GithubLogo, Globe, LinkedinLogo, Prohibit, SortAscending, Star, MapPin, FolderOpen, Check, ClipboardText, Clock, Columns, DotsThree, EnvelopeSimple,
-  Fire, FunnelSimple, ListChecks, MagnifyingGlass, NotePencil, PaperPlaneTilt, Phone, Plus, Rows,
+  ArrowRight, Briefcase, Buildings, CalendarBlank, CaretDown, CaretUp, CaretUpDown, GithubLogo, Globe, LinkedinLogo, Prohibit, SortAscending, Star, MapPin, FolderOpen, Check, ClipboardText, Clock, Columns, DotsThree, EnvelopeSimple,
+  Fire, FunnelSimple, Kanban, ListChecks, MagnifyingGlass, NotePencil, PaperPlaneTilt, Phone, Plus, Rows,
   Snowflake, Sparkle, SunDim, X, UsersThree, MinusCircle,
 } from "@phosphor-icons/react";
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
-import type { BoardStage, Call, FormResponse, PipelinePerson, StageId, StatusId } from "./campaign";
-import { BOARD_STATUSES, ME, OUTCOME_LABEL, STAGES, STALL_DAYS, STATUSES, callsFor, durationLabel, formsFor, reachedFrom, responsesFor, statusIdOf, wouldMove } from "./campaign";
+import type { BoardStage, Call, FormResponse, MoveTo, PipelinePerson, StageId, StatusId } from "./campaign";
+import { ME, OUTCOME_LABEL, STAGES, STALL_DAYS, STATUSES, callsFor, durationLabel, formsFor, reachedFrom, responsesFor, statusIdOf, wouldMove } from "./campaign";
 import type { ApiActivity, ApiOverview } from "./api/campaigns";
-import { logLine, reachOf, setStep } from "./api/campaigns";
+import { agoFrom, logLine, reachOf, setStep } from "./api/campaigns";
+import type { ClientVerdict } from "./api/stages";
 import { agentApi } from "./api/agent";
 import { LIVE, messageOf } from "./api/client";
 import { controlAgent } from "./liveAgents";
@@ -22,30 +25,46 @@ import { notContactedYet, shortlistSplit, shortlistTip } from "./shortlistWaitin
 import type { Client, Move } from "./campaignStore";
 import {
   currentUserId, loadOlderActivity, refreshCampaignAgents, useCampaignAgents, movePeople, useActivityHasOlder, movePerson, resolveCampaignId, setCampaignClient, setCampaignStatus, useCampaignActivity, useCampaignOverview, useOverviewFailed, retryOverview,
-  removeFromShortlist, retryPipeline, useCampaignRow, useClients, useMoves, usePipeline, usePipelineFailed, usePipelineReady,
+  onHiredLanded, orgHasEarlierHire, pipelineNow, removeFromShortlist, retryPipeline, saveStages, stagesNow, useCampaignRow, useCampaignStages, useClients, useMoves, usePipeline, usePipelineFailed, usePipelineReady,
 } from "./campaignStore";
+import type { StageDef } from "./boardStages";
+import type { FunnelBar } from "./boardStages";
+import { columnNote, columnsOf, firstNamesOrFull, firstOfKind, funnelBars, isDefaultSet, placeLabel, pipelineStrip, stepChip, groupByStage, isStageMove, kindLabel, stageIdOf, stageNamed, stageOf, stageText, verdictLabel, verdictTone, wouldMoveToStage, workingOf } from "./boardStages";
+import { startEdgeScroll } from "./boardAutoScroll";
+import { StagesDialog } from "./StagesDialog";
+import { ClientBar } from "./ClientBar";
+import { ClosedBar, FilledBar } from "./FilledBar";
+import { LooseEndsNote } from "./TiedBlock";
+import { CloseDialog } from "./CloseDialog";
+import { hiresOf } from "./hired";
 import { AssignDialog, ConfirmDialog, ReopenDialog, YourWorkCard } from "./RoleBits";
-import { mayChangeCampaign } from "./campaignRights";
-import { can, canSetStatus, standingOf, useCan } from "./can";
+import { mayChangeCampaign, mayCloseCampaign, useMayChangeCampaign } from "./campaignRights";
+import { can, standingOf, useCan } from "./can";
 import { isMe, useSession } from "./roleStore";
 import imgHired from "./assets/stages/hired.png";
 import imgInterviewing from "./assets/stages/interviewing.png";
 import imgOutreach from "./assets/stages/outreach.png";
 import imgShortlisted from "./assets/stages/shortlisted.png";
-import type { CampaignRates, CampaignReached, CampaignRow } from "./campaignsData";
-import { pipelineNumbers, repliedTile, shownConversion } from "./pipelineNumbers";
+import type { CampaignRow } from "./campaignsData";
 import { Avatar } from "./CandidateBits";
 import { AgentsPanel, ClosedPanel, HiresCard, OvCard, dMMM, isSent } from "./OverviewPanel";
-import { TasksCard } from "./TasksPanel";
+import { TasksCard, TasksGhost } from "./TasksPanel";
 import { plainText } from "./displayText";
 import { firstHireSeen, rememberFirstHire } from "./firstHireSeen";
-import { Num, Popover, useToast } from "./Contacts";
+import { Popover, useToast } from "./Contacts";
 import { EmptyArt } from "./EmptyArt";
+import { PipelineEmpty } from "./PipelineEmpty";
 import { isFirstHire, listEmptyArt, shortlistEmpty } from "./emptyStates";
+import { asksForStagesEditor, withoutStagesAsk } from "./nav";
 import type { RouteId } from "./nav";
 import type { Brief } from "./orchestrator";
 import { BRIEFS } from "./orchestrator";
-import { Loader } from "./components/Loader";
+import { Shimmer, ShimmerRegion, ShimmerTableRows } from "./components/Shimmer";
+import type { ShimCell } from "./components/Shimmer";
+import { Pager } from "./components/Pager";
+import { useScrollMemory, useSectionSave } from "./sectionMemory";
+import { clampedOffset, hasDeepLink, loadSection, take } from "./sectionState";
+import { PAGER_FOOT, usePageSize } from "./usePageSize";
 import { useWarmup } from "./warmup";
 import { Dialog, LoadFailed } from "./ui";
 import { ClientLogo } from "./ClientLogo";
@@ -55,10 +74,12 @@ import { CampaignExport } from "./FormResponses";
 import { LiveOutreach } from "./Outreach";
 import { ContactSideLine, ContactsMenu, ContactValueCell } from "./ContactsFetch";
 import { SlColumnsMenu, useSlColumns } from "./SlColumns";
-import { statusProps } from "./statusTones";
+import type { SlCol } from "./SlColumns";
+import { toneProps } from "./statusTones";
 import { ClientForm } from "./Clients";
 import { CLIENT_STATUS_LABEL } from "./clients";
 import "./workspace.css";
+import "./boardStages.css";
 
 /* The Sourcing / Outreach "Agents" panel above the Overview is hidden for now (13 Oct: the owner asked for it to go).
    The panel and its data stay, so bringing it back is this one flag. */
@@ -78,8 +99,8 @@ export type Ctx = { campaignId: string; go: (r: RouteId) => void; onAgent: (prom
 
 /* "Open the Pipeline already focused on this stage": set by one page, read
    by the next. */
-let pendingStage: BoardStage | null = null;
-export function openStage(stage: BoardStage, go: (r: RouteId) => void) { pendingStage = stage; go("campaign-candidates"); }
+let pendingStage: string | null = null;
+export function openStage(stage: string, go: (r: RouteId) => void) { pendingStage = stage; go("campaign-candidates"); }
 
 /* "Open the Shortlisted page with the outreach already showing": the Overview's agents panel asks for it. */
 let pendingOutreach = false;
@@ -89,6 +110,19 @@ export function openOutreach(go: (r: RouteId) => void) { pendingOutreach = true;
    (closed, reopened) shows here at once. */
 const useRowFor = (id: string): CampaignRow | undefined => useCampaignRow(id);
 const onBoard = (p: PipelinePerson) => p.stage !== "passed";
+
+/** Whether a move would change anything: by status (a kind, Replied) or into one of the campaign's own stages. */
+function wouldChange(p: PipelinePerson, to: MoveTo, stages: readonly StageDef[]): boolean {
+  if (!isStageMove(to)) return wouldMove(p, to);
+  const st = stageNamed(stages, to.stageId);
+  return !!st && wouldMoveToStage(p, st, stages);
+}
+
+/** The line a move is told in, with the campaign's own name for the stage. */
+function moveLine(first: string, to: MoveTo, stages: readonly StageDef[]): string {
+  const label = isStageMove(to) ? stageNamed(stages, to.stageId)?.name : STATUSES.find((s) => s.id === to)?.label;
+  return `${first} moved to ${label ?? "the new stage"}`;
+}
 
 /* ── shared header ──
    Breadcrumb, title, one quiet line of context, actions. Nothing else: the
@@ -140,7 +174,7 @@ const plural = (n: number, one: string, many = `${one}s`) => (n === 1 ? one : ma
 const sum = (xs: readonly number[]) => xs.reduce((a, b) => a + b, 0);
 const quoteOf = (last: string) => last.replace(/^Replied:\s*/, "");
 const byIn = (a: PipelinePerson, b: PipelinePerson) => a.inStage - b.inStage;
-const pct = (n: number, of: number) => (of > 0 ? Math.round((n / of) * 100) : 0);
+const pct = (n: number, of: number) => (of > 0 ? Math.min(100, Math.round((n / of) * 100)) : 0);
 
 /* Dev-only state previews, so every state can be checked without a backend:
    `?ovfixture=early|zero|closed|new` before the hash. Built from
@@ -217,7 +251,8 @@ type Phase = "closed" | "active";
 const TYPICAL: readonly [number, number] = [18, 24];
 const RANK: Readonly<Record<StageId, number>> = { passed: -1, shortlisted: 0, outreach: 1, interviewing: 2, hired: 3 };
 const names = (ps: readonly PipelinePerson[], n = 3) => {
-  const shown = ps.slice(0, n).map((p) => firstName(p.name));
+  /* First names, unless two of them are the same: then those two are told apart by their full names. */
+  const shown = firstNamesOrFull(ps.slice(0, n).map((p) => p.name));
   return ps.length > n ? `${shown.join(", ")} and ${ps.length - n} more` : shown.join(", ");
 };
 
@@ -416,42 +451,44 @@ function DailyBars({ data }: { data: readonly number[] }) {
   );
 }
 
-/* the funnel: soft columns from everyone found to hired */
-function FunnelBars({ m, onStage }: { m: Model; onStage: (s: BoardStage) => void }) {
-  const r = m.r;
+/* the funnel: one soft column per stage of the campaign, in board order, from the people found to hired */
+function FunnelBars({ m, stages, people, onStage }: { m: Model; stages: readonly StageDef[]; people: readonly PipelinePerson[]; onStage: (s: string) => void }) {
   // The share each step kept of the one before it is the model's (the server's, a part of its whole).
   const share = (n: number, what: string) => (n > 0 ? `${n}% ${what}` : "");
-  const bars = [
-    { key: "found", label: "Found", n: r.found, stage: "shortlisted" as BoardStage, note: "" },
-    { key: "short", label: "Shortlisted", n: r.shortlisted, stage: "shortlisted" as BoardStage, note: share(m.step.kept, "kept") },
-    { key: "out", label: "Contacted", n: r.outreach, stage: "outreach" as BoardStage, note: share(m.step.out, "reached") },
-    { key: "rep", label: "Replied", n: r.replied, stage: "outreach" as BoardStage, note: share(m.step.rep, "replied") },
-    { key: "int", label: "Interviewing", n: r.interviewing, stage: "interviewing" as BoardStage, note: share(m.step.int, "moved on") },
-    { key: "hired", label: "Hired", n: m.hired.length, stage: "hired" as BoardStage, note: "" },
-  ];
-  const tipOf = (k: string) => m.cols.find((c) => c.key === k)?.tip ?? [];
-  const tips: Record<string, readonly string[]> = {
-    found: tipOf("found"), short: tipOf("shortlisted"), out: tipOf("outreach"), rep: tipOf("replied"), int: tipOf("interviewing"),
-    hired: [m.hired.length ? `${m.hired.length} of ${m.target} hired` : "No hires yet"],
+  const bars = funnelBars(stages, people, m.r.found, m.r);
+  /* The step-to-step lines and the hover words sit on the first stage of each kind. */
+  const noteOf = (b: FunnelBar) => (!b.first ? "" : b.kind === "shortlisted" ? share(m.step.kept, "kept") : b.kind === "outreach" ? share(m.step.out, "reached") : b.kind === "interviewing" ? share(m.step.int, "moved on") : "");
+  const tipOf = (b: FunnelBar): readonly string[] => {
+    /* The Overview's own tips speak of kinds ("in interviews"); a campaign with stages of its own hears its stage names instead. */
+    const own = b.first && (b.kind === "found" || isDefaultSet(stages)) ? m.cols.find((c) => c.key === (b.kind === "found" ? "found" : b.kind))?.tip : undefined;
+    if (b.kind === "hired") return [m.hired.length ? `${m.hired.length} of ${m.target} hired` : "No hires yet"];
+    return own ?? [b.n ? `${b.n} ${plural(b.n, "person", "people")} in ${b.label}` : "Nobody here right now"];
   };
   const max = Math.max(1, ...bars.map((b) => b.n));
+  const scroller = useRef<HTMLDivElement>(null);
+  const edges = useScrollEdges(scroller, bars.length);
   return (
-    <div className="ov2-funnel" role="list">
+    <div
+      ref={scroller} className={`ov2-funnel${edges.left ? " has-left" : ""}${edges.right ? " has-right" : ""}`} role="list" tabIndex={0}
+      aria-label="Funnel, scrolls sideways when there are many stages" style={{ ["--n" as string]: bars.length }}
+    >
       {bars.map((b, i) => {
         const h = b.n ? 10 + 90 * Math.sqrt(b.n / max) : 3;
+        const note = noteOf(b);
         return (
           <button
-            key={b.key} type="button" role="listitem" className={`ov2-bar is-${b.key}`} onClick={() => onStage(b.stage)}
+            key={b.key} type="button" role="listitem" className={`ov2-bar ${b.kind === "found" ? "is-found" : "is-stage"}`} {...(b.hue ? { "data-sc": b.hue } : {})}
+            onClick={() => onStage(b.stageId ?? "shortlisted")}
             style={{ ["--h" as string]: `${h}%`, ["--i" as string]: i }}
-            aria-label={`${b.label}: ${b.n}${b.note ? `, ${b.note}` : ""}`}
+            aria-label={`${b.label}: ${b.n}${note ? `, ${note}` : ""}`}
           >
             <span className="ov2-bar-col">
-              <span className="ov2-tip" role="tooltip">{(tips[b.key] ?? []).slice(0, 2).map((t, k) => <span key={k}>{t}</span>)}</span>
-              <span className="ov2-bar-n">{b.key === "hired" ? <>{b.n}<span className="ov2-of">/{m.target}</span></> : b.n}</span>
+              <span className="ov2-tip" role="tooltip">{tipOf(b).slice(0, 2).map((t, k) => <span key={k}>{t}</span>)}</span>
+              <span className="ov2-bar-n">{b.kind === "hired" ? <>{b.n}<span className="ov2-of">/{m.target}</span></> : b.n}</span>
               <i />
             </span>
-            <span {...statusProps(b.label)} className="ov2-bar-l st">{b.label}</span>
-            <span className="ov2-bar-s">{b.note || " "}</span>
+            {b.hue ? <span className="ov2-bar-l sc" data-sc={b.hue}>{b.label}</span> : <span {...toneProps("muted")} className="ov2-bar-l st">{b.label}</span>}
+            <span className="ov2-bar-s">{note || " "}</span>
           </button>
         );
       })}
@@ -471,12 +508,12 @@ type LogLink = "replies" | "forms" | "calls" | "agent" | "pipeline";
 type LogItem = {
   id: string; at: number; who: LogWho; kind: LogKind; actor: string;
   verb: string; person?: { id: string; name: string }; from?: string; to?: string;
-  detail?: string; quote?: string; link?: { label: string; to: LogLink };
+  detail?: string; quote?: string; quoteLabel?: string; link?: { label: string; to: LogLink };
 };
 
 const hashMin = (s: string) => [...s].reduce((a, c) => (a * 33 + c.charCodeAt(0)) >>> 0, 5) % 600;
 const briefMins = (w: string) => (/^(\d+)h$/.test(w) ? +w.slice(0, -1) * 60 : /^(\d+)d$/.test(w) ? +w.slice(0, -1) * 1440 : w === "Yesterday" ? 1440 : 7 * 1440);
-const STAGE_NAME: Readonly<Record<string, string>> = { shortlisted: "Shortlisted", outreach: "In outreach", interviewing: "Interviewing", hired: "Hired", passed: "Passed" };
+const STAGE_NAME: Readonly<Record<string, string>> = { shortlisted: "Shortlisted", outreach: "In outreach", interviewing: "Interviewing", hired: "Hired", passed: "Rejected" };
 
 /* Live: the campaign's own activity log, with a way to each person on the board. */
 function logFromApi(items: readonly ApiActivity[], people: readonly PipelinePerson[]): LogItem[] {
@@ -576,10 +613,10 @@ function ActivityLog({ items, onPerson, onLink }: { items: readonly LogItem[]; o
                           {a.from && <> from <span className="ov3-chip">{a.from}</span></>}
                           {a.to && a.from && <> to <span className={`ov3-chip is-to is-${a.kind}`}>{a.to}</span></>}
                           {a.detail && <span className="ov3-detail">. {a.detail}</span>}
-                          {a.quote && <button type="button" className="ov3-more" onClick={() => setOpenIds((s) => toggle(s, a.id))} aria-expanded={open}>{open ? "Hide" : a.kind === "agent" ? "Brief" : "Message"}<CaretDown size={10} weight="bold" /></button>}
+                          {a.quote && <button type="button" className="ov3-more" onClick={() => setOpenIds((s) => toggle(s, a.id))} aria-expanded={open}>{open ? "Hide" : a.quoteLabel ?? (a.kind === "agent" ? "Brief" : "Message")}<CaretDown size={10} weight="bold" /></button>}
                           {a.link && <button type="button" className="ov3-link" onClick={() => onLink(a.link!.to, a)}>{a.link.label}<ArrowRight size={10} weight="bold" /></button>}
                         </p>
-                        {a.quote && open && <blockquote className="ov3-quote">{a.kind === "reply" ? `“${a.quote}”` : a.quote}</blockquote>}
+                        {a.quote && open && <blockquote className="ov3-quote">{a.kind === "reply" || a.quoteLabel ? `“${a.quote}”` : a.quote}</blockquote>}
                       </div>
                       <time className="ov3-time">{istTime(a.at)}</time>
                     </li>
@@ -654,24 +691,29 @@ export function CampaignOverview({ ctx }: { ctx: Ctx }) {
   const warm = useWarmup();
   const ready = LIVE ? !!ov && !!feed && peopleReady : warm;
 
+  const stages = useCampaignStages(ctx.campaignId);
   const m = overviewModel({ row, people, moves, client, briefs, responses, ...(ov ? { api: ov } : {}) });
   const name = plainText(row?.name) || "this campaign";
   /* The server lets an admin or the campaign's owner change its client; the menu says the same. */
-  const canClient = admin || (LIVE ? isMe(row?.ownerId) : row?.owner === session.name);
+  const canClient = (admin || (LIVE ? isMe(row?.ownerId) : row?.owner === session.name)) && mayChangeCampaign(session, row);
   /* The brief, the role spec and the search are the people on the campaign's; anyone else follows it. */
   const mayChange = mayChangeCampaign(session, row);
   /* Closing and reopening are the owner's or an admin's, the server's own rule. */
-  const mayClose = canSetStatus(session, { ownerId: row?.ownerId }) || (!row?.ownerId && row?.owner === session.name);
+  const mayClose = mayCloseCampaign(session, row);
+  /* Giving a campaign to recruiters is the same: an admin whose team does not have it is not offered it. */
+  const mayAssign = teamwork && mayChange;
   /* Said once the server has answered; a refusal shows its own message and puts the status back. */
-  const setStatus = (to: "active" | "closed", said: string, undo?: () => void) => {
-    void setCampaignStatus(ctx.campaignId, to).then((ok) => { if (ok) toast(said, "done", undo ? { label: "Undo", onClick: undo } : undefined); });
+  const setStatus = (to: "active" | "closed", said: string, undo?: () => void, closeForms = false) => {
+    void setCampaignStatus(ctx.campaignId, to, { closeForms }).then((ok) => { if (ok) toast(said, "done", undo ? { label: "Undo", onClick: undo } : undefined); });
   };
   /* Reopening asks first, like closing; once done it says what happened and offers the way out (Undo closes it again). */
   const reopen = () => setStatus("active", `${name} is active again`, () => setStatus("closed", `${name} closed`));
-  const move = useCallback((p: PipelinePerson, stage: StatusId) => {
-    if (!wouldMove(p, stage) || preview) return;
-    movePerson(ctx.campaignId, p.id, stage);
-    toast(`${firstName(p.name)} moved to ${STATUSES.find((s) => s.id === stage)?.label}`);
+  const move = useCallback((p: PipelinePerson, to: MoveTo) => {
+    const stages = stagesNow(ctx.campaignId);
+    if (!wouldChange(p, to, stages) || preview) return;
+    movePerson(ctx.campaignId, p.id, to);
+    const into = isStageMove(to) ? stageNamed(stages, to.stageId)?.kind : to;
+    if (!(into === "hired" && LIVE)) toast(moveLine(firstName(p.name), to, stages));
   }, [ctx.campaignId, toast, preview]);
   const open = openId ? people.find((p) => p.id === openId) ?? null : null;
 
@@ -742,7 +784,7 @@ export function CampaignOverview({ ctx }: { ctx: Ctx }) {
             {canClient && <button type="button" role="menuitem" className="ct-menu-i" onClick={() => { setMenu(false); setClientOpen(true); }}><Buildings size={15} /> {client ? "Change client" : "Add client"}</button>}
             <button type="button" role="menuitem" className="ct-menu-i" onClick={() => { setMenu(false); ctx.go("campaign-forms"); }}><ClipboardText size={15} /> Screening forms</button>
             {/* Admin only, and absent (not disabled) for a recruiter. */}
-            {teamwork && <button type="button" role="menuitem" className="ct-menu-i" onClick={() => { setMenu(false); setAssignOpen(true); }}><UsersThree size={15} /> Assign recruiters</button>}
+            {mayAssign && <button type="button" role="menuitem" className="ct-menu-i" onClick={() => { setMenu(false); setAssignOpen(true); }}><UsersThree size={15} /> Assign recruiters</button>}
             <button type="button" role="menuitem" className="ct-menu-i" onClick={() => { setMenu(false); ctx.go("campaigns"); }}><FolderOpen size={15} /> All campaigns</button>
           </div>
         </Popover>
@@ -758,25 +800,22 @@ export function CampaignOverview({ ctx }: { ctx: Ctx }) {
       {/* A dialog, not a section: the overview is laid out to fit one screen. */}
       {LIVE && (
         <Dialog open={specOpen} onClose={() => setSpecOpen(false)} label="Role spec" size="md">
-          <div className="ov2-spec"><RoleSpecPanel campaignId={resolveCampaignId(ctx.campaignId)} /></div>
+          <div className="ov2-spec"><RoleSpecPanel campaignId={resolveCampaignId(ctx.campaignId)} onClose={() => setSpecOpen(false)} /></div>
         </Dialog>
       )}
-      {teamwork && <AssignDialog row={baseRow} open={assignOpen} onClose={() => setAssignOpen(false)} />}
-      <ConfirmDialog
+      {mayAssign && <AssignDialog row={baseRow} open={assignOpen} onClose={() => setAssignOpen(false)} />}
+      <CloseDialog
         open={closing}
-        title="Close this campaign?"
         body={<><b>{name}</b> stops here: {m.hired.length} of {m.target} hired. Sourcing and outreach stop, and everyone in the pipeline stays on record. You can reopen it any time.</>}
-        confirm="Close campaign"
-        danger
         onClose={() => setClosing(false)}
-        onConfirm={() => { setClosing(false); setStatus("closed", `${name} closed`); }}
+        onConfirm={(forms) => { setClosing(false); setStatus("closed", `${name} closed`, undefined, forms); }}
       />
       <ReopenDialog open={reopening} name={name} onClose={() => setReopening(false)} onConfirm={() => { setReopening(false); reopen(); }} />
 
 
       {ovFailed ? (
         <LoadFailed what="This overview" onRetry={() => retryOverview(ctx.campaignId)} />
-      ) : !ready ? <Loader size="lg" label="Loading the campaign" block /> : (
+      ) : !ready ? <OverviewGhost admin={session.role === "admin"} /> : (
         <div className="ov4">
           {m.phase === "closed"
             ? <ClosedPanel />
@@ -788,6 +827,8 @@ export function CampaignOverview({ ctx }: { ctx: Ctx }) {
               </div>
               <span className="ov2-aside">Last 14 days</span>
             </header>
+            {/* What is booked and scheduled for this campaign, only when there is something: nothing is reserved for it. */}
+            {LIVE && <CampaignComing campaignId={resolveCampaignId(ctx.campaignId)} />}
             <dl className="ov4-stats">
               {/* This week's movement only. Totals, the reply rate and hires are in the funnel
                   below, and a week that is the whole campaign so far says nothing new. */}
@@ -797,7 +838,7 @@ export function CampaignOverview({ ctx }: { ctx: Ctx }) {
             <div className="ov4-panels">
               <div className="ov4-panel">
                 <h3>Funnel</h3>
-                <FunnelBars m={m} onStage={(st) => openStage(st, ctx.go)} />
+                <FunnelBars m={m} stages={stages} people={people} onStage={(st) => openStage(st, ctx.go)} />
               </div>
               <div className="ov4-panel">
                 <h3>Sourced per day</h3>
@@ -840,8 +881,117 @@ export function CampaignOverview({ ctx }: { ctx: Ctx }) {
           </div>
         </div>
       )}
-      <PersonDialog person={open} onClose={() => setOpenId(null)} onMove={move} />
+      <PersonDialog person={open} onClose={() => setOpenId(null)} onMove={move} campaignId={resolveCampaignId(ctx.campaignId)} locked={!mayChange} />
     </div>
+  );
+}
+
+/**
+ * The Overview while it loads, in the real cards' own classes: the section with its heading and the week's figures,
+ * the funnel and the days beside each other as columns, then the hires (or the person's own work) and tasks over the
+ * activity log. A card's name and a column's label are real words; only the numbers and rows shimmer.
+ */
+function OverviewGhost({ admin }: { admin: boolean }): JSX.Element {
+  const funnel = [100, 74, 52, 34, 18];
+  const days = [30, 52, 40, 66, 48, 22, 18, 58, 72, 44, 60, 36, 80, 54];
+  return (
+    <ShimmerRegion label="Loading the campaign" className="ov4">
+      <section className="ov4-sec" aria-hidden="true">
+        <header className="ov4-sh">
+          <div><h2>Overview</h2></div>
+          <span className="ov2-aside">Last 14 days</span>
+        </header>
+        <dl className="ov4-stats">
+          {[0, 1].map((i) => (
+            <div key={i}><dt><Shimmer h={11} lh={20} w={96 - i * 14} /></dt><dd><Shimmer h={24} lh={32} w={46} r={8} /></dd></div>
+          ))}
+        </dl>
+        <div className="ov4-panels">
+          <div className="ov4-panel">
+            <h3>Funnel</h3>
+            <div className="ov2-funnel" style={{ "--n": funnel.length } as React.CSSProperties}>
+              {funnel.map((h, i) => (
+                <div key={i} className="ov2-bar">
+                  <span className="ov2-bar-col"><Shimmer h={`${h}%`} r="9px 9px 4px 4px" /></span>
+                  <Shimmer h={12} lh={16} w="70%" />
+                  <Shimmer h={10} lh={16} w="46%" />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="ov4-panel">
+            <h3>Sourced per day</h3>
+            <div className="ov4-days">
+              {days.map((h, i) => (
+                <div key={i} className="ov4-day">
+                  <span className="ov4-day-c"><Shimmer h={`${h}%`} r="5px 5px 3px 3px" /></span>
+                  <span className="ov4-day-l" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="ov4-low" aria-hidden="true">
+        <div className="ov4-left">
+          <OvCard title={admin ? "Hires" : "Your work on this campaign"} className="hp">
+            <div className="hp-body">
+              <section className="pb hp-hires">
+                <Shimmer h={10} r={5} style={{ margin: "4px 0 10px" }} />
+                <p className="hp-cap"><Shimmer h={11} lh={20} w="52%" /></p>
+                <ul>
+                  {[0, 1, 2].map((i) => (
+                    <li key={i}>
+                      <div className="pr">
+                        <span className="pr-lead"><Shimmer circle w={28} h={28} /></span>
+                        <span className="pr-t"><Shimmer h={13} lh={20} w={`${58 - i * 8}%`} /><Shimmer h={11} lh={20} w={`${40 + i * 6}%`} /></span>
+                        <Shimmer h={12} w={40} />
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            </div>
+          </OvCard>
+          <OvCard title="Tasks" className="tp">
+            <div className="tp-body">
+              <TasksGhost />
+            </div>
+          </OvCard>
+        </div>
+        <OvCard title="Activity" aside={<span className="ov2-aside">Times in IST</span>} className="ov4-act">
+          <div className="ov3-act">
+            <div className="ov3-bar">
+              <div className="ov3-tabs">
+                {["All", "Team", "Candidates", "Agent"].map((t, i) => (
+                  <button key={t} type="button" disabled tabIndex={-1} className={i === 0 ? "is-on" : ""}>{t}<span><Shimmer h={10} w={12} /></span></button>
+                ))}
+              </div>
+              <div className="ov3-rhythm">
+                {days.map((h, i) => <span key={i} className="shm-col"><Shimmer h={`${h}%`} r={2} /></span>)}
+              </div>
+            </div>
+            <div className="ov3-log">
+              {[3, 2].map((n, d) => (
+                <section key={d} className="ov3-day">
+                  <h3><Shimmer h={11} w={64} /><i /></h3>
+                  <ol>
+                    {Array.from({ length: n }, (_, i) => (
+                      <li key={i}>
+                        <Shimmer circle w={24} h={24} />
+                        <div className="ov3-ev"><p className="ov3-line"><Shimmer h={13} lh={20} w={`${56 + ((i * 17 + d * 9) % 34)}%`} /></p></div>
+                        <Shimmer h={11} lh={20} w={44} />
+                      </li>
+                    ))}
+                  </ol>
+                </section>
+              ))}
+            </div>
+          </div>
+        </OvCard>
+      </div>
+    </ShimmerRegion>
   );
 }
 
@@ -851,7 +1001,9 @@ function ClientDialog({ open, onClose, campaignId, current, clients }: { open: b
   const [mode, setMode] = useState<"pick" | "new">("pick");
   const [q, setQ] = useState("");
   const toast = useToast();
-  useEffect(() => { if (open) { setMode(clients.length ? "pick" : "new"); setQ(""); } }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  /* A client is added by an admin; the owner of a campaign who is a recruiter picks from the ones they can see. */
+  const mayAdd = useCan("client.manage");
+  useEffect(() => { if (open) { setMode(clients.length || !mayAdd ? "pick" : "new"); setQ(""); } }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   /* Said once the server has answered: a refusal puts the client back and says why. */
   const pick = (c: Client) => { void setCampaignClient(campaignId, c.id).then((ok) => { if (ok) toast(`${c.name} is now the client`); }); onClose(); };
   /* Active first, then prospects, then inactive; the current one leads. */
@@ -870,7 +1022,7 @@ function ClientDialog({ open, onClose, campaignId, current, clients }: { open: b
         </header>
         <div className="cl-tabs" role="tablist">
           <button type="button" role="tab" aria-selected={mode === "pick"} className={mode === "pick" ? "is-on" : ""} onClick={() => setMode("pick")} disabled={!clients.length}>Existing client</button>
-          <button type="button" role="tab" aria-selected={mode === "new"} className={mode === "new" ? "is-on" : ""} onClick={() => setMode("new")}><Plus size={12} weight="bold" /> New client</button>
+          {mayAdd && <button type="button" role="tab" aria-selected={mode === "new"} className={mode === "new" ? "is-on" : ""} onClick={() => setMode("new")}><Plus size={12} weight="bold" /> New client</button>}
         </div>
         {mode === "pick" ? (
           <>
@@ -893,7 +1045,7 @@ function ClientDialog({ open, onClose, campaignId, current, clients }: { open: b
                   </button>
                 </li>
               ))}
-              {!list.length && <li className="cl-none t-body-sm">No client matches “{q.trim()}”.</li>}
+              {!list.length && <li className="cl-none t-body-sm">{clients.length ? <>No client matches “{q.trim()}”.</> : "There are no clients to choose from yet. An admin adds clients."}</li>}
               {current && (
                 <li><button type="button" className="cl-remove" onClick={() => { void setCampaignClient(campaignId, null).then((ok) => { if (ok) toast("Client removed"); }); onClose(); }}>Remove client from this campaign</button></li>
               )}
@@ -923,27 +1075,88 @@ const ARRIVAL: Readonly<Record<string, (first: string) => string>> = {
   outreach: (f) => `${f} moved to outreach`,
   replied: (f) => `${f} has replied`,
   interviewing: (f) => `${f} is interviewing`,
-  hired: (f) => `${f} accepted the offer!`,
+  hired: (f) => `${f} is hired`,
 };
+
+/* Where the person left this campaign's board in this tab: the search, the filters and the column looked at alone. A
+   link that names a column (the Overview's funnel) starts from that; an owner, source or column that is not on the
+   board now is dropped once the board is in. */
+type BoardRemembered = { q: string; owner: string | null; source: string | null; stalled: boolean; focus: string | null };
+const BOARD_NOTHING: BoardRemembered = { q: "", owner: null, source: null, stalled: false, focus: null };
+export function readBoardRemembered(r: Record<string, unknown>): BoardRemembered {
+  return {
+    q: take.str(r.q, "", 100), owner: take.str(r.owner, "", 120) || null, source: take.str(r.source, "", 120) || null,
+    stalled: take.bool(r.stalled), focus: take.str(r.focus, "", 120) || null,
+  };
+}
 
 export function CampaignCandidates({ ctx }: { ctx: Ctx }) {
   const row = useRowFor(ctx.campaignId);
   const people = usePipeline(ctx.campaignId);
+  /* "Interview Tue 3 pm" on each person's card: one read for the campaign, not one per card. */
+  const meetingLines = useMeetingLines(resolveCampaignId(ctx.campaignId), LIVE);
   const ready = usePipelineReady(ctx.campaignId);
   const failed = usePipelineFailed(ctx.campaignId);
   const live = people.filter(onBoard);
+  /* The campaign's own columns, and how many people are in each (everyone on the board, searched for or not). */
+  const stages = useCampaignStages(ctx.campaignId);
+  const mayChange = useMayChangeCampaign(ctx.campaignId);
+  /* A closed campaign's board is read-only: nothing is dragged, added, moved or sent from it until it is reopened. */
+  const closed = row?.status === "closed";
+  /* Seeing a campaign is reading it: the board, the table and a person's sheet change only for who may change it (the server's `canManage`). */
+  const locked = closed || !mayChange;
+  const [stagesOpen, setStagesOpen] = useState(false);
+  /* A link that asks for the Stages editor (the agent's "Open Stages" button) opens it once, for who may change the stages. */
+  useEffect(() => {
+    if (!mayChange) return;
+    const open = () => {
+      if (!asksForStagesEditor(window.location.hash)) return;
+      setStagesOpen(true);
+      history.replaceState(null, "", withoutStagesAsk(window.location.hash));
+    };
+    open();
+    window.addEventListener("hashchange", open);
+    return () => window.removeEventListener("hashchange", open);
+  }, [mayChange]);
+  const counts = useMemo(() => {
+    const by = groupByStage(people.filter(onBoard), stages);
+    return Object.fromEntries([...by].map(([id, list]) => [id, list.length]));
+  }, [people, stages]);
   const [view, setView] = useState<View>(() => (localStore("cw-view") as View) ?? "board");
-  const [q, setQ] = useState("");
-  const [owner, setOwner] = useState<string | null>(null);
-  const [source, setSource] = useState<string | null>(null);
-  const [onlyStalled, setOnlyStalled] = useState(false);
-  const [focus, setFocus] = useState<BoardStage | null>(() => pendingStage);
+  const section = `board:${resolveCampaignId(ctx.campaignId)}`;
+  const [deep] = useState(() => !!pendingStage || hasDeepLink());
+  const [start] = useState<BoardRemembered>(() => (deep ? BOARD_NOTHING : loadSection(section, readBoardRemembered, BOARD_NOTHING)));
+  const [q, setQ] = useState(start.q);
+  const [owner, setOwner] = useState<string | null>(start.owner);
+  const [source, setSource] = useState<string | null>(start.source);
+  const [onlyStalled, setOnlyStalled] = useState(start.stalled);
+  useEffect(() => {
+    if (!ready) return;
+    if (owner && !live.some((p) => p.owner === owner)) setOwner(null);
+    if (source && !live.some((p) => p.source === source)) setSource(null);
+  }, [ready, live, owner, source]);
+  useSectionSave(section, { q, owner, source, stalled: onlyStalled, focus: null }, ready);
+  useScrollMemory(section, ready, !deep);
   useEffect(() => { pendingStage = null; }, []);
   const [openId, setOpenId] = useState<string | null>(null);
   const [burst, setBurst] = useState<string | null>(null);
   const [passedOpen, setPassedOpen] = useState(false);
   const [firstHire, setFirstHire] = useState<PipelinePerson | null>(null);
   const toast = useToast();
+
+  /* Someone really was hired here (the server said yes): the card celebrates, once, and the first hire is a milestone. */
+  useEffect(() => onHiredLanded(({ campaignId, ccId }) => {
+    const cid = resolveCampaignId(ctx.campaignId);
+    if (campaignId !== cid) return;
+    const now = pipelineNow(ctx.campaignId);
+    const hired = now.find((x) => x.id === ccId);
+    if (!hired) return;
+    setBurst(ccId);
+    window.setTimeout(() => setBurst(null), 1400);
+    /* The person's sheet hands over first: the dialog would otherwise open behind its scrim, out of reach. */
+    /* The first hire is the organisation's: with a hire anywhere before, it is a quiet line (the toast), not a celebration. */
+    if (!now.some((q) => q.stage === "hired" && q.id !== ccId) && !orgHasEarlierHire(cid) && !firstHireSeen(cid)) { rememberFirstHire(cid); setOpenId(null); setFirstHire(hired); }
+  }), [ctx.campaignId]);
 
   useEffect(() => { try { localStorage.setItem("cw-view", view); } catch { /* per-viewer convenience only */ } }, [view]);
 
@@ -960,24 +1173,30 @@ export function CampaignCandidates({ ctx }: { ctx: Ctx }) {
 
   /* Passing asks why first (optional); every other move happens at once. */
   const [passing, setPassing] = useState<PipelinePerson | null>(null);
-  const move = useCallback((p: PipelinePerson, stage: StatusId, reason?: string, asked = false) => {
-    if (!wouldMove(p, stage)) return 0;
-    if (stage === "passed" && LIVE && !asked) {
+  const move = useCallback((p: PipelinePerson, to: MoveTo, reason?: string, asked = false) => {
+    const all = stagesNow(ctx.campaignId);
+    if (!wouldChange(p, to, all)) return 0;
+    const target = isStageMove(to) ? stageNamed(all, to.stageId) : undefined;
+    const kind: StatusId = target ? target.kind : (to as StatusId);
+    if (kind === "passed" && LIVE && !asked) {
       setPassing(p);
       return 0;
     }
-    const firstEver = isFirstHire(people, p, stage);
-    movePerson(ctx.campaignId, p.id, stage, reason);
+    /* Into Hired the server decides (it may ask first): nothing is celebrated here, the store tells us when it is true. */
+    if (kind === "hired" && LIVE) { movePerson(ctx.campaignId, p.id, to, reason); return 0; }
+    const firstEver = isFirstHire(people, p, kind);
+    movePerson(ctx.campaignId, p.id, to, reason);
     const first = p.name.split(" ")[0]!;
-    const say = ARRIVAL[stage];
-    if (stage !== "hired") toast(stage === "passed" ? `Passed on ${first}. You can bring them back any time.` : say ? say(first) : `${first} moved to ${STATUSES.find((s) => s.id === stage)?.label}`);
-    if (stage === "hired") {
+    /* Into one of the campaign's own stages the line uses its name; by status it uses the console's words. */
+    const say = target ? (f: string) => `${f} moved to ${target.name}` : ARRIVAL[kind];
+    if (kind !== "hired") toast(kind === "passed" ? `Rejected ${first}. You can bring them back any time.` : say ? say(first) : `${first} moved to ${STATUSES.find((s) => s.id === kind)?.label}`);
+    if (kind === "hired") {
       setBurst(p.id);
       window.setTimeout(() => setBurst(null), 1400);
       /* The campaign's first hire is a milestone, said once in a dialog (once per campaign, even if
          they are moved back and hired again); every later one is a toast. */
       const cid = resolveCampaignId(ctx.campaignId);
-      if (firstEver && !firstHireSeen(cid)) { rememberFirstHire(cid); setFirstHire(p); } else toast(`${first} accepted the offer!`);
+      if (firstEver && !orgHasEarlierHire(cid) && !firstHireSeen(cid)) { rememberFirstHire(cid); setOpenId(null); setFirstHire(p); } else toast(`${first} is hired`);
     }
     return 0;
   }, [ctx.campaignId, toast, people]);
@@ -1005,10 +1224,13 @@ export function CampaignCandidates({ ctx }: { ctx: Ctx }) {
   return (
     <div className="cw is-wide pl">
       <CampaignHeader ctx={ctx} title="Pipeline">
+        {mayChange && <button type="button" className="cw-btn" onClick={() => setStagesOpen(true)}><Kanban size={14} /> Stages</button>}
         {LIVE && row && <CampaignExport campaignId={resolveCampaignId(ctx.campaignId)} campaignName={row.name} kind="pipeline" />}
       </CampaignHeader>
       {/* Counts from a failed load would read as real zeros; the error below says what happened. */}
-      {!failed && <PipelineStats people={people} reach={row?.reached} rates={row?.rates} onPassed={() => setPassedOpen(true)} />}
+      {!failed && <PipelineStats people={people} stages={stages} hires={hiresOf(row, people)} onPassed={() => setPassedOpen(true)} />}
+      {!failed && ready && <FilledBar campaignId={ctx.campaignId} people={people} />}
+      {!failed && ready && <ClosedBar campaignId={ctx.campaignId} />}
 
       <div className="pl-bar">
         <div className="cw-seg" role="tablist" aria-label="View">
@@ -1027,13 +1249,13 @@ export function CampaignCandidates({ ctx }: { ctx: Ctx }) {
           stalled={onlyStalled} onStalled={setOnlyStalled}
           onClear={() => { setOwner(null); setSource(null); setOnlyStalled(false); }}
         />
-        {focus && <button type="button" className="cw-link" onClick={() => setFocus(null)}>Show all stages</button>}
       </div>
+      {!failed && ready && <ClientBar campaignId={ctx.campaignId} stages={stages} people={live} mayChange={mayChange && !closed} />}
 
-      {!ready ? <Loader size="lg" label="Loading people" block /> : failed ? (
+      {!ready ? (view === "board" ? <BoardGhost stages={stages} /> : <TableGhost />) : failed ? (
         <LoadFailed what="This pipeline" onRetry={() => retryPipeline(ctx.campaignId)} />
       ) : live.length === 0 ? (
-        <Empty title="No one here yet" body="Shortlist people from Candidates or let the agent run a search, and they land on this board." cta="Brief the agent" onCta={() => ctx.onAgent()} />
+        <PipelineEmpty campaignId={resolveCampaignId(ctx.campaignId)} name={row?.name ?? "this campaign"} onAgent={ctx.onAgent} />
       ) : !shown.length && narrowed ? (
         /* A search or a filter that hides everyone is not an empty pipeline: say so, and the way back. */
         <div className="cw-empty pl-nomatch">
@@ -1044,20 +1266,31 @@ export function CampaignCandidates({ ctx }: { ctx: Ctx }) {
         </div>
       ) : view === "board" ? (
         <OfferContext.Provider value={LIVE ? offer : null}>
-          <Board people={shown} focus={focus} onFocus={setFocus} onMove={move} onOpen={setOpenId} burst={burst} onAdd={() => ctx.go("contacts")} narrowed={narrowed} hiredAll={hiredAll} />
+          <MeetingLinesContext.Provider value={meetingLines}>
+            <Board readOnly={locked} people={shown} stages={stages} onMove={move} onOpen={setOpenId} burst={burst} onAdd={() => ctx.go("contacts")} narrowed={narrowed} hiredAll={hiredAll} />
+          </MeetingLinesContext.Provider>
         </OfferContext.Provider>
       ) : (
         <OfferContext.Provider value={LIVE ? offer : null}>
-          <Table people={shown} focus={focus} onOpen={setOpenId} onMove={move} />
+          <MeetingLinesContext.Provider value={meetingLines}>
+            <Table readOnly={locked} people={shown} stages={stages} onOpen={setOpenId} onMove={move} />
+          </MeetingLinesContext.Provider>
         </OfferContext.Provider>
       )}
 
 
-      <PassedDialog open={passedOpen} onClose={() => setPassedOpen(false)} people={people.filter((p) => p.stage === "passed")} onBack={(p) => move(p, "shortlisted")} />
+      <PassedDialog open={passedOpen} onClose={() => setPassedOpen(false)} people={people.filter((p) => p.stage === "passed")} onBack={(p) => { const first = workingOf(stages)[0]; move(p, first ? { stageId: first.id } : "shortlisted"); }} />
       <FirstHireDialog person={firstHire} onClose={() => setFirstHire(null)} />
-      <PersonDialog person={open} onClose={() => setOpenId(null)} onMove={(p, s) => move(p, s)} />
+      <PersonDialog person={open} onClose={() => setOpenId(null)} onMove={(p, to) => move(p, to)} campaignId={resolveCampaignId(ctx.campaignId)} locked={locked} />
+      {mayChange && (
+        <StagesDialog
+          open={stagesOpen} onClose={() => setStagesOpen(false)} stages={stages} counts={counts}
+          onSave={(rows, moveTo) => saveStages(ctx.campaignId, rows, moveTo).then((ok) => { if (ok) toast("Stages saved"); return ok; })}
+        />
+      )}
       <PassReasonDialog
         who={passing ? passing.name.split(" ")[0]! : null}
+        note={<LooseEndsNote on={!!passing} campaignId={ctx.campaignId} ccIds={passing ? [passing.id] : []} to="passed" />}
         onClose={() => setPassing(null)}
         onPass={(reason) => { const p = passing; setPassing(null); if (p) move(p, "passed", reason, true); }}
       />
@@ -1065,54 +1298,26 @@ export function CampaignCandidates({ ctx }: { ctx: Ctx }) {
   );
 }
 
-/* The journey strip: one track split by stage, sized by how many people
-   are at each step, with the step-to-step conversion between them. It reads
-   the pipeline's shape at a glance and spans the page, so the header is
-   balanced instead of a short row of numbers and empty space. */
-/* What a step's chip says it is a share of, so the same figure reads the same on every page. */
-const CONV_TITLE: Readonly<Record<string, (pct: number) => string>> = {
-  outreach: (p) => `${p}% of the shortlist was contacted`,
-  interviewing: (p) => `${p}% of the people contacted moved to interviews`,
-  hired: (p) => `${p}% of the people who interviewed were hired`,
-};
-
-function PipelineStats({ people, reach, rates, onPassed }: {
-  people: readonly PipelinePerson[]; reach?: CampaignReached | undefined; rates?: CampaignRates | undefined; onPassed: () => void;
-}) {
-  const n = (s: StageId) => people.filter((p) => p.stage === s).length;
-  const { contacted, replied, repliedPct: rate, conv: convs } = pipelineNumbers(people, reach, rates);
-  const replyTile = repliedTile({ contacted, replied, repliedPct: rate });
-  const offers = people.filter((p) => p.step === "offer").length;
-  const passed = n("passed");
+/* The strip over the board: one slim bar, a segment per stage, and one quiet line. */
+function PipelineStats({ people, stages, hires, onPassed }: { people: readonly PipelinePerson[]; stages: readonly StageDef[]; hires: { count: number; target: number | null }; onPassed: () => void }) {
+  /* A slim bar, one segment per stage in its colour, and one quiet line. A stage's name and count show on hover or focus. */
+  const { segments, inPipeline, passed, line } = pipelineStrip(stages, people, hires);
   return (
     <section className="pl-journey" aria-label="Pipeline at a glance">
-      <div className="pl-jmain">
-        <div className="pl-jtrack" aria-hidden="true">
-          {STAGES.map((s, i) => (
-            <span key={s.id} className={`pl-jseg is-${s.id}`} style={{ flexGrow: n(s.id) + 3, animationDelay: `${i * 90}ms` }} />
-          ))}
-        </div>
-        <ol className="pl-jsteps">
-          {STAGES.map((s, i) => {
-            const conv = i > 0 ? shownConversion(convs[s.id as keyof typeof convs] ?? null, n(s.id)) : null;
-            return (
-              <li key={s.id} className={`is-${s.id}`}>
-                {conv !== null && <span className="pl-jconv" title={CONV_TITLE[s.id]?.(conv) ?? `${conv}% of people moved on from ${STAGES[i - 1]!.label.toLowerCase()}`}><ArrowRight size={9} weight="bold" />{conv}%</span>}
-                <img src={STAGE_IMG[s.id]} alt="" width={16} height={16} />
-                <span {...statusProps(s.label)} className="pl-jlabel st">{s.label}</span>
-                <strong className="pl-jn"><Num n={n(s.id)} /></strong>
-              </li>
-            );
-          })}
-        </ol>
+      <div className={`pl-jtrack${inPipeline === 0 ? " is-empty" : ""}`} role="list">
+        {segments.map((g, i) => (
+          <span
+            key={g.id} role="listitem" tabIndex={0} data-sc={g.hue} className={`pl-jseg${g.n === 0 ? " is-none" : ""}`}
+            style={{ flexGrow: g.n, animationDelay: `${i * 60}ms` }} aria-label={`${g.name}: ${g.n}`}
+          >
+            <span className="pl-jtip" role="tooltip"><span className="sc" data-sc={g.hue}>{g.name}</span> {g.n}</span>
+          </span>
+        ))}
       </div>
-      <dl className="pl-jside">
-        <div><dt>Replied</dt><dd><strong className="ct-num">{replyTile.figure}</strong><small>{replyTile.sub}</small></dd></div>
-        <div><dt>Offers out</dt><dd><Num n={offers} /></dd></div>
-        <button type="button" className="pl-jpassed" onClick={onPassed} title="See the people you passed">
-          <dt>Passed</dt><dd><Num n={passed} /><ArrowRight size={12} weight="bold" /></dd>
-        </button>
-      </dl>
+      <p className="pl-jline t-body-sm">
+        {line}
+        {passed > 0 && <> · <button type="button" className="cw-link" onClick={onPassed} title="See the people you rejected">{passed} rejected</button></>}
+      </p>
     </section>
   );
 }
@@ -1161,7 +1366,7 @@ function FirstHireDialog({ person, onClose }: { person: PipelinePerson | null; o
       <div className="pl-first">
         <EmptyArt name="moment-first-hire" size={160} />
         <h2>{first} is your first hire</h2>
-        <p>Their offer is accepted and they are on the Hired list. Well done.</p>
+        <p>They are hired and on the Hired list. Well done.</p>
         <button type="button" className="cw-btn is-primary" onClick={onClose}>Done</button>
       </div>
     </Dialog>
@@ -1170,12 +1375,12 @@ function FirstHireDialog({ person, onClose }: { person: PipelinePerson | null; o
 
 function PassedDialog({ open, onClose, people, onBack }: { open: boolean; onClose: () => void; people: readonly PipelinePerson[]; onBack: (p: PipelinePerson) => void }) {
   return (
-    <Dialog open={open} onClose={onClose} label="People you passed" size="md">
+    <Dialog open={open} onClose={onClose} label="People you rejected" size="md">
       <div className={`pl-pass${people.length ? "" : " is-none"}`}>
         {!people.length && <EmptyArt name="empty-passed" size={180} />}
         <header>
-          <h2>Passed</h2>
-          <p>{people.length ? `${people.length} ${people.length === 1 ? "person" : "people"} you decided not to move forward with. Bring anyone back to the shortlist if things change.` : "No one yet. People you pass are kept here."}</p>
+          <h2>Rejected</h2>
+          <p>{people.length ? `${people.length} ${people.length === 1 ? "person" : "people"} you decided not to move forward with. Bring anyone back to the shortlist if things change.` : "No one yet. People you reject are kept here."}</p>
         </header>
         <ul>
           {people.map((p) => (
@@ -1206,22 +1411,28 @@ function localStore(key: string): string | null {
    direction of travel like a held object; the column under it opens a
    landing slot and its icon hops; on release the card lands with a small
    squash-and-bounce, or springs back home if it was dropped nowhere. A
-   full-width bin under the board takes anyone you pass on, at any stage. */
+   full-width bin under the board takes anyone you reject, at any stage. */
 
 type Drag = {
   p: PipelinePerson;
   x: number; y: number; offX: number; offY: number; w: number;
   homeX: number; homeY: number;
   tilt: number;
-  over: BoardStage | "trash" | null;
+  /** The stage under the card (its id), the bin, or nothing. */
+  over: string | "trash" | null;
   phase: "move" | "drop" | "home" | "trash";
 };
 
-function Board({ people, focus, onFocus, onMove, onOpen, burst, onAdd, narrowed = false, hiredAll = 0 }: {
+/** The most columns the board shows at once; the rest scroll sideways. */
+const COLUMNS_SHOWN = 5;
+
+function Board({ readOnly = false, people, stages, onMove, onOpen, burst, onAdd, narrowed = false, hiredAll = 0 }: {
   people: readonly PipelinePerson[];
-  focus: BoardStage | null;
-  onFocus: (s: BoardStage | null) => void;
-  onMove: (p: PipelinePerson, s: StatusId) => number;
+  /** A closed campaign: people can be opened but not dragged, moved or added. */
+  readOnly?: boolean;
+  /** The campaign's stages: the working ones, then Hired and Rejected. */
+  stages: readonly StageDef[];
+  onMove: (p: PipelinePerson, to: MoveTo) => number;
   onOpen: (id: string) => void;
   burst: string | null;
   onAdd: () => void;
@@ -1234,13 +1445,23 @@ function Board({ people, focus, onFocus, onMove, onOpen, burst, onAdd, narrowed 
   const [drag, setDrag] = useState<Drag | null>(null);
   const [gulp, setGulp] = useState(0);
   const dragRef = useRef<Drag | null>(null);
-  const stages = focus ? STAGES.filter((s) => s.id === focus) : STAGES;
+  const colsRef = useRef<HTMLDivElement>(null);
+  const columns = columnsOf(stages);
+  /* Every stage of the campaign is a column, each a normal width (boardStages.css); the room left over stays empty. */
+  const shownCols = columns;
+  const by = useMemo(() => groupByStage(people, stages), [people, stages]);
+  /* Add people sits on the first stage that counts as the shortlist. */
+  const addAt = (firstOfKind(columns, "shortlisted") ?? columns[0])?.id;
+  const edges = useScrollEdges(colsRef, shownCols.length);
 
-  const land = (p: PipelinePerson, st: StatusId) => {
-    if (!wouldMove(p, st)) return;
-    onMove(p, st);
-    if (st !== "passed") {
-      setArrived({ id: p.id, stage: st });
+  const land = (p: PipelinePerson, to: MoveTo) => {
+    const at = isStageMove(to) ? stageNamed(stages, to.stageId) : undefined;
+    if (isStageMove(to) ? !at || !wouldMoveToStage(p, at, stages) : !wouldMove(p, to)) return;
+    onMove(p, to);
+    const kind = at ? at.kind : (to as StatusId);
+    /* Into Hired the card moves only once the server says so, so it does not arrive here. */
+    if (kind !== "passed" && !(kind === "hired" && LIVE)) {
+      setArrived({ id: p.id, stage: kind });
       window.setTimeout(() => setArrived((a) => (a?.id === p.id ? null : a)), 1400);
     }
   };
@@ -1249,6 +1470,7 @@ function Board({ people, focus, onFocus, onMove, onOpen, burst, onAdd, narrowed 
 
   const begin = (p: PipelinePerson, e: React.PointerEvent<HTMLElement>) => {
     if (e.button !== 0 || (e.target as HTMLElement).closest("button, a")) return;
+    if (readOnly) { onOpen(p.id); return; }
     /* Without this the browser may start selecting text or dragging an image or link on
        the card before our 5px threshold, and then never reports the move: the drag was
        lost, most often the first one on a fresh page. Opening still works: a press that
@@ -1259,35 +1481,68 @@ function Board({ people, focus, onFocus, onMove, onOpen, burst, onAdd, narrowed 
     const sx = e.clientX, sy = e.clientY;
     let started = false;
     let lastX = sx;
+    /* Where the pointer is, for the edge scroll; null once it has left the window. */
+    let at: { x: number; y: number } | null = { x: sx, y: sy };
+    let stopScroll: (() => void) | null = null;
+
+    const overAt = (x: number, y: number): Drag["over"] =>
+      (document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-drop]")?.dataset.drop as Drag["over"]) ?? null;
 
     const moveH = (ev: PointerEvent) => {
+      at = { x: ev.clientX, y: ev.clientY };
       if (!started) {
         if (Math.hypot(ev.clientX - sx, ev.clientY - sy) < 5) return;
         started = true;
         document.body.classList.add("is-dragging-card");
         set({ p, x: ev.clientX, y: ev.clientY, offX: sx - r.left, offY: sy - r.top, w: r.width, homeX: r.left, homeY: r.top, tilt: 0, over: null, phase: "move" });
+        /* Holding the card near the side of the board scrolls it that way, faster the nearer the edge. */
+        const scroller = colsRef.current;
+        if (scroller) {
+          stopScroll = startEdgeScroll({
+            box: () => scroller.getBoundingClientRect(),
+            pointer: () => at,
+            position: () => ({ left: scroller.scrollLeft, max: scroller.scrollWidth - scroller.clientWidth }),
+            scrollTo: (left) => { scroller.scrollLeft = left; },
+            /* The board moved under a pointer that did not: what is under it has changed. */
+            moved: () => { const d = dragRef.current; if (d && at && d.phase === "move") set({ ...d, over: overAt(at.x, at.y) }); },
+            frames: { request: (cb) => window.requestAnimationFrame(cb), cancel: (id) => window.cancelAnimationFrame(id) },
+          });
+        }
       }
       const d = dragRef.current!;
       const vx = ev.clientX - lastX;
       lastX = ev.clientX;
       const tilt = Math.max(-9, Math.min(9, d.tilt * 0.7 + vx * 0.9));
-      const hit = document.elementFromPoint(ev.clientX, ev.clientY)?.closest<HTMLElement>("[data-drop]");
-      const over = (hit?.dataset.drop as Drag["over"]) ?? null;
-      set({ ...d, x: ev.clientX, y: ev.clientY, tilt, over });
+      set({ ...d, x: ev.clientX, y: ev.clientY, tilt, over: overAt(ev.clientX, ev.clientY) });
     };
-    /* The browser took the pointer away (a scroll, a system gesture): put the card back. */
-    const cancelH = () => {
+    /* Everything a drag listens to, and the edge scroll, let go in one place. */
+    const cleanup = () => {
       window.removeEventListener("pointermove", moveH);
       window.removeEventListener("pointerup", upH);
       window.removeEventListener("pointercancel", cancelH);
+      window.removeEventListener("keydown", keyH);
+      window.removeEventListener("blur", leaveH);
+      document.documentElement.removeEventListener("pointerleave", leaveH);
       document.body.classList.remove("is-dragging-card");
-      set(null);
+      stopScroll?.();
+      stopScroll = null;
+    };
+    /* The pointer left the window: the board stops scrolling until it is back. */
+    const leaveH = () => { at = null; };
+    /* The browser took the pointer away (a scroll, a system gesture): put the card back. */
+    const cancelH = () => { cleanup(); set(null); };
+    /* Escape lets go of the card where it was picked up: it glides home, nothing moves. */
+    const keyH = (ev: KeyboardEvent) => {
+      if (ev.key !== "Escape") return;
+      cleanup();
+      const d = dragRef.current;
+      if (!started || !d) return;
+      ev.stopPropagation();
+      set({ ...d, phase: "home", tilt: 0, over: null, x: d.homeX + d.offX, y: d.homeY + d.offY });
+      window.setTimeout(() => set(null), 340);
     };
     const upH = () => {
-      window.removeEventListener("pointermove", moveH);
-      window.removeEventListener("pointerup", upH);
-      window.removeEventListener("pointercancel", cancelH);
-      document.body.classList.remove("is-dragging-card");
+      cleanup();
       const d = dragRef.current;
       if (!started || !d) { onOpen(p.id); return; }
       if (d.over === "trash") {
@@ -1295,13 +1550,13 @@ function Board({ people, focus, onFocus, onMove, onOpen, burst, onAdd, narrowed 
         set({ ...d, phase: "trash", tilt: 0, ...(can ? { x: can.left + can.width / 2 + d.offX - d.w / 2, y: can.top + can.height / 2 } : {}) });
         setGulp((g) => g + 1);
         window.setTimeout(() => { land(p, "passed"); set(null); }, 380);
-      } else if (d.over && d.over !== p.stage) {
+      } else if (d.over && d.over !== stageIdOf(p, stages)) {
         /* Fly into the landing slot, then commit: the card settles exactly
            where it will live, at the top of the column. */
-        const slot = document.querySelector<HTMLElement>(`.cw-col.is-${d.over} .pl-slot`);
+        const slot = document.querySelector<HTMLElement>(`.cw-col[data-drop="${d.over}"] .pl-slot`);
         const r2 = slot?.getBoundingClientRect();
         set({ ...d, phase: "drop", tilt: 0, ...(r2 ? { x: r2.left + d.offX, y: r2.top + d.offY } : {}) });
-        window.setTimeout(() => { land(p, d.over as BoardStage); set(null); }, 230);
+        window.setTimeout(() => { land(p, { stageId: d.over as string }); set(null); }, 230);
       } else {
         set({ ...d, phase: "home", tilt: 0, x: d.homeX + d.offX, y: d.homeY + d.offY });
         window.setTimeout(() => set(null), 340);
@@ -1310,39 +1565,48 @@ function Board({ people, focus, onFocus, onMove, onOpen, burst, onAdd, narrowed 
     window.addEventListener("pointermove", moveH);
     window.addEventListener("pointerup", upH);
     window.addEventListener("pointercancel", cancelH);
+    window.addEventListener("keydown", keyH);
+    window.addEventListener("blur", leaveH);
+    document.documentElement.addEventListener("pointerleave", leaveH);
   };
 
   return (
-    <div className={`cw-board${focus ? " is-focus" : ""}${drag ? " is-dragging" : ""}`}>
-      <div className="cw-cols">
-        {stages.map((s) => {
-          const all = people.filter((p) => p.stage === s.id);
+    <div className={`cw-board${drag ? " is-dragging" : ""}${readOnly ? " is-readonly" : ""}`}>
+      <div
+        ref={colsRef}
+        className={`cw-cols${edges.left ? " has-left" : ""}${edges.right ? " has-right" : ""}`}
+      >
+        {shownCols.map((s) => {
+          const all = by.get(s.id) ?? [];
           const list = all;
-          const isOver = drag?.over === s.id && drag.p.stage !== s.id;
-          const sub = s.id === "outreach" ? `${all.filter((p) => p.step === "replied").length} replied`
-            : s.id === "interviewing" ? `${all.filter((p) => p.step === "offer").length} with an offer`
-            : s.id === "hired" ? (all.length || hiredAll ? "Offers accepted" : "First hire lands here")
-            : `${all.filter((p) => p.inStage <= 2).length} new`;
+          const isOver = drag?.over === s.id && stageIdOf(drag.p, stages) !== s.id;
+          const sub = columnNote(s, all, hiredAll);
           return (
-            <section key={s.id} data-drop={s.id} className={`cw-col is-${s.id}${isOver ? " is-over" : ""}`} aria-label={`${s.label}, ${all.length}`}>
+            <section
+              key={s.id} data-drop={s.id} data-sc={stageText(s, columns.indexOf(s))["data-sc"]}
+              className={`cw-col is-${s.kind}${isOver ? " is-over" : ""}`} aria-label={`${s.name}, ${all.length}`}
+            >
               <header className="pl-col-h">
-                <button type="button" className="pl-col-t" onClick={() => onFocus(focus ? null : s.id)} title={focus ? "Show all stages" : `Only ${s.label}`}>
-                  <strong><span {...statusProps(s.label)}>{s.label}</span><span className="pl-col-n" key={all.length}>{all.length}</span></strong>
+                <div className="pl-col-t">
+                  <strong><span {...stageText(s, columns.indexOf(s))}>{s.name}</span><span className="pl-col-n" key={all.length}>{all.length}</span></strong>
                   <small>{sub}</small>
-                </button>
-                <img className="pl-col-img" src={STAGE_IMG[s.id]} alt="" width={22} height={22} />
+                </div>
+                <img className="pl-col-img" src={STAGE_IMG[s.kind as BoardStage]} alt="" width={22} height={22} />
               </header>
-              {s.id === "shortlisted" && (
+              {s.id === addAt && !readOnly && (
                 <button type="button" className="cw-col-add" onClick={onAdd}><Plus size={12} weight="bold" /> Add people</button>
               )}
               <ScrollList>
                 {isOver && <li className="pl-slot" aria-hidden="true" />}
                 {list.map((p) => (
                   <li key={p.id}>
-                    <Card p={p} onPointerDown={(e) => begin(p, e)} onOpen={() => onOpen(p.id)} onMove={(st) => land(p, st)} celebrate={burst === p.id} arrived={arrived?.id === p.id ? arrived.stage : null} lifted={drag?.p.id === p.id} />
+                    <Card
+                      p={p} stages={stages} readOnly={readOnly} onPointerDown={(e) => begin(p, e)} onOpen={() => onOpen(p.id)}
+                      onMove={(to) => land(p, to)} celebrate={burst === p.id} arrived={arrived?.id === p.id ? arrived.stage : null} lifted={drag?.p.id === p.id}
+                    />
                   </li>
                 ))}
-                {!all.length && !isOver && (s.id === "hired"
+                {!all.length && !isOver && (s.kind === "hired"
                   ? (hiredAll > 0
                     ? <li className="cw-col-empty">No hires match this search</li>
                     : <li className="cw-col-empty has-art"><EmptyArt name="empty-hires" size={96} />Your first hire will land here</li>)
@@ -1360,7 +1624,7 @@ function Board({ people, focus, onFocus, onMove, onOpen, burst, onAdd, narrowed 
             <path d="M6 7l1 12.2c.1.9.8 1.8 1.8 1.8h6.4c1 0 1.7-.9 1.8-1.8L18 7" /><path d="M10 11v6M14 11v6" />
           </svg>
         </span>
-        <span className="pl-bin-t">{drag?.over === "trash" ? `Let go to pass ${plainText(drag.p.name.split(" ")[0])}` : drag ? "Drop here to pass" : "Drag a card here to pass, from any stage"}</span>
+        <span className="pl-bin-t">{drag?.over === "trash" ? `Let go to reject ${plainText(drag.p.name.split(" ")[0])}` : drag ? "Drop here to reject" : "Drag a card here to reject, from any stage"}</span>
       </div>
 
       {drag && createPortal(
@@ -1375,6 +1639,29 @@ function Board({ people, focus, onFocus, onMove, onOpen, burst, onAdd, narrowed 
       )}
     </div>
   );
+}
+
+/** Whether the board has more columns off its left or right edge, so a soft fade can say so. */
+function useScrollEdges(ref: React.RefObject<HTMLElement>, count: number): { left: boolean; right: boolean } {
+  const [edges, setEdges] = useState({ left: false, right: false });
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const read = () => {
+      const left = el.scrollLeft > 2;
+      const right = el.scrollLeft + el.clientWidth < el.scrollWidth - 2;
+      setEdges((e) => (e.left === left && e.right === right ? e : { left, right }));
+    };
+    read();
+    /* Bars grow in and fonts settle after the first read: the ends are read again once they have, and whenever the row is resized. */
+    const later = window.setTimeout(read, 900);
+    const watch = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(read);
+    watch?.observe(el);
+    el.addEventListener("scroll", read, { passive: true });
+    window.addEventListener("resize", read);
+    return () => { window.clearTimeout(later); watch?.disconnect(); el.removeEventListener("scroll", read); window.removeEventListener("resize", read); };
+  }, [ref, count]);
+  return edges;
 }
 
 /* A column's list: always a scroller, sized to reach the bottom of the
@@ -1407,36 +1694,47 @@ function ScrollList({ children }: { children: ReactNode }) {
 
 /* How strong a match, as temperature: a quick, friendly read. */
 const HEAT: Readonly<Record<1 | 2 | 3, { icon: ReactNode; label: string }>> = {
-  3: { icon: <Fire size={14} weight="fill" />, label: "Strong match" },
-  2: { icon: <SunDim size={14} weight="fill" />, label: "Good match" },
-  1: { icon: <Snowflake size={14} weight="bold" />, label: "Partial match" },
+  3: { icon: <Fire size={14} weight="fill" />, label: TIER_LABEL.A },
+  2: { icon: <SunDim size={14} weight="fill" />, label: TIER_LABEL.B },
+  1: { icon: <Snowflake size={14} weight="bold" />, label: TIER_LABEL.C },
 };
+
+const FIT_OF_TONE = { strong: 3, good: 2, partial: 1 } as const;
+
+/**
+ * How a person matches the role, for the Match column and the card: the server's one resolved state (the same words the person's
+ * sheet says), and the stored fit only from an older server. A result without a tier ("Not scored yet", "Needs more evidence")
+ * is plain muted words with no heat mark.
+ */
+function matchOf(p: PipelinePerson): { fit: 1 | 2 | 3 | null; label: string; note: string | null } | null {
+  if (p.display) {
+    const fit = p.display.tone in FIT_OF_TONE ? FIT_OF_TONE[p.display.tone as keyof typeof FIT_OF_TONE] : null;
+    return { fit, label: p.display.label, note: p.display.note };
+  }
+  return p.fit ? { fit: p.fit, label: HEAT[p.fit].label, note: null } : null;
+}
 
 /** Plain muted words, never a pill: this person is on the do-not-contact list, so nothing is sent to them. */
 const listed = (p: PipelinePerson) => (p.doNotContact ? <span className="cw-muted">Do not contact</span> : null);
 
-function stepChip(p: PipelinePerson): { text: string; tone: string } | null {
-  if (p.step === "replied") return { text: "Replied", tone: "good" };
-  if (p.step === "waiting") return { text: "Waiting", tone: "quiet" };
-  if (p.step === "offer") return { text: "Offer out", tone: "warm" };
-  if (p.step === "loop") return { text: "In loop", tone: "quiet" };
-  return null;
-}
 
 function CardBody({ p, menu }: { p: PipelinePerson; menu?: ReactNode }) {
   const stalled = p.inStage >= STALL_DAYS && p.stage !== "hired" && p.stage !== "shortlisted";
-  const heat = p.fit ? HEAT[p.fit] : null;
+  const match = matchOf(p);
+  const heat = match?.fit ? HEAT[match.fit] : null;
   const chip = stepChip(p);
   return (
     <>
       <div className="cw-pc-top">
         <span className="cw-pc-name">{plainText(p.name)}</span>
-        {heat && <span className={`cw-heat is-${p.fit}`} title={heat.label} aria-label={heat.label}>{heat.icon}</span>}
+        {heat && match && <span className={`cw-heat is-${match.fit}`} title={[match.label, match.note].filter(Boolean).join(". ")} aria-label={match.label}>{heat.icon}</span>}
         {menu}
       </div>
       <p className="cw-pc-sub">{[p.company, p.title].filter(Boolean).join(" · ")}</p>
+      <MeetingNote id={p.id} />
       <div className="cw-pc-meta">
         {chip && <span className={`cw-step is-${chip.tone}`}>{chip.text}</span>}
+        {p.clientVerdict && <span {...toneProps(verdictTone(p.clientVerdict.verdict))} className="cw-step st">{verdictLabel(p.clientVerdict.verdict)}</span>}
         {listed(p)}
         <span className={`cw-pc-time${stalled ? " is-nudge" : ""}`} title={stalled ? "Could use a nudge" : "Time in this stage"}>
           {p.inStage === 0 ? "Today" : `${p.inStage}d`}
@@ -1446,11 +1744,13 @@ function CardBody({ p, menu }: { p: PipelinePerson; menu?: ReactNode }) {
   );
 }
 
-function Card({ p, onPointerDown, onOpen, onMove, celebrate, arrived, lifted }: {
+function Card({ p, stages, readOnly = false, onPointerDown, onOpen, onMove, celebrate, arrived, lifted }: {
   p: PipelinePerson;
+  stages: readonly StageDef[];
+  readOnly?: boolean;
   onPointerDown: (e: React.PointerEvent<HTMLElement>) => void;
   onOpen: () => void;
-  onMove: (s: StatusId) => void;
+  onMove: (to: MoveTo) => void;
   celebrate: boolean;
   arrived?: string | null;
   lifted?: boolean;
@@ -1477,7 +1777,7 @@ function Card({ p, onPointerDown, onOpen, onMove, celebrate, arrived, lifted }: 
           <span className="pl-bub is-b"><i /><i /><i /></span>
         </span>
       )}
-      <CardBody p={p} menu={<MoveMenu current={statusIdOf(p)} onMove={onMove} p={p} />} />
+      <CardBody p={p} menu={readOnly ? undefined : <MoveMenu p={p} stages={stages} onMove={onMove} />} />
     </article>
   );
 }
@@ -1485,7 +1785,37 @@ function Card({ p, onPointerDown, onOpen, onMove, celebrate, arrived, lifted }: 
 /** Marks or clears an offer for someone in interviews; null where there is no backend to keep it. */
 const OfferContext = createContext<((p: PipelinePerson) => void) | null>(null);
 
-function MoveMenu({ current, onMove, p }: { current: StatusId; onMove: (s: StatusId) => void; p?: PipelinePerson }) {
+/**
+ * The places a person can be moved: the campaign's own columns by name, with Replied under the first one that counts
+ * as outreach (it is a step within it, not a column), and Pass. Choosing a column moves them exactly there.
+ */
+function StageChoices({ p, stages, onMove, item }: {
+  p: PipelinePerson;
+  stages: readonly StageDef[];
+  onMove: (to: MoveTo) => void;
+  item: (a: { key: string; label: string; on: boolean; run: () => void }) => ReactNode;
+}) {
+  const columns = columnsOf(stages);
+  const here = stageIdOf(p, stages);
+  const replied = statusIdOf(p) === "replied";
+  const repliedAt = firstOfKind(columns, "outreach")?.id;
+  return (
+    <>
+      {columns.map((c) => (
+        <Fragment key={c.id}>
+          {item({
+            key: c.id, label: c.name, on: here === c.id && !(c.id === repliedAt && replied),
+            /* Back to the outreach stage from Replied is a step back within it, not a change of column. */
+            run: () => (c.id === repliedAt && replied ? onMove("outreach") : onMove({ stageId: c.id })),
+          })}
+          {c.id === repliedAt && item({ key: "replied", label: "Replied", on: replied, run: () => onMove("replied") })}
+        </Fragment>
+      ))}
+    </>
+  );
+}
+
+function MoveMenu({ p, stages, onMove }: { p: PipelinePerson; stages: readonly StageDef[]; onMove: (to: MoveTo) => void }) {
   const offer = useContext(OfferContext);
   const [open, setOpen] = useState(false);
   const [asking, setAsking] = useState(false);
@@ -1505,18 +1835,22 @@ function MoveMenu({ current, onMove, p }: { current: StatusId; onMove: (s: Statu
       <Popover anchor={ref} open={open} onClose={close} align="end" width={200}>
         <div className="ct-menu" role="menu">
           <p className="ct-menu-h">Move to</p>
-          {BOARD_STATUSES.map((s) => (
-            <button key={s.id} type="button" role="menuitemradio" aria-checked={current === s.id} className={`ct-menu-i${current === s.id ? " is-on" : ""}`} onClick={() => { onMove(s.id); close(); }}>
-              <span className="ct-menu-box is-radio">{current === s.id && <Check size={11} weight="bold" />}</span><span className="ct-menu-t">{s.label}</span>
-            </button>
-          ))}
-          {offer && p?.stage === "interviewing" && (
+          <StageChoices
+            p={p} stages={stages} onMove={onMove}
+            item={(a) => (
+              <button key={a.key} type="button" role="menuitemradio" aria-checked={a.on} className={`ct-menu-i${a.on ? " is-on" : ""}`} onClick={() => { a.run(); close(); }}>
+                <span className="ct-menu-box is-radio">{a.on && <Check size={11} weight="bold" />}</span><span className="ct-menu-t">{a.label}</span>
+              </button>
+            )}
+          />
+          {/* One wording per thing: a campaign with an "Offer" stage of its own moves people there; the step item is for those without. */}
+          {offer && p?.stage === "interviewing" && !stages.some((st) => /offer/i.test(st.name)) && (
             <button type="button" role="menuitem" className="ct-menu-i" onClick={() => { offer(p); close(); }}>
               <span className="ct-menu-box is-radio" /><span className="ct-menu-t">{p.step === "offer" ? "Offer withdrawn" : "Offer made"}</span>
             </button>
           )}
           <button type="button" role="menuitem" className="ct-menu-i" onClick={() => { onMove("passed"); close(); }}>
-            <span className="ct-menu-box is-radio" /><span className="ct-menu-t">Pass</span>
+            <span className="ct-menu-box is-radio" /><span className="ct-menu-t">Reject</span>
           </button>
           {candidateId && (!listed || mayAllowAgain) && (
             <button type="button" role="menuitem" className="ct-menu-i ct-menu-quiet" onClick={() => { setAsking(true); close(); }}>
@@ -1553,15 +1887,18 @@ function MoveMenu({ current, onMove, p }: { current: StatusId; onMove: (s: Statu
   );
 }
 
-function Table({ people, focus, onOpen, onMove }: {
+function Table({ readOnly = false, people, stages, onOpen, onMove }: {
+  readOnly?: boolean;
   people: readonly PipelinePerson[];
-  focus: BoardStage | null;
+  stages: readonly StageDef[];
   onOpen: (id: string) => void;
-  onMove: (p: PipelinePerson, s: StatusId) => void;
+  onMove: (p: PipelinePerson, to: MoveTo) => void;
 }) {
-  const list = focus ? people.filter((p) => p.stage === focus) : people;
-  const order: string[] = STAGES.map((s) => s.id);
-  const sorted = [...list].sort((a, b) => order.indexOf(b.stage) - order.indexOf(a.stage) || a.inStage - b.inStage);
+  const columns = columnsOf(stages);
+  const list = people;
+  /* Furthest along first, then whoever arrived last. */
+  const place = (p: PipelinePerson) => columns.findIndex((c) => c.id === stageIdOf(p, stages));
+  const sorted = [...list].sort((a, b) => place(b) - place(a) || a.inStage - b.inStage);
   return (
     <div className="cw-table-wrap">
       <table className="cw-table">
@@ -1572,49 +1909,124 @@ function Table({ people, focus, onOpen, onMove }: {
           {sorted.map((p) => {
             const stalled = p.inStage >= STALL_DAYS && p.stage !== "hired" && p.stage !== "shortlisted";
             const chip = stepChip(p);
+            const at = stageOf(p, stages);
             return (
               <tr key={p.id} onClick={(e) => { if (!(e.target as HTMLElement).closest("button")) onOpen(p.id); }}>
-                <td><span className="cw-who"><Avatar name={p.name} hue={p.hue} size={28} /><span><strong>{plainText(p.name)}</strong><small>{[p.company, p.title].filter(Boolean).join(" · ")}</small></span></span></td>
-                <td><span {...statusProps(STAGES.find((s) => s.id === p.stage)?.label)} className={`cw-stage st is-${p.stage}`}>{STAGES.find((s) => s.id === p.stage)?.label}</span>{chip && <span className={`cw-step is-${chip.tone}`}>{chip.text}</span>}{listed(p)}</td>
+                <td><span className="cw-who"><Avatar name={p.name} hue={p.hue} size={28} /><span><strong>{plainText(p.name)}</strong><small>{[p.company, p.title].filter(Boolean).join(" · ")}</small><MeetingNote id={p.id} /></span></span></td>
+                <td><span {...stageText(at ?? { kind: p.stage, color: null }, at ? stages.indexOf(at) : undefined)} className={`sc cw-stage is-${p.stage}`}>{at?.name ?? kindLabel(p.stage)}</span>{chip && <span className={`cw-step is-${chip.tone}`}>{chip.text}</span>}{p.clientVerdict && <span {...toneProps(verdictTone(p.clientVerdict.verdict))} className="cw-step st">{verdictLabel(p.clientVerdict.verdict)}</span>}{p.doNotContact && " "}{listed(p)}</td>
                 <td><span className={`cw-pc-time${stalled ? " is-nudge" : ""}`}><Clock size={12} />{p.inStage === 0 ? "Today" : `${p.inStage}d`}</span></td>
-                <td>{p.fit && <span className={`cw-heat is-${p.fit}`}>{HEAT[p.fit].icon}<em>{HEAT[p.fit].label}</em></span>}</td>
+                <td title={matchOf(p)?.note ?? undefined}>{(() => { const m = matchOf(p); return m && (m.fit ? <span className={`cw-heat is-${m.fit}`}>{HEAT[m.fit].icon}<em>{m.label}</em></span> : <span className="cw-muted">{m.label}</span>); })()}</td>
                 <td>{p.owner}</td>
                 <td>{p.source}</td>
                 <td className="cw-muted">{p.last}</td>
-                <td><MoveMenu current={statusIdOf(p)} onMove={(s) => onMove(p, s)} p={p} /></td>
+                <td>{!readOnly && <MoveMenu p={p} stages={stages} onMove={(to) => onMove(p, to)} />}</td>
               </tr>
             );
           })}
         </tbody>
       </table>
-      {!sorted.length && <p className="cw-calm cw-pad">{focus ? "Nobody in this stage right now." : "No one matches these filters."}</p>}
+      {!sorted.length && <p className="cw-calm cw-pad">No one matches these filters.</p>}
     </div>
   );
 }
 
-/** Where a person is, and the way to move them: a row of statuses and Pass. */
-function StagePick({ p, onMove }: { p: PipelinePerson; onMove: (p: PipelinePerson, s: StatusId) => void }) {
+/** The board while it loads: the campaign's own columns (their names are known), each with a few card ghosts in the real card's classes. */
+function BoardGhost({ stages }: { stages: readonly StageDef[] }): JSX.Element {
+  const columns = columnsOf(stages);
+  const shown = columns.slice(0, COLUMNS_SHOWN);
+  const cards = [3, 2, 3, 2, 2];
+  return (
+    <ShimmerRegion label="Loading people" className="cw-board">
+      <div className="cw-cols" aria-hidden="true">
+        {shown.map((s, c) => (
+          <section key={s.id} className={`cw-col is-${s.kind}`} data-sc={stageText(s, columns.indexOf(s))["data-sc"]}>
+            <header className="pl-col-h">
+              <span className="pl-col-t">
+                <strong><span {...stageText(s, columns.indexOf(s))}>{s.name}</span><Shimmer h={18} w={26} r={99} /></strong>
+                <small><Shimmer h={10} lh={14} w={64} /></small>
+              </span>
+              <Shimmer circle w={22} h={22} />
+            </header>
+            <ul className="cw-cards">
+              {Array.from({ length: shown.length === 1 ? 6 : cards[c % cards.length]! }, (_, i) => (
+                <li key={i}>
+                  <article className="cw-pcard" style={{ animation: "none" }}>
+                    <div className="cw-pc-top"><Shimmer h={13} lh={17} w={`${52 + ((i * 17 + c * 11) % 30)}%`} /><Shimmer circle w={14} h={14} /></div>
+                    <p className="cw-pc-sub"><Shimmer h={11} lh={16} w={`${60 + ((i * 13 + c * 7) % 30)}%`} /></p>
+                    <div className="cw-pc-meta"><Shimmer h={10} w={52} /><Shimmer h={10} w={22} /></div>
+                  </article>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
+    </ShimmerRegion>
+  );
+}
+
+/** The table view while it loads: its own header row, then rows of a person, a stage, the time, the match, owner, source and latest. */
+function TableGhost(): JSX.Element {
+  return (
+    <ShimmerRegion label="Loading people">
+      <div className="cw-table-wrap" aria-hidden="true">
+        <table className="cw-table">
+          <thead>
+            <tr><th>Name</th><th>Stage</th><th>In stage</th><th>Match</th><th>Owner</th><th>Source</th><th>Latest</th><th aria-label="Move" /></tr>
+          </thead>
+          <tbody>
+            <ShimmerTableRows rows={7} cells={[{ lead: 28, round: true, w: "62%", sub: "76%" }, { w: 72 }, { w: 40 }, { w: 64 }, { w: "70%" }, { w: "64%" }, { w: "58%" }, { box: [24, 24] }]} />
+          </tbody>
+        </table>
+      </div>
+    </ShimmerRegion>
+  );
+}
+
+/** Where a person is, and the way to move them: a row of the campaign's stages and Pass. */
+function StagePick({ p, onMove, locked = false }: { p: PipelinePerson; onMove: (p: PipelinePerson, to: MoveTo) => void; locked?: boolean }) {
+  const stages = useCampaignStages(p.campaign);
   return (
     <section>
       <h3>Stage</h3>
-      <div className="cw-stagepick" role="radiogroup" aria-label="Stage">
-        {BOARD_STATUSES.map((s) => (
-          <button key={s.id} type="button" role="radio" aria-checked={statusIdOf(p) === s.id} className={statusIdOf(p) === s.id ? "is-on" : ""} onClick={() => onMove(p, s.id)}>{s.label}</button>
-        ))}
-        <button type="button" className={`is-pass${p.stage === "passed" ? " is-on" : ""}`} onClick={() => onMove(p, "passed")}>{p.stage === "passed" ? "Passed" : "Pass"}</button>
+      <div className={`cw-stagepick${locked ? " is-off" : ""}`} role="radiogroup" aria-label="Stage" aria-disabled={locked || undefined}>
+        <StageChoices
+          p={p} stages={stages} onMove={(to) => onMove(p, to)}
+          item={(a) => <button key={a.key} type="button" role="radio" aria-checked={a.on} className={a.on ? "is-on" : ""} onClick={a.run} disabled={locked} aria-disabled={locked || undefined}>{a.label}</button>}
+        />
+        <button type="button" className={`is-pass${p.stage === "passed" ? " is-on" : ""}`} onClick={() => onMove(p, "passed")} disabled={locked} aria-disabled={locked || undefined}>{p.stage === "passed" ? "Rejected" : "Reject"}</button>
       </div>
     </section>
   );
 }
 
-export function PersonDialog({ person, onClose, onMove }: { person: PipelinePerson | null; onClose: () => void; onMove: (p: PipelinePerson, s: StatusId) => void }) {
+/** What the client said about a person, with their note and name, as plain coloured words. */
+function ClientWord({ v }: { v: ClientVerdict }) {
+  return (
+    <section>
+      <h3>Client</h3>
+      <p>
+        <span {...toneProps(verdictTone(v.verdict))}>{verdictLabel(v.verdict)}</span>
+        <span className="cw-muted">{[v.reviewerName, agoFrom(v.at)].filter(Boolean).map((x) => ` · ${x}`).join("")}</span>
+      </p>
+      {v.note && <p className="cw-quote">{plainText(v.note)}</p>}
+    </section>
+  );
+}
+
+export function PersonDialog({ person, onClose, onMove, campaignId = null, locked = false }: { person: PipelinePerson | null; onClose: () => void; onMove: (p: PipelinePerson, to: MoveTo) => void; campaignId?: string | null; locked?: boolean }) {
   const last = useRef<PipelinePerson | null>(null);
   if (person) last.current = person;
   const p = person ?? last.current;
   /* A person who is a candidate in the workspace opens in the console's own profile sheet, the one the chat and the
      ranked list open people in; the board only adds the person's stage to it. */
   if (LIVE && person?.candidateId) {
-    return <PersonSheet person={person} onClose={onClose} extra={<div className="cw-pd-stage"><StagePick p={person} onMove={onMove} /></div>} />;
+    return (
+      <PersonSheet
+        person={person} onClose={onClose} campaignId={campaignId}
+        extra={<div className="cw-pd-stage"><StagePick p={person} onMove={onMove} locked={locked} />{person.clientVerdict && <ClientWord v={person.clientVerdict} />}<PersonMeetings id={person.id} /></div>}
+      />
+    );
   }
   return (
     <Dialog open={!!person} onClose={onClose} label={p ? p.name : "Candidate"} size="md">
@@ -1625,11 +2037,12 @@ export function PersonDialog({ person, onClose, onMove }: { person: PipelinePers
             <div>
               <h2>{plainText(p.name)}</h2>
               <p>{[[p.title, p.company].filter(Boolean).join(" at "), p.location].filter(Boolean).join(" · ")}</p>
-              <p className="cw-muted">{[p.years ? `${p.years} yrs` : "", `via ${p.source}`, `owned by ${p.owner}`, p.fit ? HEAT[p.fit].label : ""].filter(Boolean).join(" · ")}</p>
+              <p className="cw-muted">{[p.years ? `${p.years} yrs` : "", `via ${p.source}`, `owned by ${p.owner}`, matchOf(p)?.label ?? ""].filter(Boolean).join(" · ")}</p>
             </div>
           </header>
           <div className="cw-pd-body">
-            <StagePick p={p} onMove={onMove} />
+            <StagePick p={p} onMove={onMove} locked={locked} />
+            {p.clientVerdict && <ClientWord v={p.clientVerdict} />}
             <section>
               <h3>Latest</h3>
               <p>{p.last} · {p.inStage === 0 ? "today" : p.inStage === 1 ? "yesterday" : `${p.inStage} days ago`}</p>
@@ -1652,17 +2065,6 @@ export function PersonDialog({ person, onClose, onMove }: { person: PipelinePers
   );
 }
 
-function Empty({ title, body, cta, onCta }: { title: string; body: string; cta?: string; onCta?: () => void }) {
-  return (
-    <div className="cw-empty">
-      <EmptyArt name="empty-shortlist" size={180} />
-      <h2>{title}</h2>
-      <p>{body}</p>
-      {cta && <button type="button" className="cw-btn is-primary" onClick={onCta}>{cta}</button>}
-    </div>
-  );
-}
-
 /* ── shortlisted: a dense table of everyone this campaign has picked ──
    One row per person, newest first. Status is plain text with a caret that
    moves them between stages; ticked rows get Reach out and Pass. The table
@@ -1671,10 +2073,6 @@ function Empty({ title, body, cta, onCta }: { title: string; body: string; cta?:
 /* Replied sits between In outreach and Interviewing, here and in every menu that chooses a status. */
 const STATUS_OPTIONS: readonly { id: StatusId; label: string }[] = STATUSES;
 
-const statusOf = (p: PipelinePerson): string =>
-  p.stage === "outreach" ? (p.step === "replied" ? "Replied" : "In outreach")
-    : p.stage === "interviewing" ? (p.step === "offer" ? "Offer out" : "Interviewing")
-      : STATUS_OPTIONS.find((s) => s.id === p.stage)?.label ?? p.stage;
 const STATUS_ORDER: Readonly<Record<StatusId, number>> = { shortlisted: 0, outreach: 1, replied: 2, interviewing: 3, hired: 4, passed: 5 };
 
 /* A company's mark is its first letter on a plain tile. No icon is fetched: every company a candidate has worked
@@ -1718,11 +2116,31 @@ const SL_SORTS: readonly { label: string; sort: SlSort }[] = [
   { label: "Name, A to Z", sort: { key: "name", dir: 1 } },
   { label: "Best fit first", sort: { key: "fit", dir: -1 } },
 ];
-const SL_PAGE = 25;
 const starred = new Set<string>();
 
 type SlFilter = { owner: string | null; source: string | null; email: boolean; open: boolean; status: StatusId | null };
 const NO_FILTER: SlFilter = { owner: null, source: null, email: false, open: false, status: null };
+
+/* Where the person left this campaign's shortlist in this tab. Anything that is not a sort, a status or a page this
+   list can have falls back to the top; an owner or source nobody on the list has is dropped once the people are in. */
+const SL_STATUSES: readonly StatusId[] = ["shortlisted", "outreach", "replied", "interviewing", "hired", "passed"];
+const SL_KEYS: readonly SlSort["key"][] = ["added", "name", "fit", "status", "owner", "role", "org"];
+type SlRemembered = { q: string; sort: SlSort; f: SlFilter; offset: number };
+const SL_NOTHING: SlRemembered = { q: "", sort: SL_SORTS[0]!.sort, f: NO_FILTER, offset: 0 };
+export function readShortlistRemembered(r: Record<string, unknown>): SlRemembered {
+  const sort = take.rec(r.sort);
+  const f = take.rec(r.f);
+  const status = take.oneOf(f.status, [...SL_STATUSES, ""] as const, "");
+  return {
+    q: take.str(r.q, "", 100),
+    sort: { key: take.oneOf(sort.key, SL_KEYS, SL_NOTHING.sort.key), dir: sort.dir === -1 ? -1 : 1 },
+    f: {
+      owner: take.str(f.owner, "", 120) || null, source: take.str(f.source, "", 120) || null,
+      email: take.bool(f.email), open: take.bool(f.open), status: status || null,
+    },
+    offset: take.int(r.offset, 0, 0, 100_000),
+  };
+}
 
 /**
  * What the Shortlisted page shows for the state of its people: a list that could not be read is never drawn as an
@@ -1733,20 +2151,43 @@ export function shortlistState(ready: boolean, failed: boolean): "loading" | "fa
   return failed ? "failed" : "list";
 }
 
+/** The shortlist's columns as ghost cells: the table's own classes, for the columns this person has switched on. */
+const SL_GHOST: Readonly<Record<SlCol, ShimCell>> = {
+  prof: { cls: "sl-c-prof", w: 54, fixed: true },
+  email: { cls: "sl-c-email", w: "74%" },
+  phone: { cls: "sl-c-phone", w: "62%" },
+  status: { cls: "sl-c-status", w: "56%" },
+  owner: { cls: "sl-c-owner", lead: 20, round: true, w: "64%" },
+  added: { cls: "sl-c-added", w: "60%" },
+  role: { cls: "sl-c-role", w: "80%" },
+  org: { cls: "sl-c-org", lead: 20, w: "64%" },
+};
+const SL_ORDER: readonly SlCol[] = ["prof", "email", "phone", "status", "owner", "added", "role", "org"];
+const shortlistGhost = (show: (c: SlCol) => boolean): ShimCell[] => [
+  { cls: "sl-c-check", box: [15, 15] },
+  { cls: "sl-c-name", lead: 15, w: "74%" },
+  ...SL_ORDER.filter(show).map((c) => SL_GHOST[c]),
+];
+
 export function CampaignShortlisted({ ctx }: { ctx: Ctx }) {
   /* "You" goes by user id with real data; fixtures have only names. */
   const mine = (p: PipelinePerson) => (LIVE ? isMe(p.ownerId) : p.owner === ME);
   const row = useRowFor(ctx.campaignId);
+  /* The same answer as the Pipeline page: the people on the campaign (and, for an admin, its team's lead) change the shortlist; anyone else reads it. */
+  const mayChange = useMayChangeCampaign(ctx.campaignId);
   const everyone = usePipeline(ctx.campaignId);
   const ready = usePipelineReady(ctx.campaignId);
   /* A shortlist that could not be read is not an empty one: it says so, with a way to try again. */
   const failed = usePipelineFailed(ctx.campaignId);
   const state = shortlistState(ready, failed);
-  const [q, setQ] = useState("");
-  const [sort, setSort] = useState<SlSort>(SL_SORTS[0]!.sort);
-  const [f, setF] = useState<SlFilter>(NO_FILTER);
+  const section = `shortlist:${resolveCampaignId(ctx.campaignId)}`;
+  const [start] = useState<SlRemembered>(() => (hasDeepLink() ? SL_NOTHING : loadSection(section, readShortlistRemembered, SL_NOTHING)));
+  const [q, setQ] = useState(start.q);
+  const [sort, setSort] = useState<SlSort>(start.sort);
+  const [f, setF] = useState<SlFilter>(start.f);
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
-  const [page, setPage] = useState(0);
+  /* Where the page starts, as a row: a new page size lands on the page that holds that row. */
+  const [wanted, setWanted] = useState(start.offset);
   const [stars, setStars] = useState<ReadonlySet<string>>(() => new Set(starred));
   const [openId, setOpenId] = useState<string | null>(null);
   /* Asked for from the Overview's agents panel ("Review"): the outreach is already open. */
@@ -1766,7 +2207,7 @@ export function CampaignShortlisted({ ctx }: { ctx: Ctx }) {
       switch (sort.key) {
         case "added": return p.capturedAgo;
         case "name": return p.name;
-        case "fit": return p.fit ?? 0;
+        case "fit": return matchOf(p)?.fit ?? 0;
         case "status": return STATUS_ORDER[statusIdOf(p)];
         case "owner": return p.owner;
         case "role": return p.title;
@@ -1780,10 +2221,27 @@ export function CampaignShortlisted({ ctx }: { ctx: Ctx }) {
     });
   }, [everyone, f, needle, sort]);
 
-  const pages = Math.max(1, Math.ceil(rows.length / SL_PAGE));
-  const at = Math.min(page, pages - 1);
-  const shown = rows.slice(at * SL_PAGE, at * SL_PAGE + SL_PAGE);
-  useEffect(() => { setPage(0); }, [needle, f, sort]);
+  /* As many rows as fit under the table's head. */
+  const size = usePageSize(56, { rowSelector: ".sl-table tbody tr", reserve: 24 + 40 + PAGER_FOOT });
+  const offset = clampedOffset(wanted, rows.length, size);
+  const shown = rows.slice(offset, offset + size);
+  /* A different search, filter or sort is the top of a new list (not on arrival: that is where it was left). */
+  const listKey = JSON.stringify([needle, f, sort]);
+  const lastList = useRef(listKey);
+  useEffect(() => {
+    if (lastList.current === listKey) return;
+    lastList.current = listKey;
+    setWanted(0);
+  }, [listKey]);
+  /* A remembered owner or source that nobody on this shortlist has is not a filter to keep. */
+  useEffect(() => {
+    if (!ready || (!f.owner && !f.source)) return;
+    const owner = f.owner && everyone.some((p) => p.owner === f.owner) ? f.owner : null;
+    const source = f.source && everyone.some((p) => p.source === f.source) ? f.source : null;
+    if (owner !== f.owner || source !== f.source) setF((cur) => ({ ...cur, owner, source }));
+  }, [ready, everyone, f.owner, f.source]);
+  useSectionSave(section, { q, sort, f, offset }, ready);
+  useScrollMemory(section, ready, !hasDeepLink(), ".sl .sl-scroll");
 
   const ids = shown.map((p) => p.id);
   const allOn = ids.length > 0 && ids.every((id) => picked.has(id));
@@ -1801,14 +2259,18 @@ export function CampaignShortlisted({ ctx }: { ctx: Ctx }) {
   /* Who is about to be passed on: asked why first (optional). */
   const [passing, setPassing] = useState<readonly PipelinePerson[] | null>(null);
   const [firstHire, setFirstHire] = useState<PipelinePerson | null>(null);
-  const move = (p: PipelinePerson, s: StatusId) => {
-    if (!wouldMove(p, s)) return;
+  const move = (p: PipelinePerson, to: MoveTo) => {
+    const all = stagesNow(ctx.campaignId);
+    if (!wouldChange(p, to, all)) return;
+    const target = isStageMove(to) ? stageNamed(all, to.stageId) : undefined;
+    const s: StatusId = target ? target.kind : (to as StatusId);
     if (s === "passed" && LIVE) { setPassing([p]); return; }
+    if (s === "hired" && LIVE) { movePerson(ctx.campaignId, p.id, to); return; }
     const firstEver = isFirstHire(everyone, p, s);
-    movePerson(ctx.campaignId, p.id, s);
+    movePerson(ctx.campaignId, p.id, to);
     const cid = resolveCampaignId(ctx.campaignId);
-    if (firstEver && !firstHireSeen(cid)) { rememberFirstHire(cid); setFirstHire(p); }
-    else toast(`${firstName(p.name)} moved to ${STATUS_OPTIONS.find((o) => o.id === s)?.label.toLowerCase()}`);
+    if (firstEver && !orgHasEarlierHire(cid) && !firstHireSeen(cid)) { rememberFirstHire(cid); setFirstHire(p); }
+    else toast(`${firstName(p.name)} moved to ${target ? target.name : STATUS_OPTIONS.find((o) => o.id === s)?.label.toLowerCase()}`);
   };
   const reach = () => {
     const ready = pickedList.filter((p) => p.stage === "shortlisted");
@@ -1832,7 +2294,7 @@ export function CampaignShortlisted({ ctx }: { ctx: Ctx }) {
   const passNow = (list: readonly PipelinePerson[] = pickedList, reason?: string) => {
     movePeople(ctx.campaignId, list.map((p) => p.id), "passed", reason);
     setPicked(new Set());
-    toast(list.length === 1 ? `Passed on ${firstName(list[0]!.name)}` : `Passed on ${list.length} ${plural(list.length, "person", "people")}`);
+    toast(list.length === 1 ? `Rejected ${firstName(list[0]!.name)}` : `Rejected ${list.length} ${plural(list.length, "person", "people")}`);
   };
   const askWhy = () => (LIVE ? setPassing(pickedList) : passNow());
   /* Passing someone already hired undoes a hire: worth one question first. */
@@ -1862,7 +2324,7 @@ export function CampaignShortlisted({ ctx }: { ctx: Ctx }) {
       <CampaignHeader ctx={ctx} title="Shortlisted" meta={failed ? undefined : `${fresh} not contacted yet, ${onList} on the shortlist now`}>
         {LIVE && row && (
           <>
-            <button type="button" className="cw-btn" onClick={() => setOutreachOpen(true)}><PaperPlaneTilt size={14} /> Outreach</button>
+            {mayChange && <button type="button" className="cw-btn" onClick={() => setOutreachOpen(true)}><PaperPlaneTilt size={14} /> Outreach</button>}
             <CampaignExport campaignId={resolveCampaignId(ctx.campaignId)} campaignName={row.name} kind="shortlist" />
           </>
         )}
@@ -1887,30 +2349,31 @@ export function CampaignShortlisted({ ctx }: { ctx: Ctx }) {
           <SlFilterMenu people={everyone} f={f} onF={setF} count={filterCount} />
           <SlColumnsMenu hidden={cols.hidden} onToggle={cols.toggle} />
           <div className="sl-bar-r">
-            <ContactsMenu campaignId={ctx.campaignId} everyone={rows.map((p) => p.id)} picked={picked} narrowed={!!needle || filterCount > 0} />
-            {picked.size > 0 ? (
+            {rows.length > size && <Pager offset={offset} limit={size} total={rows.length} unit="people" onChange={setWanted} />}
+            {mayChange && <ContactsMenu campaignId={ctx.campaignId} everyone={rows.map((p) => p.id)} picked={picked} narrowed={!!needle || filterCount > 0} />}
+            {mayChange && picked.size > 0 ? (
               <>
                 <span className="sl-count t-body-sm">{picked.size} selected</span>
                 <button type="button" className="cw-link t-body-sm" onClick={() => setPicked(new Set())}>Clear</button>
                 <button type="button" className="sl-btn" onClick={takeOff} title="Take off the shortlist. They stay in Candidates."><MinusCircle size={14} /> Remove</button>
-                <button type="button" className="sl-btn" onClick={pass}><Prohibit size={14} /> Pass</button>
+                <button type="button" className="sl-btn" onClick={pass}><Prohibit size={14} /> Reject</button>
                 <button type="button" className="sl-btn is-primary" onClick={reach}><PaperPlaneTilt size={14} weight="fill" /> Reach out</button>
               </>
-            ) : (
+            ) : rows.length > size ? null : (
               <span className="sl-count t-body-sm">{rows.length} {plural(rows.length, "person", "people")}</span>
             )}
           </div>
         </div>
       )}
 
-      {state === "loading" ? <Loader size="lg" label="Loading people" block /> : state === "failed" ? (
+      {state === "failed" ? (
         <LoadFailed what="This shortlist" onRetry={() => retryPipeline(ctx.campaignId)} />
       ) : <div className="sl-card">
-        <div className="sl-scroll">
+        <div className="sl-scroll" data-pager-list>
           <table className="sl-table">
             <thead>
               <tr>
-                <th className="sl-c-check"><input ref={head} type="checkbox" checked={allOn} onChange={() => setPicked((cur) => { const n = new Set(cur); ids.forEach((id) => (allOn ? n.delete(id) : n.add(id))); return n; })} aria-label="Select everyone on this page" /></th>
+                <th className="sl-c-check">{mayChange && <input ref={head} type="checkbox" checked={allOn} onChange={() => setPicked((cur) => { const n = new Set(cur); ids.forEach((id) => (allOn ? n.delete(id) : n.add(id))); return n; })} aria-label="Select everyone on this page" />}</th>
                 {th("name", "Full name", "sl-c-name")}
                 {cols.show("prof") && <th className="sl-c-prof">Profiles</th>}
                 {cols.show("email") && <th className="sl-c-email">Email</th>}
@@ -1923,7 +2386,7 @@ export function CampaignShortlisted({ ctx }: { ctx: Ctx }) {
               </tr>
             </thead>
             <tbody>
-              {shown.map((p) => {
+              {state === "loading" ? <ShimmerTableRows rows={9} label="Loading people" cells={shortlistGhost(cols.show)} /> : shown.map((p) => {
                 const on = picked.has(p.id);
                 const links = profileLinks(p);
                 return (
@@ -1931,7 +2394,7 @@ export function CampaignShortlisted({ ctx }: { ctx: Ctx }) {
                     if (!e.currentTarget.contains(e.target as Node) || (e.target as HTMLElement).closest("button, a, input, label")) return;
                     setOpenId(p.id);
                   }}>
-                    <td className="sl-c-check"><input type="checkbox" checked={on} onChange={() => toggle(p.id)} aria-label={`Select ${p.name}`} /></td>
+                    <td className="sl-c-check">{mayChange && <input type="checkbox" checked={on} onChange={() => toggle(p.id)} aria-label={`Select ${p.name}`} />}</td>
                     <td className="sl-c-name">
                       <span className="sl-name">
                         <button type="button" className={`sl-star${stars.has(p.id) ? " is-on" : ""}`} onClick={() => star(p.id)} aria-pressed={stars.has(p.id)} aria-label={stars.has(p.id) ? `Unstar ${p.name}` : `Star ${p.name}`}>
@@ -1946,7 +2409,7 @@ export function CampaignShortlisted({ ctx }: { ctx: Ctx }) {
                     {cols.show("prof") && <td className="sl-c-prof"><SlProfiles links={links} /></td>}
                     {cols.show("email") && <td className="sl-c-email"><ContactValueCell campaignId={ctx.campaignId} id={p.id} candidateId={p.candidateId} name={p.name} kind="email" reach={p.reach} value={p.email?.value} /></td>}
                     {cols.show("phone") && <td className="sl-c-phone"><ContactValueCell campaignId={ctx.campaignId} id={p.id} candidateId={p.candidateId} name={p.name} kind="phone" reach={p.reach} value={p.phone?.value} /></td>}
-                    {cols.show("status") && <td className="sl-c-status"><SlStatus p={p} onMove={(s) => move(p, s)} /></td>}
+                    {cols.show("status") && <td className="sl-c-status"><SlStatus p={p} may={mayChange} onMove={(to) => move(p, to)} /></td>}
                     {cols.show("owner") && <td className="sl-c-owner"><span className="sl-owner"><Avatar name={p.owner} hue={hueOf(p.owner)} size={20} /><span className="sl-ell" title={p.owner}>{mine(p) ? "You" : firstName(p.owner)}</span></span></td>}
                     {cols.show("added") && <td className="sl-c-added"><span title={dateAgo(p.capturedAgo).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}>{addedLabel(p.capturedAgo)}</span></td>}
                     {cols.show("role") && <td className="sl-c-role"><span className="sl-ell" title={p.title}>{p.title}</span></td>}
@@ -1956,31 +2419,24 @@ export function CampaignShortlisted({ ctx }: { ctx: Ctx }) {
               })}
             </tbody>
           </table>
-          {!rows.length && (
+          {state !== "loading" && !rows.length && (
             <div className="sl-none">
               {slEmpty === "passed" ? <EmptyArt name="empty-passed" size={180} /> : <EmptyArt {...listEmptyArt("shortlist", slEmpty === "no-match")} />}
-              <p className="t-body-strong">{slEmpty === "passed" ? "No one passed on yet" : everyone.length ? "No one matches" : "No one on the shortlist yet"}</p>
-              <p className="t-body-sm">{slEmpty === "passed" ? "People you pass on are kept here, and you can bring them back any time." : everyone.length ? "Try a different search, or clear the filters." : "Shortlist people from Candidates or the agent's results and they appear here."}</p>
+              <p className="t-body-strong">{slEmpty === "passed" ? "No one rejected yet" : everyone.length ? "No one matches" : "No one on the shortlist yet"}</p>
+              <p className="t-body-sm">{slEmpty === "passed" ? "People you reject are kept here, and you can bring them back any time." : everyone.length ? "Try a different search, or clear the filters." : "Shortlist people from Candidates or the agent's results and they appear here."}</p>
               {(needle || filterCount > 0) && <button type="button" className="sl-btn" onClick={() => { setQ(""); setF(NO_FILTER); }}>Clear search and filters</button>}
             </div>
           )}
         </div>
-        <footer className="sl-foot t-body-sm">
-          <span>{rows.length ? `${at * SL_PAGE + 1}–${at * SL_PAGE + shown.length} of ${rows.length}` : "0 of 0"}</span>
-          <span className="sl-pager">
-            <button type="button" onClick={() => setPage(at - 1)} disabled={at === 0} aria-label="Previous page"><CaretLeft size={13} weight="bold" /></button>
-            <span>Page {at + 1} of {pages}</span>
-            <button type="button" onClick={() => setPage(at + 1)} disabled={at >= pages - 1} aria-label="Next page"><CaretRight size={13} weight="bold" /></button>
-          </span>
-        </footer>
       </div>}
+      {state !== "failed" && rows.length > size && <Pager offset={offset} limit={size} total={rows.length} unit="people" variant="foot" onChange={setWanted} />}
 
-      <PersonDialog person={open} onClose={() => setOpenId(null)} onMove={(p, s) => move(p, s)} />
+      <PersonDialog person={open} onClose={() => setOpenId(null)} onMove={(p, s) => move(p, s)} campaignId={resolveCampaignId(ctx.campaignId)} locked={!mayChange} />
       <ConfirmDialog
         open={confirmHired}
-        title={hiredPicked.length === 1 ? `Pass on ${hiredPicked[0]?.name ?? "this person"}?` : `Pass on ${hiredPicked.length} hired people?`}
-        body="Passing takes hired people off the hired list. The rest you picked are passed too."
-        confirm="Pass anyway"
+        title={hiredPicked.length === 1 ? `Reject ${hiredPicked[0]?.name ?? "this person"}?` : `Reject ${hiredPicked.length} hired people?`}
+        body="Rejecting takes hired people off the hired list. The rest you picked are rejected too."
+        confirm="Reject anyway"
         danger
         onClose={() => setConfirmHired(false)}
         onConfirm={() => { setConfirmHired(false); askWhy(); }}
@@ -1988,6 +2444,7 @@ export function CampaignShortlisted({ ctx }: { ctx: Ctx }) {
       <FirstHireDialog person={firstHire} onClose={() => setFirstHire(null)} />
       <PassReasonDialog
         who={passing ? (passing.length === 1 ? firstName(passing[0]!.name) : `${passing.length} people`) : null}
+        note={<LooseEndsNote on={!!passing} campaignId={ctx.campaignId} ccIds={(passing ?? []).map((q) => q.id)} to="passed" />}
         onClose={() => setPassing(null)}
         onPass={(reason) => { const list = passing ?? []; setPassing(null); passNow(list, reason); }}
       />
@@ -2022,23 +2479,36 @@ function SlProfiles({ links }: { links: readonly ProfileLink[] }) {
   );
 }
 
-function SlStatus({ p, onMove }: { p: PipelinePerson; onMove: (s: StatusId) => void }) {
+function SlStatus({ p, onMove, may = true }: { p: PipelinePerson; onMove: (to: MoveTo) => void; may?: boolean }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLButtonElement>(null);
   const close = useCallback(() => setOpen(false), []);
+  /* Every stage of the campaign is on offer, by its own name; moving is by stage, and Hired asks first like anywhere. */
+  const stages = useCampaignStages(p.campaign);
+  const label = placeLabel(p, stages);
+  const at = stageOf(p, stages);
+  const tone = stageText(at ?? { kind: p.stage, color: null }, at ? columnsOf(stages).indexOf(at) : undefined);
+  /* Someone who only follows the campaign reads where each person is; the word is there, the menu is not. */
+  if (!may) return <span {...tone} className={`sl-status ${tone.className}`}><span className="sl-ell">{label}</span></span>;
   return (
     <>
-      <button ref={ref} type="button" {...statusProps(statusOf(p))} className="sl-status st" onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open} aria-label={`Status: ${statusOf(p)}. Change`}>
-        <span className="sl-ell">{statusOf(p)}</span><CaretDown size={11} weight="bold" />
+      <button ref={ref} type="button" {...tone} className={`sl-status ${tone.className}`} onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open} aria-label={`Status: ${label}. Change`}>
+        <span className="sl-ell">{label}</span><CaretDown size={11} weight="bold" />
       </button>
       <Popover anchor={ref} open={open} onClose={close} width={200}>
         <div className="sl-menu" role="menu">
           <p className="sl-menu-h">Move to</p>
-          {STATUS_OPTIONS.map((s) => (
-            <button key={s.id} type="button" role="menuitemradio" aria-checked={statusIdOf(p) === s.id} className={`sl-menu-i${statusIdOf(p) === s.id ? " is-on" : ""}`} onClick={() => { onMove(s.id); close(); }}>
-              <span {...statusProps(s.label)} className="sl-ell st">{s.label}</span>{statusIdOf(p) === s.id && <Check size={13} weight="bold" />}
-            </button>
-          ))}
+          <StageChoices
+            p={p} stages={stages} onMove={onMove}
+            item={(a) => (
+              <button key={a.key} type="button" role="menuitemradio" aria-checked={a.on} className={`sl-menu-i${a.on ? " is-on" : ""}`} onClick={() => { a.run(); close(); }}>
+                <span className="sl-ell">{a.label}</span>{a.on && <Check size={13} weight="bold" />}
+              </button>
+            )}
+          />
+          <button type="button" role="menuitemradio" aria-checked={p.stage === "passed"} className={`sl-menu-i${p.stage === "passed" ? " is-on" : ""}`} onClick={() => { onMove("passed"); close(); }}>
+            <span className="sl-ell">Rejected</span>{p.stage === "passed" && <Check size={13} weight="bold" />}
+          </button>
         </div>
       </Popover>
     </>

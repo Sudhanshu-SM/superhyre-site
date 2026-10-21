@@ -87,7 +87,7 @@ describe("found people stay found", () => {
     expect(after.ranked).toBe(40);
     expect(before.waiting).toBe(40);
     expect(after.waiting).toBe(37);
-    expect(poolSentence(after)).toBe("50 people found so far, 37 of them ranked and waiting for your call. The next search looks through our own database, then asks our data provider for more.");
+    expect(poolSentence(after)).toBe("50 people found so far, 37 of them ranked and waiting for your call. The next search looks for more.");
   });
 
   it("keeps the old reading for a server that sends no counts", () => {
@@ -97,11 +97,11 @@ describe("found people stay found", () => {
 
   it("says why nobody is waiting, truthfully", () => {
     const all = poolOf(status(), 0, counts({ found: 5, shortlisted: 3, passed: 2, toReview: 0, ruledOut: 0 }));
-    expect(nobodyWaitingLine(all)).toBe("Everyone found so far has been shortlisted or passed.");
+    expect(nobodyWaitingLine(all)).toBe("Everyone found so far has been shortlisted or rejected.");
     // The spec changed: people were found and never decided, they are just not ranked yet.
     const changed = poolOf(status(), 0, counts({ found: 58, shortlisted: 11, passed: 6, toReview: 0, ruledOut: 0, unranked: 41 }));
     expect(nobodyWaitingLine(changed)).toBe("41 people found earlier have not been ranked on the latest role spec yet. The next search ranks them.");
-    expect(nobodyWaitingLine(changed)).not.toMatch(/shortlisted or passed/);
+    expect(nobodyWaitingLine(changed)).not.toMatch(/shortlisted or rejected/);
     expect(nobodyWaitingLine(changed, true)).toBe("Matching 41 people to the role now.");
     const out = poolOf(status(), 0, counts({ found: 10, shortlisted: 2, passed: 0, toReview: 0, ruledOut: 8 }));
     expect(nobodyWaitingLine(out)).toBe("Everyone else found, 8, do not meet a hard requirement.");

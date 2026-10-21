@@ -106,7 +106,7 @@ export function happenedLine(stage: string, reason?: string | null): string {
     case "shortlisted":
       return "Was shortlisted.";
     case "passed":
-      return reason ? `Was passed on (${reason.toLowerCase()}).` : "Was passed on.";
+      return reason ? `Was rejected (${reason.toLowerCase()}).` : "Was rejected.";
     case "hired":
       return "Was hired for it.";
     default:

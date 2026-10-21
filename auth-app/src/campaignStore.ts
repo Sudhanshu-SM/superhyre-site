@@ -6,8 +6,15 @@ import { ApiError, LIVE, messageOf } from "./api/client";
 import type { ApiClientDetail, ApiClientRow } from "./api/clients";
 import * as clientsApi from "./api/clients";
 import { onWorkspaceChange } from "./api/identity";
+import * as stagesApi from "./api/stages";
+import type { StageDef } from "./api/stages";
 import { moveTarget, wouldMove } from "./campaign";
-import type { PipelinePerson, StageId, StatusId, Step } from "./campaign";
+import type { MoveTo, PipelinePerson, StageId, StatusId, Step } from "./campaign";
+import {
+  DEFAULT_STAGES, bodyOf, destinationFor, firstOfKind, isDefaultId, isStageMove, landing, stageIdOf, stageNamed, stagesFrom, stagesFromRows, stagesFromSummary,
+  wouldMoveToStage, workingOf,
+} from "./boardStages";
+import type { StageRow } from "./boardStages";
 import { pipelineFor } from "./campaign";
 import type { CampaignRow, CampaignStatus } from "./campaignsData";
 import { CAMPAIGN_ROWS, TEAM } from "./campaignsData";
@@ -56,24 +63,41 @@ const plain = subscribe();
 const firstOf = (name: string) => name.split(" ")[0] ?? name;
 
 /**
- * `to`: a stage, or Replied (In outreach at its replied step). `reason`: why, when passing on someone; it goes
- * on the move.
+ * `to`: a status (a stage's kind, or Replied: In outreach at its replied step), or one of the campaign's own
+ * stages by id. `reason`: why, when passing on someone; it goes on the move.
  */
-export function movePerson(campaignId: string, id: string, to: StatusId, reason?: string) {
+export function movePerson(campaignId: string, id: string, to: MoveTo, reason?: string) {
   if (LIVE) { moveLive(resolveCampaignId(campaignId), id, to, reason); return; }
   const list = get(campaignId);
   /* The moved person goes to the FRONT, so they land at the top of their new
      column: exactly where the board's landing slot opened. */
   const hit = list.find((p) => p.id === id);
-  if (!hit || !wouldMove(hit, to)) return;
-  const t = moveTarget(to);
-  const sameStage = hit.stage === t.stage;
-  state.set(campaignId, [{
-    ...hit, stage: t.stage, step: t.step !== undefined ? t.step : stepFor(t.stage),
-    inStage: sameStage ? hit.inStage : 0, last: lastFor(to),
-    ...(t.step === "replied" ? { replied: true } : {}),
-  }, ...list.filter((p) => p.id !== id)]);
-  log.set(campaignId, [{ id: `mv-${Date.now()}-${id}`, person: hit, to: t.stage, at: Date.now() }, ...logFor(campaignId)]);
+  if (!hit) return;
+  const stages = stagesNow(campaignId);
+  const { stageId: was, ...rest } = hit;
+  let next: PipelinePerson;
+  if (isStageMove(to)) {
+    const st = stageNamed(stages, to.stageId);
+    if (!st || !wouldMoveToStage(hit, st, stages)) return;
+    const l = landing(hit, st);
+    next = {
+      ...rest, stage: l.stage, step: l.step, stageId: l.stageId, inStage: 0, last: lastFor(l.stage),
+      ...(l.step === "replied" ? { replied: true } : {}),
+    };
+  } else {
+    if (!wouldMove(hit, to)) return;
+    const t = moveTarget(to);
+    const sameStage = hit.stage === t.stage;
+    const column = sameStage ? was : firstOfKind(stages, t.stage)?.id;
+    next = {
+      ...rest, stage: t.stage, step: t.step !== undefined ? t.step : stepFor(t.stage),
+      ...(column ? { stageId: column } : {}),
+      inStage: sameStage ? hit.inStage : 0, last: lastFor(to),
+      ...(t.step === "replied" ? { replied: true } : {}),
+    };
+  }
+  state.set(campaignId, [next, ...list.filter((p) => p.id !== id)]);
+  log.set(campaignId, [{ id: `mv-${Date.now()}-${id}`, person: hit, to: next.stage, at: Date.now() }, ...logFor(campaignId)]);
   emit();
 }
 
@@ -106,7 +130,7 @@ function lastFor(to: StatusId): string {
     replied: "Replied",
     interviewing: "Moved to interviews",
     hired: "Hired",
-    passed: "Passed",
+    passed: "Rejected",
   }[to];
 }
 
@@ -123,6 +147,76 @@ export function usePipelineReady(campaignId: string): boolean {
     const id = resolveCampaignId(campaignId);
     const s = boardState.get(id);
     return !LIVE || !id || s === "ready" || s === "failed" || pendingRows.some((r) => r.id === id);
+  });
+}
+
+/* ── the campaign's own stages: the board's columns ── */
+
+const fromSummary = new WeakMap<object, readonly StageDef[]>();
+
+/**
+ * The stages of a campaign right now, outside React: what the board read or a save said, else what the campaign
+ * list says of them (name, kind, colour), else the console's own five. The same array until something changes.
+ */
+export function stagesNow(campaignId: string): readonly StageDef[] {
+  const id = LIVE ? resolveCampaignId(campaignId) : campaignId;
+  const own = stageMap.get(id);
+  if (own) return own;
+  const listed = campaignRow(id)?.stages;
+  if (listed?.length) {
+    let made = fromSummary.get(listed);
+    if (!made) { made = stagesFromSummary(listed); fromSummary.set(listed, made); }
+    return made;
+  }
+  return DEFAULT_STAGES;
+}
+
+/** A campaign's stages, in column order, Hired and Rejected last. Loading the board is what brings them. */
+export function useCampaignStages(campaignId: string): readonly StageDef[] {
+  return useSyncExternalStore(subscribe(() => ensureBoard(campaignId)), () => stagesNow(campaignId));
+}
+
+/** The first stage a person is put in when they land on a board by kind: where the server puts them too. */
+const columnFor = (campaignId: string, from: StageId, to: StageId): string | undefined =>
+  from === to ? undefined : firstOfKind(stagesNow(campaignId), to)?.id;
+
+/**
+ * Changes a campaign's working stages (Hired and Rejected stay last). `moveTo` says where the people of a removed
+ * stage go. Resolves true once it is saved; on a refusal the board is as it was and the reason is said once.
+ */
+export function saveStages(campaignId: string, rows: readonly StageRow[], moveTo: Readonly<Record<string, string>> = {}): Promise<boolean> {
+  if (!LIVE) {
+    const before = stagesNow(campaignId);
+    const after = stagesFromRows(rows, before);
+    const keep = new Set(after.map((s) => s.id));
+    state.set(campaignId, get(campaignId).map((p) => {
+      const at = stageIdOf(p, before);
+      if (keep.has(at)) return p.stageId === at ? p : { ...p, stageId: at };
+      const gone = before.find((s) => s.id === at);
+      const to = gone ? destinationFor(gone, rows, moveTo, before, after) : workingOf(after)[0];
+      if (!to) return p;
+      const l = landing(p, to);
+      return { ...p, stage: l.stage, step: l.step, stageId: l.stageId, inStage: 0 };
+    }));
+    stageMap.set(campaignId, after);
+    emit();
+    return Promise.resolve(true);
+  }
+  const id = resolveCampaignId(campaignId);
+  const asked = epoch;
+  return stagesApi.putStages(id, bodyOf(rows, moveTo)).then(async (list) => {
+    if (asked !== epoch) return true;
+    stageMap.set(id, stagesFrom(list));
+    // People of removed stages moved on the server: the board is read again, and the list's figures with it.
+    try {
+      const read = await campaignsApi.boardRead(id);
+      if (asked === epoch) { setBoard(id, read.candidates); if (read.stages) stageMap.set(id, stagesFrom(read.stages)); }
+    } catch { /* the stages are saved; the board catches up on its next read */ }
+    if (asked === epoch) { emit(); refreshSoon(id); }
+    return true;
+  }, (err: unknown) => {
+    reportProblem(`The stages weren't saved. ${messageOf(err)}`);
+    return false;
   });
 }
 
@@ -294,6 +388,9 @@ export function resetClients() {
 
 let rows: readonly CampaignRow[] = LIVE ? [] : CAMPAIGN_ROWS;
 
+/** The campaigns as they are now, outside React (the chat moving to one reads them when it happens). */
+export const campaignRowsNow = (): readonly CampaignRow[] => rows;
+
 export function useCampaignRows(): readonly CampaignRow[] {
   return useSyncExternalStore(subscribe(ensureCampaigns), () => rows, () => rows);
 }
@@ -324,8 +421,8 @@ export function setCampaignTeam(id: string, team: readonly string[]) {
 }
 
 /** Resolves true once the status is set (at once on fixtures), false when the API refused and it was put back. */
-export function setCampaignStatus(id: string, status: CampaignStatus): Promise<boolean> {
-  if (LIVE) return setStatusLive(resolveCampaignId(id), status);
+export function setCampaignStatus(id: string, status: CampaignStatus, opts: { closeForms?: boolean } = {}): Promise<boolean> {
+  if (LIVE) return setStatusLive(resolveCampaignId(id), status, opts.closeForms === true);
   patchRow(id, (r) => ({
     ...r, status, updatedAgo: "Just now",
     agents: status === "active" ? (r.agents.length ? r.agents : ["Sourcing"]) : [],
@@ -442,6 +539,8 @@ let campaignsState: "idle" | "loading" | "ready" | "failed" = "idle";
 
 const boards = new Map<string, readonly ApiBoardRow[]>();
 const boardState = new Map<string, "loading" | "ready" | "failed">();
+/* A campaign's own stages (the board's columns): the server's, from the board read or a save; on fixtures, as edited here. */
+const stageMap = new Map<string, readonly StageDef[]>();
 
 let apiClients: readonly ApiClientRow[] = [];
 const clientDetails = new Map<string, ApiClientDetail>();
@@ -547,9 +646,10 @@ export function refreshCampaign(campaignId: string): void {
   refreshSoon(id);
   if (boardState.get(id) !== "ready") return;
   const asked = epoch;
-  campaignsApi.boardRows(id).then((list) => {
+  campaignsApi.boardRead(id).then((read) => {
     if (asked !== epoch) return;
-    setBoard(id, list);
+    setBoard(id, read.candidates);
+    if (read.stages) stageMap.set(id, stagesFrom(read.stages));
     emit();
   }, () => {});
 }
@@ -629,17 +729,19 @@ function createCampaignLive(row: CampaignRow): Promise<boolean> {
   const body = campaignsApi.createBodyFrom(row, memberIdOf);
   /* A client still being created is linked once it has its id. */
   const made = (clientId ? clientReady(clientId) : Promise.resolve(null))
-    .then((real) => campaignsApi.createCampaign({ ...body, clientId: real }));
+    .then((real) => campaignsApi.createCampaign({ ...body, clientId: real }))
+    /* A campaign opening for a client that was a prospect makes it an active one, on the server: read again. */
+    .then((c) => { if (c.client) refreshClients(); return c; });
   return track(row, made, `${row.name} wasn't created.`);
 }
 
 const STATUS_VERB: Readonly<Record<CampaignStatus, string>> = { active: "reopened", closed: "closed" };
 
-function setStatusLive(id: string, status: CampaignStatus): Promise<boolean> {
+function setStatusLive(id: string, status: CampaignStatus, closeForms = false): Promise<boolean> {
   const was = editCampaign(id, (c) => ({ ...c, status, updatedAt: new Date().toISOString() }));
   if (!was) return Promise.resolve(false);
   rebuild();
-  return campaignsApi.setCampaignStatus(id, status).then((c) => { replaceCampaign(c); rebuild(); refreshCampaignAgents(id); return true; }, (err: unknown) => {
+  return campaignsApi.setCampaignStatus(id, status, closeForms).then((c) => { replaceCampaign(c); rebuild(); refreshCampaignAgents(id); return true; }, (err: unknown) => {
     editCampaign(id, () => was);
     rebuild();
     reportProblem(`${was.name} wasn't ${STATUS_VERB[status]}. ${messageOf(err)}`);
@@ -662,7 +764,7 @@ function setTeamLive(id: string, names: readonly string[]) {
   campaignsApi.setCampaignMembers(id, ids).then((c) => { replaceCampaign(c); rebuild(); }, (err: unknown) => {
     editCampaign(id, () => was);
     rebuild();
-    reportProblem(`The team on ${was.name} wasn't changed. ${messageOf(err)}`);
+    reportProblem(`The recruiters on ${was.name} weren't changed. ${messageOf(err)}`);
   });
 }
 
@@ -677,7 +779,7 @@ function linkClientLive(campaignId: string, clientId: string | null): Promise<bo
   const was = editCampaign(campaignId, (c) => ({ ...c, client: real ? { id: real, name } : null }));
   if (!was) return Promise.resolve(false);
   rebuild();
-  return (clientId ? clientReady(clientId) : Promise.resolve(null)).then((id) => campaignsApi.patchCampaign(campaignId, { clientId: id })).then((c) => { replaceCampaign(c); rebuild(); return true; }, (err: unknown) => {
+  return (clientId ? clientReady(clientId) : Promise.resolve(null)).then((id) => campaignsApi.patchCampaign(campaignId, { clientId: id })).then((c) => { replaceCampaign(c); rebuild(); if (c.client) refreshClients(); return true; }, (err: unknown) => {
     editCampaign(campaignId, () => was);
     rebuild();
     reportProblem(`The client on ${was.name} wasn't changed. ${messageOf(err)}`);
@@ -686,6 +788,37 @@ function linkClientLive(campaignId: string, clientId: string | null): Promise<bo
 }
 
 /* ── the board ── */
+
+/* A move into or out of Hired changes who else shows them: other boards ("Hired at …"), the campaigns' hire counts,
+   Candidates and Home. The store only says it happened (it cannot import the views); invalidate.ts reads them again. */
+const hiredListeners = new Set<() => void>();
+export function onHiredChange(fn: () => void): () => void {
+  hiredListeners.add(fn);
+  return () => { hiredListeners.delete(fn); };
+}
+const hiredChanged = () => { for (const fn of hiredListeners) fn(); };
+
+/**
+ * Passes everyone still open on a campaign (not hired, not passed): the rest, once its roles are filled. Only ever
+ * asked for by a person. Answers how many were passed, or null when it was refused (the reason has been said).
+ */
+export async function passOpenPeople(campaignId: string, reason?: string): Promise<number | null> {
+  if (!LIVE) {
+    const open = get(campaignId).filter((p) => p.stage !== "hired" && p.stage !== "passed");
+    for (const p of open) movePerson(campaignId, p.id, "passed", reason);
+    return open.length;
+  }
+  const id = resolveCampaignId(campaignId);
+  try {
+    const { passed } = await campaignsApi.passOpen(id, reason);
+    refreshCampaign(id);
+    refreshCampaignsNow();
+    return passed;
+  } catch (err) {
+    reportProblem(`Those people weren't rejected. ${messageOf(err)}`);
+    return null;
+  }
+}
 
 function setBoard(id: string, rows: readonly ApiBoardRow[]) {
   /* Newest arrival in a stage first, in every column and in the list: someone just added or moved is at the top. */
@@ -700,9 +833,10 @@ export function ensureBoard(campaignId: string) {
   boardState.set(id, "loading");
   ensureMembers();
   const asked = epoch;
-  campaignsApi.boardRows(id).then((list) => {
+  campaignsApi.boardRead(id).then((read) => {
     if (asked !== epoch) return;
-    setBoard(id, list);
+    setBoard(id, read.candidates);
+    if (read.stages) stageMap.set(id, stagesFrom(read.stages));
     boardState.set(id, "ready");
     emit();
   }, (err: unknown) => {
@@ -713,21 +847,116 @@ export function ensureBoard(campaignId: string) {
   });
 }
 
-function moveLive(id: string, ccId: string, to: StatusId, reason?: string) {
+/* ── hiring someone ──
+   Moving a person into Hired takes them off every other shortlist, so it is never guessed at: the card stays where it is
+   until the server says yes. When they are on other campaigns the server asks first (409 needs_confirm_hired, naming
+   them); the store keeps that question for the dialog (HiredConfirm.tsx), and a yes tries again with removeFromOthers. */
+
+/** The question waiting to be answered: who is being hired, and which other campaigns they would be removed from. */
+export type HiredAsk = { campaignId: string; ccId: string; name: string; campaigns: { id: string; name: string }[]; to: MoveTo; reason?: string };
+let hiredAsk: HiredAsk | null = null;
+const setHiredAsk = (a: HiredAsk | null) => { hiredAsk = a; emit(); };
+export function useHiredAsk(): HiredAsk | null {
+  return useSyncExternalStore(plain, () => hiredAsk, () => hiredAsk);
+}
+/** The question waiting, outside React. */
+export const hiredAskNow = (): HiredAsk | null => hiredAsk;
+/** A "no": the card is where it was, nothing was changed. */
+export function cancelHiredAsk(): void { if (hiredAsk) setHiredAsk(null); }
+/** A "yes": hire them and take them off the other shortlists. */
+export function confirmHiredAsk(): void {
+  const a = hiredAsk;
+  if (!a) return;
+  setHiredAsk(null);
+  moveLive(a.campaignId, a.ccId, a.to, a.reason, { removeFromOthers: true });
+}
+
+/** Told when someone has really been hired on a campaign (the server said yes), so its page can celebrate. */
+const hiredLandedListeners = new Set<(e: { campaignId: string; ccId: string }) => void>();
+export function onHiredLanded(fn: (e: { campaignId: string; ccId: string }) => void): () => void {
+  hiredLandedListeners.add(fn);
+  return () => { hiredLandedListeners.delete(fn); };
+}
+
+const hiring = new Set<string>();
+
+/**
+ * The campaigns the server named in its question, read tolerantly. `active`: the person is really on that campaign's
+ * board (not rejected there), which is the only kind hiring takes them off in a way worth saying.
+ */
+export function askedCampaigns(details: Record<string, unknown> | undefined): { id: string; name: string; active: boolean }[] {
+  const raw = Array.isArray(details?.campaigns) ? (details!.campaigns as unknown[]) : [];
+  return raw.flatMap((c) => {
+    const o = c && typeof c === "object" ? (c as Record<string, unknown>) : {};
+    if (typeof o.id !== "string") return [];
+    const stage = typeof o.stage === "string" ? o.stage.toLowerCase() : "";
+    const active = o.rejected !== true && o.active !== false && stage !== "passed" && stage !== "rejected";
+    return [{ id: o.id, name: typeof o.name === "string" && o.name.trim() ? o.name.trim() : "another campaign", active }];
+  });
+}
+
+/** Whether anyone has been hired in the organisation on a campaign other than this one: the first hire is the organisation's, not one campaign's. */
+export function orgHasEarlierHire(campaignId: string): boolean {
+  const id = resolveCampaignId(campaignId);
+  return rows.some((r) => r.id !== id && (r.hires?.count ?? r.funnel.hired) > 0);
+}
+
+function moveLive(id: string, ccId: string, to: MoveTo, reason?: string, opts: { removeFromOthers?: boolean } = {}) {
   const list = boards.get(id);
   const before = list?.find((r) => r.campaignCandidateId === ccId);
   const person = state.get(id)?.find((p) => p.id === ccId);
-  if (!list || !before || !person || !wouldMove(before, to)) return;
-  const { stage, step } = moveTarget(to);
+  if (!list || !before || !person) return;
+  const stages = stagesNow(id);
+  /* By stage: the kind follows the column, and a step is kept inside the same kind. By status: the first stage of that kind. */
+  const target = isStageMove(to) ? stageNamed(stages, to.stageId) : undefined;
+  if (isStageMove(to) && (!target || !wouldMoveToStage(before, target, stages))) return;
+  if (!isStageMove(to) && !wouldMove(before, to)) return;
+  const { stage, step, column } = target
+    ? (() => { const l = landing(before, target); return { stage: l.stage, step: l.step, column: l.stageId }; })()
+    : { ...moveTarget(to as StatusId), column: columnFor(id, before.stage, moveTarget(to as StatusId).stage) };
+  const remove = opts.removeFromOthers === true;
+  /* A stage the server made is moved to by id; a guess of ours (default:…) can only be moved to by kind. */
+  const send = () => (target && !isDefaultId(target.id)
+    ? campaignsApi.moveCandidateToStage(id, ccId, target.id, reason, remove)
+    : campaignsApi.moveCandidate(id, ccId, stage, reason, step, remove));
   const mv: Move = { id: `mv-${Date.now()}-${ccId}`, person, to: stage, at: Date.now() };
-  setBoard(id, campaignsApi.movedOnBoard(list, ccId, stage, step));
+  if (stage === "hired" && before.stage !== "hired") {
+    /* Into Hired: nothing is shown until the server agrees (no card flies, no count moves). */
+    if (hiring.has(ccId)) return;
+    hiring.add(ccId);
+    send().then((row) => {
+      hiring.delete(ccId);
+      setBoard(id, campaignsApi.movedOnBoard(boards.get(id) ?? [], ccId, stage, step, column).map((r) => (r.campaignCandidateId === ccId ? row : r)));
+      log.set(id, [mv, ...logFor(id)]);
+      editCampaign(id, (c) => campaignsApi.shiftFunnel(c, before.stage, stage));
+      rebuild();
+      refreshSoon(id);
+      hiredChanged();
+      for (const fn of hiredLandedListeners) fn({ campaignId: id, ccId });
+    }, (err: unknown) => {
+      hiring.delete(ccId);
+      if (err instanceof ApiError && err.code === "needs_confirm_hired") {
+        const named = askedCampaigns(err.details);
+        const active = named.filter((c) => c.active);
+        /* Only campaigns they were already rejected from: nothing to say they lose, so there is nothing to ask. */
+        if (named.length > 0 && active.length === 0) { moveLive(id, ccId, to, reason, { removeFromOthers: true }); return; }
+        setHiredAsk({ campaignId: id, ccId, name: person.name, campaigns: active.map(({ id: cid, name }) => ({ id: cid, name })), to, ...(reason ? { reason } : {}) });
+        return;
+      }
+      reportProblem(`${firstOf(person.name)} wasn't moved. ${messageOf(err)}`);
+    });
+    return;
+  }
+  setBoard(id, campaignsApi.movedOnBoard(list, ccId, stage, step, column));
   log.set(id, [mv, ...logFor(id)]);
   editCampaign(id, (c) => campaignsApi.shiftFunnel(c, before.stage, stage));
   rebuild();
-  campaignsApi.moveCandidate(id, ccId, stage, reason, step).then((row) => {
+  const sent = send();
+  sent.then((row) => {
     setBoard(id, (boards.get(id) ?? []).map((r) => (r.campaignCandidateId === ccId ? row : r)));
     emit();
     refreshSoon(id);
+    if (before.stage === "hired" || stage === "hired") hiredChanged();
   }, (err: unknown) => {
     setBoard(id, (boards.get(id) ?? []).map((r) => (r.campaignCandidateId === ccId ? before : r)));
     log.set(id, logFor(id).filter((m) => m !== mv));
@@ -743,12 +972,12 @@ function bulkMoveLive(id: string, ids: readonly string[], to: StatusId, reason?:
   const { stage, step } = moveTarget(to);
   const moving = list.filter((r) => ids.includes(r.campaignCandidateId) && wouldMove(r, to));
   if (!moving.length) return;
-  setBoard(id, moving.reduce((acc, r) => campaignsApi.movedOnBoard(acc, r.campaignCandidateId, stage, step), list));
+  setBoard(id, moving.reduce((acc, r) => campaignsApi.movedOnBoard(acc, r.campaignCandidateId, stage, step, columnFor(id, r.stage, stage)), list));
   editCampaign(id, (c) => moving.reduce((acc, r) => campaignsApi.shiftFunnel(acc, r.stage, stage), c));
   rebuild();
   campaignsApi.bulkMove(id, moving.map((r) => r.campaignCandidateId), stage, reason, step)
     .then(() => campaignsApi.boardRows(id))
-    .then((fresh) => { setBoard(id, fresh); emit(); refreshSoon(id); }, (err: unknown) => {
+    .then((fresh) => { setBoard(id, fresh); emit(); refreshSoon(id); if (stage === "hired" || moving.some((r) => r.stage === "hired")) hiredChanged(); }, (err: unknown) => {
       const before = new Map(moving.map((r) => [r.campaignCandidateId, r]));
       setBoard(id, (boards.get(id) ?? []).map((r) => before.get(r.campaignCandidateId) ?? r));
       editCampaign(id, (c) => moving.reduce((acc, r) => campaignsApi.shiftFunnel(acc, stage, r.stage), c));
@@ -1076,12 +1305,15 @@ export function retryPipeline(campaignId: string) {
  */
 export function resetCampaignStore(): void {
   epoch += 1;
+  hiredAsk = null;
+  hiring.clear();
   for (const t of refreshTimers.values()) clearTimeout(t);
   refreshTimers.clear();
   state.clear();
   log.clear();
   boards.clear();
   boardState.clear();
+  stageMap.clear();
   overviews.clear();
   activity.clear();
   overviewState.clear();

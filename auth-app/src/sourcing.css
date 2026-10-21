@@ -398,6 +398,11 @@
 
 .src-card-reason svg { flex: none; margin-top: 3px; color: var(--accent); }
 
+/* A score that has not arrived: shimmer tiles (components/Shimmer) where the line on why and the fit marks will
+   be, so the card does not jump when they come. */
+.src-card-reason.is-pending { display: grid; align-content: center; gap: 8px; min-height: 20px; }
+.cb-fitrow.is-pending li { gap: 6px; }
+
 /* Career on the left, fit on the right, separated from the identity by a
    hairline so the card reads as "who" above "how they compare". */
 .src-card-foot {

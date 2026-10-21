@@ -42,3 +42,19 @@ export function landingPlace(
   if (activeOrganisationId === undefined) return "campaign";
   return done.organisationId === activeOrganisationId ? "campaign" : "home";
 }
+
+/**
+ * What the set-up hands the console when it ends: the new campaign's chat, so the role spec to approve is the first thing
+ * seen, or Home when there is no campaign (the person carried on without a first role).
+ */
+export function finishedFrom(made: { campaignId: string | null; conversationId: string | null; organisationId: string | null }): {
+  hash: string;
+  conversationId: string | null;
+  organisationId: string | null;
+} {
+  return {
+    hash: made.campaignId ? `#/agent?campaign=${made.campaignId}` : "#/",
+    conversationId: made.campaignId ? made.conversationId : null,
+    organisationId: made.organisationId,
+  };
+}

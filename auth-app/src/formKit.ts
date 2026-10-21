@@ -144,8 +144,107 @@ export const SUBTYPES: Record<Exclude<Family, "other">, { id: string; label: str
     { id: "other", label: "Something else", meta: "Content, motion, industrial…" },
   ],
 };
-export const familyForDepartment = (d: string): Family | null =>
-  d === "Engineering" || d === "Data" ? "engineering" : d === "Design" ? "design" : d === "Go to market" ? "sales" : null;
+
+/* ── what a campaign says about its kind of role ── */
+
+/**
+ * Departments that settle the kind of role on their own, whole words and any case. Sales is read first, so
+ * "Sales Engineering" is sales; "Product" and "Operations" are not here, because people of every kind work in them.
+ */
+const DEPARTMENT_FAMILY: ReadonlyArray<readonly [RegExp, Family]> = [
+  [/\b(sales|go[- ]to[- ]market|gtm|revenue|business development|partnerships?|customer success|account management|client success)\b/i, "sales"],
+  [/\b(design|creative|ux)\b/i, "design"],
+  [/\b(engineering|software|technology|tech|it|devops|sre|platform|infrastructure|cloud|security|infosec|cyber ?security|qa|quality( assurance)?|testing|mobile|ml|ai|machine learning|data|analytics|bi|business intelligence|insights|data science|r&d)\b/i, "engineering"],
+];
+/** Departments that hold no technical, sales or design role of their own: a title that says more wins over these. */
+const OTHER_DEPARTMENT = /\b(marketing|growth|hr|human resources|people|talent|recruiting|recruitment|finance|accounts?|accounting|legal|compliance|operations|ops|admin\w*|support|customer (support|service|care|experience)|procurement|supply chain|logistics|strategy|facilities)\b/i;
+
+export const familyForDepartment = (d: string): Family | null => {
+  const dept = d.trim();
+  if (!dept) return null;
+  for (const [re, family] of DEPARTMENT_FAMILY) if (re.test(dept)) return family;
+  return null;
+};
+
+const SALES_WORDS = /\b(sales|account (executive|manager|exec)|business development|sdr|bdr|customer success|client success|revenue|gtm|go[- ]to[- ]market|partnerships?|pre-?sales|inside sales|channel (manager|partner)|solutions? (engineer|consultant|architect)s?|relationship manager)\b/i;
+const DESIGN_WORDS = /\b(designers?|design|ux|illustrators?|creative|art director)\b/i;
+/** Jobs that are not technical, sales or design, whatever they are about: "Product Manager, Data Platform". */
+const OTHER_ROLE_WORDS = /\b(customer (support|care|service|experience)|support (specialist|agent|executive|associate|representative|lead|manager|analyst|engineers?)|help ?desk|service desk|content (strategist|manager|marketer)|writers?|copywriters?|seo|social media|community manager|recruit\w*|talent (acquisition|partner|manager)|accountants?|controller|auditor|payroll|paralegal|counsel|receptionist|executive assistant|office manager|admin\w*|procurement|product (manager|owner|operations|lead|director|analyst)|program manager|project manager|chief of staff|data entry)\b/i;
+/** Titles that are technical whatever else they say ("Cloud Operations Engineer", "Data Analyst"). */
+const TECH_WORDS = /\b(software|developers?|programmers?|devops|dev ops|sre|site reliability|architects?|back[- ]?end|front[- ]?end|full[- ]?stack|android|ios|mobile|machine learning|mlops|ml|ai|data (scientists?|engineers?|analysts?|analytics|science|platform)|analytics|business intelligence|bi|qa|sdet|quality assurance|test automation|testers?|devsecops|cyber ?security|information security|security (engineers?|analysts?|architects?)|cloud|embedded|firmware|robotics|blockchain|web3|dba|database|sysadmin|system administrator|network engineers?)\b/i;
+/** The business a role sits in, when no technical word has said otherwise: "Marketing Manager", "Finance Lead". */
+const OTHER_DOMAIN_WORDS = /\b(marketing|growth|hr|human resources|people (partner|operations|ops|business partner|manager)|talent|finance|financial|accounting|legal|compliance|operations(?! engineers?)|ops manager|supply chain|logistics|warehouse|content)\b/i;
+/** Technical, but only by a looser word: used when nothing above has said. */
+const LOOSE_TECH_WORDS = /\b(engineers?|engineering|data|security|platform|infrastructure|technical|scientists?|technologist)\b/i;
+
+/**
+ * The kind of role a campaign is, from what it already says about itself: its department, else the words
+ * of its title. "Software Engineer" is engineering whatever its department field holds, and a title in a
+ * department that holds every kind of role ("Product", "Operations") is read on its own. A role that is
+ * none of technical, sales or design is "other" (the generic form). Null only when nothing says anything.
+ */
+export function inferFamily(department: string | undefined, ...words: ReadonlyArray<string | undefined>): Family | null {
+  const dept = (department ?? "").trim();
+  const byDepartment = familyForDepartment(dept);
+  if (byDepartment) return byDepartment;
+  const text = words.filter(Boolean).join(" ");
+  if (text.trim()) {
+    if (SALES_WORDS.test(text)) return "sales";
+    if (DESIGN_WORDS.test(text)) return "design";
+    if (OTHER_ROLE_WORDS.test(text)) return "other";
+    if (TECH_WORDS.test(text)) return "engineering";
+    if (OTHER_DOMAIN_WORDS.test(text)) return "other";
+    if (LOOSE_TECH_WORDS.test(text)) return "engineering";
+  }
+  return OTHER_DEPARTMENT.test(dept) ? "other" : null;
+}
+
+/* ── the stack a title names ── */
+
+/** "Senior Software Engineer II" and "SDE 2" say no more than "software engineer" does. */
+const LEVEL_WORD = /^(senior|sr|junior|jr|staff|principal|lead|associate|mid|entry|early|career|level|i|ii|iii|iv|v|[1-5])$/;
+const isPlainSoftware = (text: string): boolean => {
+  const rest = text.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((t) => t && !LEVEL_WORD.test(t)).join(" ");
+  return /^(software (engineers?|developers?)|sde|swe)$/.test(rest);
+};
+
+/** What one title says about the stack: a stack it names, or only that it is a plain "software engineer". */
+function subOf(family: Exclude<Family, "other">, text: string): { sub: string; plain: boolean } | null {
+  const hit = (re: RegExp) => re.test(text);
+  const named = (sub: string) => ({ sub, plain: false });
+  if (family === "engineering") {
+    if (hit(/\bfull[- ]?stack\b/i)) return named("fullstack");
+    if (hit(/\bback[- ]?end\b|\bserver\b|\bapi\b|\bsre\b|\bplatform\b|\bdevops\b|\binfrastructure\b|\bcloud\b/i)) return named("backend");
+    if (hit(/\bfront[- ]?end\b|\breact\b|\bweb ui\b/i)) return named("frontend");
+    if (hit(/\bandroid\b|\bios\b|\bmobile\b|\bdata\b|\banalytics\b|\bmachine learning\b|\bembedded\b|\bfirmware\b|\brobotics\b|\bml\b|\bai\b|\bsecurity\b|\bqa\b|\bsdet\b|\bblockchain\b/i)) return named("other");
+    return isPlainSoftware(text) ? { sub: "fullstack", plain: true } : null;
+  }
+  if (family === "sales") {
+    if (hit(/\bsdr\b|\bbdr\b|business development|sales development|\boutbound\b/i)) return named("sdr");
+    if (hit(/customer success|client success|account manager|\bcsm\b/i)) return named("cs");
+    if (hit(/account executive|\bae\b|sales (executive|manager)|enterprise sales/i)) return named("ae");
+    return null;
+  }
+  if (hit(/\bresearch/i)) return named("research");
+  if (hit(/\bbrand\b|\bvisual\b|\bgraphic\b|illustrat|\bcreative\b/i)) return named("brand");
+  if (hit(/\bproduct design|\bux\b|\bui\b|interaction/i)) return named("product");
+  return null;
+}
+
+/**
+ * Which of the family's shapes a title clearly names ("Senior Backend Engineer" is backend), or null when it
+ * names none, which is when the recruiter is asked. Each title is read on its own: a plain "Software Engineer"
+ * is the full-stack shape only when nothing else names a stack, and titles that name different stacks say
+ * nothing. "Robotics Software Engineer" is not "software engineer".
+ */
+export function inferSub(family: Family, ...words: ReadonlyArray<string | undefined>): string | null {
+  if (family === "other") return null;
+  const hits = words.map((w) => (w ?? "").trim()).filter(Boolean).map((w) => subOf(family, w)).filter((h): h is { sub: string; plain: boolean } => !!h);
+  const named = [...new Set(hits.filter((h) => !h.plain).map((h) => h.sub))];
+  if (named.length) return named.length === 1 ? named[0]! : null;
+  const plain = [...new Set(hits.map((h) => h.sub))];
+  return plain.length === 1 ? plain[0]! : null;
+}
 
 export const SKILLS: Readonly<Record<Family, readonly string[]>> = {
   engineering: ["Go", "Java", "Kotlin", "Python", "Rust", "Node.js", "TypeScript", "React", "Next.js", "Postgres", "MySQL", "Kafka", "Redis", "Kubernetes", "AWS", "GCP", "gRPC", "GraphQL", "Terraform"],
@@ -276,8 +375,12 @@ const LOOKING: Readonly<Record<Flavour, string[]>> = {
   other: ["You've done this role before, or something very close to it", "You're organised and you communicate early"],
 };
 
-export function flavourOf(family: Family, department?: string, sub?: string): Flavour {
-  if (family === "engineering" && (department === "Data" || sub === "data")) return "data";
+/** Departments and titles that make an engineering role data work: "Data", "Analytics", "BI", a "Data Analyst". */
+const DATA_DEPARTMENT = /\b(data|analytics|bi|business intelligence|insights|data science)\b/i;
+const DATA_TITLE = /\b(analysts?|analytics|data scien\w+|business intelligence|bi)\b/i;
+
+export function flavourOf(family: Family, department?: string, sub?: string, title?: string): Flavour {
+  if (family === "engineering" && (sub === "data" || DATA_DEPARTMENT.test(department ?? "") || DATA_TITLE.test(title ?? ""))) return "data";
   return family;
 }
 
@@ -303,13 +406,13 @@ export function teamAbout(c: Pick<CampaignLite, "department" | "location"> | und
 /** The intro paragraph a form starts with, from the campaign. */
 export function defaultIntro(campaignId: string, family?: Family): string {
   const c = campaignById(campaignId);
-  const fam = flavourOf(family ?? familyForDepartment(c?.department ?? "") ?? "other", c?.department);
+  const fam = flavourOf(family ?? familyForDepartment(c?.department ?? "") ?? "other", c?.department, undefined, c?.name);
   return INTRO[fam](roleTitle(c?.name ?? "role"));
 }
 
 export function defaultRole(campaignId: string, family?: Family): RoleDetails {
   const c = campaignById(campaignId);
-  const fam = flavourOf(family ?? familyForDepartment(c?.department ?? "") ?? "other", c?.department);
+  const fam = flavourOf(family ?? familyForDepartment(c?.department ?? "") ?? "other", c?.department, undefined, c?.name);
   return {
     about: teamAbout(c),
     responsibilities: [...DOING[fam]],
@@ -518,7 +621,7 @@ export function draftForm(i: DraftInput): Form {
   /* Tools the role names go first in "which of these have you used". */
   const named = f ? [...f.musts.filter((m) => m.skill).map((m) => m.text), ...f.nice].filter((t) => t.length <= 28) : [];
   const skills = [...new Set([...p.skills, ...named])];
-  const flav = flavourOf(i.family, c?.department, i.sub);
+  const flav = flavourOf(i.family, c?.department, i.sub, roleText || name);
   const domain = idealDomain(i.ideal ?? "");
   const slots = template(i.family, i.sub, roleText, c?.department ?? "", skills);
   /* The ideal-hire line names a domain ("payments at scale"): ask about it in

@@ -24,7 +24,10 @@ const OWNER = ["owner"] as const;
 export const CAPABILITIES = {
   /* campaigns */
   "campaign.seeAll": MANAGERS,
-  "campaign.create": MANAGERS,
+  /* Anyone who works in the workspace opens campaigns (the server's `mayCreateCampaign`). A recruiter's is theirs
+     alone: they own it and are the only one on it. Who owns it, who is on it, who else sees it and adding a client
+     for it stay a manager's (`campaign.assign`, `client.manage`). */
+  "campaign.create": EVERYONE,
   /* The campaign's own admin controls: team, client, visibility, finishing it. */
   "campaign.manage": MANAGERS,
   /* Who owns a campaign, who is on it, who it is for and who sees it. */
@@ -54,7 +57,12 @@ export const CAPABILITIES = {
   "member.invite": TEAM_MANAGERS,
   "member.decideRequests": TEAM_MANAGERS,
   "member.setRole": TEAM_MANAGERS,
-  "member.remove": TEAM_MANAGERS,
+  /* Taking someone out of the organisation is the owner's alone; an admin takes people off the teams they lead. */
+  "member.remove": OWNER,
+  /* The Teams page: who sees it at all (nav.ts holds the same two standings; a test keeps them together). */
+  "teams.manage": TEAM_MANAGERS,
+  /* Making and deleting a team. An admin changes the people and campaigns of the teams they lead. */
+  "teams.create": OWNER,
   "org.settings": TEAM_MANAGERS,
   "org.transferOwnership": OWNER,
   /* The owner has to hand the organisation on first. */
@@ -88,7 +96,8 @@ export function canSetStatus(s: Pick<Session, "role" | "standing" | "userId">, c
 /**
  * Managing people, down to the role: who may invite, approve, change or remove whom. `member.*` above says who manages
  * at all; this is the table behind the buttons (the server's `core.org_may`, mirrored as data in identity/roles.ts).
- * An admin deals with recruiters only; the owner with admins and recruiters; nobody touches the owner.
+ * An admin deals with recruiters only (and does not remove anyone from the organisation: that is the owner's, and an
+ * admin takes people off the teams they lead); the owner with admins and recruiters; nobody touches the owner.
  */
 export type Assignable = "admin" | "recruiter";
 export type PeopleAction = "invite" | "approve" | "setRole" | "remove";
@@ -99,7 +108,7 @@ const PEOPLE: Readonly<Record<PeopleAction, Partial<Record<Standing, readonly As
   /* `setRole`: the roles of the people whose role may be changed, which may be changed to either of the owner's two;
      an admin's own list is recruiters, who cannot be moved anywhere an admin may put them. */
   setRole: { owner: ["admin", "recruiter"], admin: ["recruiter"] },
-  remove: { owner: ["admin", "recruiter"], admin: ["recruiter"] },
+  remove: { owner: ["admin", "recruiter"] },
 };
 
 /** The roles this standing may invite as, approve as, or (for change and remove) act on. */

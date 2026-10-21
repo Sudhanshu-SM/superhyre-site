@@ -31,9 +31,17 @@ export type CampaignRates = {
   kept: number | null; reachedOut: number | null; replied: number | null; interviewing: number | null; hired: number | null;
 };
 
+/** The kind a pipeline stage is, whatever it is called: what the board and the numbers treat it as. */
+export type StageKind = "shortlisted" | "outreach" | "interviewing" | "hired" | "passed";
+
+/** One stage of a campaign's pipeline and how many people are in it now, in pipeline order (server: the list's `stages`). */
+export type CampaignStage = { id: string; name: string; kind: StageKind; color: string | null; count: number };
+
 export type CampaignRow = {
   id: string;
   name: string;
+  /** Live rows: the client it is hiring for, when it has one. */
+  client?: string;
   department: string;
   location: string;
   status: CampaignStatus;
@@ -42,10 +50,19 @@ export type CampaignRow = {
   /** Live rows: the same people by user id, which is what access goes by (names can repeat). */
   ownerId?: string | null;
   teamIds?: readonly string[];
+  /** Live rows: the organisation's team this campaign is on (the people above are the campaign's own), when it is on one. */
+  teamId?: string | null;
+  teamName?: string | null;
+  /** Live rows: whether the server lets this viewer change it (an admin only the ones they own, are on or lead the team of). */
+  canManage?: boolean;
   /** Live rows: "org" campaigns are open to everyone in the organisation. */
   visibility?: "team" | "org";
   /** Where people are now: each stage's headcount. */
   funnel: Readonly<Record<Stage, number>>;
+  /** Live rows: how many have been hired of how many wanted (null: no target). Absent from fixtures and older servers: then the funnel's hires and `target`. */
+  hires?: { count: number; target: number | null };
+  /** Live rows: the same people stage by stage (custom stages included). Absent from fixtures and older servers; see stagesOf. */
+  stages?: readonly CampaignStage[];
   /**
    * Live rows: how far people got, and the conversions between steps, as the server defines them
    * (the same numbers the Overview funnel and the Pipeline header say).
@@ -117,7 +134,7 @@ type Funnel = CampaignRow["funnel"];
     to interviews. Pipeline's `step: "replied"` count is built from the same
     two numbers, so Home, Campaigns, the Overview and Pipeline all agree. */
 export const repliesWaiting = (f: Funnel) => Math.max(0, f.replied - f.interviews);
-const repliesNeed = (f: Funnel) => `${repliesWaiting(f)} replies waiting`;
+const repliesNeed = (f: Funnel) => `${repliesWaiting(f)} ${repliesWaiting(f) === 1 ? "reply" : "replies"} waiting`;
 
 type Base = Omit<CampaignRow, "id" | "name" | "department" | "location" | "needs"> & { needs?: string | ((f: Funnel) => string) };
 

@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 import type { CallGroup } from "../api/calls";
 import { byCaller, glanceOf, mergeNamed, namesCampaign, openGroups, orderGroups, outcomeLine } from "../callsView";
 import { valueCell } from "../contactsModel";
-import { MAX_CAMPAIGN_ROWS } from "../HomeCards";
 import { readHidden, SL_COLUMNS } from "../SlColumns";
 
 /** Four owner items of 13 Oct: Home's campaigns card, the Shortlisted table's Email and Phone, Calls by campaign. */
@@ -12,24 +11,22 @@ import { readHidden, SL_COLUMNS } from "../SlColumns";
 const src = (f: string) => readFileSync(join(__dirname, "..", f), "utf8");
 
 describe("Home: the active campaigns card", () => {
-  it("shows as many rows as fit (4 to 10), the rest behind one quiet link (13 Oct six, then the owner asked for the card to be filled)", () => {
-    expect(MAX_CAMPAIGN_ROWS).toBe(10);
+  it("shows as many tiles as fit (at most five, in three rows or two), the rest behind one quiet link (13 Oct six, then the owner asked for the card to be filled, then for rings, then for a bento of the five latest)", () => {
     const code = src("HomeCards.tsx");
-    expect(code).toContain("Math.min(MAX_CAMPAIGN_ROWS, fit)");
+    expect(code).toContain("bentoRowsFit(n, room)");
+    expect(code).toContain("bentoPlan(rows.length, fit.rows)");
     expect(code).toContain('<li className="hm-cl-more"><a href="#/campaigns">+{hidden} more<span>View all</span></a></li>');
   });
 
-  it("is a three-column row of 58px with a 96px bar, tabular hires, a hairline rule and 24px padding", () => {
+  it("is a bento of tiles with a hairline rule and 24px padding: no row, no divider, no thick left edge", () => {
     const css = src("home.css");
     const v2 = css.slice(css.indexOf("active campaigns, v2"));
     expect(v2).toMatch(/\.hm-camps \{ --hm-tx: 24px;/);
     expect(v2).toMatch(/\.hm-camps > \.hm-th::after \{ display: none; \}/);
     expect(v2).toMatch(/\.hm-camps \.hm-cl \{ margin: 16px 0 12px;/);
-    expect(v2).toMatch(/grid-template-columns: minmax\(0, 1fr\) 96px 80px;/);
-    expect(v2).toMatch(/min-height: 58px; padding: 12px var\(--hm-ix\) 12px var\(--hm-ix\)/);
-    expect(v2).toMatch(/\.hm-camps \.hm-cl-t strong \{ font: 500 15px\/18px/);
-    expect(v2).toMatch(/\.hm-camps \.hm-cl-bar \{ width: 96px;/);
-    expect(v2).toMatch(/\.hm-camps \.hm-cl-n \{ text-align: right; font-variant-numeric: tabular-nums;/);
+    // The name is the console's own label type, and the old row, bar, hires and dividers are gone.
+    expect(css).toMatch(/\.hm-cl-t strong, \.hm-cl-more a,[^{]*\{ font: var\(--type-label\)/);
+    expect(css).not.toMatch(/hm-cl-go|li \+ li button::before|\.hm-cl button \{[^}]*border-left/);
   });
 });
 

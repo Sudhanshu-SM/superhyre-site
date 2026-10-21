@@ -194,6 +194,7 @@ export function loadFailedText(
   if (kind === "network") return `${what} didn't load. Check your connection and try again.`;
   if (kind === "session") return `${what} didn't load. Your session has ended; sign in again.`;
   if (kind === "access") return `${what} didn't load. You don't have access to this.`;
+  if (kind === "timeout") return `${what} took longer than expected to load. Nothing was changed; try again.`;
   if (kind === "limited") {
     const when = retryAt && retryAt > now ? `in ${waitLabel(retryAt, now)}` : "in a moment";
     return `${what} didn't load: that was a lot of requests in a short time. Try again ${when}.`;
@@ -210,6 +211,7 @@ export function loadFailedShort(what: string, kind: FailureKind | null, connect:
   if (kind === "network") return `${what} didn't load. Check your connection.`;
   if (kind === "session") return `${what} didn't load. Your session has ended.`;
   if (kind === "access") return `${what} didn't load. You don't have access to this.`;
+  if (kind === "timeout") return `${what} took longer than expected.`;
   if (kind === "limited") return `${what} didn't load. That was a lot of requests; wait a moment.`;
   return `${what} didn't load.`;
 }

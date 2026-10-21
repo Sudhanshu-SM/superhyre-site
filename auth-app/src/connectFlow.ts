@@ -4,10 +4,9 @@ import type { NotionTarget, OrgConnection, OrgProvider, SlackChannel } from "./a
 /**
  * Connecting Slack or Notion from Settings, as logic with no screen in it.
  *
- * A token is pasted into a field, sent once, and then gone: the field is emptied the moment
- * it is submitted and nothing here ever holds on to what was typed. If the server refuses
- * it, the person is told why and pastes again, rather than the console keeping a secret
- * around to make retrying easier.
+ * A token is pasted into a field and sent. Nothing here holds on to it: it lives in the field only. If the
+ * server refuses it, the person is told why once, and what they typed is still there to correct and send
+ * again; it is emptied when the connection is made.
  */
 
 /* ── the paste-a-token form ── */
@@ -116,4 +115,22 @@ export function withSetting(c: OrgConnection, key: "defaultChannel" | "defaultPa
 export function channelLabel(c: Pick<SlackChannel, "name" | "isPrivate" | "private" | "isMember">): string {
   const note = c.isMember === false ? "add the app first" : c.isPrivate ?? c.private ? "private" : null;
   return `#${c.name.replace(/^#/, "")}${note ? ` (${note})` : ""}`;
+}
+
+/* ── the window a connect card opens ── */
+
+/** The name a connect card gives the window it opens for signing in. */
+export const CONNECT_WINDOW = "sh-connect";
+
+/**
+ * Whether this window is the one a connect card opened to sign in somewhere. When the sign-in has finished it
+ * has nothing more to do: it says so to the chat it came from (see `announceConnectionChange`) and closes.
+ */
+export function isConnectWindow(): boolean {
+  try { return window.name === CONNECT_WINDOW && window.opener !== null; } catch { return false; }
+}
+
+/** Closes this window after a beat, so the person sees that it worked before it goes. A window the browser won't close stays. */
+export function closeConnectWindow(afterMs = 1200): void {
+  window.setTimeout(() => { try { window.close(); } catch { /* it stays, and says it is done */ } }, afterMs);
 }

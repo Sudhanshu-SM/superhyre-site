@@ -1,11 +1,13 @@
 import { onDecision } from "./api/agent";
 import { LIVE, onWrite } from "./api/client";
+import { dropReadCache } from "./api/readCache";
 import { onWorkspaceChange } from "./api/identity";
-import { refreshCampaign, refreshCampaignsNow, refreshClients, refreshMembers, refreshOpenCampaigns } from "./campaignStore";
+import { onHiredChange, refreshCampaign, refreshCampaignsNow, refreshClients, refreshMembers, refreshOpenCampaigns } from "./campaignStore";
 import { reloadConnections } from "./connectionsStore";
 import { refreshFormCounts } from "./formsStore";
 import { refreshHome, refreshNotices, refreshTasks } from "./homeStore";
 import { onChatEffects, onChatRunEnd, watchesChanged } from "./liveChat";
+import { meetingsChanged } from "./meetingsStore";
 import { memoryNow, openMemory, reloadMemoryStats } from "./memoryStore";
 import { schedulesChanged } from "./schedulesStore";
 import { reloadSpec } from "./specDraft";
@@ -47,11 +49,13 @@ export type View =
   | "connections"
   | "memory"
   | "schedules"
+  /** Meetings and interviews: Home's Coming up, a campaign's Overview and the candidate sheet. */
+  | "meetings"
   /** A campaign's role spec. */
   | "specs"
   /** The agent rail's watches. */
   | "watches"
-  /** A campaign's forms: their response counts. */
+  /** A campaign's forms: their status and link, their questions and their response counts. */
   | "forms"
   /** Pages that keep their own lists (Candidates, Calls) are told through `onInvalidate`; these two are for them. */
   | "candidates"
@@ -80,9 +84,15 @@ export const READ: Readonly<Record<View, (campaigns: Campaigns) => void>> = {
     if (memoryNow().list !== "idle") void openMemory();
   },
   schedules: () => void schedulesChanged(),
+  meetings: () => meetingsChanged(),
   specs: (c) => eachCampaign(c, (id) => void reloadSpec(id)),
   watches: () => watchesChanged(),
-  forms: (c) => eachCampaign(c, (id) => void refreshFormCounts(id)),
+  // A form published, closed or changed (by the agent, or by someone else), and who has answered it: status, link,
+  // questions and counts. A change that names no campaign reads every campaign whose forms are on screen.
+  forms: (c) => {
+    eachCampaign(c, (id) => void refreshFormCounts(id));
+    if (c.has(null)) void refreshFormCounts(null);
+  },
   // Told to the pages through onInvalidate (see EFFECT_OF_VIEW): nothing to read here.
   candidates: () => {},
   calls: () => {},
@@ -93,8 +103,9 @@ const EFFECT_OF_VIEW: Partial<Record<View, CapabilityEffect>> = { candidates: "c
 
 /** What each kind of effect (the server's vocabulary) leaves stale. */
 export const VIEWS_OF_EFFECT: Readonly<Record<CapabilityEffect, readonly View[]>> = {
-  campaign: ["boards", "campaigns", "week"],
-  pipeline: ["boards", "campaigns", "week"],
+  campaign: ["boards", "campaigns", "week", "candidates"],
+  // People moved, passed, shortlisted or taken off a board (by the agent, a bulk move, a filter): Candidates shows where each stands.
+  pipeline: ["boards", "campaigns", "week", "candidates"],
   candidates: ["week", "candidates"],
   clients: ["clients"],
   // People and who has what: members, the work given to them, and what is addressed to them.
@@ -102,8 +113,10 @@ export const VIEWS_OF_EFFECT: Readonly<Record<CapabilityEffect, readonly View[]>
   connections: ["connections"],
   memory: ["memory"],
   schedules: ["schedules", "tasks", "bell"],
-  spec: ["specs", "boards", "campaigns", "week"],
-  sourcing: ["watches", "boards", "campaigns", "week"],
+  meetings: ["meetings", "schedules", "tasks", "bell"],
+  // A spec approved, or people found, changes what a campaign waits on: Home's "Approve the role spec" and "Review N matches".
+  spec: ["specs", "boards", "campaigns", "week", "tasks"],
+  sourcing: ["watches", "boards", "campaigns", "week", "candidates", "tasks"],
   calls: ["calls"],
 };
 
@@ -142,9 +155,38 @@ export const VIEWS_OF_CAPABILITY: Readonly<Record<string, readonly View[]>> = {
   "team.respond_to_request": ["members", "bell", "campaigns"],
   "team.remove_member": ["members", "bell", "campaigns", "boards", "tasks", "candidates"],
   "team.note_for_admins": ["bell"],
+  // Teams: the team page reads itself again on its own clock; the campaigns list shows each campaign's team.
+  "teams.create": ["members", "bell"],
+  "teams.update": ["members", "campaigns"],
+  "teams.delete": ["members", "campaigns", "boards"],
+  "teams.add_member": ["members", "bell"],
+  "teams.remove_member": ["members"],
+  "teams.assign_campaign": ["members", "campaigns", "boards"],
+  // Forms and their responses: the form, its counts, and who the responders became
+  "forms.create": ["forms", "campaigns", "boards"],
+  "forms.update": ["forms"],
+  "forms.set_status": ["forms", "campaigns"],
+  "forms.decide_responses": ["forms", "boards", "campaigns", "candidates", "week"],
+  create_form: ["forms", "campaigns", "boards"],
+  update_form: ["forms"],
+  set_form_status: ["forms", "campaigns"],
+  decide_responses: ["forms", "boards", "campaigns", "candidates", "week"],
+  // Tasks, client notes, replies, filters
+  "team.update_task": ["tasks", "week", "bell"],
+  update_task: ["tasks", "week", "bell"],
+  "clients.add_note": ["clients"],
+  add_client_note: ["clients"],
+  "outreach.log_reply": ["boards", "campaigns", "week", "bell", "candidates"],
+  log_reply: ["boards", "campaigns", "week", "bell", "candidates"],
+  "team.revoke_invitation": ["members", "bell"],
+  revoke_invite: ["members", "bell"],
   // Email and people
   "outreach.send_email": ["boards", "campaigns", "week", "bell", "candidates"],
   "outreach.cancel": ["boards", "campaigns"],
+  "outreach.retry_failed": ["boards", "campaigns", "week", "bell", "candidates"],
+  retry_failed_emails: ["boards", "campaigns", "week", "bell", "candidates"],
+  "candidates.add_by_hand": ["candidates", "boards", "campaigns", "week"],
+  add_candidate: ["candidates", "boards", "campaigns", "week"],
   "candidates.save_to_candidates": ["candidates", "campaigns", "week"],
   "candidates.add_note": ["candidates", "boards"],
   "candidates.erase": ["candidates", "boards", "campaigns", "week", "memory"],
@@ -237,6 +279,8 @@ export function invalidate(effects: readonly CapabilityEffect[], opts: Invalidat
   if (!LIVE) return;
   const views = viewsFor({ effects, capability: opts.capability ?? null, views: opts.views ?? [], ambient: opts.ambient ?? false });
   if (effects.length === 0 && views.size === 0) return;
+  // A view said to be stale is read from the server, not from what was kept a moment ago.
+  dropReadCache();
   for (const e of effects) pendingEffects.add(e);
   for (const v of views) pendingViews.add(v);
   pendingCampaigns.add(opts.campaignId ?? null);
@@ -266,6 +310,7 @@ export function flushInvalidations(): void {
     if (e) told.add(e);
   }
   stamp(views, campaigns, Date.now());
+  dropReadCache();
   for (const v of views) READ[v](campaigns);
   for (const l of listeners) l(told, campaigns);
 }
@@ -274,11 +319,17 @@ export function flushInvalidations(): void {
 
 const ID = "[^/]+";
 const WRITES: ReadonlyArray<{ method?: string; re: RegExp; effects: readonly CapabilityEffect[]; campaign?: number; views?: readonly View[] }> = [
-  // People moved, shortlisted or passed: the campaign's own pages reconcile; who else shows them is told here.
+  // People moved, shortlisted or rejected: the campaign's own pages reconcile; who else shows them is told here.
+  // Someone added to a campaign, or taken off it, from Candidates, an import or a form: that campaign's board, its figures and Home's follow.
+  { method: "POST", re: new RegExp(`^/v1/campaigns/(${ID})/candidates$`), effects: ["candidates", "pipeline"], campaign: 1 },
+  { method: "DELETE", re: new RegExp(`^/v1/campaigns/(${ID})/candidates/[^/]+$`), effects: ["candidates", "pipeline"], campaign: 1 },
   { re: new RegExp(`^/v1/campaigns/(${ID})/candidates(/.*)?$`), effects: ["candidates"], campaign: 1 },
-  { re: new RegExp(`^/v1/campaigns/(${ID})/matches/(shortlist|reject|save)$`), effects: ["candidates"], campaign: 1 },
+  // Matches decided: "Review N matches" on Home counts down with them.
+  { re: new RegExp(`^/v1/campaigns/(${ID})/matches/(shortlist|reject|save)$`), effects: ["candidates"], campaign: 1, views: ["tasks"] },
   // Closed or reopened: the Overview's activity, funnel and agents, the list's row and Home's counts all follow.
   { method: "PUT", re: new RegExp(`^/v1/campaigns/(${ID})/status$`), effects: ["campaign"], campaign: 1 },
+  // The rest passed once the roles are filled: the board, the hire counts, Candidates and Home follow.
+  { method: "POST", re: new RegExp(`^/v1/campaigns/(${ID})/pass-open$`), effects: ["pipeline", "candidates", "campaign"], campaign: 1 },
   // A search or a watch started: the rail's watches and the campaign's figures follow.
   { re: new RegExp(`^/v1/campaigns/(${ID})/(sourcing|watch)$`), effects: ["sourcing"], campaign: 1 },
   // Contact details fetched: the people now carry an email or a phone, so the board, Candidates and the figures follow.
@@ -291,6 +342,8 @@ const WRITES: ReadonlyArray<{ method?: string; re: RegExp; effects: readonly Cap
   { re: /^\/v1\/candidates(\/.*)?$/, effects: ["candidates"] },
   // A call's note, outcome, campaign, transcript or recording: the Calls page (and a campaign's) read their lists again.
   { re: /^\/v1\/calls\/[^/]+(\/.*)?$/, effects: ["calls"] },
+  // A call logged by hand: the lists and counts of Outreach read again.
+  { method: "POST", re: /^\/v1\/calls$/, effects: ["calls"] },
   // A campaign made, renamed or removed: the list, the counts and Home's week follow.
   { method: "POST", re: /^\/v1\/campaigns$/, effects: ["campaign"] },
   { method: "PATCH", re: new RegExp(`^/v1/campaigns/(${ID})$`), effects: ["campaign"], campaign: 1 },
@@ -393,6 +446,8 @@ export function connectInvalidation(): () => void {
     // A run that ended may have written along the way (a command run in code, a task made).
     onChatRunEnd(() => invalidateViews(AMBIENT_VIEWS)),
     onDecision((campaignId) => invalidate(["candidates"], { campaignId })),
+    // Someone moved into or out of Hired: every board ("Hired at …"), the hire counts, Candidates and Home follow.
+    onHiredChange(() => invalidate(["pipeline", "candidates", "campaign"])),
     onWrite((method, path) => {
       const w = effectsOfWrite(method, path);
       if (w) invalidate(w.effects, { campaignId: w.campaignId, ...(w.views ? { views: w.views } : {}) });

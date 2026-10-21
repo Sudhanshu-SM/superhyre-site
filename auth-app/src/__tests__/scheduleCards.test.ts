@@ -16,7 +16,7 @@ import { memoryRow } from "../railConfig";
  * says about what is coming up. The shapes are the server's (modules/agent/actions.ts `schedule`, modules/schedules).
  */
 
-/** Sat 10 Oct 2026, 14:30 in Kolkata. */
+/** Sat 10 Oct 2026, 2:30 pm in Kolkata. */
 const NOW = Date.parse("2026-10-10T09:00:00Z");
 const KOLKATA = "Asia/Kolkata";
 
@@ -43,14 +43,14 @@ describe("the approval for things that happen later", () => {
 
   it("shows one block for a reminder: what, the exact words, when", () => {
     expect(scheduleBlocks(act(reminder), [], null, NOW)).toEqual([
-      { kind: "reminder", what: "Reminder for you", quote: { title: null, body: "Call Rahul about the shortlist" }, when: "Sun 11 Oct, 10:00 IST", repeat: "", note: null },
+      { kind: "reminder", what: "Reminder for you", quote: { title: null, body: "Call Rahul about the shortlist" }, when: "Sun 11 Oct, 10 am IST", repeat: "", note: null },
     ]);
   });
 
   it("names the person an email is for, with its subject and message, and the condition", () => {
     const [b] = scheduleBlocks(act(email), [{ name: "Asha Verma" }], "Android", NOW);
     expect(b).toMatchObject({
-      kind: "email", what: "Email to Asha Verma", when: "Fri 16 Oct, 10:00 IST",
+      kind: "email", what: "Email to Asha Verma", when: "Fri 16 Oct, 10 am IST",
       quote: { title: "Quick follow-up", body: "Hi Asha,\n\nStill keen?\n\nAsha" },
       note: "Only goes if they haven't replied by then.",
     });
@@ -62,13 +62,13 @@ describe("the approval for things that happen later", () => {
   });
 
   it("says where a Slack post goes, and where a Notion note is filed", () => {
-    expect(scheduleBlocks(act(slack), [], null, NOW)[0]).toMatchObject({ what: "Post to #hiring on Slack", quote: { title: null, body: "Shortlist is ready" }, when: "Mon 12 Oct, 09:00 IST" });
+    expect(scheduleBlocks(act(slack), [], null, NOW)[0]).toMatchObject({ what: "Post to #hiring on Slack", quote: { title: null, body: "Shortlist is ready" }, when: "Mon 12 Oct, 9 am IST" });
     expect(scheduleBlocks(act(notion), [], null, NOW)[0]).toMatchObject({ what: "Notion note in Hiring wiki", quote: { title: "Weekly notes", body: "Three offers out." } });
   });
 
   it("says who a task is for and when it is due", () => {
     expect(scheduleBlocks(act(task), [], null, NOW)[0]).toMatchObject({
-      what: "Task for Priya", quote: { title: null, body: "Chase references" }, note: "Due Wed 14 Oct, 18:00 IST",
+      what: "Task for Priya", quote: { title: null, body: "Chase references" }, note: "Due Wed 14 Oct, 6 pm IST",
     });
   });
 
@@ -149,7 +149,7 @@ describe("as the chat holds it", () => {
     owners: { r1: "t1" }, orphans: {}, applied: {}, loading: false, error: null,
   });
   const proposed = () => applyEvent(chat(), ev("approval", {
-    action: act(reminder), summary: 'Remind you on Sun 11 Oct 2026, 10:00 am IST: "Call Rahul about the shortlist"', campaignName: null, people: [],
+    action: act(reminder), summary: 'Remind you on Sun 11 Oct 2026, 10 am am IST: "Call Rahul about the shortlist"', campaignName: null, people: [],
   }));
   const decided = (decision: "approve" | "decline", result: Record<string, unknown> = {}) => {
     let s = proposed();

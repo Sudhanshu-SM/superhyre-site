@@ -9,7 +9,13 @@ import { useCampaignRows } from "../campaignStore";
 import { candidateFromCardPerson } from "../liveCandidate";
 import { putSet } from "../liveCandidates";
 import { reloadFeed, useFeed } from "../schedulesStore";
+import { useConnections } from "../connectionsStore";
+import { sendAction } from "../liveChat";
+import { useMeetings } from "../meetingsStore";
+import { cardLine, isInterview, shortWhen, upcoming } from "../meetingsView";
+import { CONNECTIONS_HREF } from "../railConfig";
 import { Loader } from "../components/Loader";
+import { Cta } from "../agentCards/Cta";
 import { nextTime, schedulesHrefFor, soonLabel, summaryText, whenLabel } from "../schedulesView";
 import type { MomentCtx } from "../moments";
 import { act } from "../moments";
@@ -21,10 +27,10 @@ import { askEveryone, askForTimes, whoToSchedule } from "./scheduleLogic";
 import type { LiveViewProps } from "./types";
 
 /**
- * Interviews for a campaign, honestly. The people are the campaign's real board; there is no
- * calendar behind the console, so nothing here sees free times, holds a slot or books. What it
- * can do is real: put a message asking the person for times in the composer, for the recruiter
- * to send. (The demo's WhatsApp gate is left out: that connection isn't real either.)
+ * Interviews for a campaign, honestly. The people are the campaign's real board. With Google Calendar connected, each
+ * person has "Find a time" (their free times, as the card that books), and what is already booked is listed from our
+ * own record. Without it nothing here sees free times or books: what it can do is real, put a message asking the person
+ * for times in the composer, for the recruiter to send. (The demo's WhatsApp gate is left out: that connection isn't real.)
  *
  * Under it, what IS scheduled for the campaign: the emails, posts, tasks and reminders set up to
  * happen later, from the same list as the Scheduled screen.
@@ -94,7 +100,7 @@ function Board({ card, ctx }: LiveViewProps): JSX.Element {
   );
 }
 
-function Card({ groups, named, campaignName, campaignId, ctx }: { groups: ReturnType<typeof whoToSchedule>["groups"]; named: boolean; campaignName: string; campaignId: string | null; ctx: MomentCtx }): JSX.Element {
+export function Card({ groups, named, campaignName, campaignId, ctx }: { groups: ReturnType<typeof whoToSchedule>["groups"]; named: boolean; campaignName: string; campaignId: string | null; ctx: MomentCtx }): JSX.Element {
   const [showAll, setShowAll] = useState(false);
   const all = groups.flatMap((g) => g.rows);
   const ids = all.map((r) => r.candidateId);
@@ -105,6 +111,13 @@ function Card({ groups, named, campaignName, campaignId, ctx }: { groups: Return
   const folded = !named && interviewing.length > 0;
   const grow = ctx.onGrow;
   useEffect(() => { grow(); }, [showAll, grow]);
+  /* Whether the person's Google Calendar is connected decides everything below: the buttons, and what is said. */
+  const conns = useConnections();
+  const calendarOn = conns.status === "ready" && conns.google?.status === "connected" && conns.google.products.includes("calendar");
+  const booked = useMeetings({ campaignId }, calendarOn && campaignId !== null);
+  const ahead = upcoming(booked.meetings);
+  const meetingOf = (cardId: string) => cardLine(ahead.filter((m) => m.campaignCandidateId === cardId));
+  useEffect(() => { grow(); }, [calendarOn, ahead.length, grow]);
 
   const people = (rows: ApiBoardRow[]) => (
     <ul className="lv-people">
@@ -117,6 +130,17 @@ function Card({ groups, named, campaignName, campaignId, ctx }: { groups: Return
           {r.doNotContact ? (
             /* Nobody writes to them from here: plain words, no button. */
             <span className="lv-note">Do not contact</span>
+          ) : calendarOn ? (
+            meetingOf(r.campaignCandidateId) ? (
+              <span className="lv-note">{meetingOf(r.campaignCandidateId)}</span>
+            ) : (
+              <button
+                type="button" className="src-btn is-quiet mo-small"
+                onClick={() => sendAction(`Find a time for ${r.fullName}`, "Find a time", campaignId ?? undefined, { times: { campaignCandidateId: r.campaignCandidateId } })}
+              >
+                Find a time
+              </button>
+            )
           ) : (
             <button type="button" className="src-btn is-quiet mo-small" onClick={() => act(ctx, askForTimes(r.fullName, campaignName))}>
               Ask for times
@@ -134,9 +158,14 @@ function Card({ groups, named, campaignName, campaignId, ctx }: { groups: Return
         <b>Interviews for {campaignName}</b>
         <span>{named ? "who you asked about" : interviewing.length ? "who's in interviews" : "who's shortlisted"}</span>
       </div>
-      <p className="lv-note">
-        No calendar is connected yet, so I can't see free times or hold a slot, and nothing gets booked from here. I can write to someone asking when they're free; you send it.
-      </p>
+      {calendarOn ? (
+        <p className="lv-note">Your Google Calendar is connected. Find a time shows when you're free, and the invitation comes from your calendar once you approve it.</p>
+      ) : (
+        <p className="lv-note">
+          No calendar is connected yet, so I can't see free times or hold a slot, and nothing gets booked from here. I can write to someone asking when they're free; you send it.{" "}
+          {conns.status === "ready" && <a className="lt-link" href={CONNECTIONS_HREF}>Connect Google Calendar</a>}
+        </p>
+      )}
       {all.length === 0 ? (
         <p className="lv-note">Nobody is interviewing or shortlisted on this campaign yet.</p>
       ) : (
@@ -157,8 +186,25 @@ function Card({ groups, named, campaignName, campaignId, ctx }: { groups: Return
           );
         })
       )}
+      {calendarOn && ahead.length > 0 && (
+        <div className="lv-group lv-later">
+          <p className="mo-grp">Booked</p>
+          <ul className="lv-later-list">
+            {ahead.slice(0, LISTED).map((m) => (
+              <li key={m.id}>
+                <span className="lv-later-when">{shortWhen(m.startsAt, m.timezone)}</span>
+                <span className="lv-later-what">
+                  {m.title}
+                  {m.meetUrl && <> · <a className="lt-link" href={m.meetUrl} target="_blank" rel="noopener noreferrer">Join</a></>}
+                  {!isInterview(m) && m.candidateName && !m.title.includes(m.candidateName) && <small> · with {m.candidateName}</small>}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {campaignId && <ScheduledHere campaignId={campaignId} campaignName={campaignName} onGrow={ctx.onGrow} />}
-      {askable.length > 1 && (
+      {!calendarOn && askable.length > 1 && (
         <div className="mo-card-f">
           <span>One message for each, put in the composer for you to send.</span>
           <button type="button" className="src-btn is-primary mo-small" onClick={() => act(ctx, askEveryone(askable.map((r) => r.fullName), campaignName))}>
@@ -215,7 +261,7 @@ function ScheduledHere({ campaignId, campaignName, onGrow }: { campaignId: strin
       {feed.phase === "ready" && (
         <p className="lv-note">
           {rest > 0 && `${rest}${feed.next ? "+" : ""} more. `}
-          <a className="lt-link" href={schedulesHrefFor(campaignId)}>{shown.length ? "See everything coming up" : "Open Coming up"}</a>
+          <Cta small href={schedulesHrefFor(campaignId)}>{shown.length ? "See everything coming up" : "Open Coming up"}</Cta>
         </p>
       )}
     </div>

@@ -67,6 +67,17 @@ export function noticeLine(n: Pick<ApiNotification, "kind" | "open" | "text">): 
 }
 
 /**
+ * How a request to join ended, said under its line: "Approved by Rohan" or "Declined by Rohan", in the colour of
+ * the word. Nothing while it is still waiting, and nothing for any other kind of line.
+ */
+export function noticeOutcome(n: Pick<ApiNotification, "kind" | "open" | "outcome" | "decidedByName">): { text: string; tone: "hired" | "passed" } | null {
+  if (n.kind !== "join_request" || n.open || !n.outcome) return null;
+  const by = n.decidedByName?.trim().split(/\s+/)[0];
+  const word = n.outcome === "approved" ? "Approved" : "Declined";
+  return { text: by ? `${word} by ${by}` : word, tone: n.outcome === "approved" ? "hired" : "passed" };
+}
+
+/**
  * Why an invitation can't be accepted yet, in one plain line. Someone is in one organisation at a time; an
  * owner can't just leave it, so for them the way out is named.
  */
@@ -96,8 +107,12 @@ export function settleRequest<N extends Pick<ApiNotification, "id" | "readAt" | 
   items: readonly N[],
   id: string,
   now = new Date(),
+  /** How this person answered it, so the line says so at once; the server's own word replaces it on the next read. */
+  answer?: { outcome: "approved" | "declined"; by: string | null },
 ): N[] {
-  return items.map((n) => (n.id === id ? { ...n, open: false, readAt: n.readAt ?? now.toISOString() } : n));
+  return items.map((n) => (n.id === id
+    ? { ...n, open: false, readAt: n.readAt ?? now.toISOString(), ...(answer ? { outcome: answer.outcome, decidedByName: answer.by } : {}) }
+    : n));
 }
 
 /** The line that confirms an answer, once, calmly. */

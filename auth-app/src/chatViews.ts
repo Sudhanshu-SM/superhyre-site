@@ -7,7 +7,7 @@ import type { ChatCard } from "./api/agent";
  */
 export const VIEW_KINDS = [
   "sourcing", "outreach", "status", "assign", "report", "compare", "schedule", "leak",
-  "rediscover", "intake", "digest", "campaign", "form", "form-status", "client", "campaign-new", "coming-up",
+  "rediscover", "intake", "digest", "campaign", "form", "form-status", "client", "campaign-new", "coming-up", "memory-doubts",
 ] as const;
 export type ViewKind = (typeof VIEW_KINDS)[number];
 

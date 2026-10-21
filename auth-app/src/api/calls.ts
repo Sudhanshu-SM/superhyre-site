@@ -50,6 +50,8 @@ export type CallDetail = CallRow & {
   transcript: string | null;
   recording: { available: boolean; mime: string | null; seconds: number | null };
   canEdit: boolean;
+  /** Logged by hand (a call from the person's own phone), not placed through the dialer: there is nothing to play. */
+  byHand: boolean;
 };
 
 export type CallGroup = { campaign: CallCampaign | null; count: number; lastAt: string };
@@ -151,6 +153,7 @@ export function callDetailOf(raw: unknown): CallDetail | null {
     transcript: str(o.transcript),
     recording: { available: recording?.available === true, mime: str(recording?.mime), seconds: num(recording?.seconds) },
     canEdit: o.canEdit === true,
+    byHand: o.byHand === true,
   };
 }
 
@@ -184,15 +187,18 @@ function queryOf(f: CallFilters, extra: Record<string, string | number | undefin
   return s ? `?${s}` : "";
 }
 
-export async function listCalls(f: CallFilters, page: { limit?: number; cursor?: string | null } = {}): Promise<{ calls: CallRow[]; nextCursor: string | null }> {
-  const res = await api<{ calls?: unknown[]; nextCursor?: string | null }>(
+/** `offset` reads a numbered page (the server answers with the whole `total`); `cursor` reads the rows after the last one seen. */
+export async function listCalls(
+  f: CallFilters,
+  page: { limit?: number; cursor?: string | null; offset?: number } = {},
+): Promise<{ calls: CallRow[]; nextCursor: string | null; total: number | null }> {
+  const res = await api<{ calls?: unknown[]; nextCursor?: string | null; total?: unknown }>(
     "GET",
-    `/v1/calls${queryOf(f, { limit: page.limit ?? 25, cursor: page.cursor ?? undefined })}`,
+    `/v1/calls${queryOf(f, { limit: page.limit ?? 25, cursor: page.cursor ?? undefined, offset: page.offset || undefined })}`,
   );
-  return {
-    calls: (res.calls ?? []).map(callRowOf).filter((c): c is CallRow => c !== null),
-    nextCursor: str(res.nextCursor),
-  };
+  const calls = (res.calls ?? []).map(callRowOf).filter((c): c is CallRow => c !== null);
+  const total = num(res.total);
+  return { calls, nextCursor: str(res.nextCursor), total: total === null ? null : Math.max(0, total) };
 }
 
 /**
@@ -217,6 +223,32 @@ export async function patchCall(id: string, patch: CallPatch): Promise<CallDetai
   if (!detail) throw new Error("That call couldn't be read.");
   return detail;
 }
+
+/** What a call logged by hand says (server: `POST /v1/calls`). `key` is the call's own id: asking again with it is the same call. */
+export type LogCallBody = {
+  key: string;
+  candidateId: string;
+  /** Left out: their latest campaign that the person is on too. */
+  campaignId?: string | undefined;
+  outcome: ChoosableOutcome;
+  direction?: "outbound" | "inbound";
+  /** ISO time with an offset. Left out: now. */
+  startedAt?: string | undefined;
+  durationMinutes?: number | undefined;
+  notes?: string | undefined;
+};
+
+export type LoggedCall = { call: CallDetail; created: boolean; offerDoNotContact: boolean };
+
+export async function logCall(body: LogCallBody): Promise<LoggedCall> {
+  const res = await api<{ call?: unknown; created?: unknown; offerDoNotContact?: unknown }>("POST", "/v1/calls", body);
+  const call = callDetailOf(res.call);
+  if (!call) throw new Error("That call couldn't be read.");
+  return { call, created: res.created !== false, offerDoNotContact: res.offerDoNotContact === true };
+}
+
+/** Takes back a call logged by hand; the server refuses any other. */
+export const removeLoggedCall = (id: string): Promise<void> => api<void>("DELETE", `/v1/calls/${encodeURIComponent(id)}`);
 
 export type NewSegment = { start: number; end?: number; speaker?: string; text: string };
 

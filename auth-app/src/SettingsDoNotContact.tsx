@@ -3,6 +3,7 @@ import { lastFailureKind } from "./api/client";
 import { NOTE_MAX } from "./api/suppressions";
 import type { Suppression } from "./api/suppressions";
 import { Loader } from "./components/Loader";
+import { SmRowsGhost } from "./settingsGhosts";
 import { useToast } from "./Contacts";
 import { EmptyArt } from "./EmptyArt";
 import { ErrorState, kindOfLastFailure } from "./ErrorStates";
@@ -106,7 +107,7 @@ function AddForm() {
 /* ── states ── */
 
 function Waiting() {
-  return <Loader size="md" label="Loading the do-not-contact list" block />;
+  return <SmRowsGhost n={4} label="Loading the do-not-contact list" />;
 }
 
 function More({ state }: { state: DncState }) {

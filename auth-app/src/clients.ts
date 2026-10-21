@@ -396,3 +396,11 @@ export function clientNameIn(said: string): string | null {
   }
   return null;
 }
+
+/** The line under the page title: calm when there is nothing to count, and no "0 of everything" before the first client. */
+export function clientsLine(total: number, active: number, open: number): string {
+  if (total === 0) return "The companies you hire for show up here.";
+  const companies = `${total} ${total === 1 ? "company" : "companies"}`;
+  if (open === 0) return `${companies}, ${active} active, none with an open campaign.`;
+  return `${companies}, ${active} active, with ${open} open ${open === 1 ? "campaign" : "campaigns"} between them.`;
+}

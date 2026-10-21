@@ -1,5 +1,5 @@
 import {
-  ArrowRight, Buildings, CaretDown, CaretLeft, CaretRight, CaretUp, CaretUpDown, Check, DotsThree, EnvelopeSimple, Globe,
+  ArrowRight, Buildings, CaretDown, CaretUp, CaretUpDown, Check, DotsThree, EnvelopeSimple, Globe,
   MagnifyingGlass, MapPin, NotePencil, Phone, Plus, UserCircle, X,
 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -14,7 +14,7 @@ import {
 import type { Client, ClientContact, ClientDraft, ClientFilter, ClientSort, ClientSortKey, ClientStatus, ClientSummary } from "./clients";
 import {
   CLIENT_STATUSES, CLIENT_STATUS_LABEL, EMPTY_DRAFT, INDUSTRIES, NO_CLIENT_FILTER,
-  agoLabel, agoMinutes, clientFromDraft, clientProblems, clientSummary, domainOf, draftOf, matchesClient, primaryContact, sortClients,
+  agoLabel, agoMinutes, clientFromDraft, clientProblems, clientSummary, clientsLine, domainOf, draftOf, matchesClient, primaryContact, sortClients,
 } from "./clients";
 import { LIVE } from "./api/client";
 import { useCan } from "./can";
@@ -27,7 +27,12 @@ import { listEmptyArt } from "./emptyStates";
 import { joinParts } from "./displayText";
 import { createdMessage, NewCampaignDialog } from "./NewCampaign";
 import { ConfirmDialog } from "./RoleBits";
-import { Loader } from "./components/Loader";
+import { Shimmer, ShimmerRegion, ShimmerTableRows } from "./components/Shimmer";
+import { Pager } from "./components/Pager";
+import { useScrollMemory, useSectionSave } from "./sectionMemory";
+import { clampedOffset, hasDeepLink, loadSection, take } from "./sectionState";
+import { PAGE_FALLBACK, PAGER_FOOT, usePageSize } from "./usePageSize";
+import type { ShimCell } from "./components/Shimmer";
 import { DetailTitle } from "./components/DocTitle";
 import { pageTitle } from "./pageTitle";
 import { Dialog, LoadFailed } from "./ui";
@@ -49,7 +54,8 @@ import "./clients.css";
  * nothing here can disagree with the Campaigns page.
  */
 
-const PAGE = 12;
+/** The ghost list's rows, and the page size where the room cannot be measured (usePageSize). */
+const PAGE = PAGE_FALLBACK;
 const TABS = [
   { id: "overview", label: "Overview" },
   { id: "campaigns", label: "Campaigns" },
@@ -84,7 +90,7 @@ export function ClientsPage({ onOpenCampaign }: { onOpenCampaign: (row: Campaign
   const hit = at ? clients.find((c) => c.id === resolveClientId(at.id)) : undefined;
   const details = useCan("client.details");
   const tabs = details ? TABS.map((t) => t.id) : PUBLIC_TABS;
-  if (!ready) return <div className="cw sl cli"><Loader size="lg" label="Loading clients" block /></div>;
+  if (!ready) return <ClientsGhost />;
   // A failed load is never shown as "no clients yet".
   if (failed) return <div className="cw sl cli"><LoadFailed what="Your clients" onRetry={retryClients} /></div>;
   return hit
@@ -94,12 +100,86 @@ export function ClientsPage({ onOpenCampaign }: { onOpenCampaign: (row: Campaign
 
 /* ═══════════════════════════════════ the list ═══════════════════════════════════ */
 
+/** One ghost row's cells: the list's own column classes, so each tile sits where its data will. */
+const CLIENT_GHOST: readonly ShimCell[] = [
+  { cls: "cli-c-name", lead: 26, w: "72%" },
+  { cls: "cli-c-ind", w: "70%" },
+  { cls: "cli-c-loc", w: "70%" },
+  { cls: "cli-c-contact", w: "62%", sub: "78%" },
+  { cls: "cli-c-owner", lead: 20, round: true, w: "72%" },
+  { cls: "cli-c-num", w: 18, fixed: true },
+  { cls: "cli-c-num", w: 18, fixed: true },
+  { cls: "cli-c-last", w: "72%" },
+  { cls: "cli-c-status", w: "72%" },
+];
+const CLIENT_HEADS: readonly [string, string][] = [
+  ["cli-c-name", "Client"], ["cli-c-ind", "Industry"], ["cli-c-loc", "Location"], ["cli-c-contact", "Primary contact"], ["cli-c-owner", "Account owner"],
+  ["cli-c-num", "Open"], ["cli-c-num", "Hires"], ["cli-c-last", "Last activity"], ["cli-c-status", "Status"],
+];
+
+/** The list while it loads: the page's own header, filters and table head are real, so only the rows are tiles. */
+function ClientsGhost(): JSX.Element {
+  const mayManage = useCan("client.manage");
+  return (
+    <ShimmerRegion label="Loading clients" className="cw sl cli">
+      <header className="cw-head">
+        <div className="cw-head-t">
+          <h1 className="cw-h1">Clients</h1>
+          <p className="cw-sub"><Shimmer h={13} lh={20} w="min(360px, 70vw)" /></p>
+        </div>
+        {mayManage && (
+          <div className="cw-head-act">
+            <button type="button" className="sl-btn is-primary" disabled tabIndex={-1}><Plus size={14} weight="bold" /> Add client</button>
+          </div>
+        )}
+      </header>
+      <div className="sl-bar" aria-hidden="true">
+        <label className="sl-search"><MagnifyingGlass size={15} /><input disabled tabIndex={-1} placeholder="Search by company, contact or city" aria-label="Search clients" /></label>
+        {["Status", "Industry", "Account owner"].map((l) => <button key={l} type="button" className="sl-btn" disabled tabIndex={-1}>{l}<CaretDown size={11} weight="bold" /></button>)}
+        <div className="sl-bar-r"><Shimmer h={12} lh={20} w={64} /></div>
+      </div>
+      <div className="sl-card">
+        <div className="sl-scroll">
+          <table className="sl-table cli-table" aria-hidden="true">
+            <thead>
+              <tr>{CLIENT_HEADS.map(([cls, label], i) => <th key={i} className={cls}><span className="sl-sort">{label}<CaretUpDown size={11} /></span></th>)}</tr>
+            </thead>
+            <tbody><ShimmerTableRows rows={PAGE} cells={CLIENT_GHOST} /></tbody>
+          </table>
+        </div>
+      </div>
+    </ShimmerRegion>
+  );
+}
+
+/* Where the person left this list in this tab. A status, industry or owner that is no longer among the clients is dropped. */
+const SECTION = "clients";
+const SORT_KEYS: readonly ClientSortKey[] = ["name", "industry", "location", "contact", "owner", "open", "hires", "last", "status"];
+type Remembered = { f: ClientFilter; sort: ClientSort; offset: number };
+const NOTHING: Remembered = { f: NO_CLIENT_FILTER, sort: { key: "last", dir: 1 }, offset: 0 };
+export function readRemembered(r: Record<string, unknown>, clients: readonly Client[]): Remembered {
+  const f = take.rec(r.f);
+  const sort = take.rec(r.sort);
+  const known = (pick: (c: Client) => string | null | undefined, v: unknown): string | null => {
+    const x = typeof v === "string" ? v : null;
+    return x && clients.some((c) => pick(c) === x) ? x : null;
+  };
+  const status = take.oneOf(f.status, [...CLIENT_STATUSES, ""] as const, "");
+  return {
+    f: { q: take.str(f.q, "", 100), status: status || null, industry: known((c) => c.industry, f.industry), owner: known((c) => c.owner, f.owner) },
+    sort: { key: take.oneOf(sort.key, SORT_KEYS, "last"), dir: sort.dir === -1 ? -1 : 1 },
+    offset: take.int(r.offset, 0, 0, 100_000),
+  };
+}
+
 function ClientList({ missing }: { missing: string | null }) {
   const { clients, clientOf } = useClients();
   const rows = useCampaignRows();
-  const [f, setF] = useState<ClientFilter>(NO_CLIENT_FILTER);
-  const [sort, setSort] = useState<ClientSort>({ key: "last", dir: 1 });
-  const [page, setPage] = useState(0);
+  const [start] = useState<Remembered>(() => (hasDeepLink() ? NOTHING : loadSection(SECTION, (r) => readRemembered(r, clients), NOTHING)));
+  const [f, setF] = useState<ClientFilter>(start.f);
+  const [sort, setSort] = useState<ClientSort>(start.sort);
+  /* Where the page starts, as a row: a new page size lands on the page that holds that row. */
+  const [wanted, setWanted] = useState(start.offset);
   const [adding, setAdding] = useState(false);
   const mayManage = useCan("client.manage");
   const toast = useToast();
@@ -113,10 +193,20 @@ function ClientList({ missing }: { missing: string | null }) {
   const sum = useCallback((c: Client) => sums.get(c.id)!, [sums]);
 
   const shown = useMemo(() => sortClients(clients.filter((c) => matchesClient(c, f)), sort, sum), [clients, f, sort, sum]);
-  useEffect(() => { setPage(0); }, [f, sort]);
-  const pages = Math.max(1, Math.ceil(shown.length / PAGE));
-  const at = Math.min(page, pages - 1);
-  const slice = shown.slice(at * PAGE, at * PAGE + PAGE);
+  /* A different search, filter or sort is the top of a new list (not on arrival: that is where it was left). */
+  const listKey = JSON.stringify([f, sort]);
+  const lastList = useRef(listKey);
+  useEffect(() => {
+    if (lastList.current === listKey) return;
+    lastList.current = listKey;
+    setWanted(0);
+  }, [listKey]);
+  /* As many rows as fit under the table's head. */
+  const size = usePageSize(56, { rowSelector: "tbody tr", reserve: 24 + 40 + PAGER_FOOT });
+  const offset = clampedOffset(wanted, shown.length, size);
+  const slice = shown.slice(offset, offset + size);
+  useSectionSave(SECTION, { f, sort, offset }, true);
+  useScrollMemory(SECTION, true, !hasDeepLink(), ".cli .sl-scroll");
 
   const industries = useMemo(() => [...new Set(clients.map((c) => c.industry).filter((x): x is string => !!x))].sort(), [clients]);
   const owners = useMemo(() => [...new Set(clients.map((c) => c.owner).filter((x): x is string => !!x))].sort(), [clients]);
@@ -138,7 +228,7 @@ function ClientList({ missing }: { missing: string | null }) {
       <header className="cw-head">
         <div className="cw-head-t">
           <h1 className="cw-h1">Clients</h1>
-          <p className="cw-sub">{clients.length} {clients.length === 1 ? "company" : "companies"}, {active} active, with {openAll} open {openAll === 1 ? "campaign" : "campaigns"} between them</p>
+          <p className="cw-sub">{clientsLine(clients.length, active, openAll)}</p>
         </div>
         {mayManage && (
           <div className="cw-head-act">
@@ -160,11 +250,15 @@ function ClientList({ missing }: { missing: string | null }) {
         <PickMenu label="Industry" value={f.industry} options={industries.map((x) => ({ id: x, label: x }))} onPick={(v) => setF({ ...f, industry: v })} />
         <PickMenu label="Account owner" value={f.owner} options={owners.map((x) => ({ id: x, label: x }))} onPick={(v) => setF({ ...f, owner: v })} />
         {filtered && <button type="button" className="cw-link t-body-sm" onClick={() => setF(NO_CLIENT_FILTER)}>Clear</button>}
-        <div className="sl-bar-r"><span className="sl-count t-body-sm">{shown.length} {shown.length === 1 ? "client" : "clients"}</span></div>
+        <div className="sl-bar-r">
+          {shown.length > size
+            ? <Pager offset={offset} limit={size} total={shown.length} unit="clients" onChange={setWanted} />
+            : <span className="sl-count t-body-sm">{shown.length} {shown.length === 1 ? "client" : "clients"}</span>}
+        </div>
       </div>
 
       <div className="sl-card">
-        <div className="sl-scroll">
+        <div className="sl-scroll" data-pager-list>
           <table className="sl-table cli-table">
             <thead>
               <tr>
@@ -226,15 +320,8 @@ function ClientList({ missing }: { missing: string | null }) {
             </div>
           )}
         </div>
-        <footer className="sl-foot t-body-sm">
-          <span>{shown.length ? `${at * PAGE + 1}–${at * PAGE + slice.length} of ${shown.length}` : "0 of 0"}</span>
-          <span className="sl-pager">
-            <button type="button" onClick={() => setPage(at - 1)} disabled={at === 0} aria-label="Previous page"><CaretLeft size={13} weight="bold" /></button>
-            <span>Page {at + 1} of {pages}</span>
-            <button type="button" onClick={() => setPage(at + 1)} disabled={at >= pages - 1} aria-label="Next page"><CaretRight size={13} weight="bold" /></button>
-          </span>
-        </footer>
       </div>
+      {shown.length > size && <Pager offset={offset} limit={size} total={shown.length} unit="clients" variant="foot" onChange={setWanted} />}
 
       {mayManage && <ClientFormDialog open={adding} onClose={() => setAdding(false)} onSaved={(c) => { setAdding(false); toast(`${c.name} added`); go(`/clients/${c.id}`); }} />}
     </div>
@@ -641,7 +728,8 @@ export function ClientForm({ client, onCancel, onSaved, submitLabel }: { client?
   const team = useTeam();
   const [d, setD] = useState<ClientDraft>(() => (client ? draftOf(client) : { ...EMPTY_DRAFT }));
   const [tried, setTried] = useState(false);
-  /* A field says what's wrong once you leave it, or when you try to save. */
+  /* A field says what's wrong once you have typed in it and left it, or when you try to save: leaving an empty field
+     alone says nothing. The line under a checked field is always there, so a message appearing moves nothing. */
   const [touched, setTouched] = useState<ReadonlySet<keyof ClientDraft>>(new Set());
   const problems = clientProblems(d, clients, client?.id);
   const errs: typeof problems = tried ? problems : Object.fromEntries(Object.entries(problems).filter(([k]) => touched.has(k as keyof ClientDraft)));
@@ -665,10 +753,10 @@ export function ClientForm({ client, onCancel, onSaved, submitLabel }: { client?
 
   const F = ({ k, label, wide, children }: { k?: keyof ClientDraft; label: string; wide?: boolean; children: ReactNode }) => (
     <div className={`ncx-f${wide ? " is-wide" : ""}${k && errs[k] ? " is-bad" : ""}`}
-      onBlur={k ? () => setTouched((t) => (t.has(k) ? t : new Set(t).add(k))) : undefined}>
+      onBlur={k ? () => { if (String(d[k] ?? "").trim()) setTouched((t) => (t.has(k) ? t : new Set(t).add(k))); } : undefined}>
       <span className="ncx-l">{label}</span>
       {children}
-      {k && errs[k] && <small className="ncx-err">{errs[k]}</small>}
+      {k && <small className="ncx-err is-held" role={errs[k] ? "alert" : undefined}>{errs[k] ?? ""}</small>}
     </div>
   );
 

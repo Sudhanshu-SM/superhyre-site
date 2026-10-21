@@ -57,6 +57,19 @@ export const approve = (ids: readonly string[]) =>
 
 export const cancel = (id: string) => api<{ status: MessageStatus }>("POST", `/v1/outreach/messages/${id}/cancel`);
 
+/**
+ * Sends a message that failed to go out, again, from the Gmail of the person who approved it. The answer is
+ * the same as an approval's: when it is scheduled. A message Gmail took, or one logged as bounced, is a 409.
+ */
+export const retry = (id: string) =>
+  api<{ scheduled: { id: string; scheduledFor: string }[]; skipped: string[] }>("POST", `/v1/outreach/messages/${id}/retry`);
+
+export { DIDNT_GO, plainReason } from "../outreachWords";
+
+/** Whether a failed message can be sent again here: its send failed, which is not the same as a bounce someone logged. */
+export const canRetry = (m: Pick<Message, "status" | "error" | "outcome">): boolean =>
+  m.status === "failed" && m.outcome !== "bounced" && m.error !== "bounced";
+
 export const logOutcome = (id: string, outcome: Outcome, replyText?: string) =>
   api<void>("POST", `/v1/outreach/messages/${id}/log`, { outcome, ...(replyText?.trim() ? { replyText: replyText.trim() } : {}) });
 

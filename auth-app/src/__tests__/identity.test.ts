@@ -115,7 +115,8 @@ describe("links", () => {
   });
   it("routes settings sections, with or without a query", () => {
     expect(settingsSectionFromHash("#/settings/connections?google=complete&code=c&state=s")).toBe("connections");
-    expect(settingsSectionFromHash("#/settings/members/")).toBe("members");
+    // Members moved to the Teams page: the old address is redirected there, so it names no Settings section.
+    expect(settingsSectionFromHash("#/settings/members/")).toBeNull();
     expect(settingsSectionFromHash("#/settings/nope")).toBeNull();
     expect(routeFromHash("#/settings/connections?google=error&reason=denied")).toBe("settings");
     expect(routeFromHash("#/settings")).toBe("settings");

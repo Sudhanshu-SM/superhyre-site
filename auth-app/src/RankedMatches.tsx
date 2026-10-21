@@ -1,7 +1,8 @@
 import { X } from "@phosphor-icons/react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { AXIS_FROM, Avatar, Career, FitMark, Verdicts } from "./CandidateBits";
+import { AXIS_FROM, Avatar, Career, FitMark, FitState, Verdicts } from "./CandidateBits";
+import { coverageLine } from "./matchResult";
 import type { CandidateSet } from "./liveCandidate";
 import type { Candidate, Verdict } from "./sourcing";
 import { CANDIDATES, CRITERIA, CRITERIA_SHORT, REASON, TOTAL_MATCHES } from "./sourcing";
@@ -82,7 +83,7 @@ export function RankedMatches({
   const src = sourceOf(set);
   const CANDS = src.candidates;
   /* What the server says was decided, and what was decided in this session on top: people already
-     shortlisted or passed stay in the list (and in its counts) instead of dropping out of it. */
+     shortlisted or rejected stay in the list (and in its counts) instead of dropping out of it. */
   const decided = set?.decisions;
   const verdicts = useMemo<Readonly<Record<string, Verdict>>>(() => ({ ...(decided ?? {}), ...made }), [decided, made]);
   const [mounted, setMounted] = useState(open);
@@ -245,7 +246,7 @@ export function RankedMatches({
                 ["all", "All"],
                 ["todo", "To review"],
                 ["shortlisted", "Shortlisted"],
-                ["rejected", "Passed"],
+                ["rejected", "Rejected"],
               ] as const
             ).map(([id, label]) => (
               <button
@@ -301,7 +302,7 @@ export function RankedMatches({
           <span><kbd>↑</kbd><kbd>↓</kbd> move</span>
           <span><kbd>Enter</kbd> open</span>
           <span><kbd>S</kbd> shortlist</span>
-          <span><kbd>X</kbd> pass</span>
+          <span><kbd>X</kbd> reject</span>
           <span className="rm-foot-right"><kbd>Esc</kbd> close</span>
         </footer>
       </div>
@@ -314,7 +315,7 @@ const EMPTY: Record<Filter, string> = {
   all: "No matches.",
   todo: "Every match has a verdict. Nothing left to review.",
   shortlisted: "Nobody shortlisted yet. Press S on a row, or use the bookmark.",
-  rejected: "Nobody passed yet.",
+  rejected: "Nobody rejected yet.",
 };
 
 /* ── the triage strip ────────────────────────────────────────────────────── */
@@ -338,7 +339,7 @@ function Triage({
               key={c.id}
               type="button"
               className={`rm-seg${v ? ` is-${v}` : ""}`}
-              aria-label={`#${i + 1} ${plainText(c.name)}${v ? `, ${v === "rejected" ? "passed" : v}` : ", not reviewed"}`}
+              aria-label={`#${i + 1} ${plainText(c.name)}${v ? `, ${v}` : ", not reviewed"}`}
               title={`#${i + 1} ${c.name}`}
               onClick={() => onJump(c.id)}
             />
@@ -389,12 +390,20 @@ function Row({
       </div>
       <div className="rm-career"><Career c={c} /></div>
       {c.meets.map((m, i) => (
-        <span key={i} className="rm-fit"><FitMark met={m} label={criteria[i] ?? ""} unscored={c.scored === false} /></span>
+        <span key={i} className="rm-fit"><FitMark met={m} label={criteria[i] ?? ""} unscored={c.scored === false} state={c.checks?.[i]} years={c.totalYears} /></span>
       ))}
       <div className="rm-acts">
         <Verdicts verdict={verdict} onVerdict={onVerdict} name={c.name} icons />
       </div>
-      <p className="rm-reason">{reason}</p>
+      <div className="rm-reason">
+        {c.result && (
+          <p className="rm-state">
+            <FitState r={c.result} />
+            {coverageLine(c.result) && <span className="rm-cover"> · {coverageLine(c.result)}</span>}
+          </p>
+        )}
+        {reason && <p className="rm-why">{reason}</p>}
+      </div>
     </article>
   );
 }

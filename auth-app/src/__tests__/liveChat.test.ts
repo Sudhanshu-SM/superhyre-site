@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ConversationDetail } from "../api/agent";
 import type { RunEvent } from "../api/events";
-import { applyEvent, claim, fromDetail, newTurn } from "../liveChat";
+import { applyEvent, claim, fromDetail, newTurn, openingOf } from "../liveChat";
 import type { ChatState } from "../liveChat";
 
 let nextId = 0;
@@ -108,6 +108,47 @@ describe("reopening a chat", () => {
     const s = fromDetail(detail);
     expect(s.turns.map((t) => [t.key, t.said, t.runId])).toEqual([["k1", "Hi", "r1"]]);
     expect(s.owners).toEqual({ r1: "k1" });
+  });
+});
+
+describe("a chat the app opened", () => {
+  it("begins with the app's own quiet line and the description as a file, never as a message of the person's", () => {
+    const line = "Your first campaign: Senior Data Engineer for Tessellate Analytics";
+    const detail: ConversationDetail = {
+      conversation: { id: "c2", title: "Senior Data Engineer", focusCampaignId: "k", updatedAt: "2026-10-21T10:00:00Z" },
+      messages: [
+        { id: "m1", seq: 1, role: "user", text: line, clientId: "setup", runId: "r1", campaignIds: [], createdAt: "2026-10-21T10:00:00Z", artifact: { kind: "setup", line, jd: { words: 420 } } },
+        { id: "m2", seq: 2, role: "user", text: "Hi", clientId: "k2", runId: "r2", campaignIds: [], createdAt: "2026-10-21T10:01:00Z" },
+      ],
+      runs: [],
+      eventCursor: 1,
+    };
+    const [opened, typed] = fromDetail(detail).turns;
+    expect(opened?.opening).toEqual({ line, jdWords: 420 });
+    // It is not a press either: the turn keeps its mark and the reply under the line.
+    expect(opened?.quiet).toBeUndefined();
+    // What the person typed is still theirs.
+    expect(typed?.opening).toBeUndefined();
+    expect(openingOf({ kind: "setup", line: "Your first campaign: Analyst" })).toEqual({ opening: { line: "Your first campaign: Analyst", jdWords: null } });
+    expect(openingOf({ kind: "action", label: "x" })).toEqual({});
+    expect(openingOf(null)).toEqual({});
+  });
+});
+
+describe("a reminder the agent said when it came due", () => {
+  it("is the agent's own line in the chat, with no message of the person's above it", () => {
+    const detail: ConversationDetail = {
+      conversation: { id: "c3", title: "Reminders", focusCampaignId: null, updatedAt: "2026-10-21T12:40:00Z" },
+      messages: [
+        { id: "m1", seq: 1, role: "user", text: "Remind me in 3 minutes to stretch", clientId: "k1", runId: "r1", campaignIds: [], createdAt: "2026-10-21T12:37:00Z" },
+        { id: "m2", seq: 2, role: "assistant", text: "Reminder: Stretch", clientId: null, runId: null, campaignIds: [], createdAt: "2026-10-21T12:40:00Z", artifact: { kind: "reminder" } },
+      ],
+      runs: [],
+      eventCursor: 1,
+    };
+    const [typed, said] = fromDetail(detail).turns;
+    expect(typed?.said).toBe("Remind me in 3 minutes to stretch");
+    expect(said).toMatchObject({ key: "m2", said: "", status: "done", reply: "Reminder: Stretch", quiet: { label: "" } });
   });
 });
 

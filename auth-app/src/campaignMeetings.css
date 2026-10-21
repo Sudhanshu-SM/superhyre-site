@@ -1,0 +1,9 @@
+/* Meetings on a campaign: a quiet line on a card, what is booked in the sheet, and the Overview's Coming up. */
+.cw-pc-meet { margin: 2px 0 0; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); }
+.cw-pd-meets { display: grid; gap: 4px; margin: 6px 0 0; padding: 0; list-style: none; }
+.cw-pd-meets li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); }
+.cw-pd-meet-t { color: var(--ink); }
+.cw-pd-meets .st-link { display: inline-flex; align-items: center; gap: 4px; }
+.cw-coming { display: grid; gap: 8px; min-width: 0; }
+.cw-coming-more { justify-self: start; }
+.cw-coming-h { margin: 0; font: var(--type-body-strong); letter-spacing: var(--track-body-strong); color: var(--ink); }

@@ -50,7 +50,7 @@ let n = 0;
 const note = (over: Partial<MemoryItem> = {}): MemoryItem => ({
   id: `m${++n}`, text: `A note about the agency number ${n}`, kind: "fact", scope: "client", level: "client",
   clientId: "cl1", clientName: "Acme Robotics", campaignId: null, campaignName: null, personLabel: null,
-  about: [], at: "2026-10-08T10:00:00.000Z", type: "facts", episode: null, basis: null, lastUsedAt: null, expiresAt: null,
+  about: [], at: "2026-10-08T10:00:00.000Z", type: "facts", episode: null, basis: null, lastUsedAt: null, expiresAt: null, doubted: null, turnedDown: 0,
   status: "active", trust: "agent", source: "distil", quote: null, confidence: 0.8,
   createdAt: "2026-10-08T10:00:00.000Z", updatedAt: `2026-10-08T10:${String(10 + n).padStart(2, "0")}:00.000Z`, supersededBy: null, usedCount: 0, ...over,
 });
@@ -59,6 +59,7 @@ const waiting = (over: Partial<MemoryItem> = {}) =>
 
 let active: MemoryItem[];
 let pending: MemoryItem[];
+let doubted: MemoryItem[];
 let pages: Record<string, { items: MemoryItem[]; nextCursor: string | null }>;
 
 const url = (path: string) => new URL(`http://x${path}`);
@@ -69,6 +70,7 @@ beforeEach(() => {
   n = 0;
   active = [note({ id: "a1" }), note({ id: "a2" }), note({ id: "a3" })];
   pending = [waiting({ id: "p1" }), waiting({ id: "p2" })];
+  doubted = [note({ id: "d1", doubted: "2026-10-12T09:00:00.000Z" }), note({ id: "d2", doubted: "2026-10-12T09:05:00.000Z" })];
   pages = {};
   server.hold = null;
   server.fail = null;
@@ -84,6 +86,8 @@ function base(method: string, path: string, body: unknown): unknown {
     const cursor = u.searchParams.get("cursor");
     if (cursor && pages[cursor]) return pages[cursor];
     if (status === "pending") return { items: pending, nextCursor: null };
+    // Doubted notes are active ones; the main list is asked for with the rest, and the page keeps them out of it.
+    if (status === "doubted") return { items: doubted, nextCursor: null };
     const q = (u.searchParams.get("q") ?? "").toLowerCase();
     const scope = u.searchParams.get("scope") ?? "all";
     const items = [...active, ...(status === "all" ? [...pending, note({ id: "old1", status: "superseded", supersededBy: "a1" })] : [])]
@@ -97,7 +101,7 @@ function base(method: string, path: string, body: unknown): unknown {
   const m = /^\/v1\/memory\/([^/]+)(?:\/(confirm|forget))?$/.exec(u.pathname);
   if (m) {
     const id = m[1];
-    if (method === "POST" && m[2] === "confirm") return { ...pending.find((p) => p.id === id), status: "active" };
+    if (method === "POST" && m[2] === "confirm") return { ...(pending.find((p) => p.id === id) ?? doubted.find((d) => d.id === id)), status: "active", doubted: null };
     if (method === "POST" && m[2] === "forget") return { id, status: "forgotten" };
     if (method === "PATCH") {
       const old = active.find((a) => a.id === id);
@@ -392,5 +396,106 @@ describe("correcting", () => {
     release();
     await first;
     expect(server.calls.filter((c) => c.startsWith("PATCH"))).toHaveLength(1);
+  });
+});
+
+describe("notes the agent doubts (the chat's card)", () => {
+  it("loads them on their own, as active notes with a doubt, and shows a ghost only until the first answer", async () => {
+    expect(store.memoryNow()).toMatchObject({ doubts: "idle", doubted: [] });
+    const first = store.refreshDoubts();
+    expect(store.memoryNow().doubts).toBe("loading");
+    await first;
+    const s = store.memoryNow();
+    expect(s).toMatchObject({ doubts: "ready" });
+    expect(s.doubted.map((i) => i.id)).toEqual(["d1", "d2"]);
+    expect(server.calls).toContain("GET /v1/memory?status=doubted&limit=100");
+    // Looked at again, the notes stay on screen: no ghost, no blank.
+    const again = store.refreshDoubts();
+    expect(store.memoryNow()).toMatchObject({ doubts: "ready" });
+    expect(store.memoryNow().doubted).toHaveLength(2);
+    await again;
+  });
+
+  it("leaves the Memory page's own list alone when it was never opened", async () => {
+    await store.refreshDoubts();
+    const r = await store.confirmMemory("d1");
+    expect(r).toEqual({ ok: true });
+    expect(store.memoryNow()).toMatchObject({ list: "idle", items: [], stats: null });
+  });
+
+  it("confirming one removes it at once, leaves the counts alone, and holds its buttons until the answer", async () => {
+    await store.openMemory();
+    await store.refreshDoubts();
+    const before = store.memoryNow().stats;
+    let release: () => void = () => {};
+    server.hold = new Promise<void>((r) => (release = r));
+    const done = store.confirmMemory("d1");
+    await settle();
+    const mid = store.memoryNow();
+    expect(mid.doubted.map((i) => i.id)).toEqual(["d2"]);
+    expect(mid.items[0]).toMatchObject({ id: "d1", status: "active", doubted: null });
+    expect(mid.stats).toEqual(before);
+    expect(mid.working).toEqual(["d1"]);
+    release();
+    expect(await done).toEqual({ ok: true });
+    expect(store.memoryNow().working).toEqual([]);
+  });
+
+  it("forgetting one removes it at once and takes one from the active count", async () => {
+    await store.openMemory();
+    await store.refreshDoubts();
+    const r = await store.forgetMemory("d2");
+    expect(r).toEqual({ ok: true });
+    const s = store.memoryNow();
+    expect(s.doubted.map((i) => i.id)).toEqual(["d1"]);
+    expect(s.stats?.active).toBe(2);
+    expect(s.forgotten).toContain("d2");
+  });
+
+  it("puts a refused confirm back where it was, with the reason", async () => {
+    await store.refreshDoubts();
+    server.fail = { match: /POST \/v1\/memory\/d1\/confirm/, status: 403, message: "Only admins can change what the whole agency remembers." };
+    const r = await store.confirmMemory("d1");
+    expect(r.ok).toBe(false);
+    expect(store.memoryNow().doubted.map((i) => i.id)).toEqual(["d1", "d2"]);
+    expect(problems.at(-1)).toContain("wasn't confirmed");
+    expect(problems.at(-1)).toContain("Only admins");
+  });
+
+  it("puts a refused forget back where it was", async () => {
+    await store.openMemory();
+    await store.refreshDoubts();
+    server.fail = { match: /POST \/v1\/memory\/d2\/forget/, status: 500, message: "Something went wrong on our side." };
+    const r = await store.forgetMemory("d2");
+    expect(r.ok).toBe(false);
+    expect(store.memoryNow().doubted.map((i) => i.id)).toEqual(["d1", "d2"]);
+    expect(store.memoryNow().stats?.active).toBe(3);
+  });
+
+  it("says so when the first look fails, and keeps what it showed when a later one does", async () => {
+    server.fail = { match: /status=doubted/, status: 500, message: "x" };
+    await store.refreshDoubts();
+    expect(store.memoryNow()).toMatchObject({ doubts: "failed", doubted: [] });
+    await store.refreshDoubts();
+    expect(store.memoryNow()).toMatchObject({ doubts: "ready" });
+    server.fail = { match: /status=doubted/, status: 500, message: "x" };
+    await store.refreshDoubts();
+    expect(store.memoryNow()).toMatchObject({ doubts: "ready" });
+    expect(store.memoryNow().doubted).toHaveLength(2);
+  });
+
+  it("is read again with the counts when memory changes elsewhere, but only once a card has asked", async () => {
+    await store.reloadMemoryStats();
+    expect(server.calls.filter((c) => c.includes("status=doubted"))).toHaveLength(0);
+    await store.refreshDoubts();
+    await store.reloadMemoryStats();
+    await settle();
+    expect(server.calls.filter((c) => c.includes("status=doubted"))).toHaveLength(2);
+  });
+
+  it("starts over when the workspace changes", async () => {
+    await store.refreshDoubts();
+    identity.workspaceChanged();
+    expect(store.memoryNow()).toMatchObject({ doubts: "idle", doubted: [] });
   });
 });

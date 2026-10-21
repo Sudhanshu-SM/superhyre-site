@@ -12,6 +12,22 @@
 /** The page stacks at this width and under it (the same breakpoint as the stylesheet's). */
 export const STACK_AT = 1100;
 
+/**
+ * The air under the transcript's last line, to the top of the composer's input, in px: enough that the line is
+ * never against the input and no more. The follower scrolls to it (Agent.tsx), and `--log-tail` in chat.css is
+ * the same number as the log's padding; a test keeps the two together.
+ */
+export const TRANSCRIPT_TAIL = 28;
+
+/**
+ * The log's bottom padding that leaves TRANSCRIPT_TAIL between its last line and the input, given where the
+ * input's top sits against the log's bottom edge (`gap`, in px: negative when the input has risen into the log,
+ * positive when there is room between them). Never less than nothing.
+ */
+export function tailPadding(gap: number): number {
+  return Math.max(0, Math.round(TRANSCRIPT_TAIL - gap));
+}
+
 export type AgentLayout = "home" | "rail-meets-composer" | "stacked";
 
 export function agentLayout(width: number, chatting: boolean): AgentLayout {

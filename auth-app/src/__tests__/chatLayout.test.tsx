@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { STACK_AT, agentLayout, orcClass } from "../agentLayout";
+import { STACK_AT, TRANSCRIPT_TAIL, agentLayout, orcClass, tailPadding } from "../agentLayout";
 import { composeMessage } from "../attachments";
 import { Prompt } from "../Reply";
 
@@ -82,17 +82,44 @@ describe("the transcript", () => {
     expect(block(".orc.is-agent .orc-log > .orc-turn + .orc-turn {")).toMatch(/border-top: 0/);
     expect(block(".orc.is-agent .orc-log > .orc-turn {")).toMatch(/padding: 0/);
     expect(block(".orc.is-agent .orc-stream .orc-log {")).toMatch(/gap: 28px/);
-    expect(block(".orc.is-agent .orc-stream.is-live .orc-log {")).toMatch(/padding-bottom: 56px; scroll-padding-bottom: 56px/);
+    expect(block(".orc.is-agent .orc-stream.is-live .orc-log {")).toMatch(/--log-tail: 28px; padding-bottom: var\(--log-tail\); scroll-padding-bottom: var\(--log-tail\)/);
     expect(css).not.toMatch(/<hr|border-bottom: 1px solid var\(--nav-rule\)/);
   });
 
-  it("follows the live turn to 56px above the composer, a few lines at once, a long jump as a glide", () => {
+  it("follows the live turn to 28px above the composer, a few lines at once, a long jump as a glide", () => {
     const src = readFileSync(resolve(__dirname, "../Agent.tsx"), "utf8");
-    // the follower's target includes the 56px the transcript is padded by; small growth is closed before paint
+    // small growth is closed before paint, a long jump (a whole answer arriving) glides
     expect(src).toMatch(/d0 >= 1 && d0 <= 240/);
     expect(src).toMatch(/reduce \|\| d <= 240 \? d : Math\.max\(1, Math\.ceil\(d \* 0\.18\)\)/);
-    expect(src).toMatch(/\+ 56;\s*\}, \[\]\);/);
-    expect(block(".orc.is-agent .orc-stream.is-live .orc-log {")).toMatch(/padding-bottom: 56px/);
+    // the stacked page's target is the same number the stylesheet pads the log by
+    expect(src).toMatch(/\+ TRANSCRIPT_TAIL;\s*\}, \[\]\);/);
+    expect(css).toMatch(new RegExp(`--log-tail: ${TRANSCRIPT_TAIL}px;`));
+    expect(TRANSCRIPT_TAIL).toBe(28);
+  });
+
+  it("leaves 28px under the last line and no more, whatever the turn did", () => {
+    const src = readFileSync(resolve(__dirname, "../Agent.tsx"), "utf8");
+    // nothing is held back as padding for a turn that got shorter, and the log's padding is only ever the tail
+    expect(src).not.toMatch(/setHold|letGo|basePad/);
+    expect(src).not.toMatch(/style\.paddingBottom/);
+    expect(src).not.toMatch(/orc-mark\.is-working/);
+    expect(css).not.toMatch(/\.orc-log[^{]*\{[^}]*padding-bottom: ?(\d{3}|[3-9]\d)px/);
+    // the padding that makes the distance to the input 28px, from where the input's top is against the log's foot
+    expect(tailPadding(0)).toBe(28);
+    expect(tailPadding(-14)).toBe(42);
+    expect(tailPadding(24)).toBe(4);
+    expect(tailPadding(60)).toBe(0);
+    expect(src).toMatch(/--log-tail/);
+  });
+
+  it("has the goal tracker in the flow, over nothing and under nothing", () => {
+    const stg = readFileSync(resolve(__dirname, "../stages.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    const rule = stg.slice(stg.indexOf(".stg {"), stg.indexOf("}", stg.indexOf(".stg {")) + 1);
+    expect(rule).toMatch(/position: static/);
+    expect(rule).not.toMatch(/sticky|z-index|top:|margin(-top)?: -/);
+    expect(stg).not.toMatch(/position: sticky/);
+    // a run laid out as `justify-items: start` still gives it the column's width
+    expect(rule).toMatch(/justify-self: stretch/);
   });
 
   it("renders the message as a bubble, with a file named instead of its text", () => {

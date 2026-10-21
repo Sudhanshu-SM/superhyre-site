@@ -218,6 +218,25 @@
   --c-violet-text: #8051be; --c-violet-fill: #8d5ecc;
   --c-rose: #d16476;   --c-rose-tint: #f9e7ea;   --c-rose-line: #eac3c9;
   --c-rose-text: #b84054;   --c-rose-fill: #c64c60;
+  /* Slate: the quiet neutral of the hue set (a stage with nothing to say, a stage someone has passed on). Same floors as the
+     rest: the mark is 3.66:1 on white, the text 6.24:1, and white on the fill 5.44:1. */
+  --c-slate: #7b8794;  --c-slate-tint: #eceff2;  --c-slate-line: #cfd5dc;
+  --c-slate-text: #556270;  --c-slate-fill: #5f6b78;
+
+  /* ── Stage colours: ONE palette for every pipeline stage (the Home donut and its card, the board's titles and
+     columns, the strip, the Overview funnel, the stages editor, the status words). Light is here, dark is in
+     theme/theme.css; each key has a mark (arcs, bars, swatches: 3:1 or more on the card), a text (4.5:1 or more on
+     the card, the page and its own soft), a soft wash and a line. Calm and a little desaturated, so orange stays
+     the action colour; violet first, blue, teal, green, amber, clay, rose. __tests__/stageColors.test.ts measures them. ── */
+  --stage-slate: #76818f; --stage-slate-text: #5e6876; --stage-slate-soft: #ecedef; --stage-slate-line: #c5cad0;
+  --stage-blue: #3675b2; --stage-blue-text: #2e69a2; --stage-blue-soft: #e3ecf4; --stage-blue-line: #abc5df;
+  --stage-teal: #1c97a1; --stage-teal-text: #01747c; --stage-teal-soft: #dff0f2; --stage-teal-line: #a0d3d8;
+  --stage-green: #38804b; --stage-green-text: #2f7442; --stage-green-soft: #e3ede6; --stage-green-line: #abcab3;
+  --stage-amber: #b28a31; --stage-amber-text: #866302; --stage-amber-soft: #f4efe2; --stage-amber-line: #dfcea8;
+  --stage-orange: #bd7042; --stage-orange-text: #9b552a; --stage-orange-soft: #f6ebe5; --stage-orange-line: #e3c3b0;
+  --stage-rose: #ba6579; --stage-rose-text: #9d5062; --stage-rose-soft: #f5e9ec; --stage-rose-line: #e2bec7;
+  --stage-violet: #9b82cf; --stage-violet-text: #745ca2; --stage-violet-soft: #f1eef8; --stage-violet-line: #d5cbeb;
+  --stage-track: #efeae4;  /* the faint ring under a donut's arcs */
 
   --accent-deep: #b8400f;  /* burnt end of the accent */
 
@@ -365,11 +384,16 @@
 
      Named tiers make the relationship checkable instead of remembered:
        pop    (60)  nav popovers and the skip link — dismissed without a scrim
+       panel  (66)  a page-sized dialog that opens a person's sheet (ranked matches)
+       sheet  (68)  a person's sheet or drawer (profile sidebar, the analytics drawer)
        scrim  (70)  the one shared dismissal scrim
-       dialog (71)  anything the scrim MUST sit behind
+       dialog (71)  anything the scrim MUST sit behind; popovers and toasts sit higher still
      A new dialog now reads `--z-dialog` and cannot land under the scrim it
-     reuses. */
+     reuses, nor under a sheet: a question asked from a sheet (reject, hire, remove)
+     is always answerable. (tests/zScale.test.ts checks the order.) */
   --z-pop: 60;
+  --z-panel: 66;
+  --z-sheet: 68;
   --z-scrim: 70;
   --z-dialog: 71;
 
@@ -1716,7 +1740,7 @@ html[data-surface="app"]:not([data-theme="dark"]) body { background: #ffffff; }
   --nav-w-rail: calc(var(--nav-pad) * 2 + var(--nav-icon-box));
   /* Keep in step with NAV_BP in Console.tsx — below this the sidebar is a
      drawer, and the drawer's scroll lock and auto-close live in JS. */
-  --nav-bp: 900px;
+  --nav-bp: 1024px;
   /* 34, down from 40: slim is mostly row height. */
   --nav-row-h: 34px;
   --nav-t: 260ms;
@@ -2301,11 +2325,12 @@ html[data-surface="app"]:not([data-theme="dark"]) body { background: #ffffff; }
 .nav-bell-badge {
   position: absolute;
   /* Inside the row's own top edge (it used to ride 4px above it, level with Quick find's border line), and
-     the bell's left side is well clear of the pill: the count is the one thing at the corner. */
-  top: 1px;
-  right: -2px;
-  min-width: 20px;
-  height: 20px;
+     the bell's left side is well clear of the pill: the count is the one thing at the corner. Centred on the
+     glyph's own top-right corner (the 16px bell sits mid-circle), so bell and count read as one centred object. */
+  top: 3px;
+  right: 2px;
+  min-width: 18px;
+  height: 18px;
   display: grid;
   place-items: center;
   padding: 0 4px;
@@ -2500,7 +2525,6 @@ html[data-surface="app"]:not([data-theme="dark"]) body { background: #ffffff; }
 .nav-row-group.is-within[aria-expanded="false"] .nav-ico { color: #ad3b0c; }
 
 /* The row that is waiting for the campaign list: the ring where its folder will be, at the icon's own width. */
-.nav-ico-wait { display: inline-grid; place-items: center; }
 
 .nav-label {
   flex: 1 1 auto;
@@ -3391,7 +3415,7 @@ html[data-surface="app"]:not([data-theme="dark"]) body { background: #ffffff; }
    trap has already cost this file three bugs. */
 .nav-scrim { display: none; }
 
-@media (max-width: 899px) {
+@media (max-width: 1023px) {
   .con { grid-template-columns: minmax(0, 1fr); }
 
   .nav {
@@ -3518,7 +3542,7 @@ html[data-surface="app"]:not([data-theme="dark"]) body { background: #ffffff; }
   overflow: hidden;
 }
 
-@media (max-width: 899px) {
+@media (max-width: 1023px) {
   .con-body { grid-column: 1; }
 }
 
@@ -3563,7 +3587,7 @@ html[data-surface="app"]:not([data-theme="dark"]) body { background: #ffffff; }
    The bar exists only to hold the hamburger, and the hamburger only opens the
    drawer, so above the breakpoint both have no job: the account lives in the
    nav's profile block and the content area carries no chrome of its own. */
-@media (min-width: 900px) {
+@media (min-width: 1024px) {
   .con-bar { display: none; }
   .con-menu { display: none; }
 }
@@ -3589,6 +3613,26 @@ html[data-surface="app"]:not([data-theme="dark"]) body { background: #ffffff; }
 }
 
 .con-main:focus { outline: none; }
+
+/* ── one page column ──
+   Candidates, Campaigns, Clients, Outreach, Teams, Settings and Analytics each kept a measure of their own (1180 to
+   1680) and centred it, so their titles started at a different place on the same screen. They share one now: the same
+   width, centred the same way, so the title and the toolbar under it sit on one left edge page to page. (The selector
+   is a step more specific than each page's own, whatever order the stylesheets arrive in.) */
+:root { --page-max: 1360px; }
+html .con-main > :is(.ct, .cg, .kl, .cw, .an-page) { width: 100%; max-width: var(--page-max); margin-inline: auto; }
+html .con-main > .con-page.sp { max-width: var(--page-max); margin-inline: auto; }
+/* The Overview carried a side gutter of its own (28 to 48px, on top of the console's), so its title stood that far in
+   from every other page's. It has none now: the console's gutter is the only one. */
+html .con-main > .cw.ov2 { padding-inline: 0; }
+html .con-main > .con-page.sp > * { max-width: 640px; }
+/* Home is the same column: its greeting and its tiles start where every other page's title does, on the page's
+   left edge, and stop at the page's right one. (The greeting and the tiles carry the page's gutter as padding, so
+   the box is that much wider than --page-max and the text inside it is exactly --page-max.) */
+html .con-main .orc-main:has(.hm-bento) > :is(.orc-page, .orc-stream),
+html .con-main .orc-main:has(.sh-bento.is-home) > :is(.orc-page, .orc-stream) {
+  box-sizing: border-box; width: 100%; max-width: calc(var(--page-max) + 2 * var(--hm-x, 0px)); margin-inline: auto;
+}
 
 .con-page {
   width: 100%;
@@ -4209,67 +4253,174 @@ html[data-surface="app"]:not([data-theme="dark"]) body { background: #ffffff; }
 
 .dl-due-late svg { flex: none; }
 
+/* ── filter chips ──
+   The filters narrowing a list, quiet and in the list's own type, with one plain "Clear". */
+.fchips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.fchip {
+  display: inline-flex; align-items: center; gap: 6px; max-width: 100%; height: 28px; padding: 0 8px 0 10px;
+  border: 1px solid var(--hairline); border-radius: 8px; background: var(--card, transparent); color: var(--ink);
+  font: var(--type-body-sm); letter-spacing: var(--track-body-sm); cursor: pointer;
+  transition: background var(--t), border-color var(--t);
+}
+.fchip:hover { background: var(--sub); }
+.fchip:focus-visible, .fchips-clear:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+/* A long filter ("5 to 8 years") wraps inside its chip instead of being cut to "5 to". */
+.fchip { height: auto; min-height: 28px; padding-block: 3px; }
+.fchip-t { min-width: 0; white-space: normal; overflow-wrap: anywhere; text-align: left; }
+.fchip svg { flex: none; color: var(--ink-2); }
+.fchips-clear { padding: 0 4px; border: 0; background: none; color: var(--ink-2); font: var(--type-body-sm); letter-spacing: var(--track-body-sm); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.fchips-clear:hover { color: var(--ink); }
+
 /* ── pager ──
-   Sits inside the panel under the table, on the same hairline as the last row
-   rather than in a box of its own. */
+   One control for every paged list, drawn twice: in the list's toolbar, on the right beside the filters (the toolbar is
+   what sticks), and under the list, where a long page ends. No ground of its own: it takes the toolbar's or the page's.
+   Hit areas are 36px; the current page is filled; the focus ring is the page's. */
+[data-pager-list] { scroll-margin-top: 76px; }
+
 .pager {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 14px;
+  gap: 12px;
+  margin-left: auto;
+  flex: none;
+  min-width: 0;
+  /* Never wider than the row it stands in: the controls wrap onto a second line (below) instead of being cut. */
+  max-width: 100%;
+}
+/* In the toolbar it may wrap onto a second line of its own rather than push the filters off. */
+.pager-bar { flex-wrap: wrap; justify-content: flex-end; row-gap: 6px; }
+/* Under the list: the whole range on the left, the controls on the right, in a row of their own. */
+.pager-foot {
+  display: flex;
   flex-wrap: wrap;
-  margin-top: 14px;
-  padding-top: 13px;
-  border-top: 1px solid var(--nav-rule);
+  justify-content: space-between;
+  gap: 10px 20px;
+  width: 100%;
+  margin: 22px 0 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--hairline);
 }
 
 .pager-range {
   margin: 0;
-  font: 400 12.5px/1.4 var(--ui);
+  font: 400 13px/1.4 var(--ui);
   color: var(--ink-2);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
+.pager-foot .pager-range { font-size: 14px; }
 
 .pager-nav {
   display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.pager-pages {
+  display: inline-flex;
   align-items: center;
   gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.pager-count {
-  min-width: 8.5ch;
-  text-align: center;
-  font: 500 12.5px/1 var(--ui);
+/* The ellipsis in the strip: a button like the page numbers, a little quieter, jumping half-way across the pages it hides. */
+.pager-pg.pager-gap {
+  min-width: 28px;
+  padding: 0 4px;
+  color: var(--ink-2);
+  letter-spacing: 0.04em;
+}
+
+.pager-count { display: none; min-width: 7ch; text-align: center; font: 500 13px/1 var(--ui); color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.pager-btn,
+.pager-pg {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
   color: var(--ink);
+  font: 500 13px/1 var(--ui);
   font-variant-numeric: tabular-nums;
-}
-
-.pager-btn {
-  display: inline-grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border: 1px solid var(--nav-edge);
-  border-radius: 8px;
-  background: var(--nav-surface);
-  color: var(--ink);
   cursor: pointer;
-  transition: background var(--t), border-color var(--t);
+  transition: background var(--t), color var(--t), border-color var(--t);
 }
+/* Previous and Next carry their words: the edges of the strip are the easy ones to find. */
+.pager-step { padding: 0 12px; border-color: var(--rule); background: #fff; }
 
-.pager-btn:hover:not(:disabled) { background: var(--nav-hover); }
-.pager-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.pager-btn:hover:not(:disabled),
+.pager-pg:hover:not(.is-on) { background: var(--nav-hover); }
+.pager-btn:focus-visible,
+.pager-pg:focus-visible,
+.pager-goto-in:focus-visible,
+.pager-go:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.pager-pg.is-on { background: var(--ink); border-color: var(--ink); color: #fff; font-weight: 600; cursor: default; }
 
 /* Disabled at the boundaries rather than hidden: a control that vanishes
    moves the one next to it under the cursor mid-click. */
-.pager-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-  border-color: var(--nav-rule);
-}
+.pager-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
-@media (max-width: 460px) {
-  .pager { justify-content: center; }
+/* "Go to page", once there are more pages than the strip can show. */
+.pager-goto { display: inline-flex; align-items: center; gap: 6px; margin-left: 8px; }
+.pager-goto label { display: inline-flex; align-items: center; gap: 8px; }
+.pager-goto-l { font: 400 13px/1 var(--ui); color: var(--ink-2); white-space: nowrap; }
+.pager-goto-in {
+  box-sizing: border-box;
+  width: 64px;
+  height: 36px;
+  padding: 0 8px;
+  border: 1px solid var(--rule);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--ink);
+  font: 500 13px/1 var(--ui);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  -moz-appearance: textfield;
+}
+.pager-goto-in::-webkit-outer-spin-button,
+.pager-goto-in::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.pager-go {
+  height: 36px;
+  min-width: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--rule);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--ink);
+  font: 500 13px/1 var(--ui);
+  cursor: pointer;
+}
+.pager-go:hover:not(:disabled) { background: var(--nav-hover); }
+.pager-go:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* The list's ghost holds this room, so the toolbar is the same before and after the pager arrives. */
+.pager-slot { align-items: center; }
+
+/* Where the toolbar has wrapped or the window is narrow, the strip gives way to "Page 3 of 9". */
+@media (max-width: 760px) {
+  .pager { margin-left: 0; width: 100%; justify-content: space-between; }
+  .pager-nav { width: 100%; justify-content: space-between; }
+  .pager-pages { display: none; }
+  .pager-count { display: inline-block; }
+  .pager-goto { margin-left: 0; width: 100%; justify-content: center; }
+}
+/* On a phone the arrows keep their icons and drop their words. */
+@media (max-width: 480px) {
+  .pager-w { display: none; }
+  .pager-step { min-width: 44px; padding: 0 10px; }
 }
 
 /* ── call detail: recording and transcript ──
@@ -4429,7 +4580,7 @@ html[data-surface="app"]:not([data-theme="dark"]) body { background: #ffffff; }
      dashboard adds. The install CTA that also sat here is gone with the store
      link; the step list it became has no hit area to enlarge. */
   .ex-seg-btn { min-height: 44px; padding-inline: 14px; }
-  .pager-btn { width: 44px; height: 44px; }
+  .pager-btn, .pager-pg, .pager-go, .pager-goto-in { min-width: 44px; height: 44px; }
   .dl-media { min-height: 44px; padding-inline: 10px; }
 }
 
@@ -9949,6 +10100,9 @@ button.rail-config-act {
   min-height: var(--rail-stat-h);
 }
 
+.rail-stats-wait > .rail-wait-cols { width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 18px; }
+.rail-wait-col { display: grid; gap: 8px; justify-items: start; }
+
 /* The week couldn't be read: the panel keeps the height the figures would have. */
 .rail-stats-note {
   display: flex;
@@ -9975,7 +10129,12 @@ button.rail-config-act {
 /* The same control, in the conversation's own column, for when the rail is a screen away. */
 .orc-newchat { display: none; }
 @media (max-width: 1100px) {
-  .orc-newchat { display: inline-flex; position: absolute; top: 16px; right: 0; z-index: 3; }
+  .orc-newchat { display: inline-flex; position: absolute; top: 16px; right: 0; z-index: 3; white-space: nowrap; }
+}
+/* A phone: the control keeps its plus and drops its words (they stay the button's name), so it is never cut by the edge. */
+@media (max-width: 560px) {
+  .orc-newchat { width: 32px; height: 32px; padding: 0; justify-content: center; right: 8px; }
+  .orc-newchat-l { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
 
 /* ── history, inline ── */
@@ -11512,7 +11671,7 @@ button.rail-config-act {
      the follower scrolls the page to keep the transcript's end above the composer, and a stream taller than the
      window would have it scroll the composer off its dock.) */
   .orc-stream.is-live { min-height: calc(100dvh - 62px); }
-  @media (min-width: 900px) {
+  @media (min-width: 1024px) {
     /* The sidebar is beside the page and the bar is not drawn. */
     .orc-stream.is-live { min-height: 100dvh; }
   }
@@ -11621,8 +11780,8 @@ button.rail-config-act {
   inherits: true;
   initial-value: 256px;
 }
-/* Desktop only: below 900px the sidebar is a drawer with its own rules. */
-@media (min-width: 900px) {
+/* Desktop only: below 1024px the sidebar is a drawer with its own rules. */
+@media (min-width: 1024px) {
 .con { --nav-col: var(--nav-w); grid-template-columns: var(--nav-col) minmax(0, 1fr); }
 .con:has(.nav.is-railed) { --nav-col: var(--nav-w-rail); }
 .con { transition: none; }
@@ -11751,7 +11910,7 @@ button.rail-config-act {
 .con.is-glass .nav-foot { background: transparent; border-top-color: var(--hairline); }
 
 /* Mobile drawer: it slides OVER the page, so here the glass is real. */
-@media (max-width: 899px) {
+@media (max-width: 1023px) {
   .con.is-glass .nav {
     background: rgba(255, 255, 255, 0.84);
     -webkit-backdrop-filter: blur(20px) saturate(1.3);
@@ -11981,16 +12140,16 @@ button.rail-config-act {
    The panel is exactly the window tall; the body scrolls, the foot does not. The head keeps its spacing at every
    height (a laptop window is where it read as cramped): what gives is the gap above the campaign tree, and under
    640px the account card is one line (its second line, the organisation, is in the menu). */
-@media (min-width: 900px) and (max-height: 800px) {
+@media (min-width: 1024px) and (max-height: 800px) {
   .nav-campaign { margin-top: 6px; }
 }
-@media (min-width: 900px) and (max-height: 640px) {
+@media (min-width: 1024px) and (max-height: 640px) {
   .nav-me-org { display: none; }
   .nav-foot { gap: 2px; padding-top: 4px; padding-bottom: 8px; }
 }
 
 /* The collapsed rail keeps its compact head: the extra air is for the full panel. */
-@media (min-width: 900px) {
+@media (min-width: 1024px) {
   .nav.is-railed .nav-head { height: 48px; padding-top: 0; margin-bottom: 0; }
   .nav.is-railed .nav-ws-block { padding-top: 0; padding-bottom: 8px; }
   .nav.is-railed .nav-ws-trigger { min-height: 0; }
@@ -11999,3 +12158,20 @@ button.rail-config-act {
   .nav.is-railed .nav-bell { width: 34px; height: 34px; }
   .nav.is-railed .nav-body { padding-top: 0; }
 }
+
+/* The dialer's lists have no toolbar: the pager sits above the table, at its right, and again under it. */
+.dl-pager-top { display: flex; width: 100%; margin: 0 0 10px; justify-content: flex-end; }
+
+/* ── what cannot be changed right now: one look, one class ──
+   `.is-off` on a control, or on the block that holds several (a read-only role spec, a person's stage buttons when the
+   campaign is closed or not yours): muted text, no input chrome, the not-allowed cursor. Put it with `aria-disabled`
+   so a screen reader says the same. */
+.is-off.is-off, .is-off.is-off * { cursor: not-allowed; }
+.is-off.is-off :is(input, textarea, select), :is(input, textarea, select).is-off.is-off {
+  color: var(--ink-2); background: transparent; border-color: transparent; box-shadow: none; resize: none; outline: none;
+}
+.is-off.is-off :is(input, textarea, select)::placeholder { color: transparent; }
+.is-off.is-off :is(button, [role="radio"], [role="checkbox"]), :is(button, [role="radio"]).is-off.is-off {
+  color: var(--ink-3); background: transparent; border-color: var(--hairline); box-shadow: none; opacity: 1;
+}
+.is-off.is-off :is(button, [role="radio"]):hover, :is(button, [role="radio"]).is-off.is-off:hover { background: transparent; }

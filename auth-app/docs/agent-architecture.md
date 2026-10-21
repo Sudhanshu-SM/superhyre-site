@@ -838,6 +838,20 @@ create unique index on campaign_seen (campaign_id, linkedin_key) where linkedin_
 - Should feedback weight changes stay per campaign, or roll up per client / per role family?
 - Golden set: 3–5 past campaigns with known hires, to measure precision@20 before launch.
 
+### 10.9 Deterministic scoring, policy v2 (built 21 Oct 2026)
+
+**Principle:** the model reads a profile and says what it shows; code validates that, calculates the score, coverage, tier and status, and orders the list. The model never gives a number, a tier, a weight or an eligibility call.
+
+**Flow (server `modules/matching/`):** `profile-facts.ts` (what a profile says: present / absent / ambiguous / not mentioned, and where in the text) -> `eligibility.ts` (knockouts: only confirmed facts; unclear data leaves a review note) -> `preranking.ts` (45/20/10/25 by default, weights from the policy; chooses who is read closely; never shown as a fit; the rest are "not scored yet") -> `judge.ts` + `assessment.ts` + `prompts.ts` (per requirement: verdict, quote, short reason; strict schema, no extra fields) -> `evidence.ts` (the quote must be the profile's own words; otherwise unknown; every correction logged) -> `scoring.ts` (`scoreAssessments(rubric, assessments, policy)`, pure) -> `results.ts` (the record kept with the result, and the API fields shaped from it) -> `audit.ts` + `overrides.ts` (append-only trail, a recruiter's override with a reason).
+
+**Policy:** one versioned, zod-validated place, `policy.ts`. `v1` is the original arithmetic (an unknown earns 0.35, no minimum coverage) and is kept so old results read as they were made and a benchmark can compare; `v2` is the active policy for new scoring (`MATCH_POLICY`, `MATCH_MIN_COVERAGE`). Every stored result records its policy and rubric (spec) version; old rows are never rescored.
+
+**v2 arithmetic:** credits met 1, partial 0.5, not_met 0, unknown left out. `fit = 100 x sum(w x credit) / sum(w)` over what could be assessed; `coverage = 100 x assessed weight / total weight`. Coverage under 50 -> status `insufficient_evidence`: no fit shown, no tier, no 1-3 indicator. Otherwise A at 75 or more with no unknown must-have and no must-have shown not met; B at 50 or more; C below 50 or a must-have shown not met. An unknown must-have is "to verify", never a failure. Fit, coverage, status, tier and override are separate fields.
+
+**API (per match row and detail):** `score` (0-100, only for a valid fit), `coverage`, `status` (`scored`, `insufficient_evidence`, `not_scored_yet`, `knocked_out`), `tier`, `fit`, `toVerify`, `requirements` (verdict, quote, reason, weight, contribution), `strengths`, `concerns`, `missing`, `knockout`, `override`, `policyVersion`, `rubricVersion`, `evaluatedAt`. `POST /v1/campaigns/:id/matches/:key/override`, `GET .../audit`, `POST .../screen` (`:key` is a person id or a board card id). The console only shows these fields.
+
+**Measure, do not claim:** `server/scripts/match-benchmark.ts` (fixtures in `server/test/fixtures/match-benchmark/`, offline by default, `--live` for the real judge), `match-fairness.ts` (counterfactual names and presentations), `match-compare-db.ts` (v1 and v2 side by side on campaigns already in a database, read-only).
+
 ---
 
 ## 11. Memory layer: master context, kept off the main database (proposed 3 Oct 2026)

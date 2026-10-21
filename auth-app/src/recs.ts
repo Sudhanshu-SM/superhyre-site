@@ -189,11 +189,11 @@ export function ideasFromCampaigns(
  * (a view it can show, or a lookup it makes), and none asserts a figure: an invented
  * observation is worse than a plain suggestion.
  *
- * Who is asking matters. Only admins create campaigns, so a recruiter is never offered
- * the one thing they would be told they may not do; and with no campaigns at all, "what
- * needs my attention" has nothing to be about.
+ * Who is asking matters. Anyone who works here may start a campaign, but adding a client
+ * is an admin's, so a recruiter is never offered the one thing they would be told they may
+ * not do; and with no campaigns at all, "what needs my attention" has nothing to be about.
  */
-export function generalIdeas(who: { canCreate: boolean; hasCampaigns: boolean }): readonly Idea[] {
+export function generalIdeas(who: { canCreate: boolean; /** Adding a client is an admin's; absent means not offered. */ canAddClient?: boolean; hasCampaigns: boolean }): readonly Idea[] {
   const start: Idea = {
     id: "g-new", Icon: Plus, kind: "act", prompt: "Help me set up a new campaign", short: "Start a new campaign", compact: "New campaign",
     because: "Pick the role, the people to find and where to reach them, together",
@@ -219,7 +219,8 @@ export function generalIdeas(who: { canCreate: boolean; hasCampaigns: boolean })
     because: "A short tour of what the agent can look up and set up",
   };
   if (who.hasCampaigns) return who.canCreate ? [attention, agents, find, start] : [attention, agents, find];
-  return who.canCreate ? [start, client, help] : [help];
+  if (!who.canCreate) return [help];
+  return who.canAddClient ? [start, client, help] : [start, help];
 }
 
 /**
@@ -230,10 +231,16 @@ export function generalIdeas(who: { canCreate: boolean; hasCampaigns: boolean })
  */
 export function liveIdeas(
   rows: readonly CampaignRow[],
-  who: { canCreate: boolean; /** The campaigns this person may change; absent means all of them. */ mayChange?: (row: CampaignRow) => boolean },
+  who: {
+    canCreate: boolean;
+    /** Adding a client is an admin's; absent means not offered. */
+    canAddClient?: boolean;
+    /** The campaigns this person may change; absent means all of them. */
+    mayChange?: (row: CampaignRow) => boolean;
+  },
 ): readonly Idea[] {
   return [
-    ...generalIdeas({ canCreate: who.canCreate, hasCampaigns: rows.length > 0 }),
+    ...generalIdeas({ canCreate: who.canCreate, ...(who.canAddClient ? { canAddClient: true } : {}), hasCampaigns: rows.length > 0 }),
     ...ideasFromCampaigns(rows, who.mayChange),
   ];
 }
@@ -360,6 +367,8 @@ export type IdeaRow = {
 export function ideaRows(who: {
   focusName?: string | null;
   canCreate: boolean;
+  /** Adding a client is an admin's; absent means not offered. */
+  canAddClient?: boolean;
   hasCampaigns: boolean;
   /** For the campaign in focus: whether this person may start a search on it. */
   mayChange?: boolean;
@@ -376,13 +385,11 @@ export function ideaRows(who: {
     ];
   }
   if (!who.hasCampaigns) {
-    return who.canCreate
-      ? [
-          { id: "n-new", Icon: Plus, label: "Help me set up a new campaign: the role, who to find and where to reach them", prompt: "Help me set up a new campaign", send: true },
-          { id: "n-client", Icon: Buildings, label: "Add a client I hire for, so campaigns can sit under it", prompt: "Add a client", send: false },
-          { id: "n-help", Icon: Sparkle, label: "What can you help me with? Give me a short tour", prompt: "What can you help me with?", send: true },
-        ]
-      : [{ id: "n-help", Icon: Sparkle, label: "What can you help me with? Give me a short tour", prompt: "What can you help me with?", send: true }];
+    const help: IdeaRow = { id: "n-help", Icon: Sparkle, label: "What can you help me with? Give me a short tour", prompt: "What can you help me with?", send: true };
+    if (!who.canCreate) return [help];
+    const start: IdeaRow = { id: "n-new", Icon: Plus, label: "Help me set up a new campaign: the role, who to find and where to reach them", prompt: "Help me set up a new campaign", send: true };
+    const client: IdeaRow = { id: "n-client", Icon: Buildings, label: "Add a client I hire for, so campaigns can sit under it", prompt: "Add a client", send: false };
+    return who.canAddClient ? [start, client, help] : [start, help];
   }
   return [
     { id: "g-attention", Icon: SunHorizon, label: "What needs my attention across my campaigns today?", prompt: "What needs my attention today?", send: true },

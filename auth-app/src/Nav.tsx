@@ -2,11 +2,13 @@ import {
   ArrowClockwise, Bell, Buildings, CaretDown, CaretUpDown, Check, Compass, DotsThree, FolderDashed, FolderOpen,
   MagnifyingGlass, SidebarSimple, SignOut, User,
 } from "@phosphor-icons/react";
+import { findKey } from "./platform";
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { BorderGlow } from "./glow";
 import { Loader } from "./components/Loader";
-import { CAMPAIGN_NAV, FOOT_NAV, GROUP_OF, navFor, navLabel, ROUTES, scopePick } from "./nav";
+import { Shimmer, ShimmerRegion } from "./components/Shimmer";
+import { CAMPAIGN_NAV, footNavFor, GROUP_OF, navFor, navLabel, ROUTES, scopePick } from "./nav";
 import type { Icon } from "@phosphor-icons/react";
 import type { NavItem, NavLeaf, RouteId } from "./nav";
 import { CAMPAIGNS, currentWorkspace, workspacesFor } from "./workspaces";
@@ -20,8 +22,12 @@ import { firstGlyph } from "./ui";
 import { ROLE_LABEL, useSession, visibleCampaigns } from "./roleStore";
 import { standingOf } from "./can";
 import type { Standing } from "./can";
-import { pendingOrgName, readable } from "./api/identity";
-import { isolationLine, workspaceHint } from "./membership";
+import { setTabWorkspace } from "./api/client";
+import { pendingOrgName, readable, workspaceChanged } from "./api/identity";
+import { onboardingApi } from "./api/onboarding";
+import type { OrgMatch } from "./api/onboarding";
+import { answerInvitation, useNotifications } from "./homeStore";
+import { isolationLine, requestSentLine, workspaceHint } from "./membership";
 import type { OrgRole } from "./api/identity";
 import type { LiveAccount } from "./Console";
 import { requestTour } from "./tour/useTour";
@@ -148,6 +154,46 @@ export function Nav({
   const liveActive = live?.me.workspaces.find((w) => w.active);
   const liveOrg = live?.me.workspaces.find((w) => w.kind === "org");
   const pending = live ? pendingOrgName(live.me) : null;
+  /* In Personal with an organisation they could be in (one that invited them, or one on their work address): the
+     switcher offers it, so choosing "Not now" at sign-up never leaves the way in hidden in Settings. */
+  const notices = useNotifications();
+  const invited = notices.items.find((n) => n.invitation && n.open !== false && !n.invitation.blockedBy)?.invitation ?? null;
+  const [onDomain, setOnDomain] = useState<OrgMatch | null>(null);
+  const mayOffer = !!live && !liveOrg && !pending && !invited && !live.me.onboarding.personalEmail;
+  useEffect(() => {
+    if (!wsOpen || !mayOffer || onDomain) return;
+    let alive = true;
+    onboardingApi.organisationByDomain().then((m) => { if (alive && m) setOnDomain(m); }, () => {});
+    return () => { alive = false; };
+  }, [wsOpen, mayOffer, onDomain]);
+  const offered: { id: string; name: string; hint: string } | null = !live || liveOrg || pending ? null
+    : invited ? { id: "join:invite", name: `Join ${invited.organisationName}`, hint: "You were invited" }
+    : onDomain ? { id: "join:domain", name: onDomain.joinMode === "direct" ? `Join ${onDomain.name}` : `Ask to join ${onDomain.name}`, hint: onDomain.joinMode === "direct" ? "Your team is already here" : "An admin there approves it" }
+    : null;
+  const takeOffer = async () => {
+    if (!live) return;
+    setWsError(null);
+    try {
+      if (invited) {
+        const note = notices.items.find((n) => n.invitation?.id === invited.id);
+        const done = note ? await answerInvitation(note.id, true) : { ok: false as const };
+        if (!done.ok) return;
+        setWsOpen(false);
+        await live.reload();
+        live.say?.(`You're in ${invited.organisationName}.`);
+      } else if (onDomain) {
+        const r = await onboardingApi.joinOrganisation(onDomain.id);
+        setWsOpen(false);
+        if (r.status === "requested") { await live.reload(); live.say?.(requestSentLine(onDomain.name)); return; }
+        setTabWorkspace(r.organisationId);
+        workspaceChanged();
+        await live.reload();
+        live.say?.(`You're in ${onDomain.name}.`);
+      }
+    } catch (err) {
+      setWsError(readable(err));
+    }
+  };
   /* "Personal" and the organisation's own name: a workspace is called by what it is, not by whose it is. */
   const personalName = "Personal";
   const wsName = live ? (liveActive?.kind === "org" ? liveActive.name : personalName) : current.name;
@@ -284,14 +330,15 @@ export function Nav({
                   label: "Personal",
                   items: [{ id: "personal", name: personalName, hint: workspaceHint({ kind: "personal", role: null }), Icon: User, current: liveActive?.kind !== "org" }],
                 },
-                ...(liveOrg || pending ? [{
+                ...(liveOrg || pending || offered ? [{
                   id: "org",
                   label: "Organisation",
                   items: liveOrg ? [{
                     id: liveOrg.organizationId ?? "org", name: liveOrg.name,
                     hint: workspaceHint(liveOrg),
                     Icon: Buildings, logoUrl: liveOrg.logoUrl, current: liveOrg.active,
-                  }] : [{ id: "pending", name: pending ?? "", hint: "Waiting for an admin to approve you", Icon: Buildings, disabled: true }],
+                  }] : pending ? [{ id: "pending", name: pending, hint: "Waiting for an admin to approve you", Icon: Buildings, disabled: true }]
+                    : offered ? [{ id: offered.id, name: offered.name, hint: offered.hint, Icon: Buildings }] : [],
                 }] : []),
               ] : [
                 {
@@ -315,6 +362,7 @@ export function Nav({
               note={live ? wsError ?? (liveActive ? isolationLine(liveActive) : undefined) : organizationName?.trim() ? `Everything shared here belongs to ${organizationName.trim()}` : undefined}
               onPick={(item) => {
                 if (!live || item.current) { setWsOpen(false); return; }
+                if (item.id.startsWith("join:")) { void takeOffer(); return; }
                 setWsError(null);
                 live.switchWorkspace(item.id === "personal" ? null : item.id)
                   .catch((err: unknown) => setWsError(readable(err)));
@@ -364,7 +412,7 @@ export function Nav({
             <BorderGlow />
             <MagnifyingGlass className="nav-find-ico" size={15} weight={WEIGHT} aria-hidden="true" />
             <span className="nav-find-text nav-fade">Quick find</span>
-            <kbd className="nav-find-kbd nav-fade" aria-hidden="true">⌘K</kbd>
+            <kbd className="nav-find-kbd nav-fade" aria-hidden="true">{findKey()}</kbd>
           </button>
 
           <button ref={bellRef} type="button" className="nav-bell" data-label="Notifications" data-tour="bell"
@@ -475,6 +523,11 @@ export function Nav({
                   />
                 )}
               </div>
+            ) : pick.state === "loading" ? (
+              /* The list is on its way: three quiet bars the height of the real rows, and nothing to read. */
+              <ShimmerRegion label={pick.label} className="nav-wait">
+                {[72, 56, 64].map((w) => <span className="nav-wait-row" key={w} aria-hidden="true"><Shimmer w={`${w}%`} h={12} r={6} /></span>)}
+              </ShimmerRegion>
             ) : (
               /* No campaign chosen (a new organisation, or none they're on): one quiet row that
                  opens the same switcher, instead of a folder named "Pick a campaign" over six
@@ -491,13 +544,10 @@ export function Nav({
                   aria-expanded={switchable.length ? scopeOpen : undefined}
                   aria-haspopup={switchable.length ? "menu" : undefined}
                   aria-controls={scopeOpen ? scopeMenuId : undefined}
-                  aria-busy={pick.state === "loading" || undefined}
                   data-label={pick.state === "failed" ? `${pick.label}. Try again` : pick.label}
                   title={pick.state === "failed" ? `${pick.label}. Try again` : pick.label}
                 >
-                  {pick.state === "loading"
-                    ? <span className="nav-ico nav-ico-wait" aria-hidden="true"><Loader size="sm" /></span>
-                    : <FolderDashed className="nav-ico" size={ICON} weight={WEIGHT} aria-hidden="true" />}
+                  <FolderDashed className="nav-ico" size={ICON} weight={WEIGHT} aria-hidden="true" />
                   <span className="nav-label nav-fade">{pick.label}</span>
                   {switchable.length > 0 && <CaretUpDown className="nav-scope-caret nav-fade" size={14} aria-hidden="true" />}
                   {pick.state === "failed" && <ArrowClockwise className="nav-scope-caret nav-fade" size={14} aria-hidden="true" />}
@@ -547,7 +597,7 @@ export function Nav({
         {/* ── support, then the account ── */}
         <div className="nav-foot">
           <ul className="nav-list nav-support">
-            {FOOT_NAV.map((item) => (
+            {footNavFor(standingOf(session)).map((item) => (
               <Row
                 key={item.id}
                 item={item}

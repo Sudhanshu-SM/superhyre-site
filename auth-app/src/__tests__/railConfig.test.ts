@@ -146,7 +146,7 @@ describe("a campaign's panel", () => {
     // An organisation keeps them.
     const org = campaignRows(row(), { ...admin, connections: conns(), onRetryConnections: noop, intake: live, inOrg: true });
     expect(find(org, "Collaborators")).toBeDefined();
-    expect(find(org, "Visibility")?.value).toBe("Team and admins");
+    expect(find(org, "Visibility")?.value).toBe("Its team and admins");
   });
 
   it("names the owner, or says You when it is the person looking", () => {
@@ -179,7 +179,7 @@ describe("a campaign's panel", () => {
   });
 
   it("states who can see it", () => {
-    expect(find(rows(row()), "Visibility")?.value).toBe("Team and admins");
+    expect(find(rows(row()), "Visibility")?.value).toBe("Its team and admins");
     expect(find(rows(row({ visibility: "org" })), "Visibility")?.value).toBe("Everyone in the org");
   });
 
@@ -224,7 +224,8 @@ describe("the workspace's panel, when no campaign was chosen", () => {
   const member = (userId: string, fullName: string | null, role: string, status = "active"): ApiMember => ({ userId, email: `${userId.slice(0, 2)}@acme.dev`, fullName, role, status });
   const ready = (members: ApiMember[]) => ({ status: "ready" as const, members });
   const input = (over: Partial<Parameters<typeof workspaceRows>[0]> = {}): Parameters<typeof workspaceRows>[0] => ({
-    ...admin, connections: conns(), onRetryConnections: noop, campaigns: [row(), row({ id: "c2", status: "closed" })], campaignsReady: true,
+    ...admin, connections: conns(), onRetryConnections: noop, campaignsReady: true,
+    campaigns: [row({ team: ["Asha Rao", "Ravi K"], teamIds: [ASHA, RAVI] }), row({ id: "c2", status: "closed" })],
     people: ready([member(ASHA, "Asha Rao", "owner"), member(RAVI, "Ravi K", "recruiter")]), inOrg: true, ...over,
   });
 
@@ -237,23 +238,38 @@ describe("the workspace's panel, when no campaign was chosen", () => {
   });
 
   it("says You when the person looking owns it, and puts them first in the team", () => {
-    const rows = workspaceRows(input({ people: ready([member(ME, "Me Myself", "owner"), member(ASHA, "Asha Rao", "admin"), member(RAVI, "Ravi K", "recruiter")]) }));
+    const rows = workspaceRows(input({
+      campaigns: [row({ owner: "Me Myself", ownerId: ME, team: ["Me Myself", "Asha Rao", "Ravi K"], teamIds: [ME, ASHA, RAVI] })],
+      people: ready([member(ME, "Me Myself", "owner"), member(ASHA, "Asha Rao", "admin"), member(RAVI, "Ravi K", "recruiter")]),
+    }));
     expect(find(rows, "Owner")?.value).toBe("You");
     expect(find(rows, "Team")?.value).toBe("Asha Rao, Ravi K");
   });
 
-  it("offers an admin to invite people to an empty team and to create a first campaign", () => {
-    const rows = workspaceRows(input({ campaigns: [], people: ready([member(ME, "Me", "owner")]) }));
-    expect(find(rows, "Team")?.action).toEqual({ label: "Invite people", href: "#/settings/members" });
-    expect(find(rows, "Campaigns")?.action).toMatchObject({ label: "Create a campaign" });
-    for (const r of rows) if (r.action) expect(reachable(r.action.href), r.label).toBe(true);
+  it("offers an admin to invite people to an empty team when there is a campaign, and to create a first campaign when there is none", () => {
+    const rows = workspaceRows(input({ campaigns: [row({ owner: "Me", ownerId: ME, team: ["Me"], teamIds: [ME] })], people: ready([member(ME, "Me", "owner")]) }));
+    expect(find(rows, "Team")?.action).toEqual({ label: "Invite people", href: "#/teams" });
+    const first = workspaceRows(input({ campaigns: [], people: ready([member(ME, "Me", "owner")]) }));
+    expect(find(first, "Campaigns")?.action).toMatchObject({ label: "Create a campaign" });
+    for (const r of [...rows, ...first]) if (r.action) expect(reachable(r.action.href), r.label).toBe(true);
   });
 
-  it("gives a recruiter plain words where an admin would have an action", () => {
-    const rows = workspaceRows(input({ ...recruiter, campaigns: [], people: ready([member(ASHA, "Asha Rao", "owner")]) }));
+  it("says nothing of an owner or a team before there is a campaign: a calm panel that points at the first one", () => {
+    for (const who of [{}, recruiter]) {
+      const rows = workspaceRows(input({ ...who, campaigns: [], people: ready([member(ASHA, "Asha Rao", "owner"), member(RAVI, "Ravi K", "recruiter")]) }));
+      expect(rows.map((r) => r.label)).toEqual(["Campaigns", "Channels"]);
+      expect(find(rows, "Owner")).toBeUndefined();
+      expect(find(rows, "Team")).toBeUndefined();
+    }
+  });
+
+  it("gives a recruiter plain words where an admin would have an action, and a way to start a campaign of their own", () => {
+    const rows = workspaceRows(input({ ...recruiter, campaigns: [row()], people: ready([member(ASHA, "Asha Rao", "owner")]) }));
     expect(find(rows, "Team")).toMatchObject({ value: "Just the owner" });
-    expect(find(rows, "Campaigns")).toMatchObject({ value: "None yet" });
-    expect(rows.every((r) => r.action === undefined)).toBe(true);
+    // Anyone who works here opens campaigns, so the first one is theirs to start; the team is an admin's to invite.
+    const first = workspaceRows(input({ ...recruiter, campaigns: [], people: ready([member(ASHA, "Asha Rao", "owner")]) }));
+    expect(find(first, "Campaigns")?.action).toMatchObject({ label: "Create a campaign" });
+    expect(rows.filter((r) => r.label !== "Campaigns").every((r) => r.action === undefined)).toBe(true);
   });
 
   it("holds the shape while campaigns and people load", () => {
@@ -267,8 +283,17 @@ describe("the workspace's panel, when no campaign was chosen", () => {
     expect(none.map((r) => r.label)).toEqual(["Campaigns", "Channels"]);
   });
 
+  it("lists only the people on the campaigns the viewer can see, not everyone in the organisation", () => {
+    const rows = workspaceRows(input({
+      ...recruiter,
+      campaigns: [row({ owner: "Asha Rao", ownerId: ASHA, team: ["Asha Rao", "Ravi K"], teamIds: [ASHA, RAVI] })],
+      people: ready([member(ASHA, "Asha Rao", "owner"), member(RAVI, "Ravi K", "recruiter"), member(PRIYA, "Priya N", "recruiter"), member("55555555-5555-4555-8555-555555555555", "Nisha D", "recruiter")]),
+    }));
+    expect(find(rows, "Team")?.value).toBe("Ravi K");
+  });
+
   it("ignores people who were removed", () => {
-    const rows = workspaceRows(input({ people: ready([member(ASHA, "Asha Rao", "owner"), member(RAVI, "Ravi K", "recruiter", "disabled")]) }));
+    const rows = workspaceRows(input({ campaigns: [row()], people: ready([member(ASHA, "Asha Rao", "owner"), member(RAVI, "Ravi K", "recruiter", "disabled")]) }));
     expect(find(rows, "Team")).toMatchObject({ action: { label: "Invite people" } });
   });
 });
@@ -288,5 +313,28 @@ describe("an intake read that did not come back", () => {
     expect(waits[0]).toBeLessThanOrEqual(5000);
     expect(waits).toEqual([...waits].sort((a, b) => a - b));
     expect(new Set(waits).size).toBe(waits.length);
+  });
+});
+
+describe("the campaign the chat moves to", () => {
+  it("is found by its id: two campaigns with one title are two campaigns, each with its own people", async () => {
+    const { campaignInFocus, campaignRows } = await import("../railConfig");
+    const rows = [
+      { id: "c1", name: "DevOps Engineer", department: "Engineering", location: "Pune", team: ["Priya", "Meera Iyer"], teamIds: ["u1", "u2"], ownerId: "u1", owner: "Priya" },
+      { id: "c2", name: "DevOps Engineer", department: "Engineering", location: "Pune", team: ["Priya"], teamIds: ["u1"], ownerId: "u1", owner: "Priya" },
+    ];
+    expect(campaignInFocus("c2", "DevOps Engineer", rows)).toEqual({ id: "c2", name: "DevOps Engineer", role: "Engineering · Pune" });
+    // Not yet in the list: named by the chat's own words, and found by id once it is.
+    expect(campaignInFocus("c3", "Platform Engineer", rows)).toEqual({ id: "c3", name: "Platform Engineer", role: "" });
+    const people = (id: string) => {
+      const row = rows.find((r) => r.id === id) as never;
+      const found = campaignRows(row, {
+        userId: "u9", role: "admin", name: "Ada", connections: { status: "ready", google: null, slack: null, notion: null } as never,
+        onRetryConnections: () => {}, intake: { status: "ready", forms: [] }, inOrg: true,
+      } as never);
+      return found.find((r) => r.label === "Collaborators");
+    };
+    expect(people("c1")).toMatchObject({ value: expect.stringContaining("Meera Iyer") });
+    expect(people("c2")).not.toMatchObject({ value: expect.stringContaining("Meera Iyer") });
   });
 });

@@ -51,7 +51,7 @@ export function RoleSwitch() {
         </div>
       )}
       <p className="rl-view-n t-caption">
-        {s.role === "admin" ? "Creates, assigns and closes campaigns." : `Sees the campaigns ${first(s.name)} is on.`}
+        {s.role === "admin" ? "Creates, assigns and closes campaigns." : `Opens campaigns of their own, and sees the ones ${first(s.name)} is on.`}
       </p>
     </div>
   );
@@ -119,8 +119,13 @@ export function AssignDialog({ row, open, onClose }: { row: CampaignRow | undefi
 
 /* ── a calm confirm ── */
 
-export function ConfirmDialog({ open, title, body, confirm, danger, onConfirm, onClose }: {
-  open: boolean; title: string; body: ReactNode; confirm: string; danger?: boolean; onConfirm: () => void; onClose: () => void;
+export function ConfirmDialog({ open, title, body, confirm, danger, problem, busy, onConfirm, onClose }: {
+  open: boolean; title: string; body: ReactNode; confirm: string; danger?: boolean;
+  /** Something the answer could not do, said here where the person is looking rather than on the page behind. */
+  problem?: string | null;
+  /** The answer is on its way: the button waits rather than being pressed twice. */
+  busy?: boolean;
+  onConfirm: () => void; onClose: () => void;
 }) {
   return (
     <Dialog open={open} onClose={onClose} label={title} size="md">
@@ -128,11 +133,12 @@ export function ConfirmDialog({ open, title, body, confirm, danger, onConfirm, o
         <header className="rl-dlg-h">
           <h2 className="t-title">{title}</h2>
           <div className="t-body rl-dlg-b">{body}</div>
+          {problem && <p className="t-body-sm rl-dlg-err" role="alert">{problem}</p>}
         </header>
         <footer className="rl-dlg-f">
           <span />
           <button type="button" className="ct-btn" onClick={onClose}>Cancel</button>
-          <button type="submit" className={`ct-btn ${danger ? "rl-danger" : "is-primary"}`} autoFocus>{confirm}</button>
+          <button type="submit" className={`ct-btn ${danger ? "rl-danger" : "is-primary"}`} autoFocus disabled={busy} aria-busy={busy || undefined}>{confirm}</button>
         </footer>
       </form>
     </Dialog>
@@ -165,7 +171,7 @@ export function NotOnCampaign({ row, onBack }: { row: CampaignRow | undefined; o
         <EmptyArt name="err-no-access" size={180} />
         <h1 className="t-title">You're not on this campaign</h1>
         <p className="t-body">
-          {row ? <>{row.name} is run by <b>{owner}</b>. Ask an admin to add you and it will appear with your campaigns.</> : "Ask an admin to add you and it will appear with your campaigns."}
+          {row ? <>{row.name} is run by <b>{owner}</b>. Ask its owner or the team lead to add you and it will appear with your campaigns.</> : "Ask its owner or the team lead to add you and it will appear with your campaigns."}
         </p>
         <button type="button" className="ct-btn is-primary" onClick={onBack}>See your campaigns</button>
       </div>

@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { matchNote } from "../api/forms";
-import { Loader } from "../components/Loader";
+import { ArrowRight } from "@phosphor-icons/react";
+import { Cta } from "../agentCards/Cta";
+import { PassReasonDialog } from "../PassReason";
+import { Shimmer, ShimmerRegion, ShimmerText } from "../components/Shimmer";
 import type { ResponseMeta } from "../api/forms";
 import { agoLabel } from "../clients";
 import { Clarified } from "../Clarify";
@@ -9,7 +12,7 @@ import type { Form, FormResponse } from "../campaign";
 import { mustHaves } from "../campaign";
 import { candidateFromCardPerson } from "../liveCandidate";
 import { putSet } from "../liveCandidates";
-import { act } from "../moments";
+import { sendAction } from "../liveChat";
 import {
   decideResponse, getFormMeta, loadResponses, retryForms, useFormMeta, useForms, useFormsLoad, useResponses,
 } from "../formsStore";
@@ -61,7 +64,7 @@ function Body({ card, ctx }: LiveViewProps): JSX.Element | null {
   useEffect(() => { ctx.onGrow(); }, [forms, load, summaries.byId, chosen, ctx]);
 
   if (!campaignId) return null;
-  if (load === "loading") return <p className="pt-first" aria-live="polite"><Loader size="sm" /> Counting the answers</p>;
+  if (load === "loading") return <ShimmerRegion label="Counting the answers"><ShimmerText lines={2} /></ShimmerRegion>;
   if (load !== "ready") {
     return (
       <div className="src mo">
@@ -75,7 +78,7 @@ function Body({ card, ctx }: LiveViewProps): JSX.Element | null {
       <div className="src mo">
         <p className="mo-note">{name} has no form yet.</p>
         <div className="mo-acts">
-          <button type="button" className="src-btn is-primary mo-small" onClick={() => act(ctx, `Create a screening form for ${name}`)}>Write a screening form</button>
+          <button type="button" className="src-btn is-primary mo-small" onClick={() => sendAction(`Create a screening form for ${name}`, "Write a screening form", campaignId)}>Write a screening form</button>
         </div>
       </div>
     );
@@ -154,7 +157,7 @@ function Share({ form, campaignId, ctx, traffic }: { form: Form; campaignId: str
     return (
       <p className="lf-line">
         It has no link until it is published.{" "}
-        <button type="button" className="lt-link" onClick={() => ctx.openForm?.(campaignId, form.id, "share")}>Publish it from the builder</button>
+        <Cta small onClick={() => ctx.openForm?.(campaignId, form.id, "share")}>Publish it from the builder</Cta>
       </p>
     );
   }
@@ -209,15 +212,31 @@ function Answers({ form, campaignId, ctx, hasMust }: { form: Form; campaignId: s
   }, [matched, form.id, campaignId]);
   useEffect(() => { ctx.onGrow(); }, [live.list, live.loading, problem, ctx]);
 
-  if (live.loading && live.list.length === 0) return <p className="pt-first"><Loader size="sm" /> Loading who answered</p>;
+  if (live.loading && live.list.length === 0) {
+    return (
+      <ShimmerRegion label="Loading who answered">
+        <ol className="lt-people" aria-hidden="true">
+          {[0, 1, 2].map((i) => (
+            <li key={i} className="lt-person">
+              <div className="lt-person-main">
+                <Shimmer h={13} lh={20} w={`${110 + ((i * 29) % 60)}px`} />
+                <Shimmer h={11} lh={20} w={`${180 + ((i * 41) % 90)}px`} />
+              </div>
+              <span className="lt-person-acts"><Shimmer h={28} w={118} r={8} /></span>
+            </li>
+          ))}
+        </ol>
+      </ShimmerRegion>
+    );
+  }
   if (live.error && live.list.length === 0) {
     return <p className="lt-note" role="alert">{live.error}{" "}<button type="button" className="lt-link" onClick={() => void loadResponses(form.id)}>Try again</button></p>;
   }
   const { shown, hidden } = inView(live.list, (id) => live.meta.get(id), SHOWN);
   const ids = matched.map((r) => r.person.id);
-  const decide = async (r: FormResponse, d: "add" | "pass", linkTo?: string) => {
+  const decide = async (r: FormResponse, d: "add" | "pass", linkTo?: string, reason?: string) => {
     setProblem(null);
-    const err = await decideResponse(form.id, r.id, d, linkTo);
+    const err = await decideResponse(form.id, r.id, d, linkTo, reason);
     if (err) setProblem(err);
   };
   return (
@@ -226,15 +245,13 @@ function Answers({ form, campaignId, ctx, hasMust }: { form: Form; campaignId: s
         {shown.map((r) => (
           <Person key={r.id} r={r} form={form} hasMust={hasMust} meta={live.meta.get(r.id)}
             onOpen={ids.includes(r.person.id) ? () => ctx.openProfile(r.person.id, ids) : undefined}
-            onDecide={(d, linkTo) => void decide(r, d, linkTo)} />
+            onDecide={(d, linkTo, reason) => void decide(r, d, linkTo, reason)} />
         ))}
       </ol>
       {problem && <p className="lt-note" role="alert">{problem}</p>}
       {hidden > 0 && (
         <p className="lt-more">
-          <button type="button" className="lt-link" onClick={() => ctx.openForm?.(campaignId, form.id, "responses")}>
-            {hidden} more in the responses
-          </button>
+          <Cta small icon={ArrowRight} onClick={() => ctx.openForm?.(campaignId, form.id, "responses")}>{hidden} more in the responses</Cta>
         </p>
       )}
     </>
@@ -242,8 +259,9 @@ function Answers({ form, campaignId, ctx, hasMust }: { form: Form; campaignId: s
 }
 
 function Person({ r, form, hasMust, meta, onOpen, onDecide }: {
-  r: FormResponse; form: Form; hasMust: boolean; meta: ResponseMeta | undefined; onOpen?: () => void; onDecide: (d: "add" | "pass", linkTo?: string) => void;
+  r: FormResponse; form: Form; hasMust: boolean; meta: ResponseMeta | undefined; onOpen?: () => void; onDecide: (d: "add" | "pass", linkTo?: string, reason?: string) => void;
 }) {
+  const [asking, setAsking] = useState(false);
   const standing = standingOf(meta);
   const match = standing !== "on-board" && meta?.decision !== "passed" ? meta?.possibleMatch : null;
   const first = r.person.name.split(/\s+/)[0] ?? r.person.name;
@@ -255,7 +273,7 @@ function Person({ r, form, hasMust, meta, onOpen, onDecide }: {
           : <span className="lt-person-name">{r.person.name}</span>}
         <span className="lt-person-meta">{responseLine(r, form, hasMust)}, {agoLabel(r.at).toLowerCase()}</span>
         {match && <span className="lt-person-why">{matchNote(match)}</span>}
-        {standing === "passed" && <span className="lt-person-why">You passed on {first}</span>}
+        {standing === "passed" && <span className="lt-person-why">You rejected {first}</span>}
       </div>
       {standing === "on-board" ? (
         <span className="lt-person-done">{stageWords(meta?.stage ?? "")}</span>
@@ -269,7 +287,8 @@ function Person({ r, form, hasMust, meta, onOpen, onDecide }: {
           ) : (
             <button type="button" className={`src-btn mo-small${standing === "waiting" ? " is-primary" : " is-quiet"}`} onClick={() => onDecide("add")}>Add to shortlist</button>
           )}
-          {standing === "waiting" && <button type="button" className="src-btn is-quiet mo-small" onClick={() => onDecide("pass")}>Pass</button>}
+          {standing === "waiting" && <button type="button" className="src-btn is-quiet mo-small" onClick={() => setAsking(true)}>Reject</button>}
+          <PassReasonDialog who={asking ? first : null} onClose={() => setAsking(false)} onPass={(reason) => { setAsking(false); onDecide("pass", undefined, reason); }} />
         </span>
       )}
     </li>

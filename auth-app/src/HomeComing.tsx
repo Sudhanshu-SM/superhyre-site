@@ -3,6 +3,8 @@ import { List, useNow } from "./ComingUp";
 import { isScoped } from "./orchestrator";
 import type { Scope } from "./orchestrator";
 import { useSession } from "./roleStore";
+import { useMeetings } from "./meetingsStore";
+import { upcoming } from "./meetingsView";
 import { UPCOMING, useFeed, useSchedulesUnavailable } from "./schedulesStore";
 import type { FeedQuery } from "./schedulesStore";
 import "./schedules.css";
@@ -27,6 +29,9 @@ export function ComingUpCard({ scope, timeZone }: { scope: Scope; timeZone: stri
   const feed = useFeed(query, { poll: true });
   const unavailable = useSchedulesUnavailable();
   const card = useRef<HTMLElement>(null);
+  /* Meetings and interviews are among the things coming up, by their time. */
+  const booked = useMeetings({ campaignId, limit: 20 });
+  const meetings = upcoming(booked.meetings);
 
   /* Opened from a link that names this card ("#/?section=coming-up"): bring it into view. */
   useEffect(() => {
@@ -35,7 +40,7 @@ export function ComingUpCard({ scope, timeZone }: { scope: Scope; timeZone: stri
 
   if (unavailable && feed.phase !== "ready") return null;
 
-  const count = feed.phase === "ready" ? `${feed.items.length}${feed.next ? "+" : ""}` : null;
+  const count = feed.phase === "ready" ? `${feed.items.length + meetings.length}${feed.next ? "+" : ""}` : null;
   return (
     <section ref={card} className="hm-card hm-coming" id="coming-up" aria-labelledby="coming-up-h">
       <header className="hm-th">
@@ -44,7 +49,7 @@ export function ComingUpCard({ scope, timeZone }: { scope: Scope; timeZone: stri
       <div className="hm-coming-b">
         <List
           feed={feed} query={query} empty="upcoming" viewerId={session.userId ?? null} zone={timeZone} now={now}
-          filtered={campaignId !== null} onClear={() => undefined} limit={COMING_UP_SHOWN} compact
+          filtered={campaignId !== null} onClear={() => undefined} limit={COMING_UP_SHOWN} compact meetings={meetings}
         />
       </div>
     </section>

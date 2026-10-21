@@ -3,49 +3,37 @@ import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { HomeEmpty } from "../HomeEmpty";
-import { MAX_CAMPAIGN_ROWS, MIN_CAMPAIGN_ROWS, campaignRowsFit } from "../HomeCards";
 
 /**
- * Home's cards: the campaigns list fills its card (as many 58px rows as fit, 4 to 10, with "+N more / View all"
- * pinned under them), Coming up has room to read, and an empty card is one shape everywhere (picture, headline,
- * one line, one action) centred in the card's free space.
+ * Home's cards: the campaigns bento fills its card (three rows of tiles, or two in a short card, with "+N more / View
+ * all" under them), Coming up has room to read, and an empty card is one shape everywhere (picture, headline, one
+ * line, one action) centred in the card's free space.
  */
 
 const css = readFileSync(join(__dirname, "..", "home.css"), "utf8");
-const ROW = 58;
-const MORE = 44;
 
-describe("the active campaigns list fills its card", () => {
-  it("shows every campaign when they all fit", () => {
-    expect(campaignRowsFit(5, 5 * ROW)).toBe(5);
-    expect(campaignRowsFit(7, 600)).toBe(7);
+describe("the active campaigns bento fills its card", () => {
+  it("is six equal columns and rows that are as tall as the card gives them, with the +N more line across all of them under the tiles", () => {
+    expect(css).toMatch(/\.hm-cl \{[^}]*display: grid; grid-template-columns: repeat\(6, minmax\(0, 1fr\)\); grid-template-rows: repeat\(var\(--rows, 3\), var\(--rh, 150px\)\);/);
+    expect(css).toMatch(/\.hm-cl li\.hm-cl-more \{ animation: none; grid-column: 1 \/ -1; grid-row: calc\(var\(--rows, 3\) \+ 1\); \}/);
+    expect(css).toMatch(/\.hm-cl \{[^}]*gap: 12px;/);
   });
 
-  it("shows as many as fit with room kept for the +N more line, so the band left over is never a row", () => {
-    for (const count of [11, 14, 30]) {
-      for (let room = 200; room <= 900; room += 7) {
-        const shown = campaignRowsFit(count, room);
-        expect(shown).toBeGreaterThanOrEqual(MIN_CAMPAIGN_ROWS);
-        expect(shown).toBeLessThanOrEqual(MAX_CAMPAIGN_ROWS);
-        const used = shown * ROW + MORE;
-        const wanted = Math.min(MAX_CAMPAIGN_ROWS, Math.max(MIN_CAMPAIGN_ROWS, Math.floor((room - MORE) / ROW)));
-        expect(shown).toBe(wanted);
-        // Unless the card is taller than ten rows, what is left over is less than one row.
-        if (wanted < MAX_CAMPAIGN_ROWS && wanted > MIN_CAMPAIGN_ROWS) expect(room - used).toBeLessThan(ROW);
-      }
-    }
+  it("starts under the title, says one calm line when every campaign is empty, and keeps the entry animation off for reduced motion", () => {
+    expect(css).toMatch(/\.hm-cl-hint \{[^}]*align-items: center;[^}]*text-align: center;/);
+    expect(css).toMatch(/prefers-reduced-motion: reduce\) \{\s*\.hm-card, \.hm-quad-c, \.hm-cl li, \.hm-cl-bar::after, \.hm-cl-hint,/);
+    const code = readFileSync(join(__dirname, "..", "HomeCards.tsx"), "utf8");
+    expect(code).toContain("Approve a role spec and the agent starts finding people");
+    expect(code).toContain("rows.every((r) => isEmpty(stagesOf(r)) && r.funnel.sourced === 0)");
+    expect(code).toContain("Open {rows[0]!.name}");
+    expect(code).toContain("Ask the agent</a>}");
   });
 
-  it("never shows more than there are, and never fewer than four when there are that many", () => {
-    expect(campaignRowsFit(2, 1000)).toBe(2);
-    expect(campaignRowsFit(30, 100)).toBe(MIN_CAMPAIGN_ROWS);
-    expect(campaignRowsFit(30, 5000)).toBe(MAX_CAMPAIGN_ROWS);
-    expect(campaignRowsFit(0, 500)).toBe(0);
-  });
-
-  it("pins +N more / View all to the bottom of the card", () => {
-    expect(css).toMatch(/\.hm-camps \.hm-cl \{ display: flex; flex-direction: column; \}/);
-    expect(css).toMatch(/\.hm-camps \.hm-cl > \.hm-cl-more \{ margin-top: auto; \}/);
+  it("gives the campaigns half of the live console's top row, and the week and Coming up the same split below it", () => {
+    expect(css).toContain(".hm-bento.is-three .hm-today { grid-column: 1 / span 6; }");
+    expect(css).toContain(".hm-bento.is-three .hm-camps { grid-column: 7 / span 6; grid-row: 1; }");
+    expect(css).toContain(".hm-bento.is-three:has(> .hm-coming) .hm-week { grid-column: 1 / span 6; }");
+    expect(css).toContain(".hm-bento.is-three:has(> .hm-coming) .hm-coming { grid-column: 7 / span 6; grid-row: 2; }");
   });
 });
 

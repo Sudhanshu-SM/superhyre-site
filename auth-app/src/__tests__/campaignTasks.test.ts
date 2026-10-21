@@ -26,7 +26,7 @@ describe("the due day", () => {
     const d = dueText(dayTask(task({ dueAt: at(0, 18) }), NOW), NOW);
     expect(d.text).toBe("Today");
     expect(d.tone).toBe("today");
-    expect(d.title).toMatch(/^Today, 18:00/);
+    expect(d.title).toMatch(/^Today, 6 pm/);
   });
 
   it("is plain for tomorrow and for a later day, written the way Scheduled writes it", () => {

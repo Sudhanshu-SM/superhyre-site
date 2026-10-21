@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { ApiError } from "../api/client";
 import { applyFailure, applyTitle } from "../ApplyPage";
@@ -190,5 +192,17 @@ describe("the public form when it doesn't come", () => {
     const form = { title: "Senior Android Engineer", name: "form" } as never;
     expect(applyTitle({ kind: "live", form, page: { company: "fn3 Talent" } as never })).toBe("Senior Android Engineer at fn3 Talent");
     expect(applyTitle({ kind: "live", form, page: { company: null } as never })).toBe("Senior Android Engineer");
+  });
+});
+
+describe("the sidebar and rail waits shimmer", () => {
+  const read = (f: string) => readFileSync(join(__dirname, "..", f), "utf8");
+  it("shows no loader icon or visible Loading words while campaigns, the week or chats load", () => {
+    const nav = read("Nav.tsx");
+    const loading = nav.slice(nav.indexOf('pick.state === "loading" ? ('), nav.indexOf("No campaign chosen (a new organisation"));
+    expect(loading).toContain("ShimmerRegion");
+    expect(loading).not.toContain("<Loader");
+    expect(nav).not.toContain("nav-ico-wait");
+    expect(read("Rail.tsx")).not.toMatch(/<Loader\b|Loader"/);
   });
 });

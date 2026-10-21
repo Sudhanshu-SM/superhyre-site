@@ -1,10 +1,11 @@
 import type { Match, MatchCounts, RoleSpec, SourcingStatus, SpecRow } from "./api/agent";
 import type { RunEvent } from "./api/events";
+import { verdictOf } from "./agentPhases";
+import type { PhaseLine } from "./agentPhases";
 import { vendorWords } from "./displayText";
 import { criteriaOf } from "./liveCandidate";
 import type { CandidateSet } from "./liveCandidate";
 import { TURN_LIMIT_MS } from "./liveChat";
-import { PREVIEW_COUNT } from "./sourcing";
 import type { Filter, Phase, Verdict } from "./sourcing";
 import type { StageView } from "./Stages";
 
@@ -100,6 +101,9 @@ export function filterLines(spec: RoleSpec): Filter[] {
 /** What the search ranks on, as the card's chips: the spec's strongest requirements, three at most. */
 export const criteriaLines = (spec: RoleSpec): string[] => criteriaOf(spec).map((c) => c.text);
 
+/** How many things the spec insists on: hard requirements and must-haves. */
+export const mustHaveCount = (spec: RoleSpec): number => reqs(spec, "knockout").length + reqs(spec, "must").length;
+
 /** "2 must have, 1 nice to have", for the line that says what the spec asks for. */
 export function requirementCounts(spec: RoleSpec): string {
   const parts = [
@@ -122,7 +126,7 @@ export type Pool = {
   found: number;
   /** Everyone in the ranked list: waiting for a call and already decided. Stable across decisions. */
   ranked: number;
-  /** Ranked and waiting for a call: what leaves as people are shortlisted or passed. */
+  /** Ranked and waiting for a call: what leaves as people are shortlisted or rejected. */
   waiting: number;
   /** Shortlisted or passed. */
   decided: number;
@@ -182,20 +186,21 @@ export function nobodyWaitingLine(p: Pool, matching = false): string | null {
       ? `Everyone else found, ${n}, ${p.ruledOut === 1 ? "does" : "do"} not meet a hard requirement.`
       : `Nobody is waiting for your call. ${n} found ${p.ruledOut === 1 ? "does" : "do"} not meet a hard requirement.`;
   }
-  return "Everyone found so far has been shortlisted or passed.";
+  return "Everyone found so far has been shortlisted or rejected.";
 }
 
-/** The card's bracket: what the next search will fetch. Absent when there is no figure to give. */
+/** The card's bracket: how many the next search looks for. Absent when there is no figure to give. */
 export function countLine(p: Pool): string | null {
-  if (!canRun(p)) return null;
-  return p.crustdata ? `up to ${plural(p.nextSize, "new profile")}` : "our own database only";
+  return canRun(p) ? `up to ${people(p.nextSize)}` : null;
 }
 
-/** What the search can't do right now, in plain words; null when nothing is in the way. */
+/**
+ * What the search can't do right now, in plain words; null when nothing is in the way. Where people come from, and
+ * what limits it, is not said here: that is for an owner or admin, in Settings > Connections.
+ */
 export function searchNote(p: Pool): string | null {
   const notes: string[] = [];
-  if (!p.crustdata) notes.push("Our data provider isn't connected yet, so a search looks through our own database only.");
-  if (p.exhausted) notes.push("That's everyone these filters turn up for now. Change the spec to widen the search.");
+  if (p.exhausted) notes.push("That's everyone I could reach for these filters for now. Change the spec to widen the search.");
   else if (p.nextSize <= 0 && p.crustdata) notes.push("This campaign has no searches left for these filters. Change the spec to look further.");
   return notes.length ? notes.join(" ") : null;
 }
@@ -273,10 +278,10 @@ export const readingPhase = (): Phase => ({ id: "read", live: READ_LIVE, done: "
 export function poolSentence(p: Pool): string {
   if (p.found === 0) {
     if (!canRun(p)) return "Nobody has been found for this campaign yet.";
-    return `Nobody has been found for this campaign yet. The first search looks through our own database${p.crustdata ? ", then asks our data provider for new profiles" : ""}.`;
+    return "Nobody has been found for this campaign yet. The first search looks for people who fit.";
   }
   const waiting = p.waiting > 0 ? `${p.waiting.toLocaleString("en-IN")} of them ranked and waiting for your call` : "none of them waiting for your call";
-  const next = canRun(p) ? ` The next search looks through our own database${p.crustdata ? ", then asks our data provider for more" : ""}.` : "";
+  const next = canRun(p) ? " The next search looks for more." : "";
   return `${people(p.found)} found so far, ${waiting}.${next}`;
 }
 
@@ -447,16 +452,13 @@ export function runPhases(r: RunState): RunPhase[] {
   const searchEnd = r.scoringAt ?? (r.status === "done" ? r.endAt : null);
   const searchSettled = searchEnd !== null;
   const found = batchOf(r);
-  const searchSteps: string[] = [];
-  if (r.pool !== null) searchSteps.push(`${people(r.pool)} from our own database`);
-  if (r.fresh !== null) {
-    searchSteps.push(`${plural(r.fresh, "new profile")} from our data provider${r.repeats ? `, ${r.repeats} you had already seen` : ""}`);
-  }
+  /* How many, never from where. */
+  const searchSteps: string[] = found > 0 ? [`${people(found)} found${r.repeats ? `, ${r.repeats} you had already seen` : ""}`] : [];
   if (searchSettled || !failed) {
     out.push({
       phase: {
         id: "search",
-        live: r.pool === null ? "Searching our own database" : "Looking for new people",
+        live: "Finding people",
         done: found > 0 ? `Found ${people(found)}` : "Searched, and found no one new",
         ms: 0,
         steps: searchSteps.length ? searchSteps : ["Nothing came back"],
@@ -493,14 +495,17 @@ export function runPhases(r: RunState): RunPhase[] {
   return out;
 }
 
+const REACHED = "I looked through everyone I could reach for this role.";
+/** What an older run said about the source being off, out of reach or over its day's limit. */
+const LIMITED = /(isn.t connected|everyone (our data provider|crustdata) has|budget for new profiles|new profiles resume|limit on new profiles|own database only|data provider)/i;
+
 /** The server's notices, in plainer words where it helps. */
 export function noticeText(text: string): string {
   const t = text.trim();
   if (/meaning search is busy/i.test(t)) return "The AI that reads for meaning was busy, so I matched on titles and skills only this time. Results may be narrower.";
-  if (/isn.t connected/i.test(t) && /crustdata/i.test(t)) return "Our data provider isn't connected yet, so I searched our own database only.";
-  if (/everyone Crustdata has/i.test(t)) return "That's everyone our data provider has for these filters for now.";
-  if (/contact detail/i.test(t) && /crustdata/i.test(t)) return "I couldn't get every contact detail this time. They can be looked up again later.";
-  if (/budget for new profiles/i.test(t)) return "Today's limit on new profiles is used up, so I searched our own database. New profiles resume tomorrow.";
+  /* Where people come from, and what limits it, is the admins' to read: a recruiter gets the plain result. */
+  if (/contact detail/i.test(t) && /crustdata|data provider/i.test(t)) return "I couldn't get every contact detail this time. They can be looked up again later.";
+  if (LIMITED.test(t)) return REACHED;
   if (/AI is busy/i.test(t)) return "The AI was busy, so these people are listed without scores. They'll be scored on the next search.";
   return sentence(vendorWords(t));
 }
@@ -508,7 +513,7 @@ export function noticeText(text: string): string {
 /** The agent's closing paragraph when a search ends: what it found, or why there is nothing. */
 export function runSummary(r: RunState): string {
   if (r.status === "failed") {
-    return `${r.runId ? "The search stopped before it finished." : "The search didn't start."} ${sentence(vendorWords(r.error ?? "Something went wrong."))} You can try again.`;
+    return `${r.runId ? "The search stopped before it finished." : "The search didn't start."} ${sentence(vendorWords((r.error ?? "Something went wrong.").replace(/^(Crustdata|Our data provider)\b/i, "That")))} You can try again.`;
   }
   const n = batchOf(r);
   if (n === 0) return "Nothing new turned up for these filters this time.";
@@ -592,23 +597,22 @@ export function liveStages(i: StageInput): { stages: StageView[]; reached: boole
     progress: searchDone / 4,
     state: failed ? "wait" : searchSettled || settledBefore ? "done" : !ran && i.buildDone ? "wait" : "live",
     note: failed ? "The search didn't finish"
-      : settledBefore ? `${people(i.found)} found so far`
-      : searchSettled ? `${batchOf(r).toLocaleString("en-IN")} found`
+      : settledBefore || searchSettled ? "Found"
       : !ran && i.buildDone ? "Waiting for you to run it"
-      : ran ? (r.pool === null ? "Searching our own database" : "Looking for new people")
+      : ran ? "Looking for people who fit"
       : i.readDone ? "Building the search" : "Reading the role",
   };
 
-  const picked = Math.min(PREVIEW_COUNT, i.preview.length);
   const matchDone = scored || settledBefore;
   const scoring = ran && r.scoringAt !== null && !scored && !failed;
   const matching: StageView = {
     id: "match",
     progress: matchDone ? 1 : (r.people ?? 0) > 0 ? Math.min(1, r.scored / (r.people ?? 1)) : 0,
     state: matchDone ? "done" : scoring ? "live" : "todo",
-    note: matchDone ? (i.ranked > 0 ? `${i.ranked.toLocaleString("en-IN")} ranked · best ${picked} picked` : "Nothing to rank")
+    note: matchDone ? (i.ranked > 0 ? "Done" : "Nothing to rank")
       : scoring ? `Scoring ${r.scored} of ${r.people ?? 0}`
-      : `Rank on ${plural(i.criteria, "criterion", "criteria")}`,
+      /* The spec's real must-have count, or no number at all when it isn't known (never "0 criteria"). */
+      : i.criteria > 0 ? `Match on ${plural(i.criteria, "must-have")}` : "Matching them to the role",
   };
 
   const called = i.preview.filter((id) => i.verdicts[id]);
@@ -619,10 +623,8 @@ export function liveStages(i: StageInput): { stages: StageView[]; reached: boole
     id: "decide",
     progress: i.preview.length ? called.length / i.preview.length : 0,
     state: reached ? "done" : atResults ? "wait" : "todo",
-    note: reached ? `${kept} shortlisted · ${i.preview.length - kept} passed`
-      : atResults ? `${called.length} of ${i.preview.length} decided, your call`
-      : matchDone && i.preview.length === 0 ? "No one to decide on yet"
-      : "Your call on the best fits",
+    /* Nothing is said until it is finished: the count is the header's, once the goal is reached. */
+    note: reached ? "Done" : "",
   };
 
   return {
@@ -634,16 +636,59 @@ export function liveStages(i: StageInput): { stages: StageView[]; reached: boole
 
 /* ── the results ─────────────────────────────────────────────────────────── */
 
-/** The words around the three best, from the real list. */
-export function resultsCopy(i: { shown: number; total: number; unscored: number }): { title: string; count: string; sub: string; all: string } {
+/**
+ * The words around the three best, from the real list. `found` is how many people this search found: when it is
+ * given, that is the count the line says, and "ranked" is added only when the campaign's ranked list is a
+ * different pool (everyone ever found for it), and says so.
+ */
+export function resultsCopy(i: { shown: number; total: number; unscored: number; found?: number }): { title: string; count: string; sub: string; all: string } {
+  const total = i.total.toLocaleString("en-IN");
+  const found = i.found !== undefined && i.found > 0 ? i.found : null;
+  const wider = found !== null && i.total > found;
   return {
     title: i.shown === 1 ? "The best fit so far" : "The best fits so far",
-    count: `${i.shown} shown · ${i.total.toLocaleString("en-IN")} ranked`,
+    count: found !== null
+      ? `${i.shown} shown of ${found.toLocaleString("en-IN")} found${wider ? ` · ${total} ranked in the campaign` : ""}`
+      : `${i.shown} shown · ${total} ranked`,
     sub: i.unscored > 0
-      ? "Some of these aren't scored yet because the AI was busy. They'll be scored on the next search."
-      : "Shortlist the ones worth reaching out to. A pass takes a short reason.",
-    all: `See all ${i.total.toLocaleString("en-IN")} ranked ${i.total === 1 ? "profile" : "profiles"}`,
+      ? "Some of these aren't scored yet, so they're in the order of keyword match."
+      : "Shortlist the ones worth reaching out to. A rejection takes a short reason.",
+    all: wider
+      ? `See all ${total} ranked in the campaign`
+      : `See all ${total} ranked ${i.total === 1 ? "profile" : "profiles"}`,
   };
+}
+
+/**
+ * The closing line of a finished search when some of the people were not scored: how many were, and what order
+ * the rest are in. Null when everyone was scored, or nobody was (the run's own line says that plainly).
+ */
+export function scoredLine(found: number, scored: number): { label: string; rest: string } | null {
+  if (found <= 0 || scored <= 0 || scored >= found) return null;
+  return {
+    label: `Scored ${scored.toLocaleString("en-IN")} of ${found.toLocaleString("en-IN")}`,
+    rest: "The rest are in the order of keyword match.",
+  };
+}
+
+/** The run's own detail ("2 good fits, 2 partial fits, 16 not scored yet") without the part the closing line says. */
+export function fitsOnly(detail: string | undefined | null): string | null {
+  const t = (detail ?? "").split(",").map((p) => p.trim()).filter((p) => p && !/not scored yet|unscored/i.test(p)).join(", ");
+  return t || null;
+}
+
+/**
+ * The phase lines with the last one made to agree with the numbers on screen. The run says "Ready for your
+ * call · 2 good fits, 16 not scored yet" at its end; where some of the people found were not scored, the line
+ * says how many were, of how many, and that the rest are in the order of keyword match. Otherwise unchanged.
+ */
+export function closeVerdict(lines: readonly PhaseLine[], found: number, scored: number): readonly PhaseLine[] {
+  const said = scoredLine(found, scored);
+  const verdict = verdictOf(lines);
+  if (!said || !verdict) return lines;
+  const fits = fitsOnly(verdict.detail);
+  const { detail: _was, ...rest } = verdict;
+  return lines.map((l) => (l.id === verdict.id ? { ...rest, label: said.label, detail: fits ? `${fits}. ${said.rest}` : said.rest } : l));
 }
 
 /** People the judge hasn't read yet: no verdicts, so no fit marks to show. */

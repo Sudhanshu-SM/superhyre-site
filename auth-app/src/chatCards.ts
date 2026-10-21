@@ -15,7 +15,7 @@ const STAGE_LABEL: Record<string, string> = {
   replied: "Replied",
   interviewing: "Interviewing",
   hired: "Hired",
-  passed: "Passed",
+  passed: "Rejected",
 };
 
 /** The status word for a person's stage and step: "Replied" for outreach at the replied step, else the stage's. */
@@ -32,18 +32,39 @@ export const stageLabel = (stage: string): string => STAGE_LABEL[stage] ?? stage
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 /** "Staff Engineer at Razorpay, Bengaluru", leaving out whatever isn't known. */
-export function personLine(p: Pick<CardPerson, "title" | "company" | "city">): string {
-  const role = [p.title, p.company].filter(Boolean).join(" at ");
-  return [role, p.city].filter(Boolean).join(", ");
+export type PersonField = "role" | "city" | "fit" | "stage";
+
+/** The role and city of a person, or only what the person has asked to see ("no city": role alone). */
+export function personLine(p: Pick<CardPerson, "title" | "company" | "city">, fields?: readonly PersonField[]): string {
+  const role = fields && !fields.includes("role") ? "" : [p.title, p.company].filter(Boolean).join(" at ");
+  const city = fields && !fields.includes("city") ? "" : p.city;
+  return [role, city].filter(Boolean).join(", ");
+}
+
+/**
+ * Whether the words already name each person and say all that would be said about them ("Give Dev Malhotra a task:
+ * Review the shortlist, due Fri 23 Oct" says who it is for), so the card does not list them again under it.
+ */
+export function peopleSaidIn(people: ReadonlyArray<Pick<CardPerson, "name" | "title" | "company" | "city">>, said: string): boolean {
+  const words = (s: string): string[] => s.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+  const spoken = new Set(words(said));
+  return people.length > 0 && people.every((p) => {
+    const own = words(p.name);
+    return own.length > 0 && [...own, ...words(personLine(p)).filter((w) => w !== "at")].every((w) => spoken.has(w));
+  });
 }
 
 /** The muted line on the right of a person: how good a fit, or where they are on the board. */
-export function personStatus(p: Pick<CardPerson, "tier" | "stage" | "daysInStage">): string | null {
-  if (p.stage) {
+export function personStatus(p: Pick<CardPerson, "tier" | "stage" | "daysInStage">, fields?: readonly PersonField[]): string | null {
+  const fit = !fields || fields.includes("fit");
+  const stage = !fields || fields.includes("stage");
+  if (p.stage && stage) {
     const days = p.daysInStage;
-    return days != null && days > 0 ? `${stageLabel(p.stage)} · ${plural(days, "day")}` : stageLabel(p.stage);
+    const where = days != null && days > 0 ? `${stageLabel(p.stage)} · ${plural(days, "day")}` : stageLabel(p.stage);
+    /* How well they fit comes first, in words, wherever they are on the board. */
+    return p.tier && fit ? `${TIER_LABEL[p.tier]} · ${where}` : where;
   }
-  return p.tier ? TIER_LABEL[p.tier] : null;
+  return p.tier && fit ? TIER_LABEL[p.tier] : null;
 }
 
 /** A sourced person from a search result, in the shape the cards use. */
@@ -66,6 +87,16 @@ export function personFromMatch(m: Match): CardPerson {
   };
 }
 
+/** Where people are, as a person says it after a number: "12 people on the shortlist", never "at shortlisted". */
+const STAGE_PHRASE: Record<string, string> = {
+  shortlisted: "on the shortlist",
+  outreach: "in outreach",
+  interviewing: "interviewing",
+  hired: "hired",
+  passed: "rejected",
+  replied: "who replied",
+};
+
 /**
  * The line over a list of people. It counts the people actually shown, and says when that is
  * a part of a longer list, so the number on the card and the agent's words can't disagree.
@@ -78,10 +109,12 @@ export function peopleHeading(card: Extract<ChatCard, { kind: "people" }>): stri
     case "matches":
       return `${n}${part} worth a look`;
     case "pipeline":
+      if (card.narrowedTo === "recommended") return shown === 1 ? "Who to interview next" : `${n} to interview next`;
       return card.narrowedTo
-        ? `${n}${part} ${card.narrowedTo === "passed" ? "passed" : card.narrowedTo === "replied" ? "who replied" : `at ${stageLabel(card.narrowedTo).toLowerCase()}`}`
+        ? `${n}${part} ${STAGE_PHRASE[card.narrowedTo] ?? `at ${stageLabel(card.narrowedTo).toLowerCase()}`}`
         : `${n}${part} on the board`;
     case "found":
+      if (card.narrowedTo === "contact details") return "Contact details";
       return `${n} matching “${card.narrowedTo ?? ""}”`;
   }
 }
@@ -107,7 +140,7 @@ export function specLine(card: Extract<ChatCard, { kind: "campaign" }>): string 
 
 export function searchLine(s: NonNullable<Extract<ChatCard, { kind: "campaign" }>["sourcing"]>): string {
   const found = s.shown ? `${plural(s.shown, "person", "people")} found so far` : "Nobody found yet";
-  if (s.exhausted) return `${found}. That's everyone matching for now`;
+  if (s.exhausted) return `${found}. The search has no more people to show for now`;
   return `${found}. The next search looks for ${s.nextSize} more`;
 }
 
@@ -133,7 +166,7 @@ export function chartedCampaigns(cards: readonly ChatCard[]): ReadonlySet<string
 }
 
 /** Where a card's link goes: the campaign, or one of its pages. */
-export const campaignHref = (campaignId: string, page: "" | "pipeline" | "shortlisted" = ""): string =>
+export const campaignHref = (campaignId: string, page: "" | "pipeline" | "shortlisted" | "forms" | "outreach" = ""): string =>
   `#/campaign${page ? `/${page}` : ""}?campaign=${campaignId}`;
 
 export type School = { name: string; degree: string; years: string };
@@ -227,9 +260,10 @@ export function outsideOutcome(
   const href = /^https:\/\//.test(raw) ? raw : null;
   if (action === "slack_message") {
     const channel = channelName(outcome.channel) ?? channelOf(detail);
-    return { text: channel ? `Posted to ${channel}.` : "Posted to Slack.", link: href ? { href, label: "Open in Slack" } : null };
+    return { text: channel ? `Posted in ${channel}.` : "Posted in Slack.", link: href ? { href, label: "Open in Slack" } : null };
   }
-  return { text: "Added to Notion.", link: href ? { href, label: "Open in Notion" } : null };
+  const title = text(detail.title);
+  return { text: title ? `Saved “${title}” to Notion.` : "Added to Notion.", link: href ? { href, label: "Open in Notion" } : null };
 }
 
 /* ── approvals for what the agent wants to remember ──
@@ -278,6 +312,8 @@ export type ScheduleBlock = {
   repeat: string;
   /** A condition or extra the recruiter should see. */
   note: string | null;
+  /** Where an email goes, shown quietly beside who it is to. */
+  address?: string | null;
 };
 
 const rec = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
@@ -292,7 +328,7 @@ const hash = (name: string): string => (name ? `#${name.replace(/^#/, "")}` : ""
  */
 export function scheduleBlocks(
   detail: Record<string, unknown>,
-  people: ReadonlyArray<{ name: string }>,
+  people: ReadonlyArray<{ name: string; address?: string | null }>,
   campaignName: string | null,
   now = Date.now(),
 ): ScheduleBlock[] {
@@ -315,9 +351,10 @@ export function scheduleBlocks(
     };
     switch (kind) {
       case "email": {
-        const name = people[emails++]?.name ?? "a candidate";
+        const who = people[emails++];
+        const name = who?.name ?? "a candidate";
         out.push({
-          ...base, what: `Email to ${name}`,
+          ...base, what: `Email to ${name}`, address: who?.address ?? null,
           quote: { title: text(p.subject) || null, body: clip(text(p.body)) },
           note: p.onlyIfNoReply === true ? "Only goes if they haven't replied by then." : null,
         });
@@ -389,6 +426,9 @@ export function scheduleOutcome(outcome: Record<string, unknown>): { lead: strin
   };
 }
 
+/** What a card says when what it was about is gone or was handled elsewhere. */
+export const ALREADY_HANDLED = "This was already handled.";
+
 /** The stale-card answer, in the recruiter's words. */
 export const CHANGED_AGAIN = "That changed while you were looking. Ask again.";
 const STALE = /changed after it was proposed|propose it again/i;
@@ -398,5 +438,33 @@ const STALE = /changed after it was proposed|propose it again/i;
  * changed since it was proposed) says to ask again; any other refusal says what the server said.
  */
 export function approvalFailure(action: string, status: number | null, message: string): string {
-  return isScheduleAction(action) && status === 409 && STALE.test(message) ? CHANGED_AGAIN : message;
+  if (isScheduleAction(action) && status === 409 && STALE.test(message)) return CHANGED_AGAIN;
+  // What the card was about is gone, or was dealt with somewhere else: said calmly, never as "Message not found."
+  if (status === 404) return ALREADY_HANDLED;
+  return message;
 }
+
+/* ── where the fix is, when it is not in SuperHyre ── */
+
+const GMAIL_API_PAGE = "https://console.cloud.google.com/apis/library/gmail.googleapis.com";
+const CALENDAR_API_PAGE = "https://console.cloud.google.com/apis/library/calendar-json.googleapis.com";
+const TASKS_API_PAGE = "https://console.cloud.google.com/apis/library/tasks.googleapis.com";
+const SHEETS_API_PAGE = "https://console.cloud.google.com/apis/library/sheets.googleapis.com";
+
+/**
+ * The page that fixes a refusal when the fix is somewhere else (the Gmail API switched on in the Google
+ * project): the link the server sent, or, for a card that came back with only the words it kept, the page those
+ * words name. Only a web address is ever linked.
+ */
+export function helpLinkOf(given: unknown, message: string): string | null {
+  if (typeof given === "string" && /^https:\/\/[^\s]+$/.test(given)) return given;
+  if (/\bGoogle Cloud project\b/i.test(message) && /\bAPI\b/.test(message)) {
+    if (/\bcalendar\b/i.test(message)) return CALENDAR_API_PAGE;
+    if (/\btasks\b/i.test(message)) return TASKS_API_PAGE;
+    return /\bsheets\b/i.test(message) ? SHEETS_API_PAGE : GMAIL_API_PAGE;
+  }
+  return null;
+}
+
+/** What the link to that page says. */
+export const helpLinkLabel = (href: string): string => (/console\.(?:cloud\.)?google\.com/.test(href) ? "Open Google Cloud" : "Open the page");

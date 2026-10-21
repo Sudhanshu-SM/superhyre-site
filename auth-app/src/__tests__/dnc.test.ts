@@ -69,7 +69,7 @@ describe("what an entry says", () => {
     expect(addedBy(entry(), "u1")).toBe("Added by you");
     expect(addedBy(entry(), "u2")).toBe("Added by Asha Rao");
     expect(addedBy(entry({ createdBy: { kind: "user", id: "u9", name: null } }), "u2")).toBe("Added by a teammate");
-    expect(addedBy(entry({ source: "agent", createdBy: { kind: "agent", id: null, name: null } }), "u1")).toBe("Added by Mind");
+    expect(addedBy(entry({ source: "agent", createdBy: { kind: "agent", id: null, name: null } }), "u1")).toBe("Added by SuperHyre");
     expect(addedBy(entry({ source: "system", createdBy: { kind: "system", id: null, name: null } }), "u1")).toBe("Added automatically");
   });
 

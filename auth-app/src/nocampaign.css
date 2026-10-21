@@ -122,3 +122,8 @@
 .nav-scope-pick:hover { background: var(--nav-hover); border-color: var(--accent); }
 .nav-scope-pick:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .nav-scope-caret { margin-left: auto; color: var(--ink-3); flex: none; }
+
+/* ── the same place while the campaigns load: three quiet bars, the height and spacing of the real rows ── */
+.nav .nav-wait { display: flex; flex-direction: column; gap: 2px; padding: 4px 0 2px calc(var(--nav-icon-box) / 2 + 11px); }
+.nav-wait-row { display: flex; align-items: center; min-height: 32px; padding: 0 12px; }
+.nav.is-railed .nav-wait { display: none; }

@@ -1,4 +1,5 @@
-import { type ComponentType, lazy, Suspense } from "react";
+import { type ComponentType, lazy, Suspense, useContext, useMemo } from "react";
+import { TurnContext, cardScope } from "../agentThread";
 import type { ViewCard, ViewKind } from "../chatViews";
 import { isViewKind } from "../chatViews";
 import { Loader } from "../components/Loader";
@@ -27,15 +28,22 @@ const VIEWS: Record<ViewKind, React.LazyExoticComponent<ComponentType<LiveViewPr
   client: lazy(() => import("./Client")),
   "campaign-new": lazy(() => import("./NewCampaign")),
   "coming-up": lazy(() => import("./ComingUp")),
+  "memory-doubts": lazy(() => import("./MemoryDoubts")),
 };
 
 export function LiveView({ card }: { card: ViewCard }): JSX.Element | null {
   const ctx = useLiveMoment();
+  /* The card's own scope inside its turn: what it asked and what it made are kept under it, so a chat that
+     is left and come back to shows the card as it was (answered questions replayed, a form made shown done). */
+  const turn = useContext(TurnContext);
+  const scope = useMemo(() => (turn ? cardScope(turn, card.key) : null), [turn, card.key]);
   if (!isViewKind(card.view) || !ctx) return null;
   const View = VIEWS[card.view];
   return (
-    <Suspense fallback={<p className="orc-stage" aria-live="polite"><Loader size="sm" />Opening</p>}>
-      <View card={card} ctx={ctx} />
-    </Suspense>
+    <TurnContext.Provider value={scope}>
+      <Suspense fallback={<p className="orc-stage" aria-live="polite"><Loader size="sm" />Opening</p>}>
+        <View card={card} ctx={ctx} />
+      </Suspense>
+    </TurnContext.Provider>
   );
 }

@@ -4,14 +4,20 @@ import type { ReactNode } from "react";
 import { FACET_LABEL, read } from "./brief";
 import type { AgentName, CampaignDraft, DraftProblems } from "./campaignDraft";
 import {
-  AGENTS, CHANNEL_LABEL, EMPLOYMENT_LABEL, NOTICE_OPTIONS, PRIORITY_LABEL, SENIORITIES, VISIBILITY_LABEL, WORK_MODE_LABEL,
-  addTag, blankDraft, draftProblems, prefillFromClient, rowFromDraft,
+  AGENTS, CHANNEL_LABEL, EMPLOYMENT_LABEL, NOTICE_OPTIONS, PRIORITY_LABEL, SENIORITIES, VISIBILITY_HELP, VISIBILITY_LABEL, WORK_MODE_LABEL,
+  addTag, blankDraft, draftProblems, ownCampaign, prefillFromClient, rowFromDraft,
 } from "./campaignDraft";
 import type { CampaignRow, Channel, Employment, Priority, Visibility, WorkMode } from "./campaignsData";
 import { DEPARTMENTS } from "./campaignsData";
 import { attachmentApi } from "./api/agent";
 import { api, LIVE } from "./api/client";
-import { addCampaignRow, clientById, ensureClientDetail, resolveCampaignId, resolveClientId, saveClient, setCampaignClient, useClients, useTeam } from "./campaignStore";
+import { addCampaignRow, clientById, ensureClientDetail, memberName, resolveCampaignId, resolveClientId, saveClient, saveStages, setCampaignClient, useClients, useTeam } from "./campaignStore";
+import { getStages } from "./api/stages";
+import type { PresetId, StageRow } from "./boardStages";
+import { DEFAULT_STAGES, PRESETS, adoptIds, presetOf, presetRows, stagesFrom, stagesFromRows } from "./boardStages";
+import { StagesDialog } from "./StagesDialog";
+import { can, standingOf } from "./can";
+import { onWorkspaceChange } from "./api/identity";
 import { INDUSTRIES, clientFromDraft, clientProblems, EMPTY_DRAFT } from "./clients";
 import { liveForms } from "./formsStore";
 import { reportProblem } from "./problems";
@@ -41,6 +47,7 @@ const SECTIONS = [
   { id: "req", label: "Requirements" },
   { id: "brief", label: "Brief" },
   { id: "team", label: "Team and setup" },
+  { id: "pipeline", label: "Pipeline" },
   { id: "fee", label: "Fee" },
 ] as const;
 type SectionId = (typeof SECTIONS)[number]["id"];
@@ -76,12 +83,17 @@ export function pickClient(cur: CampaignDraft, id: string): CampaignDraft {
  * Switching workspace (here or in another tab) rebuilds the console, which closes this
  * dialog without anyone choosing to. What was typed is kept for this browser tab and
  * offered again the next time the dialog opens; closing it on purpose forgets it.
+ *
+ * It is offered only after a real switch of workspace (the console says so: `onWorkspaceChange`). A dialog that
+ * was merely left (a click on another page, the browser's Back) is not "the campaign you were writing when you
+ * switched": its draft is forgotten the next time the dialog opens, which then starts blank.
  */
 const KEPT = "superhyre:new-campaign-draft";
+const SWITCHED = "superhyre:new-campaign-draft:switched";
 export function keepDraft(d: CampaignDraft | null): void {
   try {
     if (d) window.sessionStorage.setItem(KEPT, JSON.stringify(d));
-    else window.sessionStorage.removeItem(KEPT);
+    else { window.sessionStorage.removeItem(KEPT); window.sessionStorage.removeItem(SWITCHED); }
   } catch {
     /* storage can be off; the draft is then simply not kept */
   }
@@ -95,6 +107,28 @@ export function keptDraft(): CampaignDraft | null {
   }
 }
 
+/** The workspace changed while a draft was kept: that draft is the one worth offering again. */
+export function markDraftSwitched(): void {
+  try {
+    if (window.sessionStorage.getItem(KEPT)) window.sessionStorage.setItem(SWITCHED, "1");
+  } catch {
+    /* nothing to mark */
+  }
+}
+onWorkspaceChange(markDraftSwitched);
+
+/**
+ * The draft to offer when the dialog opens: the kept one after a real switch of workspace, once. Any other kept
+ * draft is stale (the dialog was only left) and is forgotten, so nothing old is ever mixed into a new campaign.
+ */
+export function draftToOffer(): CampaignDraft | null {
+  let switched = false;
+  try { switched = window.sessionStorage.getItem(SWITCHED) === "1"; } catch { /* no storage, no draft */ }
+  const kept = switched ? keptDraft() : null;
+  keepDraft(null);
+  return kept;
+}
+
 export function NewCampaignDialog({ open, onClose: close, onCreated, clientId }: {
   open: boolean;
   onClose: () => void;
@@ -106,6 +140,11 @@ export function NewCampaignDialog({ open, onClose: close, onCreated, clientId }:
   const session = useSession();
   const { clients } = useClients();
   const team = useTeam();
+  /* A recruiter's campaign is theirs alone: who owns it and who is on it are an admin's to decide, and a client
+     is one they can already see (adding one is an admin's). */
+  const own = standingOf(session) === "recruiter";
+  const mayAddClient = can(standingOf(session), "client.manage");
+  const me = memberName(session.userId) ?? session.name;
   const [d, setD] = useState<CampaignDraft>(() => blankDraft(session.name));
   const [tried, setTried] = useState(false);
   const [at, setAt] = useState<SectionId>("basics");
@@ -118,6 +157,12 @@ export function NewCampaignDialog({ open, onClose: close, onCreated, clientId }:
   const opened = useRef("");
   const [discarding, setDiscarding] = useState(false);
   const [restored, setRestored] = useState(false);
+  /* The pipeline is optional: it starts as the standard one and is only sent when it was changed. */
+  const [pipeline, setPipeline] = useState<StageRow[]>(() => presetRows("standard"));
+  const [stagesOpen, setStagesOpen] = useState(false);
+  const draftStages = useMemo(() => stagesFromRows(pipeline, DEFAULT_STAGES), [pipeline]);
+  const chosen = presetOf(pipeline);
+  const pipeOptions = { ...(Object.fromEntries(PRESETS.map((p) => [p.id, p.label])) as Record<PresetId, string>), ...(chosen ? {} : { custom: "Your own" }) } as Record<PresetId | "custom", string>;
   /* Closing on purpose forgets the kept draft; being torn down doesn't. */
   const onClose = () => {
     keepDraft(null);
@@ -126,18 +171,22 @@ export function NewCampaignDialog({ open, onClose: close, onCreated, clientId }:
 
   useEffect(() => {
     if (!open) return;
-    const base = blankDraft(team.includes(session.name) ? session.name : team[0] ?? session.name);
+    const base = blankDraft(own ? me : team.includes(session.name) ? session.name : team[0] ?? session.name);
     const first = clientId ? prefillFromClient(base, clients.find((c) => c.id === clientId)) : base;
-    const kept = keptDraft();
-    setD(kept ?? first);
+    const kept = draftToOffer();
+    const start = kept ?? first;
+    setD(own ? ownCampaign(start, me) : start);
     setRestored(!!kept);
     opened.current = JSON.stringify(first);
     setDiscarding(false);
     setTried(false);
+    setPipeline(presetRows("standard"));
+    setStagesOpen(false);
     setAt("basics");
     sent.current = false;
     setSending(false);
-    const t = window.setTimeout(() => nameRef.current?.focus(), 60);
+    /* A restored name is selected, so typing over it replaces it instead of adding to it. */
+    const t = window.setTimeout(() => { nameRef.current?.focus(); if (kept) nameRef.current?.select(); }, 60);
     return () => window.clearTimeout(t);
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -186,9 +235,10 @@ export function NewCampaignDialog({ open, onClose: close, onCreated, clientId }:
     sent.current = true;
     keepDraft(null);
     setSending(true);
-    const row = rowFromDraft(d, team);
+    const draft = own ? ownCampaign(d, me) : d;
+    const row = rowFromDraft(draft, team);
     const saved = addCampaignRow(row);
-    if (d.clientId) setCampaignClient(row.id, d.clientId);
+    if (draft.clientId) setCampaignClient(row.id, draft.clientId);
     // The screening form the brief asked for, once the campaign exists on the server.
     if (LIVE && d.screening !== "none") {
       const name = `${d.name.trim()} screening`;
@@ -199,6 +249,14 @@ export function NewCampaignDialog({ open, onClose: close, onCreated, clientId }:
           : { name, copyFrom: d.screening };
         return api("POST", `/v1/campaigns/${resolveCampaignId(row.id)}/forms`, body);
       }).catch(() => reportProblem("The campaign was created, but its screening form wasn't. Add one from Forms."));
+    }
+    // The stages the form chose, once the campaign exists on the server; the standard ones are what it starts with.
+    if (chosen !== "standard") {
+      void saved.then(async (ok) => {
+        if (!ok) return;
+        const have = LIVE ? await getStages(resolveCampaignId(row.id)).then((l) => stagesFrom(l), () => DEFAULT_STAGES) : DEFAULT_STAGES;
+        await saveStages(row.id, adoptIds(pipeline, have));
+      });
     }
     onCreated(row, saved);
   };
@@ -211,6 +269,10 @@ export function NewCampaignDialog({ open, onClose: close, onCreated, clientId }:
 
   return (
     <>
+    <StagesDialog
+      open={stagesOpen} onClose={() => setStagesOpen(false)} stages={draftStages} title="Pipeline stages" save="Use these stages"
+      onSave={(rows) => { setPipeline(rows); return Promise.resolve(true); }}
+    />
     <Dialog open={open} onClose={onClose} label="New campaign" size="lg">
       <form className="ncx" onSubmit={(e) => { e.preventDefault(); submit(); }} noValidate>
         <header className="ncx-head">
@@ -240,8 +302,8 @@ export function NewCampaignDialog({ open, onClose: close, onCreated, clientId }:
               <Field label="Role" error={problems.name} wide>
                 <input ref={nameRef} className="ncx-in is-big" value={d.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Senior Backend Engineer" autoComplete="off" spellCheck={false} />
               </Field>
-              <ClientField d={d} onPick={(id) => setD((cur) => pickClient(cur, id))} />
-              <Field label="Team">
+              <ClientField d={d} onPick={(id) => setD((cur) => pickClient(cur, id))} mayAdd={mayAddClient} />
+              <Field label="Department">
                 <select className="ncx-in" value={d.department} onChange={(e) => set("department", e.target.value)}>
                   {DEPARTMENTS.map((x) => <option key={x}>{x}</option>)}
                 </select>
@@ -347,27 +409,37 @@ export function NewCampaignDialog({ open, onClose: close, onCreated, clientId }:
 
             {/* ── team and setup ── */}
             <Section id="team" title="Team and setup">
-              <Field label="Owner" wide>
-                <div className="ncx-chips" role="radiogroup" aria-label="Owner">
-                  {team.map((m) => (
-                    <button key={m} type="button" role="radio" aria-checked={d.owner === m} className={`ncx-chip has-face${d.owner === m ? " is-on" : ""}`} onClick={() => setD((cur) => ({ ...cur, owner: m, recruiters: cur.recruiters.filter((r) => r !== m) }))}>
-                      <Avatar name={m} hue="brand" size={20} />{m}
-                    </button>
-                  ))}
-                </div>
-              </Field>
-              <Field label="Recruiters" hint="The owner is always on it" wide>
-                <div className="ncx-chips" role="group" aria-label="Recruiters">
-                  {team.filter((m) => m !== d.owner).map((m) => {
-                    const on = d.recruiters.includes(m);
-                    return (
-                      <button key={m} type="button" aria-pressed={on} className={`ncx-chip has-face${on ? " is-on" : ""}`} onClick={() => set("recruiters", on ? d.recruiters.filter((x) => x !== m) : [...d.recruiters, m])}>
-                        <Avatar name={m} hue="brand" size={20} />{m}{on && <Check size={12} weight="bold" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </Field>
+              {own ? (
+                <Field label="Owner" hint="You own it and you're the only one on it. Your admins see it, and can add teammates later." wide>
+                  <div className="ncx-chips">
+                    <span className="ncx-chip has-face is-on"><Avatar name={me} hue="brand" size={20} />{me}</span>
+                  </div>
+                </Field>
+              ) : (
+                <>
+                  <Field label="Owner" wide>
+                    <div className="ncx-chips" role="radiogroup" aria-label="Owner">
+                      {team.map((m) => (
+                        <button key={m} type="button" role="radio" aria-checked={d.owner === m} className={`ncx-chip has-face${d.owner === m ? " is-on" : ""}`} onClick={() => setD((cur) => ({ ...cur, owner: m, recruiters: cur.recruiters.filter((r) => r !== m) }))}>
+                          <Avatar name={m} hue="brand" size={20} />{m}
+                        </button>
+                      ))}
+                    </div>
+                  </Field>
+                  <Field label="Recruiters" hint="The owner is always on it" wide>
+                    <div className="ncx-chips" role="group" aria-label="Recruiters">
+                      {team.filter((m) => m !== d.owner).map((m) => {
+                        const on = d.recruiters.includes(m);
+                        return (
+                          <button key={m} type="button" aria-pressed={on} className={`ncx-chip has-face${on ? " is-on" : ""}`} onClick={() => set("recruiters", on ? d.recruiters.filter((x) => x !== m) : [...d.recruiters, m])}>
+                            <Avatar name={m} hue="brand" size={20} />{m}{on && <Check size={12} weight="bold" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </Field>
+                </>
+              )}
               {/* With real data nothing starts these agents or sends on these channels yet; the
                   search starts once the role spec is approved and outreach goes through Gmail. */}
               {!LIVE && (
@@ -386,12 +458,26 @@ export function NewCampaignDialog({ open, onClose: close, onCreated, clientId }:
               </Field>
               {/* Personal is one person's alone: who can see a campaign is not a question there. */}
               {session.standing !== "personal" && (
-                <Field label="Who can see it">
+                <Field label="Who can see it" hint={VISIBILITY_HELP}>
                   <select className="ncx-in" value={d.visibility} onChange={(e) => set("visibility", e.target.value as Visibility)}>
                     {(Object.keys(VISIBILITY_LABEL) as Visibility[]).map((v) => <option key={v} value={v}>{VISIBILITY_LABEL[v]}</option>)}
                   </select>
                 </Field>
               )}
+            </Section>
+
+            {/* ── pipeline ── */}
+            <Section id="pipeline" title="Pipeline">
+              <Field label="Stages" hint="Optional. These are the columns of the board; you can change them any time from the board." wide>
+                <div className="ncx-inline">
+                  <Seg<PresetId | "custom"> value={chosen ?? "custom"} options={pipeOptions} onChange={(v) => { if (v !== "custom") setPipeline((cur) => presetRows(v, cur)); }} />
+                  <button type="button" className="ct-btn" onClick={() => setStagesOpen(true)}>Edit stages</button>
+                </div>
+                <p className="ncx-pipe t-body-sm">
+                  {[...pipeline.map((r) => r.name.trim() || "New stage"), "Hired"].join("  ›  ")}
+                  {pipeline.some((r) => r.clientView) && <> · your client sees {pipeline.find((r) => r.clientView)?.name.trim()}</>}
+                </p>
+              </Field>
             </Section>
 
             {/* ── fee ── */}
@@ -426,7 +512,7 @@ export function NewCampaignDialog({ open, onClose: close, onCreated, clientId }:
 
 /* ── the client, with an inline add ── */
 
-function ClientField({ d, onPick }: { d: CampaignDraft; onPick: (id: string) => void }) {
+function ClientField({ d, onPick, mayAdd }: { d: CampaignDraft; onPick: (id: string) => void; /** Adding a client is an admin's: a recruiter picks from the clients they can see, or none. */ mayAdd: boolean }) {
   const { clients } = useClients();
   const [adding, setAdding] = useState(false);
   const [v, setV] = useState({ ...EMPTY_DRAFT });
@@ -445,6 +531,8 @@ function ClientField({ d, onPick }: { d: CampaignDraft; onPick: (id: string) => 
     setTried(false);
   };
   const picked = clients.find((c) => c.id === resolveClientId(d.clientId));
+  /* Nobody to choose from and no way to add one: the only answer is "no client", so it is not asked. */
+  if (!mayAdd && !shown.length) return null;
   return (
     <div className="ncx-f">
       <span className="ncx-l">Client</span>
@@ -454,7 +542,7 @@ function ClientField({ d, onPick }: { d: CampaignDraft; onPick: (id: string) => 
           <select className="ncx-in is-grow" value={resolveClientId(d.clientId)} onChange={(e) => (e.target.value === "+" ? setAdding(true) : onPick(e.target.value))} aria-label="Client">
             <option value="">No client, an internal hire</option>
             {shown.map((c) => <option key={c.id} value={c.id}>{c.name}{c.status === "prospect" ? " (prospect)" : ""}</option>)}
-            <option value="+">Add a new client…</option>
+            {mayAdd && <option value="+">Add a new client…</option>}
           </select>
         </div>
       ) : (

@@ -9,7 +9,7 @@ import { announce, browserAlertState, dismissBrowserAlerts, enableBrowserAlerts 
 import type { LiveAccount } from "./Console";
 import { EmptyArt } from "./EmptyArt";
 import { answerInvitation, answerRequest, markAllRead, markRead, useNotifications } from "./homeStore";
-import { ANSWERED, askOf, leaveFirstLine, noticeLine } from "./membership";
+import { ANSWERED, askOf, leaveFirstLine, noticeLine, noticeOutcome } from "./membership";
 import { OrgMark } from "./OrgMark";
 import { categoriesIn, categoryLabel, emptyLine, visibleNotices } from "./notificationsView";
 import type { Category, Filter } from "./notificationsView";
@@ -246,7 +246,10 @@ export function NotificationsPanel({ anchor, open, onClose, live }: {
             <div key={n.id} role="listitem" className={`ntp-row${n.readAt ? "" : " is-unread"}`}>
               <button type="button" className="ntp-line" onClick={() => open_(n)}>
                 {n.invitation && <OrgMark name={n.invitation.organisationName} logoUrl={n.invitation.logoUrl} size={28} />}
-                <span className="ntp-text">{noticeLine(n)}</span>
+                <span className="ntp-text">
+                  {noticeLine(n)}
+                  {noticeOutcome(n) && <span className="ntp-outcome st t-caption" data-st={noticeOutcome(n)?.tone}>{noticeOutcome(n)?.text}</span>}
+                </span>
                 <span className="ntp-when">
                   <span className="t-caption">{agoFrom(n.createdAt)}</span>
                   <span className="ntp-dot" aria-hidden="true" />

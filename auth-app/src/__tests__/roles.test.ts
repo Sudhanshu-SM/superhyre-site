@@ -14,17 +14,18 @@ import { upLine, yourWork } from "../yourWork";
  * recruiter's own figures on a campaign.
  */
 
-const ADMIN_ONLY: Capability[] = ["campaign.create", "campaign.assign", "campaign.close", "campaign.complete", "contact.delete"];
+const ADMIN_ONLY: Capability[] = ["campaign.assign", "campaign.close", "campaign.complete", "contact.delete"];
 
 describe("can(role, action)", () => {
   it("lets an admin do everything", () => {
-    for (const a of [...ADMIN_ONLY, "campaign.work"] as Capability[]) expect(can("admin", a)).toBe(true);
+    for (const a of [...ADMIN_ONLY, "campaign.create", "campaign.work"] as Capability[]) expect(can("admin", a)).toBe(true);
   });
   it("keeps admin-only actions from a recruiter", () => {
     for (const a of ADMIN_ONLY) expect(can("recruiter", a)).toBe(false);
   });
-  it("leaves day-to-day work open to a recruiter", () => {
+  it("leaves day-to-day work open to a recruiter, and opening a campaign of their own", () => {
     expect(can("recruiter", "campaign.work")).toBe(true);
+    expect(can("recruiter", "campaign.create")).toBe(true);
   });
 });
 

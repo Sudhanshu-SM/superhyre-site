@@ -58,7 +58,7 @@
   --land-y: 0px;
   --land-h: 118px;
 }
-@media (max-width: 899px) {
+@media (max-width: 1023px) {
   .orc { --land-y: 62px; }
 }
 @media (max-width: 640px) {

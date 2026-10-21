@@ -283,9 +283,10 @@ describe("R4 D9: the call sheet fits a phone", () => {
     expect(css).toMatch(/@media \(max-width: 640px\) \{[\s\S]*?\.kl-wave \{ gap: 1px; \}/);
   });
 
-  it("keeps the filter row on one line beside an open sheet", () => {
-    expect(css).toMatch(/html\.kl-sheet-open \.kl-bar:not\(:has\(\.kl-dates\)\) \{ flex-wrap: nowrap; \}/);
-    expect(css).toMatch(/html\.kl-sheet-open \.kl-bar \.kl-pick \{ flex: 1 1 0; min-width: 112px; max-width: 148px; \}/);
+  it("lets the filter row give way beside an open sheet instead of clipping: the search shrinks, the pickers keep enough to read, the bar wraps", () => {
+    expect(css).not.toMatch(/html\.kl-sheet-open \.kl-bar:not\(:has\(\.kl-dates\)\) \{ flex-wrap: nowrap; \}/);
+    expect(css).toMatch(/html\.kl-sheet-open \.kl-bar \.kl-search \{ flex: 1 1 140px; min-width: 96px; \}/);
+    expect(css).toMatch(/html\.kl-sheet-open \.kl-bar \.kl-pick \{ flex: 1 1 104px; min-width: 96px; max-width: 148px; \}/);
   });
 });
 
@@ -296,7 +297,7 @@ describe("R4 D14: the agent's composer is docked on a narrow screen, short chat 
     expect(stacked).toMatch(/\.orc-stream\.is-live \.orc-log \{ flex: 1 0 auto; min-height: 0; \}/);
     // The window less the phone's 62px bar (exactly the window: a taller stream has the follower scroll the composer
     // off its dock), and the whole window where the bar is not drawn.
-    expect(stacked).toMatch(/\.orc-stream\.is-live \{ min-height: calc\(100dvh - 62px\); \}\s*@media \(min-width: 900px\) \{[^}]*\.orc-stream\.is-live \{ min-height: 100dvh; \}/);
+    expect(stacked).toMatch(/\.orc-stream\.is-live \{ min-height: calc\(100dvh - 62px\); \}\s*@media \(min-width: 1024px\) \{[^}]*\.orc-stream\.is-live \{ min-height: 100dvh; \}/);
     // The composer still sticks to the foot of the window.
     expect(stacked).toMatch(/\.orc-stream\.is-live \.orc-composer \{\s*position: sticky;\s*bottom: 0;/);
   });
@@ -356,7 +357,6 @@ const ratio = (a: string, b: string): number => {
   const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
   return (hi! + 0.05) / (lo! + 0.05);
 };
-const hexes = (css: string) => [...css.matchAll(/#[0-9a-f]{6}\b/gi)].map((m) => m[0]);
 
 describe("R4 D6: zero counts, closed rows and disabled words stay readable", () => {
   it("does not lay opacity over the closed row's figures: the colour is what recedes", () => {
@@ -390,14 +390,16 @@ describe("R4 D7: bars and arrows in the dark theme", () => {
   const dark = src("theme/theme.css");
   const card = /--card:\s*(#[0-9a-f]{6})/i.exec(dark)![1]!;
 
-  it("draws the funnel's bars and the pipeline's stage strip in mid-tones, each over 3:1 on the card", () => {
-    const bars = dark.slice(dark.indexOf("── bars that carry a number"));
-    const found = hexes(bars.split("\n").filter((l) => /^(:root|\s)/.test(l) && /background/.test(l)).join("\n"));
-    // Four funnel kinds with two ends each, four stage segments.
-    expect(found.length).toBeGreaterThanOrEqual(12);
-    for (const h of found) expect(ratio(h, card), h).toBeGreaterThanOrEqual(3);
-    expect(bars).toContain(':root[data-theme="dark"] .pl-jseg.is-shortlisted');
-    expect(bars).toContain(':root[data-theme="dark"] .ov2-bar.is-hired .ov2-bar-col i');
+  it("draws the funnel's bars and the pipeline's stage strip from the stage tokens (stageColors.test.ts measures each over 3:1 on the card), with no hex override left here", () => {
+    expect(dark).not.toContain("── bars that carry a number");
+    expect(dark).not.toMatch(/\.ov2-bar(\.is-\w+)? \.ov2-bar-col i|\.pl-jseg\.is-/);
+    for (const hue of ["violet", "blue", "amber", "green", "rose"]) {
+      const mark = new RegExp(`--stage-${hue}:\\s*(#[0-9a-f]{6})`, "i").exec(dark)![1]!;
+      expect(ratio(mark, card), hue).toBeGreaterThanOrEqual(3);
+    }
+    const base = src("workspace.css");
+    expect(base).toMatch(/\.ov2-bar-col i \{[^}]*background: var\(--stage-slate\);/);
+    expect(src("boardStages.css")).toContain('html .ov2-bar[data-sc="green"] .ov2-bar-col i { background: var(--stage-green); box-shadow: none; }');
   });
 
   it("makes the shortlist pager's disabled arrows a dimmed token, not the light taupe literal that stayed light", () => {

@@ -122,7 +122,7 @@ export function CodeCard(p: CodeStepProps) {
         autoComplete="one-time-code"
         inputMode="numeric"
         autoFocus
-        placeholder="12345678"
+        placeholder="123456"
         disabled={busy}
       />
 

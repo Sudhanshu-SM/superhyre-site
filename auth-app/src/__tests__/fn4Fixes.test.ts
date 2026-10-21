@@ -37,13 +37,10 @@ describe("choosing 'Add <name> as a new client' in the chat (Y3-1)", () => {
     throw new Error("the questions did not end");
   }
 
-  it("keeps the company named once it is the answer, so the card can name it and Create can add it", () => {
-    const q = newCampaignQuestion(said, ctx({}));
-    expect(q?.options[0]).toMatchObject({ id: NEW_CLIENT, label: "Add Zorblax Studios as a new client" });
-    const answered = q!.apply([NEW_CLIENT]).answers!;
-    expect(answered).toEqual({ client: NEW_CLIENT });
-    const a = newCampaignAnswers(said, answered);
-    // Before: newClient was only set while no client was answered, so this was "" and the card said "Internal hire".
+  it("keeps the company named from the start, so the card can name it and Create can add it", () => {
+    // Not asked: the message named a company that is not a client yet, so it is the client to add.
+    expect(newCampaignQuestion(said, ctx({}))?.id).not.toBe("nc-client");
+    const a = newCampaignAnswers(said, {});
     expect(newClientOf(a)).toBe("Zorblax Studios");
     expect(a).toMatchObject({ role: "Data Analyst", location: "Pune", client: NEW_CLIENT, newClient: "Zorblax Studios" });
   });
@@ -60,7 +57,7 @@ describe("choosing 'Add <name> as a new client' in the chat (Y3-1)", () => {
 
   it("is nothing when another answer was chosen", () => {
     expect(newClientOf(newCampaignAnswers(said, { client: "none" }))).toBe("");
-    expect(newClientOf(newCampaignAnswers(said, {}))).toBe("");
+    expect(newClientOf(newCampaignAnswers(said, {}))).toBe("Zorblax Studios");
   });
 });
 
@@ -74,13 +71,10 @@ describe("'... at <Company>' asks for the client the same way (Y3-7)", () => {
     });
   });
 
-  it("offers it as a new client, ahead of the others, and 'No client' last", () => {
+  it("is the client to add, without being asked", () => {
     const said = "Set up a new campaign for a Backend Engineer at Zorblax Studios";
-    const q = newCampaignQuestion(said, ctx({}));
-    expect(q?.id).toBe("nc-client");
-    expect(q?.options[0]).toMatchObject({ id: NEW_CLIENT, label: "Add Zorblax Studios as a new client" });
-    expect(q?.options.at(-1)).toMatchObject({ id: "none", label: "No client" });
-    expect(newCampaignAnswers(said, {}).role).toBe("Backend Engineer");
+    expect(newCampaignQuestion(said, ctx({}))?.id).not.toBe("nc-client");
+    expect(newCampaignAnswers(said, {})).toMatchObject({ role: "Backend Engineer", client: NEW_CLIENT, newClient: "Zorblax Studios" });
   });
 
   it("leaves what is only part of a role alone", () => {

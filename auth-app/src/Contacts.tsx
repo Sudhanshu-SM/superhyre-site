@@ -1,3 +1,5 @@
+import { ContactEditable } from "./ContactEditable";
+import { MatchSection } from "./MatchSection";
 import {
   ArrowsLeftRight, BookmarkSimple, Briefcase, CaretDown, CaretLeft, CaretRight, Check, Copy, EnvelopeSimple,
   FunnelSimple, GraduationCap, LinkedinLogo, MagnifyingGlass, MapPin, NotePencil, PencilSimple, Phone, Plus, PuzzlePiece, SealCheck, SortAscending, Trash, UserPlus, X,
@@ -10,10 +12,11 @@ import type { AddResult } from "./AddCandidates";
 import type { CandidateDetail, Note } from "./api/candidates";
 import * as cands from "./api/candidates";
 import { LIVE, messageOf } from "./api/client";
-import { useCampaignRows } from "./campaignStore";
+import { useCampaignRows, useCampaignsReady } from "./campaignStore";
 import { stageLabel } from "./chatCards";
 import { statusProps } from "./statusTones";
-import { controlState, stagesFrom } from "./shortlistControl";
+import { controlState, stagesFrom, withOverlay } from "./shortlistControl";
+import type { StageOverlay } from "./shortlistControl";
 import { Avatar } from "./CandidateBits";
 import type { Contact, ContactNeed, ExpBand, Filters, Seniority, SortKey } from "./contacts";
 import {
@@ -30,9 +33,15 @@ import { ConfirmDialog } from "./RoleBits";
 import { useCan } from "./can";
 import { CHROME_STORE_URL } from "./config";
 import { Loader } from "./components/Loader";
-import { onInvalidate } from "./invalidate";
+import { Pager } from "./components/Pager";
+import { useScrollMemory, useSectionSave } from "./sectionMemory";
+import { hasDeepLink, loadSection, settledOffset, take } from "./sectionState";
+import { PAGE_FALLBACK, PAGE_MAX, PAGE_MIN, PAGER_FOOT, usePageSize } from "./usePageSize";
+import { Shimmer, ShimmerRegion, ShimmerText } from "./components/Shimmer";
+import { invalidate, onInvalidate } from "./invalidate";
 import { useToast } from "./toast";
 import { useSession, visibleCampaigns } from "./roleStore";
+import { mayChangeCampaign } from "./campaignRights";
 import "./contacts.css";
 
 /**
@@ -55,8 +64,8 @@ import "./contacts.css";
 let campaignsNow: readonly Campaign[] = CAMPAIGNS;
 /* What the shortlist menus offer: campaigns this person works on that are still running. */
 let pickableNow: readonly Campaign[] = CAMPAIGNS;
-/* Where each person stands on each campaign they are on (campaign id to stage), so the control says "Passed"
-   for someone who was passed, not "Shortlisted". Set on each render, like the campaigns above. */
+/* Where each person stands on each campaign they are on (campaign id to stage), so the control can leave a campaign
+   they are rejected on unticked. Set on each render, like the campaigns above. */
 const NO_STAGES: Readonly<Record<string, string>> = {};
 let stagesNow: Readonly<Record<string, Readonly<Record<string, string>>>> = {};
 const stagesOfNow = (personId: string): Readonly<Record<string, string>> => stagesNow[personId] ?? NO_STAGES;
@@ -64,6 +73,41 @@ const campName = (id: string) => campaignsNow.find((c) => c.id === id)?.name ?? 
 const MAX_COMPARE = 3;
 
 type Shortlists = Record<string, readonly string[]>;
+
+/* ── where the person left this list (this tab only) ──
+   Everything read back is checked against what the page can be in: an unknown filter, a sort that is gone, a page
+   past the cursors that were kept all fall back to the top of the list. */
+const SECTION = "candidates";
+const SORTS: readonly SortKey[] = ["recent", "name", "experience"];
+const NEEDS = ["email", "phone", "verified"] as const;
+type Remembered = { camp: string; q: string; filters: Filters; sort: SortKey; size: number; offset: number };
+const NOTHING: Remembered = { camp: "all", q: "", filters: EMPTY_FILTERS, sort: "recent", size: PAGE_FALLBACK, offset: 0 };
+const listOf = <T extends string>(v: unknown, allowed: readonly T[]): T[] => take.strs(v).filter((x): x is T => (allowed as readonly string[]).includes(x));
+export function filtersFrom(v: unknown): Filters {
+  const r = take.rec(v);
+  return {
+    seniority: listOf(r.seniority, SENIORITIES),
+    experience: listOf(r.experience, EXP_BANDS.map((b) => b.id)),
+    location: take.strs(r.location),
+    skills: take.strs(r.skills),
+    contact: listOf(r.contact, NEEDS),
+    profile: take.oneOf(r.profile, ["any", "full", "basic"] as const, "any"),
+    capturedBy: take.strs(r.capturedBy),
+    captured: take.oneOf(r.captured, ["any", "7", "30"] as const, "any"),
+    openToWork: take.bool(r.openToWork),
+  };
+}
+export function readRemembered(r: Record<string, unknown>): Remembered {
+  return {
+    camp: take.str(r.camp, "all", 80) || "all",
+    q: take.str(r.q, "", 200),
+    filters: filtersFrom(r.filters),
+    sort: take.oneOf(r.sort, SORTS, "recent"),
+    // The size the page was left at: the page is kept as the row it started at, so any size lands on the page that holds it.
+    size: take.int(r.size, NOTHING.size, PAGE_MIN, PAGE_MAX),
+    offset: take.int(r.offset, 0, 0, 100_000),
+  };
+}
 
 /* Contacts an admin deleted this session. Module state, so leaving the page
    and coming back does not bring them back; a reload does, like every other
@@ -86,11 +130,11 @@ function useDebounced<T>(value: T, ms: number): T {
 }
 
 /** `failed`: the last load didn't arrive, so the page says so instead of "no candidates". */
-type LiveRows = { rows: readonly cands.CandidateRow[]; next: string | null; loading: boolean; failed: boolean; view: string | null };
+type LiveRows = { rows: readonly cands.CandidateRow[]; next: string | null; total: number | null; loading: boolean; failed: boolean; view: string | null };
 
 /** One page from the API. `view` names the view the rows on screen belong to. */
 function useLiveRows(query: cands.ListQuery | null, reload: number, view: string): LiveRows {
-  const [state, setState] = useState<LiveRows>({ rows: [], next: null, loading: LIVE, failed: false, view: null });
+  const [state, setState] = useState<LiveRows>({ rows: [], next: null, total: null, loading: LIVE, failed: false, view: null });
   const toast = useToast();
   const key = query ? cands.listPath(query) : null;
   useEffect(() => {
@@ -98,7 +142,7 @@ function useLiveRows(query: cands.ListQuery | null, reload: number, view: string
     let gone = false;
     setState((s) => ({ ...s, loading: true }));
     cands.listCandidates(query).then(
-      (r) => { if (!gone) setState({ rows: r.rows, next: r.nextCursor, loading: false, failed: false, view }); },
+      (r) => { if (!gone) setState({ rows: r.rows, next: r.nextCursor, total: r.total, loading: false, failed: false, view }); },
       (err: unknown) => {
         if (gone) return;
         setState((s) => ({ ...s, loading: false, failed: true, view }));
@@ -120,12 +164,18 @@ function liveCampaigns(rows: readonly { id: string; name: string; department: st
 }
 
 export function ContactsPage() {
+  /* A link of its own (?open=) starts from what it says; a first visit from the top. */
+  const [start] = useState<Remembered>(() => (hasDeepLink() ? NOTHING : loadSection(SECTION, readRemembered, NOTHING)));
+  /* Candidates is the whole organisation's people, not one campaign's: it always opens on all of them, and a campaign
+     is only a filter chosen on the page (or by a link of its own), never something carried over from the last visit. */
   const [camp, setCamp] = useState<string>("all");
-  const [q, setQ] = useState("");
-  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
-  const [sort, setSort] = useState<SortKey>("recent");
-  const [page, setPage] = useState(0);
-  const [size, setSize] = useState(20);
+  const [q, setQ] = useState(start.q);
+  const [filters, setFilters] = useState<Filters>(start.filters);
+  const [sort, setSort] = useState<SortKey>(start.sort);
+  /* Where the page starts, as a row: held inside the list once its total is known, never before. */
+  const [wanted, setWanted] = useState(start.offset);
+  /* As many rows as fit under the table's top (its head and the page's foot kept clear); the size the page was left at until measured. */
+  const size = usePageSize(64, { fallback: start.size, reserve: 24 + 44 + PAGER_FOOT });
   const [selected, setSelected] = useState<readonly string[]>([]);
   const [lists, setLists] = useState<Shortlists>(LIVE ? {} : SEED_SHORTLIST);
   /* A link from a call ("#/contacts?open=<id>") opens that person's profile. */
@@ -157,31 +207,40 @@ export function ContactsPage() {
   const toast = useToast();
 
   /* ── the API's page ──
-     Filters, search and sort run on the server; paging follows its cursors,
-     one per page seen, so Back is the same page again. */
-  const [cursors, setCursors] = useState<readonly (string | null)[]>([null]);
+     Filters, search and sort run on the server, and so does the page: it is asked for by the row it starts at and
+     answers with the whole count, so the pager can show every page number. */
   const [reload, setReload] = useState(0);
   /* Something the agent (or another page) did changed who is in the directory: read this page again. */
   useEffect(() => onInvalidate((effects) => { if (effects.has("candidates")) setReload((k) => k + 1); }), []);
   const dq = useDebounced(q, 250);
+  /* The page: the row it starts at, held inside the list as the last read of it had it (not before one has arrived). */
+  const lastTotal = useRef<number | null>(null);
+  const pageAt = settledOffset(wanted, lastTotal.current, size);
   const query: cands.ListQuery | null = LIVE ? {
     q: dq, campaignId: camp === "all" ? undefined : camp, location: filters.location[filters.location.length - 1],
     hasEmail: filters.contact.includes("email"), hasPhone: filters.contact.includes("phone"), skills: filters.skills,
-    sort: sort === "name" ? "name" : "recent", cursor: cursors[page] ?? null, limit: size,
+    sort: sort === "name" ? "name" : "recent", limit: size, offset: pageAt.offset,
   } : null;
-  const viewKey = `${camp}-${page}-${sort}-${size}-${JSON.stringify(filters)}`;
+  const viewKey = `${camp}-${pageAt.offset}-${sort}-${size}-${JSON.stringify(filters)}`;
   const live = useLiveRows(query, reload, viewKey);
   const [details, setDetails] = useState<Readonly<Record<string, Profile>>>({});
+  /* What a change made on this page says about someone, until the list read after it replaces it. */
+  const [overlay, setOverlay] = useState<StageOverlay>({});
+  const say = useCallback((id: string, campaign: string, stage: string | null) => setOverlay((cur) => ({ ...cur, [id]: { ...cur[id], [campaign]: stage } })), []);
   const campRows = useCampaignRows();
   const session = useSession();
   if (LIVE) {
     campaignsNow = liveCampaigns(campRows, live.rows);
+    /* Only campaigns this person may change are offered (the server refuses the rest); ones the candidate is already on
+       are added back per person, in the menu. */
     pickableNow = liveCampaigns(
-      visibleCampaigns(campRows, session).filter((r) => r.status !== "closed"),
+      visibleCampaigns(campRows, session).filter((r) => r.status !== "closed" && mayChangeCampaign(session, r)),
       [],
     );
-    stagesNow = stagesFrom(live.rows, details);
+    stagesNow = withOverlay(stagesFrom(live.rows, details), overlay);
   }
+  /* The list just read is the server's word: what was said by hand is put aside. */
+  useEffect(() => { setOverlay({}); }, [live.rows]);
   useEffect(() => {
     if (!live.rows.length) return;
     setLists((cur) => {
@@ -239,20 +298,29 @@ export function ContactsPage() {
 
   const inCamp = useMemo(() => (LIVE ? ALL : ALL.filter((c) => camp === "all" || c.campaign === camp)), [ALL, camp]);
   const rows = useMemo(() => (LIVE ? ALL : sortContacts(inCamp.filter((c) => matches(c, filters, q)), sort)), [ALL, inCamp, filters, q, sort]);
-  const pages = LIVE ? page + (live.next ? 2 : 1) : Math.max(1, Math.ceil(rows.length / size));
-  const at = Math.min(page, pages - 1);
-  const shown = LIVE ? rows : rows.slice(at * size, at * size + size);
-  const firstN = at * size + 1;
-  const lastN = at * size + shown.length;
+  const total = LIVE ? live.total : rows.length;
+  lastTotal.current = total;
+  const { offset, fix } = settledOffset(wanted, total, size);
+  useEffect(() => { if (fix !== null) setWanted(fix); }, [fix]);
+  const shown = LIVE ? rows : rows.slice(offset, offset + size);
 
-  useEffect(() => { setPage(0); setCursors([null]); }, [camp, q, filters, sort, size]);
-  const turn = (to: number) => {
-    if (LIVE && to > page && live.next) {
-      const next = live.next;
-      setCursors((cur) => [...cur.slice(0, to), next]);
-    }
-    setPage(to);
-  };
+  /* A different campaign, search, filter or sort is the top of a new list, with nothing ticked (not on arrival: that is
+     where it was left). A new page size keeps the page that holds the first row on screen, and ticks survive paging. */
+  const listKey = JSON.stringify([camp, q, filters, sort]);
+  const lastList = useRef(listKey);
+  useEffect(() => {
+    if (lastList.current === listKey) return;
+    lastList.current = listKey;
+    setWanted(0);
+    setSelected([]);
+  }, [listKey]);
+  /* A remembered campaign that is not in this workspace any more is not a filter to keep. */
+  const campaignsReady = useCampaignsReady();
+  useEffect(() => {
+    if (camp === "all") return;
+    if (LIVE ? campaignsReady && !campRows.some((r) => r.id === camp) : !CAMPAIGNS.some((c) => c.id === camp)) setCamp("all");
+  }, [camp, campaignsReady, campRows]);
+  useSectionSave(SECTION, { camp, q, filters, sort, size, offset }, true);
 
   /* ── LOADING SHIMMER ──
      The table shows skeleton rows while a view is being fetched: on arrival,
@@ -277,20 +345,30 @@ export function ContactsPage() {
      view (not a search) shimmers. */
   const loading = LIVE ? live.loading && live.view !== viewKey : waiting;
 
+  useScrollMemory(SECTION, !loading, !hasDeepLink());
+
   const toggleShortlist = useCallback((id: string, campaign: string) => {
     const had = lists[id] ?? [];
-    const on = had.includes(campaign);
-    toast(on ? `Removed from ${campName(campaign)}` : `Shortlisted for ${campName(campaign)}`);
+    const stage = stagesOfNow(id)[campaign];
+    /* Rejected there: ticking puts them back on the shortlist. On the board at any other stage: unticking takes them off it. */
+    const back = had.includes(campaign) && stage === "passed";
+    const on = had.includes(campaign) && !back;
+    toast(on ? `Removed from ${campName(campaign)}` : back ? `Back on the shortlist for ${campName(campaign)}` : `Shortlisted for ${campName(campaign)}`);
+    say(id, campaign, on ? null : "shortlisted");
     setLists((cur) => {
       const was = cur[id] ?? [];
       return { ...cur, [id]: on ? was.filter((x) => x !== campaign) : was.includes(campaign) ? was : [...was, campaign] };
     });
     if (!LIVE) return;
-    (on ? cands.removeFromCampaign(id, campaign) : cands.addToCampaign(campaign, [id])).catch((err: unknown) => {
+    (on ? cands.removeFromCampaign(id, campaign) : back ? cands.reshortlist(id, campaign) : cands.addToCampaign(campaign, [id])).then(() => {
+      // The campaign's board, its counts and Home's read the change; this list reads again too.
+      invalidate(["pipeline", "candidates"], { campaignId: campaign });
+    }).catch((err: unknown) => {
       setLists((cur) => ({ ...cur, [id]: had }));
+      say(id, campaign, on ? stage ?? "shortlisted" : back ? "passed" : null);
       toast(messageOf(err), "error");
     });
-  }, [lists, toast]);
+  }, [lists, toast, say]);
 
   const onAdded = (r: AddResult) => {
     setAdding(false);
@@ -318,7 +396,7 @@ export function ContactsPage() {
     const lit = new Set([...r.added.map((c) => c.id), ...patched.map((m) => m.id), ...(r.touched ?? [])]);
     if (lit.size) {
       /* Show them: everyone, newest first, from the top, search cleared. */
-      setCamp("all"); setQ(""); setSort("recent"); setPage(0);
+      setCamp("all"); setQ(""); setSort("recent"); setWanted(0);
       setFresh(lit);
       window.setTimeout(() => setFresh((cur) => (cur === lit ? new Set() : cur)), 6500);
     }
@@ -355,10 +433,18 @@ export function ContactsPage() {
     if (LIVE && comparing) for (const id of selected) if (!details[id]) loadDetail(id);
   }, [comparing, selected, details, loadDetail]);
   const nFilters = activeFilterCount(filters);
+  /* The pager is drawn twice, in the toolbar and under the list. */
+  const pagerProps = {
+    offset, limit: size, unit: "candidates", onChange: setWanted, total,
+  };
+  const liveOf = (id: string) => controlState(lists[id] ?? [], stagesOfNow(id)).live;
   const shortlistAll = (campaign: string) => {
-    const all = selected.every((id) => (lists[id] ?? []).includes(campaign));
+    const all = selected.every((id) => liveOf(id).includes(campaign));
     const before = lists;
     const ids = selected;
+    const rejected = all ? [] : ids.filter((id) => stagesOfNow(id)[campaign] === "passed" && (lists[id] ?? []).includes(campaign));
+    const wasAt = Object.fromEntries(ids.map((id) => [id, stagesOfNow(id)[campaign] ?? null]));
+    for (const id of ids) say(id, campaign, all ? null : "shortlisted");
     setLists((cur) => {
       const next = { ...cur };
       for (const id of ids) {
@@ -370,11 +456,18 @@ export function ContactsPage() {
     const n = ids.length;
     toast(all ? `Removed ${n} from ${campName(campaign)}` : `Shortlisted ${n === 1 ? "1 person" : `all ${n}`} for ${campName(campaign)}`);
     if (!LIVE) return;
-    const sent = all ? Promise.all(ids.map((id) => cands.removeFromCampaign(id, campaign))) : cands.addToCampaign(campaign, ids);
+    const sent = all
+      ? Promise.all(ids.map((id) => cands.removeFromCampaign(id, campaign)))
+      : Promise.all([
+          ...rejected.map((id) => cands.reshortlist(id, campaign)),
+          ids.some((id) => !rejected.includes(id)) ? cands.addToCampaign(campaign, ids.filter((id) => !rejected.includes(id))) : null,
+        ]);
+    void sent.then(() => { invalidate(["pipeline", "candidates"], { campaignId: campaign }); }, () => {});
     sent.catch((err: unknown) => {
       // Only the people who weren't added go back; the rest are on the campaign.
       const undo = err instanceof cands.NotAddedError ? err.failedIds : ids;
       setLists((cur) => ({ ...cur, ...Object.fromEntries(undo.map((id) => [id, before[id] ?? []])) }));
+      for (const id of undo) say(id, campaign, wasAt[id] ?? null);
       toast(messageOf(err), "error");
     });
   };
@@ -446,7 +539,7 @@ export function ContactsPage() {
         <span className="ct-dock-sep" aria-hidden="true" />
         <ShortlistMenuButton
           label={selected.length > 1 ? `Shortlist all ${selected.length}` : "Shortlist"}
-          isOn={(campaign) => selected.length > 0 && selected.every((id) => (lists[id] ?? []).includes(campaign))}
+          isOn={(campaign) => selected.length > 0 && selected.every((id) => liveOf(id).includes(campaign))}
           onPick={shortlistAll}
           suggest={people[0]?.campaign}
           tabIndex={selected.length ? undefined : -1}
@@ -482,11 +575,12 @@ export function ContactsPage() {
         </label>
         <FiltersButton filters={filters} onChange={setFilters} pool={inCamp} count={nFilters} />
         <SortButton sort={sort} onChange={setSort} />
+        {shown.length > 0 && <Pager {...pagerProps} />}
       </div>
 
       {nFilters > 0 && <ActiveChips filters={filters} onChange={setFilters} />}
 
-      <div className="ct-table-wrap">
+      <div className="ct-table-wrap" data-pager-list>
         <table className="ct-table">
           <thead>
             <tr>
@@ -499,11 +593,25 @@ export function ContactsPage() {
             </tr>
           </thead>
           {loading ? (
-            <tbody className="ct-wait">
-              <tr><td colSpan={99}><Loader size="md" label="Loading candidates" block /></td></tr>
+            <tbody className="ct-shm">
+              {Array.from({ length: Math.min(size, 8) }, (_, i) => (
+                <tr key={i} className="ct-row" {...(i === 0 ? { role: "status", "aria-busy": true } : { "aria-hidden": true })}>
+                  <td className="ct-c-check">{i === 0 && <span className="sr-only">Loading candidates</span>}<Shimmer w={16} h={16} r={5} /></td>
+                  <td>
+                    <div className="ct-who">
+                      <Shimmer circle w={34} h={34} />
+                      <div className="ct-who-text"><Shimmer h={13} w={`${58 + ((i * 13) % 30)}%`} /><Shimmer h={11} w={`${40 + ((i * 7) % 26)}%`} /></div>
+                    </div>
+                  </td>
+                  <td className="ct-c-co"><span className="ct-co"><Shimmer w={28} h={28} r={7} /><span className="ct-co-text"><Shimmer h={13} w={`${50 + ((i * 11) % 34)}%`} /><Shimmer h={11} w="34%" /></span></span></td>
+                  <td className="ct-c-sum"><div className="ct-who-text"><Shimmer h={12} /><Shimmer h={12} w="64%" /></div></td>
+                  <td className="ct-c-contact"><div className="ct-contact"><span className="ct-contact-l"><Shimmer circle w={12} h={12} /><Shimmer h={12} w="78%" /></span><span className="ct-contact-l"><Shimmer circle w={12} h={12} /><Shimmer h={12} w="52%" /></span></div></td>
+                  <td className="ct-c-act"><Shimmer h={32} w={150} r={10} /></td>
+                </tr>
+              ))}
             </tbody>
           ) : (
-          <tbody key={`${camp}-${at}-${sort}-${size}-${nFilters}`}>
+          <tbody key={`${camp}-${offset}-${sort}-${size}-${nFilters}`}>
             {shown.map((c) => (
               <Row
                 key={c.id}
@@ -521,30 +629,6 @@ export function ContactsPage() {
           </tbody>
           )}
         </table>
-        {!loading && shown.length > 0 && (
-          <footer className="ct-foot">
-            <span className="ct-foot-t">
-              Showing <strong>{firstN}–{lastN}</strong>{!LIVE && <> of <strong>{rows.length}</strong></>}
-              {camp !== "all" && <> in {campName(camp)}</>}
-            </span>
-            <div className="ct-foot-pages" aria-label="Pages">
-              {Array.from({ length: pages }, (_, i) => (
-                <button key={i} type="button" className={`ct-pg${i === at ? " is-on" : ""}`} aria-current={i === at ? "page" : undefined}
-                  disabled={LIVE && i > at + 1}
-                  onClick={() => { turn(i); document.querySelector(".ct-bar")?.scrollIntoView({ block: "nearest" }); }}>
-                  {i + 1}
-                </button>
-              ))}
-            </div>
-            <button type="button" className="ct-btn ct-foot-next" disabled={at >= pages - 1}
-              onClick={() => { turn(at + 1); document.querySelector(".ct-head")?.scrollIntoView({ block: "start", behavior: "smooth" }); }}>
-              Next page <CaretRight size={13} weight="bold" />
-            </button>
-            <select className="ct-size" value={size} onChange={(e) => setSize(Number(e.target.value))} aria-label="Rows per page">
-              {[10, 20, 50].map((n) => <option key={n} value={n}>{n} rows</option>)}
-            </select>
-          </footer>
-        )}
         {!loading && !shown.length && LIVE && live.failed && (
           <LoadFailed what="Candidates" onRetry={() => setReload((k) => k + 1)} />
         )}
@@ -562,9 +646,11 @@ export function ContactsPage() {
           );
         })()}
       </div>
+      {shown.length > 0 && <Pager {...pagerProps} variant="foot" />}
 
       <ProfileDialog
         c={openContact}
+        onContactSaved={() => { if (openId) loadDetail(openId); }}
         onClose={() => setOpenId(null)}
         position={openIdx >= 0 ? { i: openIdx, n: shown.length } : null}
         onStep={step}
@@ -865,7 +951,8 @@ async function copyText(text: string) {
 /* ── shortlist ──
    One press shortlists for the campaign the person was saved for; the caret
    picks any other campaign. Shortlisted reads as a filled, accent button that
-   says for how many. */
+   says for how many. It names no stage: it only puts someone on a campaign's
+   shortlist or takes them off. */
 
 function ShortlistControl({ suggest: savedFor, on, onPick, stages = NO_STAGES }: {
   suggest: string;
@@ -874,9 +961,12 @@ function ShortlistControl({ suggest: savedFor, on, onPick, stages = NO_STAGES }:
   /** Campaign id to stage, for the campaigns in `on`; one not named here is at the first stage. */
   stages?: Readonly<Record<string, string>>;
 }) {
-  const { label, shortlisted: atFirst, active } = controlState(on, stages);
+  const { label, live, count, active } = controlState(on, stages);
   /* A campaign that has since closed is nothing to suggest. */
   const suggest = pickableNow.some((c) => c.id === savedFor) ? savedFor : "";
+  /* With more than one campaign to choose from, a press asks which: the page is the whole organisation's people, and
+     the campaign they were first found for is only one of the places they could go. */
+  const manyCampaigns = pickableNow.length > 1;
   /* Someone added without a campaign has nothing to suggest: the main
      button opens the campaign menu instead. */
   const [menu, setMenu] = useState(false);
@@ -898,23 +988,27 @@ function ShortlistControl({ suggest: savedFor, on, onPick, stages = NO_STAGES }:
       <button
         type="button"
         className="ct-sl-main"
-        /* On the shortlist, a press takes them off it. Past it (passed, in outreach) a press opens the menu,
-           so a click never drops where someone stands. */
-        onClick={() => (atFirst.length ? onPick(atFirst[0]!) : active ? setMenu(true) : suggest ? onPick(suggest) : setMenu(true))}
-        title={active ? `${label}${atFirst.length ? " for" : " on"} ${on.map(campName).join(", ")}` : suggest ? `Shortlist for ${campName(suggest)}` : "Shortlist for a campaign"}
+        /* On a shortlist already, a press opens the menu, so a click never takes someone off a campaign
+           they are working on. On none, with one campaign to choose from it shortlists for that one; with several it asks. */
+        onClick={() => (active || manyCampaigns || !suggest ? setMenu(true) : onPick(suggest))}
+        title={active ? `Shortlisted for ${live.map(campName).join(", ")}` : manyCampaigns || !suggest ? "Shortlist for a campaign" : `Shortlist for ${campName(suggest)}`}
       >
         <BookmarkSimple size={14} weight={active ? "fill" : "regular"} />
         <span className="ct-sl-label">{label}</span>
-        {on.length > 1 && <span className="ct-sl-n" key={on.length}>{on.length}</span>}
+        {count > 0 && <span className="ct-sl-n" key={count}>{count}</span>}
       </button>
-      <ShortlistMenuButton isOn={(c) => on.includes(c)} onPick={onPick} suggest={suggest || undefined} caret open={menu} onOpenChange={setMenu} />
+      <ShortlistMenuButton isOn={(c) => live.includes(c)} onIds={on} rejected={(c) => stages[c] === "passed"} onPick={onPick} suggest={suggest || undefined} caret open={menu} onOpenChange={setMenu} />
     </div>
   );
 }
 
 function ShortlistMenuButton({
-  label, isOn, onPick, suggest, caret, tabIndex, open: openProp, onOpenChange,
+  label, isOn, onIds = [], rejected, onPick, suggest, caret, tabIndex, open: openProp, onOpenChange,
 }: {
+  /** The campaigns this person is already on: listed even when the viewer may not change them. */
+  onIds?: readonly string[];
+  /** Rejected on this campaign: said so, and never offered as the one it was saved for. */
+  rejected?: (campaign: string) => boolean;
   /** Controlled open state, for a parent that opens the menu itself. */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -933,7 +1027,8 @@ function ShortlistMenuButton({
     onOpenChange?.(next);
   };
   const ref = useRef<HTMLButtonElement>(null);
-  const order = suggest ? [...pickableNow].sort((a, b) => (a.id === suggest ? -1 : b.id === suggest ? 1 : 0)) : pickableNow;
+  /* A to Z by name, always: the menu does not reorder when someone is shortlisted or the page re-reads. */
+  const order = [...pickableNow, ...campaignsNow.filter((c) => onIds.includes(c.id) && !pickableNow.some((p) => p.id === c.id))].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }) || a.id.localeCompare(b.id));
   return (
     <>
       <button
@@ -950,7 +1045,7 @@ function ShortlistMenuButton({
         {label}
         <CaretDown size={11} weight="bold" />
       </button>
-      <Popover anchor={ref} open={open} onClose={() => setOpen(false)} align="end" width={260}>
+      <Popover anchor={ref} open={open} onClose={() => setOpen(false)} align="end" width={280}>
         <div className="ct-menu" role="menu">
           <p className="ct-menu-h">Shortlist for campaign</p>
           {order.map((c) => {
@@ -959,8 +1054,8 @@ function ShortlistMenuButton({
               <button key={c.id} type="button" role="menuitemcheckbox" aria-checked={on} className={`ct-menu-i${on ? " is-on" : ""}`}
                 onClick={() => { onPick(c.id); setOpen(false); }}>
                 <span className="ct-menu-box">{on && <Check size={11} weight="bold" />}</span>
-                <span className="ct-menu-t">{c.name}</span>
-                {c.id === suggest && <span className="ct-menu-tag">Saved for</span>}
+                <span className="ct-menu-t is-name" title={c.name}>{c.name}</span>
+                {rejected?.(c.id) ? <span className="ct-menu-tag is-quiet">Rejected</span> : c.id === suggest && <span className="ct-menu-tag">Their campaign</span>}
               </button>
             );
           })}
@@ -1228,8 +1323,10 @@ function sourceLine(p: Contact): string {
 }
 
 function ProfileDialog({
-  c, onClose, position, onStep, shortlisted, onShortlist, selected, onSelect, onCopy, people, onCompare, onSave, onDelete, notes, onNote,
+  c, onClose, position, onStep, shortlisted, onShortlist, selected, onSelect, onCopy, people, onCompare, onSave, onDelete, notes, onNote, onContactSaved,
 }: {
+  /** An email or phone typed in the sheet was saved: the person is read again. */
+  onContactSaved: () => void;
   onSave: (patch: ContactEdit) => void;
   /** The team's notes, with the API: null while they load, absent on fixtures. */
   notes?: readonly Note[] | null;
@@ -1253,7 +1350,9 @@ function ProfileDialog({
   const p = c ?? last.current;
   const [editing, setEditing] = useState<false | string>(false);
   useEffect(() => { setEditing(false); }, [c?.id]);
+  /* Email and phone are typed in their own lines when there is an API, so the banner only names what has no field of its own. */
   const missing = p ? [!p.email && !p.onFile?.email && "email", !p.phone && !p.onFile?.phone && "phone", !p.linkedin && "LinkedIn", !p.location && "location"].filter(Boolean) as string[] : [];
+  const gaps = LIVE ? missing.filter((m) => m !== "email" && m !== "phone") : missing;
 
   useEffect(() => {
     if (!c) return;
@@ -1303,19 +1402,19 @@ function ProfileDialog({
             <EditForm key={p.id} p={p} focus={editing} onCancel={() => setEditing(false)} onSave={(patch) => { onSave(patch); setEditing(false); }} />
           ) : (
           <div className="cp-body">
-            {missing.length > 0 && (
-              <button type="button" className="cp-missing" onClick={() => setEditing(missing[0] === "LinkedIn" ? "linkedin" : missing[0]!)}>
-                <span><b>Missing {missing.join(", ")}.</b> Know it? Add it here so outreach can go out.</span>
+            {gaps.length > 0 && (
+              <button type="button" className="cp-missing" onClick={() => setEditing(gaps[0] === "LinkedIn" ? "linkedin" : gaps[0]!)}>
+                <span><b>Missing {gaps.join(", ")}.</b> Know it? Add it here so outreach can go out.</span>
                 <span className="cp-missing-go">Fill in <CaretRight size={11} weight="bold" /></span>
               </button>
             )}
             <section className="cp-contact">
               <ContactLine icon={<EnvelopeSimple size={15} />} label="Email" value={p.email?.value}
                 note={p.email ? (p.email.verified ? <><SealCheck size={12} weight="fill" className="cp-ok" /> Verified</> : "Not verified yet") : LIVE ? (p.onFile?.email ? "Loading" : "Not on file") : "Still looking"}
-                onCopy={onCopy} kind="email" onAdd={() => setEditing("email")} />
+                onCopy={onCopy} kind="email" onAdd={() => setEditing("email")} {...(LIVE ? { edit: { candidateId: p.id, onSaved: onContactSaved } } : {})} />
               <ContactLine icon={<Phone size={15} />} label="Phone" value={p.phone?.value}
                 note={p.phone ? (LIVE ? "On file" : "Mobile") : LIVE ? (p.onFile?.phone ? "Loading" : "Not on file") : "Still looking"}
-                onCopy={onCopy} kind="phone" onAdd={() => setEditing("phone")} />
+                onCopy={onCopy} kind="phone" onAdd={() => setEditing("phone")} {...(LIVE ? { edit: { candidateId: p.id, onSaved: onContactSaved } } : {})} />
             </section>
 
             <p className="cp-src">{sourceLine(p)}</p>
@@ -1347,6 +1446,7 @@ function ProfileDialog({
             {p.notes && <p className="cp-about">{p.notes}</p>}
             {notes !== undefined && <NotesSection key={p.id} notes={notes} onNote={onNote} />}
 
+            {LIVE && <MatchSection candidateId={p.id} name={p.name} />}
             {p.jobs.length > 0 && <section className="cp-sec">
               <h3><Briefcase size={14} /> Experience</h3>
               <ol className="cp-jobs">
@@ -1474,7 +1574,7 @@ function NotesSection({ notes, onNote }: { notes: readonly Note[] | null; onNote
   return (
     <section className="cp-sec">
       <h3><NotePencil size={14} /> Notes</h3>
-      {notes === null ? <p className="cp-sl-none">Loading notes</p> : notes.length > 0 && (
+      {notes === null ? <ShimmerRegion label="Loading notes"><ShimmerText lines={2} /></ShimmerRegion> : notes.length > 0 && (
         <ul className="cp-notes">
           {notes.map((n) => (
             <li key={n.id}>
@@ -1492,8 +1592,10 @@ function NotesSection({ notes, onNote }: { notes: readonly Note[] | null; onNote
   );
 }
 
-function ContactLine({ icon, label, value, note, onCopy, kind, onAdd }: {
+function ContactLine({ icon, label, value, note, onCopy, kind, onAdd, edit }: {
   icon: ReactNode; label: string; value?: string; note: ReactNode; onCopy: (m: string) => void; kind: "email" | "phone"; onAdd?: () => void;
+  /** With the API: typed in place, the same way the board's sheet does it. */
+  edit?: { candidateId: string; onSaved: () => void };
 }) {
   const [done, setDone] = useState(false);
   const copy = () => {
@@ -1508,7 +1610,11 @@ function ContactLine({ icon, label, value, note, onCopy, kind, onAdd }: {
       <span className="cp-line-ico">{icon}</span>
       <div className="cp-line-text">
         <span className="cp-line-l">{label}</span>
-        {value
+        {edit ? (
+          <ContactEditable candidateId={edit.candidateId} kind={kind} value={value ?? null} onSaved={edit.onSaved}>
+            {value ? <button type="button" className="cp-line-v" onClick={copy} title="Copy">{value}</button> : <span className="cp-line-v is-none">Not found yet</span>}
+          </ContactEditable>
+        ) : value
           ? <button type="button" className="cp-line-v" onClick={copy} title="Copy">{value}</button>
           : onAdd ? <button type="button" className="cp-line-add" onClick={onAdd}><Plus size={11} weight="bold" /> Add {label.toLowerCase()}</button> : <span className="cp-line-v is-none">Not found yet</span>}
         <span className="cp-line-n">{note}</span>

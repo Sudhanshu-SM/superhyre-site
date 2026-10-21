@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { createBodyFrom } from "../api/campaigns";
 import { clientBody, contactBody } from "../api/clients";
-import { rowFromDraft } from "../campaignDraft";
+import { ownCampaign, rowFromDraft } from "../campaignDraft";
 import type { CampaignRow } from "../campaignsData";
 import type { Question } from "../clarify";
 import { clientFromDraft } from "../clients";
@@ -12,8 +12,9 @@ import {
   findClient, industryOptions, inferSeniority, liveCampaignAnswers, rankedValues, reasonFrom,
 } from "../liveViews/clientCampaign";
 import type { LiveData } from "../liveViews/clientQuestions";
-import { OTHER, inWords, liveCampaignAsk, liveClientAsk, withOther } from "../liveViews/clientQuestions";
+import { liveCampaignAsk, liveClientAsk } from "../liveViews/clientQuestions";
 import type { MomentCtx } from "../moments";
+import { setSession } from "../roleStore";
 
 const ctx = (answers: Record<string, string> = {}): MomentCtx => ({
   said: "", verdicts: {}, onVerdict: () => {}, openProfile: () => {}, openList: () => {},
@@ -192,9 +193,9 @@ describe("the new-campaign questions", () => {
   const ask = liveCampaignAsk(() => DATA);
   const FULL = { "nc-role": "Zz Chat Test Campaign", "nc-location": "", "nc-comp": "30 to 45", "nc-skills": "Go, Postgres" };
 
-  it("walks the demo's order, adds experience before pay, and never asks about agents", () => {
-    const w = walk(ask, "start a new campaign", { ...FULL, "nc-exp": "5 to 8" });
-    expect(w.ids).toEqual(["nc-role", "nc-client", "nc-dept", "nc-mode", "nc-location", "nc-openings", "nc-exp", "nc-comp", "nc-skills"]);
+  it("walks the demo's order, asks experience, pay and must-haves once, in one line, and never asks about agents", () => {
+    const w = walk(ask, "start a new campaign", { ...FULL, "nc-more": "5 to 8 years, 30 to 45 LPA, Go, Postgres" });
+    expect(w.ids).toEqual(["nc-role", "nc-client", "nc-dept", "nc-mode", "nc-location", "nc-openings", "nc-jd", "nc-more"]);
     expect(w.ids).not.toContain("nc-agents");
   });
 
@@ -213,14 +214,16 @@ describe("the new-campaign questions", () => {
     expect(none("campaign-new", "new campaign called Staff Data Engineer", ctx())?.id).toBe("nc-dept");
   });
 
-  it("offers the workspace's teams and a way to type another, then asks in words", () => {
+  it("offers the workspace's teams, and Other as a field under them for another, in the same question", () => {
     const a = { role: "Staff Data Engineer", client: "none" };
     const q = ask("campaign-new", "x", ctx(a))!;
     expect(q.id).toBe("nc-dept");
-    expect(q.options.map((o) => o.id)).toEqual(["Engineering", "Platform", "Design", "Data", "Product", OTHER]);
-    const typed = ask("campaign-new", "x", ctx({ ...a, ...q.apply([OTHER]).answers }))!;
-    expect(typed.input).toBeTruthy();
-    const next = ask("campaign-new", "x", ctx({ ...a, ...typed.apply(["Zz Platform"]).answers }))!;
+    // Other is not an option: there is no second question and no placeholder to answer.
+    expect(q.options.map((o) => o.id)).toEqual(["Engineering", "Platform", "Design", "Data", "Product"]);
+    expect(q.other).toMatchObject({ placeholder: "e.g. Platform" });
+    expect(q.input).toBeUndefined();
+    expect(q.apply(["Zz Platform"]).answers).toEqual({ dept: "Zz Platform" });
+    const next = ask("campaign-new", "x", ctx({ ...a, ...q.apply(["Zz Platform"]).answers }))!;
     expect(next.id).toBe("nc-mode");
   });
 
@@ -229,34 +232,21 @@ describe("the new-campaign questions", () => {
     const q = ask("campaign-new", "x", ctx(base))!;
     expect(q.id).toBe("nc-location");
     expect(q.input).toBeUndefined();
-    expect(q.options.map((o) => o.id)).toEqual(["Bengaluru", "Pune", "Chennai", OTHER]);
+    expect(q.options.map((o) => o.id)).toEqual(["Bengaluru", "Pune", "Chennai"]);
+    expect(q.other).toMatchObject({ placeholder: "e.g. Pune" });
     const remote = ask("campaign-new", "x", ctx({ ...base, mode: "remote" }))!;
-    expect(remote.options.map((o) => o.id)).toEqual(["Bengaluru", "Pune", "Chennai", OTHER, "none"]);
+    expect(remote.options.map((o) => o.id)).toEqual(["Bengaluru", "Pune", "Chennai", "none"]);
     expect(remote.apply(["none"]).answers).toEqual({ location: "" });
     expect(remote.apply(["Pune"]).answers).toEqual({ location: "Pune" });
   });
 
-  it("asks for the city in words when none is known, or when \"Another city\" was chosen", () => {
+  it("asks for the city in words when none is known, and takes a typed city as a tile's id would be", () => {
     const base = { role: "Staff Data Engineer", client: "none", dept: "Data", mode: "onsite" };
     const bare = liveCampaignAsk(() => ({ clients: [], rows: [] }));
     expect(bare("campaign-new", "x", ctx(base))?.input).toBeTruthy();
     const q = ask("campaign-new", "x", ctx(base))!;
-    const typed = ask("campaign-new", "x", ctx({ ...base, ...q.apply([OTHER]).answers }))!;
-    expect(typed.input).toBeTruthy();
-    expect(typed.apply(["Kochi"]).answers).toEqual({ location: "Kochi" });
-  });
-
-  it("builds the question in words from a tile question", () => {
-    const tile: Question = { id: "t", found: "f", ask: "a", options: [{ id: "x", label: "X" }], dense: true, filter: "Find", apply: set };
-    function set([v]: readonly string[]) { return { answers: { k: v ?? "" } }; }
-    const w = withOther(tile, "k", { id: OTHER, label: "More" });
-    expect(w.options.map((o) => o.id)).toEqual(["x", OTHER]);
-    expect(w.apply(["x"]).answers).toEqual({ k: "x" });
-    expect(w.apply([OTHER]).answers).toEqual({ kTyped: "yes" });
-    const t = inWords(tile, "k", { placeholder: "p", verb: "Go" });
-    expect(t.options).toEqual([]);
-    expect(t.filter).toBeUndefined();
-    expect(t.apply(["typed"]).answers).toEqual({ k: "typed" });
+    expect(q.apply(["kochi"]).answers).toEqual({ location: "Kochi" });
+    expect(q.apply(["bangalore"]).answers).toEqual({ location: "Bengaluru" });
   });
 });
 
@@ -328,7 +318,7 @@ describe("a campaign, from the answers to what the API is sent", () => {
   it("fills the card in the console's order, with nothing invented", () => {
     const d = campaignDraftFor(answers, owner, []);
     expect(campaignFacts(d)).toEqual([
-      ["Team", "Engineering"], ["Where", "Hybrid, Pune"], ["Openings", "2 hires"], ["Experience", "5 to 8 years"],
+      ["Department", "Engineering"], ["Where", "Hybrid, Pune"], ["Openings", "2 hires"], ["Experience", "5 to 8 years"],
       ["CTC", "₹30–45 LPA"], ["Must-haves", "Go, Postgres at scale"], ["Level", "Senior"], ["Fee", "Not set"],
     ]);
     const bare = campaignDraftFor({ role: "Support", dept: "Operations", mode: "remote", location: "" }, owner, []);
@@ -370,5 +360,43 @@ describe("what stops a campaign before the server has to", () => {
     const d = campaignDraftFor(ok, owner, []);
     expect(d.agents).toEqual([]);
     expect(campaignChecks(d).blocking).toBeNull();
+  });
+});
+
+describe("a recruiter's campaign", () => {
+  afterEach(() => setSession({ role: "admin", name: "Punith S" }));
+  const said = "create a campaign called Backend Engineer at Zorblax Studios";
+
+  it("is offered no new client for a company the message names, and says no client when there are none to pick", () => {
+    // An admin: the company is offered as one to add, by its name alone.
+    expect(liveCampaignAnswers(said, {}, [])).toMatchObject({ newClient: "Zorblax Studios", role: "Backend Engineer" });
+    setSession({ role: "recruiter", name: "Riya K" });
+    const a = liveCampaignAnswers(said, {}, []);
+    // The company stays in the role's words; nothing offers to add it, and who it is for is not asked.
+    expect(a).toMatchObject({ role: "Backend Engineer at Zorblax Studios", client: "none" });
+    expect(a.newClient).toBeUndefined();
+  });
+
+  it("is asked about the clients they have, and about nothing to add", () => {
+    setSession({ role: "recruiter", name: "Riya K" });
+    const ask = liveCampaignAsk(() => ({ clients: [client({ id: "c-acme", name: "Acme Robotics", status: "active" })], rows: [] }));
+    const w = walk(ask, said, { "nc-location": "", "nc-comp": "", "nc-skills": "" });
+    const who = w.asked.find((q) => q.id === "nc-client");
+    // The clients the store has (a recruiter's list is the ones they can see), and "No client"; never one to add.
+    expect(who?.options.map((o) => o.label)).toContain("No client");
+    expect(who?.options.map((o) => o.id)).not.toContain("new");
+    for (const q of w.asked) expect(q.options.map((o) => `${o.id} ${o.label}`).join(" ")).not.toMatch(/new client/i);
+
+    const none = liveCampaignAsk(() => ({ clients: [], rows: [] }));
+    expect(walk(none, said).ids).not.toContain("nc-client");
+  });
+
+  it("goes over the wire as theirs: they are the owner, and nobody else is named", () => {
+    const team = ["Riya K", "Asha Admin"];
+    const idOf = (n: string) => ({ "Riya K": "u-riya", "Asha Admin": "u-asha" })[n];
+    // A draft kept from a workspace where the person was an admin carried an owner and a team.
+    const kept = { ...campaignDraftFor({ role: "Backend Engineer", client: "none", dept: "Engineering", mode: "hybrid", location: "Pune" }, "Asha Admin", []), recruiters: ["Riya K"] };
+    const body = JSON.parse(JSON.stringify(createBodyFrom(rowFromDraft(ownCampaign(kept, "Riya K"), team, 1), idOf))) as ReturnType<typeof createBodyFrom>;
+    expect(body).toMatchObject({ name: "Backend Engineer", ownerId: "u-riya", memberIds: [], visibility: "team" });
   });
 });

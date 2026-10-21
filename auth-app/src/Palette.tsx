@@ -6,7 +6,7 @@ import { useFocusTrap } from "./components/focusTrap";
 import type { Hit } from "./api/search";
 import { hitsOf, quickFind } from "./api/search";
 import { openChat } from "./liveChat";
-import { CAMPAIGN_NAV, FOOT_NAV, navFor, navLabel, ROUTES } from "./nav";
+import { CAMPAIGN_NAV, footNavFor, navFor, navLabel, ROUTES } from "./nav";
 import { standingOf } from "./can";
 import type { Standing } from "./can";
 import { useSession } from "./roleStore";
@@ -35,10 +35,9 @@ type Entry = { id: RouteId; label: string; group: string; hint: string };
 /** The Settings pages, which the sidebar reaches through one row: quick find reaches each. */
 const SETTINGS_PAGES: ReadonlyArray<{ id: SettingsSection; label: string; hint: string; org?: boolean }> = [
   { id: "connections", label: "Connections", hint: "Gmail, Slack and Notion" },
-  { id: "members", label: "Members", hint: "Your team and invites", org: true },
 ];
 
-/** The Settings pages this person can open: Members only exists in an organisation. */
+/** The Settings pages this person can open (Members moved to the Teams page, which quick find reaches as a row of its own). */
 export function settingsPages(inOrg: boolean): ReadonlyArray<{ id: SettingsSection; label: string; hint: string }> {
   return SETTINGS_PAGES.filter((p) => !p.org || inOrg);
 }
@@ -67,7 +66,7 @@ export function buildEntries(campaignName: string, standing?: Standing | null): 
   for (const item of CAMPAIGN_NAV) {
     out.push({ id: item.id, label: item.label, group: campaignName, hint: ROUTES[item.id].title });
   }
-  for (const item of FOOT_NAV) {
+  for (const item of footNavFor(standing)) {
     out.push({ id: item.id, label: item.label, group: "Account", hint: ROUTES[item.id].title });
   }
   return out;

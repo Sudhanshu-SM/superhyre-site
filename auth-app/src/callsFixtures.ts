@@ -53,10 +53,11 @@ function matches(r: CallRow, f: CallFilters): boolean {
   return true;
 }
 
-export function fixtureRows(f: CallFilters): { calls: CallRow[]; nextCursor: null } {
+export function fixtureRows(f: CallFilters, page: { limit?: number; offset?: number } = {}): { calls: CallRow[]; nextCursor: null; total: number } {
   const key = f.campaignId;
-  const calls = everyCall().filter((r) => matches(r, f) && (key ? (key === "none" ? !r.campaign : r.campaign?.id === key) : true));
-  return { calls, nextCursor: null };
+  const all = everyCall().filter((r) => matches(r, f) && (key ? (key === "none" ? !r.campaign : r.campaign?.id === key) : true));
+  const from = page.offset ?? 0;
+  return { calls: page.limit === undefined ? all : all.slice(from, from + page.limit), nextCursor: null, total: all.length };
 }
 
 export function fixtureGroups(f: CallFilters): CallGroups {
@@ -100,6 +101,7 @@ export function fixtureDetail(id: string): CallDetail | null {
       transcript: null,
       recording: { available: false, mime: null, seconds: c.recording ?? null },
       canEdit: true,
+      byHand: false,
     };
   }
   return null;

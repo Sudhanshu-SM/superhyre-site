@@ -1,23 +1,23 @@
 import { MagnifyingGlass, PhoneCall, X } from "@phosphor-icons/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CallFilters, CallOutcome, CallRow } from "./api/calls";
 import { listCalls } from "./api/calls";
 import { LIVE } from "./api/client";
 import { CallLine } from "./CallLine";
 import { fixtureRows } from "./callsFixtures";
-import { callCount, campaignInitials, OUTCOME_FILTERS } from "./callsView";
-import { Loader } from "./components/Loader";
+import { callCount, campaignInitials, OUTCOME_FILTERS, ROW_PAGE } from "./callsView";
+import { Pager } from "./components/Pager";
+import { clampedOffset } from "./sectionState";
+import { KlRowsGhost } from "./klGhosts";
 import { Dialog } from "./ui";
 
 /**
  * All of one campaign's calls, in a dialog: for a campaign with more calls than its card shows. Its own search
  * box and outcome filter (starting from the page's), the same line as the list, Down from the search box and Up
  * and Down between lines, Enter opens the call in the sheet. A phone gets the whole screen (the dialog's own rule).
- * Closing the sheet brings this back where it was: the same words, the same filter, the call that was open. It is as
- * quiet as the list: neutral chip, plain count, no colour of its own.
+ * It reads a numbered page at a time (the pager sits in its toolbar, with the whole count). Closing the sheet brings
+ * this back where it was: the same words, the same filter, the call that was open. It is as quiet as the list: neutral chip, plain count, no colour of its own.
  */
-
-const PAGE = 25;
 
 export type ModalGroup = { id: string; name: string; client: string | null; count: number };
 
@@ -50,8 +50,8 @@ function ModalBody({ group, filters, initialQ, initialOutcome, focusId, showCall
   const [q, setQ] = useState(initialQ);
   const [outcome, setOutcome] = useState<CallOutcome | "">(initialOutcome ?? filters.outcome ?? "");
   const [dq, setDq] = useState(initialQ.trim());
-  const [state, setState] = useState<{ items: CallRow[]; next: string | null; phase: "loading" | "ready" | "failed"; more: boolean }>({
-    items: [], next: null, phase: "loading", more: false,
+  const [state, setState] = useState<{ items: CallRow[]; total: number | null; phase: "loading" | "ready" | "failed" }>({
+    items: [], total: null, phase: "loading",
   });
   const asked = useRef(0);
   const list = useRef<HTMLUListElement>(null);
@@ -74,16 +74,26 @@ function ModalBody({ group, filters, initialQ, initialOutcome, focusId, showCall
 
   const f: CallFilters = { ...filters, campaignId: group.id, q: dq || undefined, outcome: outcome || undefined };
   const key = JSON.stringify(f);
+  /* The page belongs to the filters it was chosen in: another word or outcome is page 1 again. */
+  const [paged, setPaged] = useState<{ key: string; offset: number }>({ key, offset: 0 });
+  const at = paged.key === key ? paged.offset : 0;
   useEffect(() => {
     const mine = ++asked.current;
-    setState((s) => ({ ...s, phase: "loading" }));
-    const read = LIVE ? listCalls(f, { limit: PAGE }) : Promise.resolve(fixtureRows(f));
+    setState((s) => ({ ...s, phase: s.items.length ? s.phase : "loading" }));
+    const page = { limit: ROW_PAGE, offset: at };
+    const read = LIVE ? listCalls(f, page) : Promise.resolve(fixtureRows(f, page));
     read.then(
-      (page) => { if (mine === asked.current) setState({ items: page.calls, next: page.nextCursor, phase: "ready", more: false }); },
+      (got) => { if (mine === asked.current) setState({ items: got.calls, total: got.total, phase: "ready" }); },
       () => { if (mine === asked.current) setState((s) => ({ ...s, phase: s.items.length ? "ready" : "failed" })); },
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [key, at]);
+  /* A list that has got shorter than the page asked for goes back to its last page. */
+  useEffect(() => {
+    if (state.total === null) return;
+    const held = clampedOffset(at, state.total, ROW_PAGE);
+    if (held !== at) setPaged({ key, offset: held });
+  }, [state.total, at, key]);
 
   // The call that was open when this was last closed gets its focus back, once its line is there.
   useEffect(() => {
@@ -94,23 +104,6 @@ function ModalBody({ group, filters, initialQ, initialOutcome, focusId, showCall
     el.focus({ preventScroll: true });
     el.scrollIntoView({ block: "nearest" });
   }, [focusId, state.phase, state.items]);
-
-  const more = useCallback(() => {
-    if (!state.next || state.more) return;
-    const mine = asked.current;
-    setState((s) => ({ ...s, more: true }));
-    listCalls(f, { limit: PAGE, cursor: state.next }).then(
-      (page) => {
-        if (mine !== asked.current) return;
-        setState((s) => {
-          const seen = new Set(s.items.map((r) => r.id));
-          return { items: [...s.items, ...page.calls.filter((r) => !seen.has(r.id))], next: page.nextCursor, phase: "ready", more: false };
-        });
-      },
-      () => { if (mine === asked.current) setState((s) => ({ ...s, more: false })); },
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.next, state.more, key]);
 
   /* Up and Down walk the lines, and Down from the search box goes into them; Enter (the button's own) opens the
      call. Typing and the outcome list keep their own arrows. */
@@ -142,7 +135,7 @@ function ModalBody({ group, filters, initialQ, initialOutcome, focusId, showCall
           <p className="klm-meta">
             {group.client && <span className="kl-ell">{group.client}</span>}
             <span className="klm-count">
-              {state.phase === "ready" && narrowed ? `${state.items.length}${state.next ? "+" : ""} of ${callCount(group.count)}` : callCount(group.count)}
+              {state.phase === "ready" && narrowed && state.total !== null ? `${state.total.toLocaleString("en-IN")} of ${callCount(group.count)}` : callCount(group.count)}
             </span>
           </p>
         </div>
@@ -160,9 +153,12 @@ function ModalBody({ group, filters, initialQ, initialOutcome, focusId, showCall
             {OUTCOME_FILTERS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </label>
+        {state.total !== null && state.total > ROW_PAGE && (
+          <Pager offset={at} limit={ROW_PAGE} total={state.total} unit="calls" target=".klm-rows" onChange={(o) => setPaged({ key, offset: o })} />
+        )}
       </div>
       <div className="klm-body">
-        {state.phase === "loading" && state.items.length === 0 && <div className="kl-wait is-small" aria-busy="true"><Loader size="md" label="Loading calls" block /></div>}
+        {state.phase === "loading" && state.items.length === 0 && <KlRowsGhost variant="modal" n={5} label="Loading calls" />}
         {state.phase === "failed" && <p className="t-body kl-quiet kl-pad">These calls couldn't be loaded. Close this and try again in a moment.</p>}
         {state.phase === "ready" && state.items.length === 0 && <p className="t-body kl-quiet kl-pad">{narrowed ? "No calls match." : "No calls here yet."}</p>}
         {state.items.length > 0 && (
@@ -172,10 +168,8 @@ function ModalBody({ group, filters, initialQ, initialOutcome, focusId, showCall
             ))}
           </ul>
         )}
-        {state.next && (
-          <button type="button" className="kl-more klm-more" disabled={state.more} onClick={more}>
-            {state.more ? <><Loader size="sm" tone="inherit" /> Loading</> : "Load more"}
-          </button>
+        {state.total !== null && state.total > ROW_PAGE && (
+          <Pager offset={at} limit={ROW_PAGE} total={state.total} unit="calls" target=".klm-rows" variant="foot" onChange={(o) => setPaged({ key, offset: o })} />
         )}
       </div>
     </div>

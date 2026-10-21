@@ -1,0 +1,41 @@
+/* ═══════════════════════════ the calm switch ═══════════════════════════
+   Shared by every row of tabs that changes a list (Outreach's channel switch, Analytics' channel tabs and its other
+   segmented controls). The fill of the active tab is a mark that slides; the list below it comes in with a short
+   fade and a few pixels of rise; its height moves to the new height. Nothing here is a colour or a size of its own:
+   the control says what the mark looks like with --sw-bg, --sw-shadow and --sw-r. */
+
+/* ── the sliding mark ── */
+.sw-host { position: relative; }
+.sw-host > button { position: relative; }
+.sw-ind {
+  position: absolute; left: 0; top: 0; width: var(--sw-w, 0px); height: var(--sw-h, 0px);
+  transform: translate3d(var(--sw-x, 0px), var(--sw-y, 0px), 0);
+  border-radius: var(--sw-r, 9px); background: var(--sw-bg, var(--card)); box-shadow: var(--sw-shadow, none);
+  pointer-events: none; opacity: 0;
+}
+.sw-host[data-sw] > .sw-ind { opacity: 1; }
+/* The first placement is not a move; every one after it slides. */
+.sw-host[data-sw="live"] > .sw-ind {
+  transition: transform 200ms var(--ease-out), width 200ms var(--ease-out), height 200ms var(--ease-out);
+}
+/* Once the mark is there it carries the fill and the button is only a label. */
+.sw-host[data-sw] > button,
+.sw-host[data-sw] > button.is-on,
+.sw-host[data-sw] > button[aria-pressed="true"],
+.sw-host[data-sw] > button[aria-checked="true"] { background: transparent; box-shadow: none; }
+
+/* ── the list that comes in ── */
+.sw-box { position: relative; min-width: 0; }
+.sw-pane { min-width: 0; transition: opacity 160ms var(--ease-out); }
+/* `backwards`: before it starts the list is faded and lower, and after it ends the animation leaves nothing behind
+   (no transform, so nothing inside is held to a box of its own). */
+.sw-pane.is-enter { animation: sw-in 180ms var(--ease-out) backwards; }
+@keyframes sw-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+/* A slow switch: the list that is on screen stays, a little paler, until the next one is whole. */
+.sw-box.is-busy > .sw-pane { opacity: 0.6; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sw-ind, .sw-host[data-sw="live"] > .sw-ind { transition: none; }
+  .sw-pane { transition: none; }
+  .sw-pane.is-enter { animation: none; }
+}

@@ -1,3 +1,4 @@
+import { loadSection, saveSection } from "./sectionState";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./analytics.css";
 import { HBars, type HBar } from "./AnalyticsCharts";
@@ -34,6 +35,7 @@ import {
   activityText,
   againstBefore,
   callLength,
+  campaignKpis,
   campaignsTable,
   CHANNEL_LABEL,
   CHANNEL_TABS,
@@ -102,11 +104,13 @@ import {
 import { LIVE } from "./api/client";
 import { standingOf } from "./can";
 import { useCampaignRows, useClients, useMemberList, useTeam } from "./campaignStore";
-import { Loader } from "./components/Loader";
+import { ShimmerRegion } from "./components/Shimmer";
+import { HBarsGhost, KpisGhost, TableGhost } from "./analyticsGhosts";
 import { EmptyArt } from "./EmptyArt";
 import { LoadFailed } from "./ui";
 import { campaignLink, isKnownHash, NAV, ROUTES, type RouteId } from "./nav";
 import { useSession } from "./roleStore";
+import { SwitchPane, useSlide } from "./switchMotion";
 import type { Table } from "./xlsx";
 
 /**
@@ -229,7 +233,83 @@ function useAnalytics<T>(load: (q: AnalyticsQuery) => Promise<T>, fixture: () =>
 
 /* ── the page template ───────────────────────────────────────────────────── */
 
-const Busy = () => <Loader size="lg" label="Loading" block />;
+type BusyPage = "overview" | "recruiters" | "mine" | "outreach" | "pipeline" | "campaigns";
+
+/**
+ * A page while its numbers load: the figures with their real labels and each card with its real title and header row,
+ * in the same grid areas as the loaded page, so nothing moves when they arrive. `weeks` is the small table of one
+ * person's weeks (in Details).
+ */
+function Busy({ page = "overview", weeks = false }: { page?: BusyPage; weeks?: boolean }): JSX.Element {
+  if (weeks) {
+    return <ShimmerRegion label="Loading the weeks"><TableGhost heads={["Week", ">Emails", ">Calls", ">Interviews"]} rows={4} /></ShimmerRegion>;
+  }
+  const label = "Loading";
+  switch (page) {
+    case "overview":
+      return (
+        <ShimmerRegion label={label}>
+          <KpisGhost labels={["Hires", "Moved to interview", "Replies"]} />
+          <div className="an-dash is-overview">
+            <Panel area="fn" title="Where people drop"><HBarsGhost n={6} /></Panel>
+            <Panel area="wk" title="By week"><TableGhost heads={["Week", ">Moved to interview", ">Hired"]} rows={5} /></Panel>
+          </div>
+        </ShimmerRegion>
+      );
+    case "recruiters":
+      return (
+        <ShimmerRegion label={label}>
+          <KpisGhost labels={["Emails sent", "Calls placed", "Moved to interview"]} />
+          <div className="an-dash is-single">
+            <Panel area="pp" title="People">
+              <TableGhost heads={CARD_COLUMNS.map((id) => (id === "name" ? "Person" : `>${id === "emails" ? "Emails sent" : id === "calls" ? "Calls placed" : PERSON_COLUMNS.find((c) => c.id === id)?.label ?? id}`))} rows={5} />
+            </Panel>
+          </div>
+        </ShimmerRegion>
+      );
+    case "mine":
+      return (
+        <ShimmerRegion label={label}>
+          <KpisGhost labels={["Emails sent", "Calls placed", "Moved to interview"]} />
+          <div className="an-dash is-single">
+            <Panel area="pp" title="Waiting longest"><TableGhost heads={["Person", "Campaign", "Step", ">Days there"]} rows={4} /></Panel>
+          </div>
+        </ShimmerRegion>
+      );
+    case "outreach":
+      return (
+        <ShimmerRegion label={label}>
+          <div className="an-chan">
+            <Segmented label="Channel" value="all" options={CHANNEL_TABS.map((id) => ({ id, name: CHANNEL_LABEL[id] }))} onChange={() => undefined} />
+          </div>
+          <KpisGhost labels={["Touches sent", "Answered", "Answer rate"]} />
+          <div className="an-dash is-outreach">
+            <Panel area="tc" title="Answer rate by channel"><HBarsGhost n={3} stack /></Panel>
+            <Panel area="bc" title="By campaign"><TableGhost heads={["Campaign", ">Sent", ">Replied", ">Calls", ">Connected"]} rows={5} /></Panel>
+          </div>
+        </ShimmerRegion>
+      );
+    case "pipeline":
+      return (
+        <ShimmerRegion label={label}>
+          <KpisGhost labels={["In progress", "Waiting longer than usual", "Time to hire"]} />
+          <div className="an-dash is-pipeline">
+            <Panel area="ln" title="Where people are now"><HBarsGhost n={6} /></Panel>
+            <Panel area="wl" title="Waiting longest"><TableGhost heads={["Person", "Campaign", "Step", ">Days there"]} rows={5} /></Panel>
+          </div>
+        </ShimmerRegion>
+      );
+    case "campaigns":
+      return (
+        <ShimmerRegion label={label}>
+          <KpisGhost labels={["Active campaigns", "Hired of planned", "Gone quiet"]} />
+          <div className="an-dash is-single">
+            <Panel area="pp" title="Campaigns"><TableGhost heads={["Campaign", "Owner", "Hired of planned", ">Replied", "Last activity"]} rows={6} /></Panel>
+          </div>
+        </ShimmerRegion>
+      );
+  }
+}
 
 type Option = { id: string; name: string };
 
@@ -296,6 +376,7 @@ export function FilterBar({ filters, onChange, canPickPerson, withView }: {
     return team.map((n) => ({ id: n, name: n }));
   }, [members.members, team]);
 
+  const periodSlide = useSlide<HTMLDivElement>('[aria-pressed="true"]');
   const setPeriod = (days: number) => onChange({ ...filters, period: { kind: "days", days } });
   const tryRange = (from: string, to: string) => {
     setDraft({ from, to });
@@ -313,7 +394,8 @@ export function FilterBar({ filters, onChange, canPickPerson, withView }: {
   return (
     <form className="an-tool" aria-label="Filters" onSubmit={(e) => e.preventDefault()}>
       <div className="an-tool-row">
-        <div className="an-seg" role="group" aria-label="Period">
+        <div className="an-seg sw-host" role="group" aria-label="Period" {...periodSlide.host}>
+          {periodSlide.mark}
           {PRESET_DAYS.map((d) => (
             <button
               key={d}
@@ -671,10 +753,10 @@ export function RecruitersAnalyticsPage(): JSX.Element {
   const d = q.data;
   let parts: string[] = [];
   if (d && !d.empty) {
-    if (mine && d.me) parts = [`${fmt(d.me.emails.sent)} emails`, `${fmt(d.me.calls.placed)} calls`, `${fmt(d.me.moves.interviews)} moved to interview`, plural(d.me.moves.hires, "hire")];
+    if (mine && d.me) parts = [plural(d.me.emails.sent, "email"), plural(d.me.calls.placed, "call"), `${fmt(d.me.moves.interviews)} moved to interview`, plural(d.me.moves.hires, "hire")];
     else if (!mine) {
       const t = totalOf(d.people ?? []);
-      parts = [`${fmt(t.sent)} emails`, `${fmt(t.placed)} calls`, `${fmt(t.interviews)} moved to interview`, plural(t.hires, "hire")];
+      parts = [plural(t.sent, "email"), plural(t.placed, "call"), `${fmt(t.interviews)} moved to interview`, plural(t.hires, "hire")];
     }
   }
   return (
@@ -687,7 +769,7 @@ export function RecruitersAnalyticsPage(): JSX.Element {
       {q.failed
         ? <LoadFailed what={mine ? "Your work" : "The team's work"} onRetry={q.retry} />
         : !q.data
-          ? <Busy />
+          ? <Busy page={mine ? "mine" : "recruiters"} />
           : mine
             ? <MineBody data={q.data} filters={filters} standing={standing} />
             : <TeamBody data={q.data} filters={filters} />}
@@ -820,7 +902,7 @@ function PersonBody({ person: p, filters }: { person: PersonRow; filters: Filter
         {q.failed
           ? <LoadFailed what={`${p.name}'s weeks`} onRetry={q.retry} compact />
           : !q.data
-            ? (p.userId ? <Busy /> : <p className="an-muted">Weeks are not kept for this person.</p>)
+            ? (p.userId ? <Busy weeks /> : <p className="an-muted">Weeks are not kept for this person.</p>)
             : <WeeksTable w={q.data} />}
       </section>
     </>
@@ -908,7 +990,7 @@ export function TeamBody({ data, filters }: { data: RecruitersAnalytics; filters
         open={all}
         onClose={() => setAll(false)}
         title="People"
-        sub={`${fmt(total.sent)} emails, ${fmt(total.placed)} calls, ${fmt(total.interviews)} moved to interview`}
+        sub={`${plural(total.sent, "email")}, ${plural(total.placed, "call")}, ${fmt(total.interviews)} moved to interview`}
         rows={people}
         cols={allCols}
         rowKey={(p) => p.userId ?? p.name}
@@ -982,7 +1064,7 @@ export function MineBody({ data, filters, standing }: { data: RecruitersAnalytic
 function MineWeeks({ userId, filters }: { userId: string | undefined; filters: Filters }) {
   const q = useWeekly(userId, filters);
   if (q.failed) return <LoadFailed what="Your weeks" onRetry={q.retry} compact />;
-  if (!q.data) return userId ? <Busy /> : <p className="an-muted">Weeks are not kept yet.</p>;
+  if (!q.data) return userId ? <Busy weeks /> : <p className="an-muted">Weeks are not kept yet.</p>;
   return <WeeksTable w={q.data} />;
 }
 
@@ -1003,7 +1085,12 @@ const emailsAreEmpty = (d: OutreachData) => d.totals.sent === 0 && d.totals.draf
 /** The channel tab, kept in the address next to the filters (`channel=calls`), and out of it when it is All. */
 function useChannel(path: string): [ChannelTab, (c: ChannelTab) => void] {
   const read = () => parseChannel(new URLSearchParams(queryOfHash(window.location.hash)).get("channel"));
-  const [channel, setState] = useState<ChannelTab>(read);
+  const section = `analytics-channel:${path}`;
+  /* An address that names a channel wins; otherwise the one this tab left off at. */
+  const [channel, setState] = useState<ChannelTab>(() =>
+    new URLSearchParams(queryOfHash(window.location.hash)).get("channel")
+      ? read()
+      : loadSection(section, (r) => parseChannel(typeof r.channel === "string" ? r.channel : null), "all" as ChannelTab));
   useEffect(() => {
     const on = () => {
       if (pathOfHash(window.location.hash).replace(/\/+$/, "") === path) setState(read());
@@ -1014,13 +1101,16 @@ function useChannel(path: string): [ChannelTab, (c: ChannelTab) => void] {
   }, [path]);
   const set = useCallback((c: ChannelTab) => {
     setState(c);
+    saveSection(section, { channel: c });
     const q = new URLSearchParams(queryOfHash(window.location.hash));
     if (c === "all") q.delete("channel");
     else q.set("channel", c);
     const text = q.toString();
     const target = `#${path}${text ? `?${text}` : ""}`;
     if (window.location.hash !== target) window.history.replaceState(window.history.state, "", target);
-  }, [path]);
+  }, [path, section]);
+  /* A channel brought back from this tab goes into the address too, so a link copied from here carries it. */
+  useEffect(() => { if (channel !== "all") set(channel); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return [channel, set];
 }
 
@@ -1065,7 +1155,7 @@ export function OutreachAnalyticsPage(): JSX.Element {
       {emails.failed
         ? <LoadFailed what="Outreach numbers" onRetry={emails.retry} />
         : !e
-          ? <Busy />
+          ? <Busy page="outreach" />
           : (
             <OutreachBody
               emails={e}
@@ -1225,6 +1315,14 @@ export function OutreachBody({ emails: data, calls, callsFailed = false, retryCa
       />
     </div>
   );
+  /* The tabs stay where they are; what is under them comes in with a short fade and the height moves to the new
+     height (switchMotion.tsx), so a switch is calm and the page does not jump. */
+  const wrap = (content: React.ReactNode) => (
+    <>
+      {tabs}
+      <SwitchPane k={channel}>{content}</SwitchPane>
+    </>
+  );
 
   /* The numbers behind the page that are not the first answer, for the channel in view. */
   const emailFacts: DetailSection = {
@@ -1305,13 +1403,10 @@ export function OutreachBody({ emails: data, calls, callsFailed = false, retryCa
 
   /* WhatsApp: nothing to count yet, so no figures and no zeros, only where they will appear. */
   if (channel === "whatsapp") {
-    return (
-      <>
-        {tabs}
-        <div className="an-dash is-single">
-          <Panel area="pp" title="WhatsApp" ghost={{ kind: "bars", line: WHATSAPP_LINE }} />
-        </div>
-      </>
+    return wrap(
+      <div className="an-dash is-single">
+        <Panel area="pp" title="WhatsApp" ghost={{ kind: "bars", line: WHATSAPP_LINE }} />
+      </div>,
     );
   }
 
@@ -1330,9 +1425,8 @@ export function OutreachBody({ emails: data, calls, callsFailed = false, retryCa
       { id: "replied", label: "Replied", value: fmt(em.replied), note: move(em.replied, em.previous.replied) },
       { id: "rate", label: "Reply rate", value: ratioText(em.reply), note: note(was(em.reply, toRatio(em.previous.replied, em.previous.sent)), em.awaiting > 0 && `${fmt(em.awaiting)} waiting for a reply`) },
     ];
-    return (
+    return wrap(
       <>
-        {tabs}
         {banner}
         {!none && <Kpis items={kpis} action={details} />}
         <div className="an-dash is-outreach">
@@ -1348,7 +1442,7 @@ export function OutreachBody({ emails: data, calls, callsFailed = false, retryCa
         </div>
         {modal}
         {retry}
-      </>
+      </>,
     );
   }
 
@@ -1371,9 +1465,8 @@ export function OutreachBody({ emails: data, calls, callsFailed = false, retryCa
         note: note(cl.talkSeconds > 0 && `Talk time ${talkTime(cl.talkSeconds)}`, cl.avgSeconds ? `Average ${callLength(cl.avgSeconds)}` : null),
       },
     ];
-    return (
+    return wrap(
       <>
-        {tabs}
         {banner}
         {!none && <Kpis items={kpis} action={details} />}
         <div className="an-dash is-outreach">
@@ -1388,7 +1481,7 @@ export function OutreachBody({ emails: data, calls, callsFailed = false, retryCa
         </div>
         {modal}
         {retry}
-      </>
+      </>,
     );
   }
 
@@ -1405,9 +1498,8 @@ export function OutreachBody({ emails: data, calls, callsFailed = false, retryCa
     { id: "answered", label: "Answered", value: fmt(hub.all.answered), note: move(hub.all.answered, hub.all.previous.answered) },
     { id: "rate", label: "Answer rate", value: ratioText(hub.all.answer), note: was(hub.all.answer, toRatio(hub.all.previous.answered, hub.all.previous.sent)) },
   ];
-  return (
+  return wrap(
     <>
-      {tabs}
       {banner}
       {!nothingAtAll && <Kpis items={kpis} action={details} />}
       <div className="an-dash is-outreach">
@@ -1422,14 +1514,14 @@ export function OutreachBody({ emails: data, calls, callsFailed = false, retryCa
       </div>
       {modal}
       {retry}
-    </>
+    </>,
   );
 }
 
 /* ── Pipeline ────────────────────────────────────────────────────────────── */
 
 const PIPELINE_HOW = [
-  "Where people are now counts people in progress only; hired and passed people are left out. Waiting longer than usual is more than the days shown for that step.",
+  "Where people are now counts people in progress only; hired and rejected people are left out. Waiting longer than usual is more than the days shown for that step.",
   "A step's usual time is the middle number of days between entering and leaving it, for stays that finished.",
   "Time to hire is the middle number of days from being added to a campaign to Hired, for hires in the period.",
   "The conversion between steps lives on the Overview, so each number is said once.",
@@ -1448,7 +1540,7 @@ export function PipelineAnalyticsPage(): JSX.Element {
       busy={q.busy}
       bar={<FilterBar filters={filters} onChange={set} canPickPerson={canPickPerson} withView={false} />}
     >
-      {q.failed ? <LoadFailed what="The pipeline" onRetry={q.retry} /> : !q.data ? <Busy /> : <PipelineBody data={q.data} filters={filters} />}
+      {q.failed ? <LoadFailed what="The pipeline" onRetry={q.retry} /> : !q.data ? <Busy page="pipeline" /> : <PipelineBody data={q.data} filters={filters} />}
     </Shell>
   );
 }
@@ -1495,7 +1587,7 @@ export function PipelineBody({ data, filters }: { data: PipelineAnalytics; filte
           rows={[
             ["Time to first contact", medianDays(data.timeToFirstContact)],
             ["Hired in total", plural(data.totals.hired, "person", "people")],
-            ["Passed on in total", fmt(data.totals.passed)],
+            ["Rejected in total", fmt(data.totals.passed)],
           ]}
         />
       ),
@@ -1539,7 +1631,7 @@ export function PipelineBody({ data, filters }: { data: PipelineAnalytics; filte
       }]
       : []),
     ...(passed.length > 0
-      ? [{ heading: "Why people were passed", body: <Facts rows={passed.map((p) => [p.reason, fmt(p.n)] as const)} /> }]
+      ? [{ heading: "Why people were rejected", body: <Facts rows={passed.map((p) => [p.reason, fmt(p.n)] as const)} /> }]
       : []),
   ];
   return (
@@ -1572,7 +1664,7 @@ export function PipelineBody({ data, filters }: { data: PipelineAnalytics; filte
 /* ── Campaigns ───────────────────────────────────────────────────────────── */
 
 const CAMPAIGNS_HOW = [
-  "Active shows open campaigns, plus closed ones that had activity in the period.",
+  "Active shows the campaigns that are open now and Closed the ones that were closed; All shows both.",
   "Days to fill counts from the day the campaign opened to the day hires reached the target; it is in the download.",
   "Quiet means nothing has moved in a campaign for the number of days shown.",
 ];
@@ -1590,11 +1682,9 @@ export function CampaignsAnalyticsPage(): JSX.Element {
   const d = q.data;
   let parts: string[] = [];
   if (d) {
-    const open = d.campaigns.filter((c) => c.status === "active");
-    const planned = open.reduce((n, c) => n + c.target, 0);
-    const hired = open.reduce((n, c) => n + Math.min(c.hired, c.target || c.hired), 0);
-    const quiet = open.filter((c) => c.quiet).length;
-    if (open.length > 0) parts = [`${fmt(open.length)} active`, planned > 0 ? `${fmt(hired)} hired of ${fmt(planned)} planned` : `${fmt(hired)} hired`, `${fmt(quiet)} quiet`];
+    const k = campaignKpis(d.campaigns, state);
+    const word = state === "closed" ? "closed" : state === "all" ? "in all" : "active";
+    if (k.count > 0) parts = [`${fmt(k.count)} ${word}`, k.planned > 0 ? `${fmt(k.hired)} hired of ${fmt(k.planned)} planned` : `${fmt(k.hired)} hired`, ...(state === "closed" ? [`${fmt(k.filled)} filled`] : [`${fmt(k.quiet)} quiet`])];
   }
   return (
     <Shell
@@ -1606,7 +1696,7 @@ export function CampaignsAnalyticsPage(): JSX.Element {
       {q.failed
         ? <LoadFailed what="Campaigns" onRetry={q.retry} />
         : !q.data
-          ? <Busy />
+          ? <Busy page="campaigns" />
           : <CampaignsBody data={q.data} filters={filters} state={state} setState={setState} />}
     </Shell>
   );
@@ -1622,14 +1712,13 @@ export function CampaignsBody({ data, filters, state, setState }: {
   const days = data.period.days;
   const rows = data.campaigns;
   const page = rows.length === 0 && state === "active" && data.clients.length === 0;
-  const open = rows.filter((c) => c.status === "active");
-  const planned = open.reduce((n, c) => n + c.target, 0);
-  const hired = open.reduce((n, c) => n + Math.min(c.hired, c.target || c.hired), 0);
-  const quiet = open.filter((c) => c.quiet).length;
+  const k = campaignKpis(rows, state);
   const kpis: Kpi[] = [
-    { id: "open", label: "Active campaigns", value: fmt(open.length) },
-    { id: "hired", label: "Hired of planned", value: planned > 0 ? `${fmt(hired)} of ${fmt(planned)}` : fmt(hired) },
-    { id: "quiet", label: "Gone quiet", value: fmt(quiet), note: quiet > 0 ? `nothing moved in ${data.quietAfterDays}+ days` : null },
+    { id: "open", label: k.first, value: fmt(k.count) },
+    { id: "hired", label: "Hired of planned", value: k.planned > 0 ? `${fmt(k.hired)} of ${fmt(k.planned)}` : fmt(k.hired) },
+    state === "closed"
+      ? { id: "filled", label: "Filled", value: fmt(k.filled), note: k.count > 0 ? `of ${fmt(k.count)} closed` : null }
+      : { id: "quiet", label: "Gone quiet", value: fmt(k.quiet), note: k.quiet > 0 ? `nothing moved in ${data.quietAfterDays}+ days` : null },
   ];
   const cols: Array<ModalCol<CampaignStats>> = [
     {

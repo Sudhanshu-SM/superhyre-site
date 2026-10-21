@@ -85,7 +85,7 @@ describe("what the cards say", () => {
   it("says how good a fit, or where on the board and for how long", () => {
     expect(personStatus({ tier: "B", stage: null, daysInStage: null })).toBe("Good fit");
     expect(personStatus({ tier: null, stage: "interviewing", daysInStage: 3 })).toBe("Interviewing · 3 days");
-    expect(personStatus({ tier: "A", stage: "outreach", daysInStage: 1 })).toBe("In outreach · 1 day");
+    expect(personStatus({ tier: "A", stage: "outreach", daysInStage: 1 })).toBe("Strong fit · In outreach · 1 day");
     expect(personStatus({ tier: null, stage: "hired", daysInStage: 0 })).toBe("Hired");
     expect(personStatus({ tier: null, stage: null, daysInStage: null })).toBeNull();
   });
@@ -93,7 +93,10 @@ describe("what the cards say", () => {
   it("counts only the people shown, and says when that's part of a longer list", () => {
     expect(peopleHeading(peopleCard())).toBe("1 person worth a look");
     expect(peopleHeading(peopleCard({ total: 12, people: [person(), person({ personId: "p2" })] }))).toBe("2 people of 12 worth a look");
-    expect(peopleHeading(peopleCard({ source: "pipeline", narrowedTo: "interviewing" }))).toBe("1 person at interviewing");
+    expect(peopleHeading(peopleCard({ source: "pipeline", narrowedTo: "interviewing" }))).toBe("1 person interviewing");
+    expect(peopleHeading(peopleCard({ source: "pipeline", narrowedTo: "recommended" }))).toBe("Who to interview next");
+    expect(peopleHeading(peopleCard({ source: "pipeline", narrowedTo: "shortlisted" }))).toBe("1 person on the shortlist");
+    expect(peopleHeading(peopleCard({ source: "pipeline", narrowedTo: "outreach" }))).toBe("1 person in outreach");
     expect(peopleHeading(peopleCard({ source: "pipeline", narrowedTo: null }))).toBe("1 person on the board");
     expect(peopleHeading(peopleCard({ source: "found", narrowedTo: "priya" }))).toBe("1 person matching “priya”");
     expect(peopleSubline(peopleCard({ narrowedTo: "Tier A" }))).toBe("Android Engineer · Tier A");
@@ -104,7 +107,7 @@ describe("what the cards say", () => {
       { stage: "shortlisted", label: "Shortlisted", people: 0 },
       { stage: "outreach", label: "In outreach", people: 4 },
       { stage: "hired", label: "Hired", people: 0 },
-      { stage: "passed", label: "Passed", people: 2 },
+      { stage: "passed", label: "Rejected", people: 2 },
     ]);
     // Hired always shows: it is what the whole campaign is for.
     expect(funnel([]).map((s) => s.stage)).toEqual(["shortlisted", "hired"]);
@@ -119,7 +122,7 @@ describe("what the cards say", () => {
     expect(specLine({ ...base, spec: null, draftWaiting: true })).toBe("A role spec draft is waiting for your approval");
     expect(specLine({ ...base, spec: null })).toBe("No role spec yet, so nothing can be searched");
     expect(searchLine(base.sourcing)).toBe("42 people found so far. The next search looks for 5 more");
-    expect(searchLine({ shown: 0, exhausted: true, nextSize: 0 })).toBe("Nobody found yet. That's everyone matching for now");
+    expect(searchLine({ shown: 0, exhausted: true, nextSize: 0 })).toBe("Nobody found yet. The search has no more people to show for now");
     expect(campaignFacts(base)).toBe("Acme · Bengaluru · 2 hires wanted");
     expect(campaignFacts({ ...base, client: null, location: null, target: 1, status: "closed" })).toBe("1 hire wanted · closed");
   });
@@ -128,4 +131,26 @@ describe("what the cards say", () => {
     expect(campaignHref("abc")).toBe("#/campaign?campaign=abc");
     expect(campaignHref("abc", "shortlisted")).toBe("#/campaign/shortlisted?campaign=abc");
   });
+});
+
+describe("what a person shows on a card of people", () => {
+  const p = { title: "Platform Lead", company: "Acme", city: "Pune", tier: "A" as const, stage: "shortlisted", daysInStage: 3 };
+
+  it("is all of it unless the person's notes say less", () => {
+    expect(personLine(p)).toBe("Platform Lead at Acme, Pune");
+    expect(personStatus(p)).toBe("Strong fit · Shortlisted · 3 days");
+  });
+
+  it("drops the city, the fit label, the stage or everything but the name", () => {
+    expect(personLine(p, ["role", "fit", "stage"])).toBe("Platform Lead at Acme");
+    expect(personStatus(p, ["role", "city", "stage"])).toBe("Shortlisted · 3 days");
+    expect(personStatus(p, ["role", "city", "fit"])).toBe("Strong fit");
+    expect(personStatus(p, ["role", "city"])).toBeNull();
+    expect(personLine(p, [])).toBe("");
+    expect(personStatus(p, [])).toBeNull();
+  });
+});
+
+it("heads a card of contact details as what it is", () => {
+  expect(peopleHeading(peopleCard({ source: "found", narrowedTo: "contact details" }))).toBe("Contact details");
 });

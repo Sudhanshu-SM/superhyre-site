@@ -204,7 +204,7 @@ describe("asking for people's details", () => {
   it("says a failure in words, never naming a data provider", async () => {
     const { ApiError } = await import("../api/client");
     expect(store.errorLine(new ApiError(503, "unavailable", "Contact lookups aren't set up yet."))).toBe("Contact lookups aren't set up yet.");
-    expect(store.errorLine(new ApiError(503, "unavailable", "SalesQL isn't connected, and Apollo too."))).toBe("our data provider isn't connected, and our data provider too.");
+    expect(store.errorLine(new ApiError(503, "unavailable", "SalesQL isn't connected, and Apollo too."))).toBe("The lookup service isn't connected, and the lookup service too.");
     expect(store.errorLine(new Error("boom"))).toBe("Couldn't get contact details. Try again in a moment.");
   });
 });

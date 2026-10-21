@@ -516,7 +516,7 @@ export const ACTIVITY: Readonly<Record<string, readonly Activity[]>> = {
     { at: "12 min ago", what: "Ranked 61 profiles against the brief" },
     { at: "40 min ago", what: "Shortlisted 3 more: Rohan, Priya, Sneha", tone: "good" },
     { at: "2 h ago", what: "Widened location to include remote India" },
-    { at: "Yesterday", what: "Sourced 12 new profiles overnight", tone: "good" },
+    { at: "Yesterday", what: "Found 12 new people overnight", tone: "good" },
   ],
   f2: [
     { at: "12 min ago", what: "Four drafts written and waiting for your approval", tone: "ask" },

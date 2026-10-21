@@ -13,9 +13,11 @@ import { ErrorState, kindOfLastFailure } from "./ErrorStates";
 import { Bars } from "./Bars";
 import type { Answer, Form, FormResponse, PipelinePerson, Question, StageId } from "./campaign";
 import { STAGES, agoLabel, answerable, meetsMustHave, missedMustHaves, mustHaveOf, mustHaves, responsesFor } from "./campaign";
+import { useMayChangeCampaign } from "./campaignRights";
 import { movePerson, usePipeline } from "./campaignStore";
 import { Avatar } from "./CandidateBits";
 import { PersonDialog } from "./CampaignWorkspace";
+import { PassReasonDialog } from "./PassReason";
 import { Popover, useToast } from "./Contacts";
 import type { AnswerFilter, MustFilter } from "./exportTable";
 import {
@@ -23,9 +25,12 @@ import {
 } from "./exportTable";
 import { cap, shortTitle } from "./formKit";
 import { googleHint, useGoogle } from "./googleSetup";
-import { decideResponse, getFormMeta, loadResponses, useResponses } from "./formsStore";
+import { useScrollMemory, useSectionSave } from "./sectionMemory";
+import { hasDeepLink, loadSection, take } from "./sectionState";
+import { decideResponse, getFormMeta, loadResponses, saveResponse, useResponses } from "./formsStore";
 import { displayPhone } from "./phone";
 import { Loader } from "./components/Loader";
+import { Shimmer, ShimmerRegion } from "./components/Shimmer";
 
 /**
  * Responses to one form, three ways: a summary per question, one person at
@@ -44,7 +49,7 @@ const median = (xs: readonly number[]) => {
 };
 const isEmpty = (a: Answer | undefined) => a === undefined || a === "" || (Array.isArray(a) && !a.length);
 const first = (name: string) => name.split(/\s+/)[0] ?? name;
-const stageLabel = (s: StageId) => (s === "passed" ? "Passed" : STAGES.find((x) => x.id === s)?.label ?? s);
+const stageLabel = (s: StageId) => (s === "passed" ? "Rejected" : STAGES.find((x) => x.id === s)?.label ?? s);
 const STAGE_IDS: readonly string[] = ["shortlisted", "outreach", "interviewing", "hired", "passed"];
 const asStage = (s: string | null | undefined): StageId | null => (s && STAGE_IDS.includes(s) ? (s as StageId) : null);
 
@@ -55,7 +60,9 @@ type Placed = { id: string; stage: StageId; email?: { value: string } | null };
 type Decisions = {
   meta: ReadonlyMap<string, ResponseMeta>;
   /** `linkTo`: add as an existing candidate the recruiter confirmed is the same person. */
-  decide: (ids: readonly string[], d: "add" | "pass", linkTo?: string) => void;
+  decide: (ids: readonly string[], d: "add" | "pass", linkTo?: string, reason?: string) => void;
+  /** Keeps one applicant in Candidates, on no campaign's board and with no decision made. */
+  save: (id: string) => void;
 };
 const inField = (el: EventTarget | null) => el instanceof HTMLElement && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
 const isLink = (s: string) => /^(https?:\/\/)?[\w-]+(\.[\w-]+)+(\/\S*)?$/i.test(s);
@@ -65,6 +72,24 @@ const mode = (data: { label: string; value: number }[]) => {
   const top = Math.max(0, ...data.map((d) => d.value));
   return data.map((d) => ({ ...d, color: d.value === top && top > 0 ? "var(--accent)" : "var(--accent-line)", strong: d.value === top && top > 0 }));
 };
+
+/* Where the person left this form's responses in this tab. A view, a question or a must-have filter this form does not have
+   falls back to the default. */
+type Remembered = { view: View; answer: AnswerFilter; search: string; onlyNew: boolean; must: MustFilter };
+const NOTHING: Remembered = { view: "summary", answer: null, search: "", onlyNew: false, must: "all" };
+export function readResponsesRemembered(r: Record<string, unknown>, form: Pick<Form, "questions">): Remembered {
+  const a = take.rec(r.answer);
+  const qid = take.str(a.qid, "", 80);
+  const value = take.str(a.value, "", 200);
+  const known = qid !== "" && form.questions.some((q) => q.id === qid);
+  return {
+    view: take.oneOf(r.view, ["summary", "one", "table"] as const, "summary"),
+    answer: known ? { qid, value } : null,
+    search: take.str(r.search, "", 100),
+    onlyNew: take.bool(r.onlyNew),
+    must: take.oneOf(r.must, ["all", "met", "missed"] as const, "all"),
+  };
+}
 
 export function FormResponses({ form, must, onMust, onBuild, onShare }: {
   form: Form; must: MustFilter; onMust: (m: MustFilter) => void; onBuild: () => void; onShare: () => void;
@@ -87,14 +112,16 @@ export function FormResponses({ form, must, onMust, onBuild, onShare }: {
     }
     return out;
   }, [people, all, live.meta]);
-  const decisions: Decisions | null = LIVE ? {
+  /* Deciding who is shortlisted or rejected from a form is the campaign's people's; anyone else reads the answers. */
+  const may = useMayChangeCampaign(form.campaign);
+  const decisions: Decisions | null = LIVE && may ? {
     meta: live.meta,
-    decide: (ids, d, linkTo) => {
+    decide: (ids, d, linkTo, reason) => {
       // Adding in bulk never decides who someone is: applicants whose email matches a
       // candidate wait for a one-by-one choice, so no duplicate person is made by accident.
       const held = d === "add" && !linkTo && ids.length > 1 ? ids.filter((id) => live.meta.get(id)?.possibleMatch) : [];
       const go = ids.filter((id) => !held.includes(id));
-      void Promise.all(go.map((id) => decideResponse(form.id, id, d, linkTo))).then((errs) => {
+      void Promise.all(go.map((id) => decideResponse(form.id, id, d, linkTo, reason))).then((errs) => {
         const failed = errs.filter((e): e is string => e !== null);
         const ok = go.length - failed.length;
         if (ok) toast(decidedLine(d, ok, linkTo ? live.meta.get(go[0] ?? "")?.possibleMatch ?? null : null));
@@ -102,12 +129,20 @@ export function FormResponses({ form, must, onMust, onBuild, onShare }: {
         if (failed[0]) toast(failed[0], "error");
       });
     },
+    save: (id) => {
+      void saveResponse(form.id, id).then((err) => toast(err ?? "Added to your candidates", err ? "error" : undefined));
+    },
   } : null;
   const hasMust = mustHaves(form).length > 0;
-  const [view, setView] = useState<View>("summary");
-  const [answer, setAnswer] = useState<AnswerFilter>(null);
-  const [search, setSearch] = useState("");
-  const [onlyNew, setOnlyNew] = useState(false);
+  const section = `responses:${form.id}`;
+  const [start] = useState<Remembered>(() => (hasDeepLink() ? NOTHING : loadSection(section, (r) => readResponsesRemembered(r, form), NOTHING)));
+  const [view, setView] = useState<View>(start.view);
+  const [answer, setAnswer] = useState<AnswerFilter>(start.answer);
+  const [search, setSearch] = useState(start.search);
+  const [onlyNew, setOnlyNew] = useState(start.onlyNew);
+  useEffect(() => { if (start.must !== must) onMust(start.must); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useSectionSave(section, { view, answer, search, onlyNew, must }, true);
+  useScrollMemory(section, !(LIVE && !live.list.length && live.loading), !hasDeepLink());
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [current, setCurrent] = useState<string | null>(null);
 
@@ -124,7 +159,7 @@ export function FormResponses({ form, must, onMust, onBuild, onShare }: {
     return (
       live.error
         ? <ErrorState kind={kindOfLastFailure(lastFailureKind())} title={null} text={live.error} action={{ label: "Try again", onClick: () => void loadResponses(form.id) }} />
-        : <Loader size="lg" label="Loading responses" block />
+        : <ResponsesGhost />
     );
   }
 
@@ -146,7 +181,7 @@ export function FormResponses({ form, must, onMust, onBuild, onShare }: {
     );
   }
 
-  const rate = form.sent ? Math.round((all.length / form.sent) * 100) : 0;
+  const rate = form.sent ? Math.min(100, Math.round((all.length / form.sent) * 100)) : 0;
   const answerQ = answer ? form.questions.find((q) => q.id === answer.qid) : null;
   const openOne = (id: string) => { setCurrent(id); setView("one"); };
 
@@ -210,6 +245,44 @@ export function FormResponses({ form, must, onMust, onBuild, onShare }: {
       {view === "one" && <OneByOne form={form} rows={rows} people={people} hasMust={hasMust} current={current} setCurrent={setCurrent} decisions={decisions} />}
       {view === "table" && <ResponseTable form={form} rows={rows} people={placed} hasMust={hasMust} selected={selected} setSelected={setSelected} onOpen={openOne} decisions={decisions} />}
     </div>
+  );
+}
+
+/** The responses while they load: the figures row, the real view switch, and two question cards, in the page's own classes. */
+function ResponsesGhost(): JSX.Element {
+  return (
+    <ShimmerRegion label="Loading responses" className="fm-resp">
+      <div className="cw-stats fm-stats" aria-hidden="true">
+        {[0, 1, 2].map((i) => (
+          <div key={i}><strong className="t-num-md"><Shimmer h={20} lh={28} w={34} r={6} /></strong><span className="t-body-sm"><Shimmer h={12} lh={20} w={96 + i * 12} /></span></div>
+        ))}
+      </div>
+      <div className="fm-controls" aria-hidden="true">
+        <div className="cw-seg" role="tablist" aria-label="Responses view">
+          {([["summary", "Summary", <ChartBar key="i" size={14} />], ["one", "One by one", <User key="i" size={14} />], ["table", "Table", <TableIcon key="i" size={14} />]] as const).map(([id, label, icon]) => (
+            <button key={id} type="button" role="tab" aria-selected={id === "summary"} className={id === "summary" ? "is-on" : ""} disabled tabIndex={-1}>{icon} {label}</button>
+          ))}
+        </div>
+      </div>
+      <div className="fm-sum" aria-hidden="true">
+        {[0, 1].map((i) => (
+          <article key={i} className="fm-qsum">
+            <header className="fm-qsum-h"><Shimmer h={14} lh={24} w={`${48 + i * 14}%`} /></header>
+            <ul className="bars is-h">
+              {[0, 1, 2].map((k) => (
+                <li key={k}>
+                  <div className="bars-row">
+                    <span className="bars-l"><Shimmer h={11} w={`${50 + ((k * 21 + i * 9) % 40)}%`} /></span>
+                    <span className="bars-track"><Shimmer h={7} r={4} w={`${36 + ((k * 27 + i * 13) % 56)}%`} /></span>
+                    <span className="bars-v"><Shimmer h={11} w={24} /></span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </article>
+        ))}
+      </div>
+    </ShimmerRegion>
   );
 }
 
@@ -304,7 +377,7 @@ function Summary({ form, rows, people, hasMust, onAnswer }: {
               );
             })}
           </ul>
-          <p className="t-caption fm-muted">A missed must-have does not mean passed. Have a look and decide.</p>
+          <p className="t-caption fm-muted">A missed must-have does not mean rejected. Have a look and decide.</p>
         </article>
       )}
       {form.questions.map((q) => {
@@ -572,8 +645,8 @@ function Detail({ form, r, person, hasMust, i, total, onPrev, onNext, onBack, de
 }) {
   const toast = useToast();
   const [profile, setProfile] = useState(false);
+  const [rejectingBoard, setRejectingBoard] = useState(false);
   const misses = missedMustHaves(form, r.answers);
-  const missIds = new Set(misses.map((m) => m.q.id));
   const next: { stage: StageId; label: string; done: string } | null = !person ? null
     : person.stage === "outreach" || person.stage === "shortlisted" ? { stage: "interviewing", label: "Move to Interviewing", done: "moved to Interviewing" }
     : person.stage === "interviewing" ? { stage: "hired", label: "Mark hired", done: "marked hired" } : null;
@@ -602,98 +675,126 @@ function Detail({ form, r, person, hasMust, i, total, onPrev, onNext, onBack, de
             <p className="t-caption fm-muted fm-detail-src">Came from {sourceName(r.source)}</p>
           )}
         </div>
-        <div className="fm-pager">
-          <button type="button" aria-label="Previous response" title="Previous (K)" onClick={onPrev} disabled={i === 0}><CaretLeft size={14} weight="bold" /></button>
-          <span className="t-num-sm">{i + 1} of {total}</span>
-          <button type="button" aria-label="Next response" title="Next (J)" onClick={onNext} disabled={i >= total - 1}><CaretRight size={14} weight="bold" /></button>
+        <div className="fm-detail-side">
+          <div className="fm-pager">
+            <button type="button" aria-label="Previous response" title="Previous (K)" onClick={onPrev} disabled={i === 0}><CaretLeft size={14} weight="bold" /></button>
+            <span className="t-num-sm">{i + 1} of {total}</span>
+            <button type="button" aria-label="Next response" title="Next (J)" onClick={onNext} disabled={i >= total - 1}><CaretRight size={14} weight="bold" /></button>
+          </div>
+          {/* The call on this person sits with their name, where the eye already is, not under a long list. */}
+          <div className="fm-detail-acts">
+            {decisions ? (
+              <>
+                <Decide
+                  meta={decisions.meta.get(r.id)} name={name} inCandidates={!r.person.id.startsWith("applicant-")}
+                  onDecide={(d, linkTo, reason) => decisions.decide([r.id], d, linkTo, reason)} onSave={() => decisions.save(r.id)}
+                />
+                {/* Once the applicant is on the board the profile opens from here, as it does in the prototype. */}
+                {person && <button type="button" className="cw-btn is-quiet" onClick={() => setProfile(true)}><User size={13} /> Open profile</button>}
+              </>
+            ) : person ? (
+              <>
+                <span className="fm-stage-chip t-label">{stageLabel(person.stage)}</span>
+                {next && (
+                  <button type="button" className="cw-btn is-primary" onClick={() => { movePerson(form.campaign, person.id, next.stage); toast(`${name} ${next.done}`); }}>{next.label}</button>
+                )}
+                {person.stage !== "passed" && person.stage !== "hired" && (
+                  <button type="button" className="cw-btn is-quiet" onClick={() => setRejectingBoard(true)}>Reject</button>
+                )}
+                <button type="button" className="cw-btn is-quiet" onClick={() => setProfile(true)}><User size={13} /> Open profile</button>
+              </>
+            ) : (
+              <button type="button" className="cw-btn" disabled title="Coming soon: matched by email">Add to pipeline</button>
+            )}
+          </div>
         </div>
       </header>
 
       {misses.length > 0 ? (
-        <div className="fm-missed">
-          <p className="t-body-strong fm-missed-h"><Info size={15} weight="bold" aria-hidden="true" /> Missed {misses.length} must-have{misses.length === 1 ? "" : "s"}</p>
-          <ul>
-            {misses.map((m) => (
-              <li key={m.q.id} className="t-body-sm"><strong>{cap(shortTitle(m.q))}</strong>: answered "{m.answer}", must-have was "{m.accepted.join(" or ")}"</li>
-            ))}
-          </ul>
-          <p className="t-caption fm-muted">Worth a quick look. Nothing happened automatically.</p>
-        </div>
+        /* One line: each missed must-have is marked on its own answer below, so it is not listed twice. */
+        <p className="fm-missed t-body-strong">
+          <Info size={15} weight="bold" aria-hidden="true" />
+          Missed {misses.length} must-have{misses.length === 1 ? "" : "s"}
+          <span className="t-body-sm fm-muted">Worth a quick look. Nothing happened automatically.</span>
+        </p>
       ) : hasMust ? (
         <p className="fm-met t-body-sm"><CheckCircle size={15} weight="fill" aria-hidden="true" /> Met every must-have</p>
       ) : null}
 
-      <ol className="fm-answers">
-        {form.questions.map((q) => {
-          if (q.type === "section") return <li key={q.id} className="fm-answers-sec t-caption">{q.title}</li>;
-          const acc = mustHaveOf(q);
-          const missed = missIds.has(q.id);
-          const met = acc && !missed && !isEmpty(r.answers[q.id]);
-          return (
-            <li key={q.id} className={missed ? "is-missed" : ""}>
-              <p className="fm-answers-q">{q.title || "Untitled question"}</p>
-              <div className="fm-answers-a">
-                {fmtAnswer(r.answers[q.id])}
-                {missed && <span className="fm-chip is-amber">Must-have was {acc!.join(" or ")}</span>}
-                {met && <span className="fm-chip is-sage">Met</span>}
-              </div>
-            </li>
-          );
-        })}
-      </ol>
-
-      <footer className="fm-detail-f">
-        {decisions ? (
-          <>
-            <Decide meta={decisions.meta.get(r.id)} name={name} onDecide={(d, linkTo) => decisions.decide([r.id], d, linkTo)} />
-            {/* Once the applicant is on the board the profile opens from here, as it does in the prototype. */}
-            {person && <button type="button" className="cw-btn is-quiet" onClick={() => setProfile(true)}><User size={13} /> Open profile</button>}
-          </>
-        ) : person ? (
-          <>
-            <span className="fm-stage-chip t-label">{stageLabel(person.stage)}</span>
-            {next && (
-              <button type="button" className="cw-btn is-primary" onClick={() => { movePerson(form.campaign, person.id, next.stage); toast(`${name} ${next.done}`); }}>{next.label}</button>
-            )}
-            {person.stage !== "passed" && person.stage !== "hired" && (
-              <button type="button" className="cw-btn is-quiet" onClick={() => { movePerson(form.campaign, person.id, "passed"); toast(`Passed on ${name}`); }}>Pass</button>
-            )}
-            <button type="button" className="cw-btn is-quiet" onClick={() => setProfile(true)}><User size={13} /> Open profile</button>
-          </>
-        ) : (
-          <button type="button" className="cw-btn" disabled title="Coming soon: matched by email">Add to pipeline</button>
-        )}
-      </footer>
+      <ResponseAnswers form={form} answers={r.answers} />
       <PersonDialog person={profile ? person : null} onClose={() => setProfile(false)} onMove={(p, s) => movePerson(form.campaign, p.id, s)} />
+      <PassReasonDialog
+        who={rejectingBoard ? name : null}
+        onClose={() => setRejectingBoard(false)}
+        onPass={(reason) => { setRejectingBoard(false); movePerson(form.campaign, person!.id, "passed", reason); toast(`Rejected ${name}`); }}
+      />
     </section>
   );
 }
 
 /**
- * What to do with an applicant: on the board already (their stage shows),
- * or add them to the shortlist or pass. Passing can be undone by adding.
+ * What the person answered, question by question: the question in the page's body type and dark ink, the
+ * answer under it larger, and for a must-have the result as coloured words beside the answer (Met, or what
+ * it had to be). A missed one sits on a quiet tint, so the eye finds it without a banner.
  */
-function Decide({ meta, name, onDecide }: {
-  meta: ResponseMeta | undefined; name: string; onDecide: (d: "add" | "pass", linkTo?: string) => void;
+export function ResponseAnswers({ form, answers }: { form: Form; answers: Readonly<Record<string, Answer>> }) {
+  const missIds = new Set(missedMustHaves(form, answers).map((m) => m.q.id));
+  return (
+    <ol className="fm-answers">
+      {form.questions.map((q) => {
+        if (q.type === "section") return <li key={q.id} className="fm-answers-sec t-caption">{q.title}</li>;
+        const acc = mustHaveOf(q);
+        const missed = missIds.has(q.id);
+        const met = acc && !missed && !isEmpty(answers[q.id]);
+        return (
+          <li key={q.id} className={missed ? "is-missed" : ""}>
+            <p className="fm-answers-q">{q.title || "Untitled question"}</p>
+            <div className="fm-answers-a">
+              <span className="fm-answers-v">{fmtAnswer(answers[q.id])}</span>
+              {missed && <span className="fm-chip is-amber">Must-have was {acc!.join(" or ")}</span>}
+              {met && <span className="fm-chip is-sage">Met</span>}
+            </div>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+/**
+ * What to do with an applicant: on the board already (their stage shows), or add them to the shortlist,
+ * pass, or keep them in Candidates for later without deciding. Rejecting can be undone by adding.
+ */
+export function Decide({ meta, name, inCandidates, onDecide, onSave }: {
+  meta: ResponseMeta | undefined; name: string; inCandidates: boolean;
+  onDecide: (d: "add" | "pass", linkTo?: string, reason?: string) => void; onSave: () => void;
 }) {
+  /* Rejecting asks why first, the same optional step as on the board. */
+  const [asking, setAsking] = useState(false);
   const stage = asStage(meta?.stage);
   if (stage) return <span className="fm-stage-chip t-label">{stageLabel(stage)}</span>;
   const match = meta?.decision !== "passed" ? meta?.possibleMatch : null;
+  const why = <PassReasonDialog who={asking ? name : null} onClose={() => setAsking(false)} onPass={(reason) => { setAsking(false); onDecide("pass", undefined, reason); }} />;
   if (match) {
     return (
       <>
-        <span className="t-body-sm fm-muted">{matchNote(match)}</span>
+        <span className="t-body-sm fm-muted fm-match">{matchNote(match)}</span>
         <button type="button" className="cw-btn is-primary" onClick={() => onDecide("add", match.candidateId)}>Link to {match.name}</button>
         <button type="button" className="cw-btn" onClick={() => onDecide("add")}>Add as a new person</button>
-        <button type="button" className="cw-btn is-quiet" onClick={() => onDecide("pass")}>Pass</button>
+        <button type="button" className="cw-btn is-quiet" onClick={() => setAsking(true)}>Reject</button>
+        {why}
       </>
     );
   }
   return (
     <>
-      {meta?.decision === "passed" && <span className="t-body-sm fm-muted">You passed on {name}</span>}
+      {meta?.decision === "passed" && <span className="t-body-sm fm-muted">You rejected {name}</span>}
       <button type="button" className={`cw-btn${meta?.decision === "passed" ? "" : " is-primary"}`} onClick={() => onDecide("add")}>Add to shortlist</button>
-      {meta?.decision !== "passed" && <button type="button" className="cw-btn is-quiet" onClick={() => onDecide("pass")}>Pass</button>}
+      {meta?.decision !== "passed" && <button type="button" className="cw-btn is-quiet" onClick={() => setAsking(true)}>Reject</button>}
+      {why}
+      {inCandidates
+        ? <span className="t-body-sm fm-muted fm-saved">In your candidates</span>
+        : <button type="button" className="cw-btn is-quiet" onClick={onSave}>Add to candidates</button>}
     </>
   );
 }
@@ -714,6 +815,7 @@ function ResponseTable({ form, rows, people, hasMust, selected, setSelected, onO
 }) {
   /* Bulk decisions apply to the picked applicants who aren't on the board yet. */
   const open = decisions ? [...selected].filter((id) => !asStage(decisions.meta.get(id)?.stage)) : [];
+  const [rejecting, setRejecting] = useState<readonly string[] | null>(null);
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "at", dir: 1 });
   const qs = answerable(form);
   const misses = useMemo(() => new Map(rows.map((r) => [r.id, missedMustHaves(form, r.answers).length])), [rows, form]);
@@ -749,6 +851,11 @@ function ResponseTable({ form, rows, people, hasMust, selected, setSelected, onO
   if (!rows.length) return <p className="cw-calm fm-none">No responses match this filter.</p>;
   return (
     <div className="fm-table-box">
+      <PassReasonDialog
+        who={rejecting ? (rejecting.length === 1 ? "them" : `${rejecting.length} people`) : null}
+        onClose={() => setRejecting(null)}
+        onPass={(reason) => { const ids = rejecting ?? []; setRejecting(null); decisions?.decide(ids, "pass", undefined, reason); setSelected(new Set()); }}
+      />
       {selected.size > 0 && (
         <div className="fm-selbar t-body-sm">
           <strong>{selected.size} selected</strong>
@@ -756,7 +863,7 @@ function ResponseTable({ form, rows, people, hasMust, selected, setSelected, onO
           {decisions && open.length > 0 && (
             <>
               <button type="button" className="fm-link-btn is-accent" onClick={() => { decisions.decide(open, "add"); setSelected(new Set()); }}>Add {open.length} to shortlist</button>
-              <button type="button" className="fm-link-btn" onClick={() => { decisions.decide(open, "pass"); setSelected(new Set()); }}>Pass on {open.length}</button>
+              <button type="button" className="fm-link-btn" onClick={() => setRejecting(open)}>Reject {open.length}</button>
             </>
           )}
           <button type="button" className="fm-link-btn" onClick={() => setSelected(new Set())}>Clear</button>
@@ -846,7 +953,7 @@ export function CampaignExport({ campaignId, campaignName, kind }: { campaignId:
     setBusy(format);
     try {
       const r = await exportRows(campaignId, kind, EXPORT_COLUMNS.map(([k]) => k));
-      const t = shortlistTable(r.rows, r.columns);
+      const t = shortlistTable(r.rows, r.columns, kind);
       if (format === "csv") download(toCSV(t), "text/csv;charset=utf-8", shortlistName(campaignName, kind, "csv"));
       else download(toXLSX(t), XLSX_MIME, shortlistName(campaignName, kind, "xlsx"));
       /* The file is already on their machine; a missed audit row isn't worth an error. */

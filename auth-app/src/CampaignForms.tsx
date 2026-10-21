@@ -13,6 +13,7 @@ import { publishProblem } from "./api/forms";
 import { ApplyForm, FormPreviewDialog, tintVars } from "./ApplyForm";
 import type { Form, ItemType, Question, RoleDetails, WorkType } from "./campaign";
 import { Q_TYPES, agoLabel, answerable, mustHaveOf, mustHaves, responsesFor } from "./campaign";
+import { useMayChangeCampaign } from "./campaignRights";
 import { usePipeline } from "./campaignStore";
 import { Avatar } from "./CandidateBits";
 import type { Ctx } from "./CampaignWorkspace";
@@ -31,6 +32,7 @@ import {
 import { ActionButton, Dialog } from "./ui";
 import "./forms.css";
 import { Loader } from "./components/Loader";
+import { Shimmer, ShimmerRegion } from "./components/Shimmer";
 import { DetailTitle } from "./components/DocTitle";
 import { pageTitle } from "./pageTitle";
 
@@ -104,6 +106,8 @@ export function CampaignForms({ ctx }: { ctx: Ctx }) {
   const camp = campaignById(ctx.campaignId);
   const campaignName = camp?.name ?? "this campaign";
   const open = useForm(loc?.id ?? null);
+  /* A form is the campaign's: the people on it make and change forms; anyone else who can see the campaign reads them. */
+  const may = useMayChangeCampaign(ctx.campaignId);
 
   if (open && loc) {
     return <Studio key={open.id} ctx={ctx} form={open} view0={loc.view} onBack={() => go(null)}
@@ -137,19 +141,19 @@ export function CampaignForms({ ctx }: { ctx: Ctx }) {
   return (
     <div className="cw">
       <CampaignHeader ctx={ctx} title="Forms & responses">
-        <button type="button" className="cw-btn is-primary" onClick={() => setCreating(true)}><Plus size={14} weight="bold" /> New form</button>
+        {may && <button type="button" className="cw-btn is-primary" onClick={() => setCreating(true)}><Plus size={14} weight="bold" /> New form</button>}
       </CampaignHeader>
 
       {load !== "ready" ? (
-        load === "loading" ? <Loader size="lg" label="Loading forms" block /> : (
+        load === "loading" ? <FormsGhost /> : (
           <ErrorState kind={kindOfLastFailure(lastFailureKind())} title={null} text={load} action={{ label: "Try again", onClick: () => retryForms(ctx.campaignId) }} />
         )
       ) : forms.length === 0 ? (
         <div className="cw-empty">
           <EmptyArt name="empty-forms" size={180} />
           <h2>No forms yet</h2>
-          <p>A short screening form saves a call per candidate. Start from a template and send it with your outreach.</p>
-          <button type="button" className="cw-btn is-primary" onClick={() => setCreating(true)}><Plus size={14} weight="bold" /> Create a form</button>
+          <p>{may ? "A short screening form saves a call per candidate. Start from a template and send it with your outreach." : "The people on this campaign make its forms."}</p>
+          {may && <button type="button" className="cw-btn is-primary" onClick={() => setCreating(true)}><Plus size={14} weight="bold" /> Create a form</button>}
         </div>
       ) : (
         <div className="fm-index">
@@ -189,6 +193,37 @@ export function CampaignForms({ ctx }: { ctx: Ctx }) {
         </div>
       </Dialog>
     </div>
+  );
+}
+
+/** The forms list while it loads: its own header row and row grid (mark, name over a line, four figures, the arrow's slot). */
+function FormsGhost(): JSX.Element {
+  return (
+    <ShimmerRegion label="Loading forms" className="fm-index">
+      <div className="fm-table" aria-hidden="true">
+        <div className="fm-list-h t-caption">
+          <span>Form</span><span className="fm-c-q">Questions</span><span className="fm-c-m">Must-haves</span><span className="fm-c-r">Responses</span><span className="fm-c-u">Updated</span><span />
+        </div>
+        <ul className="fm-list">
+          {[0, 1, 2, 3].map((i) => (
+            <li key={i} className="fm-li">
+              <div className="fm-row-n">
+                <Shimmer w={40} h={40} r={10} />
+                <span className="fm-row-t">
+                  <Shimmer h={14} lh={20} w={`${150 + ((i * 37) % 70)}px`} />
+                  <Shimmer h={11} lh={20} w={`${120 + ((i * 23) % 60)}px`} />
+                </span>
+              </div>
+              <span className="fm-row-c fm-c-q"><Shimmer h={13} lh={20} w={18} /></span>
+              <span className="fm-row-c fm-c-m"><Shimmer h={13} lh={20} w={18} /></span>
+              <span className="fm-row-c fm-c-r"><Shimmer h={13} lh={20} w={28} /></span>
+              <span className="fm-row-c fm-c-u"><Shimmer h={12} lh={20} w={52} /></span>
+              <span className="fm-li-actions"><Shimmer w={16} h={16} r={5} /></span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </ShimmerRegion>
   );
 }
 
@@ -235,7 +270,7 @@ function CopyLink({ link, className = "fm-btn32" }: { link: string; className?: 
 function FormRow({ f, onOpen }: { f: Form; onOpen: () => void }) {
   const meta = useFormMeta(f.id);
   const rs = LIVE ? meta.responses : responsesFor(f).length;
-  const rate = f.sent ? Math.round((rs / f.sent) * 100) : 0;
+  const rate = f.sent ? Math.min(100, Math.round((rs / f.sent) * 100)) : 0;
   const status = LIVE ? meta.status : f.status;
   const t = tintOf(f);
   const link = status === "live" ? (LIVE ? meta.publicLink : formLink(f)) : null;
@@ -306,14 +341,17 @@ function Studio({ ctx, form, view0, onBack, onView }: { ctx: Ctx; form: Form; vi
   const [deleting, setDeleting] = useState(false);
   const flashT = useRef(0);
   const camp = campaignById(form.campaign);
+  /* Reading a form is for anyone who can see the campaign; changing, publishing and deciding are the people on it (the server's rule). */
+  const may = useMayChangeCampaign(ctx.campaignId);
 
   const patch = useCallback((next: (f: Form) => Form) => {
+    if (!may) return;
     updateForm(form.id, next);
     setEdited(true);
     setFlash(true);
     window.clearTimeout(flashT.current);
     flashT.current = window.setTimeout(() => setFlash(false), 1200);
-  }, [form.id]);
+  }, [form.id, may]);
   useEffect(() => () => window.clearTimeout(flashT.current), []);
 
   /* The bar gets its shadow only once content scrolls under it. */
@@ -397,7 +435,7 @@ function Studio({ ctx, form, view0, onBack, onView }: { ctx: Ctx; form: Form; vi
               <span className="sr-only">Internal name (only your team sees it)</span>
               <span className="fm-name-box">
                 <span className="fm-name-mirror" aria-hidden="true">{form.name || "Name this form"}</span>
-                <input size={1} className="fm-name" value={form.name} placeholder="Name this form" title="Only your team sees this name"
+                <input size={1} className="fm-name" value={form.name} placeholder="Name this form" readOnly={!may} title="Only your team sees this name"
                   onChange={(e) => { const v = e.target.value; patch((f) => ({ ...f, name: v })); }} />
               </span>
               <PencilSimple size={14} className="fm-name-pen" aria-hidden="true" />
@@ -414,7 +452,17 @@ function Studio({ ctx, form, view0, onBack, onView }: { ctx: Ctx; form: Form; vi
             )}
           </div>
           <div className="fm-top-r">
-            {live ? (
+            {!may ? (
+              <>
+                {link && (
+                  <div className="fm-linkbar">
+                    <span className="fm-linkbar-url t-caption" title={link}>{bareLink(link)}</span>
+                    <CopyLink link={link} />
+                  </div>
+                )}
+                <span className="fm-draft t-label">{live ? "Live" : status === "closed" ? "Closed" : "Draft"}</span>
+              </>
+            ) : live ? (
               <>
                 {LIVE && meta.hasDraftChanges && (
                   <button type="button" className="cw-btn is-primary fm-publish" onClick={() => setLive(true)} disabled={busy}
@@ -472,7 +520,7 @@ function Studio({ ctx, form, view0, onBack, onView }: { ctx: Ctx; form: Form; vi
               </button>
             ))}
           </div>
-          {tab === "build" && (
+          {tab === "build" && may && (
             <div className="fm-mode" role="radiogroup" aria-label="Builder mode" onKeyDown={modeKey}>
               {(["edit", "preview"] as const).map((m) => (
                 <button key={m} id={`fm-mode-${m}`} type="button" role="radio" aria-checked={mode === m} tabIndex={mode === m ? 0 : -1}
@@ -495,7 +543,7 @@ function Studio({ ctx, form, view0, onBack, onView }: { ctx: Ctx; form: Form; vi
                 <button type="button" aria-label="Dismiss" onClick={() => setBanner(false)}><X size={14} weight="bold" /></button>
               </div>
             )}
-            {mode === "edit" ? (
+            {mode === "edit" && may ? (
               <Canvas form={form} patch={patch} onAgent={() => ctx.onAgent(`Create a screening form for ${camp?.name ?? "this campaign"}`, { send: true })} />
             ) : (
               <div className="fm-preview">
@@ -508,7 +556,7 @@ function Studio({ ctx, form, view0, onBack, onView }: { ctx: Ctx; form: Form; vi
         {tab === "responses" && (
           <FormResponses form={form} must={must} onMust={setMust} onBuild={() => { setTab("build"); setMode("edit"); }} onShare={() => setTab("share")} />
         )}
-        {tab === "share" && <Share form={form} link={LIVE ? meta.publicLink : formLink(form)} draft={!live} onLive={() => setLive(true)} onPreview={() => setPreviewOpen(true)} patch={patch} />}
+        {tab === "share" && <Share form={form} link={LIVE ? meta.publicLink : formLink(form)} draft={!live} may={may} onLive={() => setLive(true)} onPreview={() => setPreviewOpen(true)} patch={patch} />}
       </div>
       <FormPreviewDialog form={withVisibleTitle(form)} open={previewOpen} onClose={() => setPreviewOpen(false)} link={LIVE ? meta.publicLink : undefined} />
       <ConfirmDialog
@@ -1399,7 +1447,7 @@ function QuestionEditor({ q, n, onChange, onDup, onDel, onMustDrop }: {
 
       {isMust && (
         <p className="fm-must-call t-body-sm">
-          Anyone who answers something other than <strong>{accepted!.join(" or ")}</strong> is flagged for you to look at. No one is turned down automatically.
+          Anyone who answers something other than <strong>{accepted!.join(" or ")}</strong> is flagged for you to look at. No one is rejected automatically.
         </p>
       )}
 
@@ -1546,8 +1594,8 @@ const todayIso = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 
-function Share({ form, link, draft, onLive, onPreview, patch }: {
-  form: Form; link: string | null; draft: boolean; onLive: () => void; onPreview: () => void; patch: (fn: (f: Form) => Form) => void;
+function Share({ form, link, draft, may = true, onLive, onPreview, patch }: {
+  form: Form; link: string | null; draft: boolean; may?: boolean; onLive: () => void; onPreview: () => void; patch: (fn: (f: Form) => Form) => void;
 }) {
   const people = usePipeline(form.campaign).filter((p) => p.stage === "outreach");
   const [sent, setSent] = useState(false);
@@ -1573,7 +1621,7 @@ function Share({ form, link, draft, onLive, onPreview, patch }: {
           </div>
         ) : (
           <div className="fm-linkrow">
-            <button type="button" className="cw-btn is-primary fm-btn36" onClick={onLive}>Publish</button>
+            {may && <button type="button" className="cw-btn is-primary fm-btn36" onClick={onLive}>Publish</button>}
             <button type="button" className="cw-btn fm-btn36" onClick={onPreview}><Eye size={14} /> Open preview</button>
           </div>
         )}
@@ -1649,7 +1697,7 @@ function Share({ form, link, draft, onLive, onPreview, patch }: {
         <section className="cw-card">
           <header className="cw-card-h"><h2>{LIVE ? "When answers come in" : "When it goes out"}</h2></header>
           {!LIVE && <p className="fm-note"><CalendarBlank size={15} className="fm-note-ico" /> Attached to the first outreach message for everyone newly contacted in this campaign. Change this in the outreach sequence.</p>}
-          {mustHaves(form).length > 0 && <p className="fm-note">Responses that missed a must-have are marked "Missed a must-have" for you to look at. Nobody is turned down automatically.</p>}
+          {mustHaves(form).length > 0 && <p className="fm-note">Responses that missed a must-have are marked "Missed a must-have" for you to look at. Nobody is rejected automatically.</p>}
         </section>
       )}
     </div>

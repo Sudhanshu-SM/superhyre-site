@@ -36,8 +36,14 @@ export const getSet = (key: string): CandidateSet | null => sets.get(key) ?? nul
 
 /** The set that holds this person. */
 export function setOfCandidate(id: string): CandidateSet | null {
-  for (const set of sets.values()) if (set.candidates.some((x) => x.id === id)) return set;
-  return null;
+  /* The campaign's own set first: a card in the chat lists the same person in a set of its own, which knows less. */
+  let first: CandidateSet | null = null;
+  for (const set of sets.values()) {
+    if (!set.candidates.some((x) => x.id === id)) continue;
+    if (set.campaignId !== null && set.key === set.campaignId) return set;
+    first ??= set;
+  }
+  return first;
 }
 
 /** Replaces one person in whichever set holds them (their full profile arrived). */

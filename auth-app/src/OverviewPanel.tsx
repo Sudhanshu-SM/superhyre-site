@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { BoardStage, Call, FormResponse, PipelinePerson } from "./campaign";
 import type { ApiCampaignAgents } from "./api/campaigns";
-import { FOLLOWING_LINE } from "./campaignRights";
+import { useFollowingLine } from "./campaignRights";
 import { Avatar } from "./CandidateBits";
 import { EmptyArt } from "./EmptyArt";
 import { celebratesFirstHire } from "./emptyStates";
@@ -473,6 +473,7 @@ export function AgentsPanel({ agents, onAction, canChange = true }: {
   /** False for someone who follows the campaign without being on it: the search and the role spec are not theirs. */
   canChange?: boolean;
 }) {
+  const FOLLOWING_LINE = useFollowingLine();
   /* A closed campaign has nothing running: the header already says so, and offers to reopen it. */
   if (!agents || agents.status === "closed") return null;
   const v = agentsView(agents);

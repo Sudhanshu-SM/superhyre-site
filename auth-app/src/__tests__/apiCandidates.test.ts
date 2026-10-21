@@ -82,6 +82,11 @@ describe("listPath", () => {
     expect(listPath({ campaignId: "k1", location: "Pune", hasEmail: true, skills: ["Go", "Rust"], sort: "name", cursor: "abc", limit: 50 }))
       .toBe("/v1/candidates?campaignId=k1&location=Pune&hasEmail=true&skills=Go%2CRust&sort=name&cursor=abc&limit=50");
   });
+
+  it("asks for a numbered page by the row it starts at, and leaves the first page's offset out", () => {
+    expect(listPath({ sort: "recent", limit: 11, offset: 22 })).toBe("/v1/candidates?sort=recent&limit=11&offset=22");
+    expect(listPath({ sort: "recent", limit: 11, offset: 0 })).toBe("/v1/candidates?sort=recent&limit=11");
+  });
 });
 
 describe("fieldsFromDraft", () => {

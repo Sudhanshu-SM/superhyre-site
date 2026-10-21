@@ -7,6 +7,7 @@ import react from "@vitejs/plugin-react";
 import { asyncCss } from "./src/build/asyncCss";
 import { vendorChunk } from "./src/build/chunks";
 import { preloadReturning } from "./src/build/preload";
+import { requireLiveApi } from "./src/build/requireLive";
 import { postcssDark } from "./src/theme/postcssDark";
 import { postcssLining } from "./src/theme/postcssLining";
 
@@ -94,7 +95,7 @@ function serveSiteAssets(): Plugin {
 // spelled (with or without the trailing slash).
 export default defineConfig({
   base: "/access/",
-  plugins: [react(), serveSiteAssets(), asyncCss(), preloadReturning()],
+  plugins: [react(), serveSiteAssets(), asyncCss(), preloadReturning(), requireLiveApi()],
 
   /* The console's dark theme is written out of its light stylesheets as they are built: see
      src/theme/postcssDark.ts. The tokens it leans on are src/theme/theme.css. */

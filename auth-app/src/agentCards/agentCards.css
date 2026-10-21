@@ -27,8 +27,29 @@
 .pt-text { min-width: 0; overflow-wrap: anywhere; }
 .pt-label { color: inherit; }
 .pt-note { margin-left: 8px; color: var(--ink-3); }
+/* A line with a known size: a thin track whose filled part follows the count, with a soft sweep so it never sits still. */
+.pt-bar { position: relative; display: block; grid-column: 2 / -1; height: 3px; margin: 2px 0 4px; overflow: hidden; border-radius: 2px; background: var(--hairline); }
+.pt-bar-fill { position: absolute; inset: 0 auto 0 0; border-radius: 2px; background: var(--ink-3); transition: width 600ms var(--ease-out); }
+.pt-bar::after {
+  content: ""; position: absolute; inset: 0; width: 40%;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ink-2) 55%, transparent), transparent);
+  animation: pt-sweep 1.6s ease-in-out infinite;
+}
+@keyframes pt-sweep { from { transform: translateX(-100%); } to { transform: translateX(260%); } }
+@media (prefers-reduced-motion: reduce) { .pt-bar::after { animation: none; display: none; } .pt-bar-fill { transition: none; } }
 .pt-line.is-failed { color: var(--ink-2); }
 .pt .lt-stop { margin-left: 0; align-self: start; }
+/* A working run shows its newest three lines (PhaseTimeline's Roll sets the height). The older ones slide up and
+   out under a fade at the top while it moves; "Thought for …" opens onto every line, unclipped. */
+.pt-roll { display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; }
+.pt-roll > .pt { flex: none; }
+.pt-roll.is-sliding {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 16px);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 16px);
+}
+.pt-roll .pt-line { animation: pt-line-in 280ms var(--ease-out) both; }
+@keyframes pt-line-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .pt-roll .pt-line { animation: none; } }
 /* The outcome of a search, kept in view when its lines fold away. */
 .pt-verdict {
   display: flex; align-items: center; gap: 8px; margin: 0;
@@ -72,7 +93,15 @@
 .oc-sum { margin: 0; font: var(--type-body); letter-spacing: var(--track-body); color: var(--ink); }
 .oc.is-declined .oc-sum { color: var(--ink-3); font: var(--type-body-sm); letter-spacing: var(--track-body-sm); }
 .oc-counts { margin: 0; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); }
+/* Something went, and something did not: the sentence says which, in colour. */
+.oc.is-failed .oc-sum { color: #a2552f; }
+:root[data-theme="dark"] .oc.is-failed .oc-sum { color: #e0a183; }
 .oc-next { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 0; padding: 0; list-style: none; }
+/* Who an email did not reach and why: the name, then the reason on its own line, no marker. */
+.oc-fails { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; max-width: 62ch; }
+.oc-fails li { display: grid; gap: 1px; overflow-wrap: anywhere; }
+/* Where an email goes: quiet text beside who it is to. */
+.lt-quote-addr { font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-3); text-transform: none; }
 
 /* ── an approval ── */
 .ap-sec { display: grid; gap: 2px; max-width: 62ch; }
@@ -84,20 +113,25 @@
 /* An email as it will be sent: the words keep their line breaks. */
 .lt-mail-body { white-space: pre-wrap; overflow-wrap: anywhere; }
 
-/* ── a connection the agent needs ── */
-.cc { display: grid; gap: 10px; }
-.cc-head { display: flex; align-items: center; gap: 10px; }
-.cc-title { margin: 0; font: var(--type-body-strong); letter-spacing: var(--track-body-strong); color: var(--ink); }
-.cc-why { margin: 0; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); max-width: 62ch; }
-.lt-actions .rep-commit, .cc-acts .rep-commit { cursor: pointer; }
-.lt-actions .rep-commit:disabled, .cc-acts .rep-commit:disabled { cursor: default; opacity: 0.7; }
-.cc-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
-.cc-wait { display: inline-flex; align-items: center; gap: 8px; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); }
-.cc.is-done .cc-title { color: var(--ink); }
+/* ── a connection the agent needs ──
+   (`kc`, not `cc`: contacts.css has its own `.cc` and `.cc-head`, which a card in the chat must not inherit.) */
+.kc { display: grid; gap: 10px; }
+.kc-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; }
+.kc-title { margin: 0; font: var(--type-body-strong); letter-spacing: var(--track-body-strong); color: var(--ink); }
+.kc-why { margin: 0; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); max-width: 62ch; }
+.lt-actions .rep-commit, .kc-acts .rep-commit { cursor: pointer; }
+.lt-actions .rep-commit:disabled, .kc-acts .rep-commit:disabled { cursor: default; opacity: 0.7; }
+.kc-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.kc-wait { display: inline-flex; align-items: center; gap: 8px; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); }
+/* What did not go: said plainly, in colour, with the way forward beside it. No dot and no pill. */
+.kc-problem { margin: 0; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: #a2552f; max-width: 62ch; }
+:root[data-theme="dark"] .kc-problem { color: #e0a183; }
+.kc-done-line { display: inline-flex; align-items: center; gap: 8px; margin: 0; font: var(--type-body-strong); letter-spacing: var(--track-body-strong); color: var(--ink); }
+.kc.is-compact .kc-done-line { font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); }
 /* The token field a connect card carries where there is no sign-in to open. */
-.cc-token { display: grid; gap: 8px; max-width: 460px; }
-.cc-field { display: grid; gap: 4px; }
-.cc-field-l { font: var(--type-caption); letter-spacing: 0.02em; color: var(--ink-3); }
+.kc-token { display: grid; gap: 8px; max-width: 460px; }
+.kc-field { display: grid; gap: 4px; }
+.kc-field-l { font: var(--type-caption); letter-spacing: 0.02em; color: var(--ink-3); }
 
 /* ── #/agent-preview ── */
 .ap-preview { max-width: 720px; margin: 0 auto; padding: 32px 20px 80px; color: var(--ink); font-family: var(--ui); }
@@ -116,3 +150,15 @@
 .lt-spec { min-height: 0; padding: 24px 48px 24px 24px; overflow-y: auto; }
 .lt-review { margin: 0; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); }
 @media (max-width: 640px) { .lt-spec { padding: 16px; } }
+
+/* Inside a search's section the feed sits right under the goal card: no reserved slot, no gap between its lines. */
+.lt-search .pt-feed { min-height: 0; margin: 0 0 0 4px; }
+
+/* Several emails (or things) on one card: the recipients once, one line each; a sample; the rest to open one at a time. */
+.lt-batch { display: grid; gap: 8px; max-width: 62ch; justify-items: start; }
+.lt-rcpt, .lt-prev { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.lt-rcpt li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; overflow-wrap: anywhere; }
+.lt-prev { gap: 6px; }
+/* A row's toggle may be a whole subject line: it wraps and reads from the left. */
+.lt-prev .cta.is-sm { height: auto; min-height: 28px; padding-block: 5px; white-space: normal; text-align: left; line-height: 1.3; }
+.lt-batch .lt-quote { margin: 0; }

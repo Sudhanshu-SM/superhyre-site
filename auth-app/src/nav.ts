@@ -1,6 +1,6 @@
 import {
   Buildings, UsersThree, ChartLineUp, ClipboardText, Gear, House,
-  Folders, FunnelSimple, Lifebuoy, PaperPlaneTilt, Robot, SquaresFour, Star,
+  Folders, FunnelSimple, Lifebuoy, PaperPlaneTilt, Robot, SquaresFour, Star, UsersFour,
 } from "@phosphor-icons/react";
 import type { Icon } from "@phosphor-icons/react";
 import type { Standing } from "./can";
@@ -43,6 +43,7 @@ export type RouteId =
   | "campaign-calls"
   | "campaign-shortlisted"
   | "settings"
+  | "teams"
   | "support";
 
 export type Route = {
@@ -163,6 +164,13 @@ export const ROUTES: Record<RouteId, Route> = {
     backing: "organizations, org_members",
     blurb: "Your account, the people in it and their roles.",
   },
+  /* The teams, who is on them and the campaigns they work, and everyone in the organisation (Members used to be a
+     Settings page). Owners and admins only: a recruiter has no such page, and a link to it says so calmly. */
+  teams: {
+    id: "teams", path: "/teams", title: "Teams",
+    backing: "teams, team_members",
+    blurb: "The teams, who leads and is on each, and the campaigns they work.",
+  },
   support: {
     id: "support", path: "/support", title: "Support",
     backing: "",
@@ -236,6 +244,7 @@ export function navFor(standing: Standing | null | undefined): NavSection[] {
 
 /** Whether this person has a page at this route (only everyone's calls is kept from some people). */
 export function routeAllowed(id: RouteId, standing: Standing | null | undefined): boolean {
+  if (id === "teams") return hasTeams(standing);
   return id !== "calls" || !standing || !WITHOUT_ALL_CALLS.includes(standing);
 }
 
@@ -246,7 +255,8 @@ export function routeAllowed(id: RouteId, standing: Standing | null | undefined)
  */
 export function hashForStanding(hash: string, standing: Standing | null | undefined, campaignId: string | null): string | null {
   const id = routeFromHash(hash);
-  if (routeAllowed(id, standing)) return null;
+  /* Teams is not sent anywhere: a recruiter who follows a link to it is told, calmly, that it isn't theirs. */
+  if (id === "teams" || routeAllowed(id, standing)) return null;
   const named = campaignFromHash(hash) ?? campaignId;
   return named ? `#/campaign/outreach?campaign=${encodeURIComponent(named)}` : "#/";
 }
@@ -269,9 +279,24 @@ export const CAMPAIGN_NAV: NavLeaf[] = [
  *  outside the scrollable body — Settings first, because it is the one people
  *  reach for; Support last, because it is where you go when the rest failed. */
 export const FOOT_NAV: NavLeaf[] = [
+  /* Teams sits with Settings and Support: it is about the workspace's people, not the hiring in it. */
+  { kind: "leaf", id: "teams", label: "Teams", Icon: UsersFour },
   { kind: "leaf", id: "settings", label: "Settings", Icon: Gear },
   { kind: "leaf", id: "support", label: "Support", Icon: Lifebuoy },
 ];
+
+/**
+ * Who has a Teams page: the organisation's owner and admins (`can(standing, "teams.manage")` in can.ts; a test holds
+ * the two together). With no standing known (a test, the first paint) nothing is taken away; the page and the
+ * server decide.
+ */
+const WITH_TEAMS: readonly Standing[] = ["owner", "admin"];
+const hasTeams = (standing: Standing | null | undefined): boolean => !standing || WITH_TEAMS.includes(standing);
+
+/** The rows pinned below the nav for this person: Teams only for an owner or admin. */
+export function footNavFor(standing: Standing | null | undefined): NavLeaf[] {
+  return FOOT_NAV.filter((item) => item.id !== "teams" || hasTeams(standing));
+}
 
 /**
  * What the sidebar's campaign row says when none is chosen. "No campaigns yet" is an answer only
@@ -330,6 +355,10 @@ export function redirectedHash(hash: string): string | null {
   const query = m?.[2];
   // What was scheduled is Coming up on Home, wherever the old link hung it (top level, Settings, a campaign).
   if (path && /^(?:\/settings|\/campaign)?\/schedul(?:es|ed)$/.test(path)) return query ? `${COMING_UP_HREF}&${query}` : COMING_UP_HREF;
+  // Candidates is the name in the sidebar, the page is /contacts: a typed or old /candidates link lands on it.
+  if (path === "/candidates") return query ? `#/contacts?${query}` : "#/contacts";
+  // Members moved out of Settings to the Teams page (its Everyone tab), with the invitations and requests that were on it.
+  if (path === "/settings/members") return "#/teams";
   // Settings' Memory held Coming up; a link to that section goes to Home, any other Memory link to Settings' landing page.
   if (path === "/settings/memory") return query && /(?:^|&)section=coming-up\b/.test(query) ? `#/?${query}` : "#/settings";
   // The do-not-contact list is not a Settings page: the agent manages it ("don't contact Asha"), as does a candidate's menu.
@@ -346,6 +375,8 @@ export function redirectedHash(hash: string): string | null {
   // Calls became Outreach (emails, WhatsApp chats and calls in one place): old bookmarks, notifications and chat cards
   // for the page and for a campaign's own Calls open it, with whatever they carried.
   if (path === "/calls") return query ? `#/outreach?${query}` : "#/outreach";
+  // There is no dialer page: calls are placed with the Chrome extension and kept under Outreach, so an old link to one lands there.
+  if (path === "/dialer" || path?.startsWith("/dialer/")) return "#/outreach";
   if (path === "/campaign/calls") return query ? `#/campaign/outreach?${query}` : "#/campaign/outreach";
   return null;
 }
@@ -384,7 +415,7 @@ export function isKnownHash(hash: string): boolean {
   return path === "/" || path === "/home" || routeFromHash(hash) !== "home" || /^\/invite\//.test(path);
 }
 
-export const SETTINGS_SECTIONS = ["profile", "organisation", "members", "connections"] as const;
+export const SETTINGS_SECTIONS = ["profile", "organisation", "connections"] as const;
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
 
 /** The section a "#/settings/<section>" hash names, if any. */
@@ -421,6 +452,12 @@ export function campaignLink(
 }
 
 /** The campaign a link selects, if it names one. */
+/** A link that opens the board with its Stages editor already open ("...&stages=1"). */
+export const asksForStagesEditor = (hash: string): boolean => /[?&]stages=1(?:&|$)/.test(hash);
+
+/** The same address without that ask, so the editor opens once and not again on a reload or a back button. */
+export const withoutStagesAsk = (hash: string): string => hash.replace(/([?&])stages=1(?:&|$)/, "$1").replace(/[?&]$/, "");
+
 export function campaignFromHash(hash: string): string | null {
   const m = /[?&]campaign=([^&]+)/.exec(hash);
   return m ? decodeURIComponent(m[1]!) : null;
@@ -442,4 +479,14 @@ export function hashAfterWorkspaceChange(hash: string): string | null {
     return `#${path || "/"}${rest.length ? `?${rest.join("&")}` : ""}`;
   }
   return null;
+}
+
+/** The `show=` a link carries (a task that opens the Agent on a card), and the same link without it. */
+export function showFromHash(hash: string): string | null {
+  const m = /[?&]show=([a-z-]+)/.exec(hash);
+  return m ? m[1]! : null;
+}
+
+export function withoutShow(hash: string): string {
+  return hash.replace(/([?&])show=[a-z-]+&?/, "$1").replace(/[?&]$/, "");
 }

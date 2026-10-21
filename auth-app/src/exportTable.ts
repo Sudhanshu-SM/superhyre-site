@@ -1,3 +1,4 @@
+import { TIER_LABEL } from "./chatCards";
 import type { ExportColumn, ExportKind, ExportRow } from "./api/exports";
 import { EXPORT_COLUMNS } from "./api/exports";
 import type { Answer, Form, FormResponse, PipelinePerson } from "./campaign";
@@ -51,7 +52,7 @@ export const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").r
 export const exportName = (form: Pick<Form, "name">, ext: "csv" | "xlsx", now = new Date()) => `${slug(form.name)}-responses-${ymd(now)}.${ext}`;
 
 type Person = Pick<PipelinePerson, "id" | "stage"> & { step?: PipelinePerson["step"]; email?: { value: string } | null };
-const STAGE_LABEL: Readonly<Record<string, string>> = { shortlisted: "Shortlisted", outreach: "In outreach", interviewing: "Interviewing", hired: "Hired", passed: "Passed" };
+const STAGE_LABEL: Readonly<Record<string, string>> = { shortlisted: "Shortlisted", outreach: "In outreach", interviewing: "Interviewing", hired: "Hired", passed: "Rejected" };
 /** Where someone is within a stage, in the words the board uses. */
 const STEP_LABEL: Readonly<Record<string, string>> = { waiting: "Waiting for a reply", replied: "Replied", loop: "In interviews", offer: "Offer out" };
 /** The words a spreadsheet shows for the API's stage and step: "In outreach", not "outreach". */
@@ -105,9 +106,10 @@ export function responseTable(form: Form, rows: readonly FormResponse[], people:
 const WIDE: Partial<Record<ExportColumn, number>> = { name: 22, currentRole: 24, company: 20, location: 20, linkedin: 34, email: 28, notes: 40 };
 
 /** The API's rows as a sheet. An email or phone this workspace doesn't hold stays empty. */
-export function shortlistTable(rows: readonly ExportRow[], columns: readonly ExportColumn[]): Table & { wrap: boolean[] } {
+export function shortlistTable(rows: readonly ExportRow[], columns: readonly ExportColumn[], kind: ExportKind = "shortlist"): Table & { wrap: boolean[] } {
   const cols = EXPORT_COLUMNS.filter(([k]) => columns.includes(k));
   return {
+    name: kind === "pipeline" ? "Pipeline" : "Shortlist",
     headers: cols.map(([, h]) => h),
     widths: cols.map(([k, h]) => WIDE[k] ?? Math.max(12, h.length + 2)),
     wrap: cols.map(([k]) => k === "notes"),
@@ -116,6 +118,8 @@ export function shortlistTable(rows: readonly ExportRow[], columns: readonly Exp
       if ((k === "addedOn" || k === "lastUpdate") && typeof v === "string") return ymd(new Date(v));
       if (k === "stage" && typeof v === "string") return statusName(v, typeof r.step === "string" ? r.step : null);
       if (k === "step" && typeof v === "string") return stepName(v);
+      /* The tier in the product's words, never the letter (an older server sends the letter). */
+      if (k === "tier" && typeof v === "string") return v === "A" || v === "B" || v === "C" ? TIER_LABEL[v] : v;
       return v ?? "";
     })),
   };

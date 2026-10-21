@@ -1,0 +1,11 @@
+/* ── emails written to look over ──
+   Sits in the lookup sheet (.lk). Each email is set off the way an approval sets one off (.lt-quote); between emails a
+   hairline, and nothing else. What is not a draft any more says so in plain muted text. */
+.dr-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 0; }
+.dr-mail { display: grid; gap: 4px; padding: 12px 0; border-top: 1px solid var(--hairline); }
+.dr-mail:first-child { padding-top: 0; border-top: 0; }
+.dr-acts { margin: 0; display: flex; align-items: center; min-height: 28px; }
+.dr-said { font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-3); }
+.dr-form { display: grid; gap: 10px; justify-items: start; }
+.dr-form .ch-field { width: min(100%, 62ch); }
+.dr-area { height: auto; min-height: 140px; padding: 10px 12px; resize: vertical; line-height: 1.5; }

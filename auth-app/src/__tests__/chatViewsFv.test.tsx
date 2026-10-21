@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { decidedLine } from "../api/forms";
 import { LiveTurnBody } from "../LiveTurn";
-import { askOptions, newTurn } from "../liveChat";
+import { newTurn } from "../liveChat";
 import { adviceFor, stuckAside, waitedLabel } from "../liveReports";
 import { reusableDraft } from "../formsStore";
 import { act } from "../moments";
@@ -95,8 +95,8 @@ describe("a form's applicants (D10, D11, D20)", () => {
     );
     expect(decidedLine("add", 1)).toBe("Added to the shortlist");
     expect(decidedLine("add", 3)).toBe("3 added to the shortlist");
-    expect(decidedLine("pass", 1)).toBe("Passed");
-    expect(decidedLine("pass", 2)).toBe("Passed on 2");
+    expect(decidedLine("pass", 1)).toBe("Rejected");
+    expect(decidedLine("pass", 2)).toBe("Rejected 2");
   });
 
   it("writes a campaign's earlier chat draft over only when it is still a draft, unanswered and untouched", () => {
@@ -127,26 +127,28 @@ describe("words that sent people elsewhere (D13, D14, D18)", () => {
     expect(outcomeOf(a)).not.toMatch(/Watch started/);
   });
 
-  it("puts the choices of a question where they can be pressed, and says what each sends", () => {
+  it("puts the choices of a question on one card, with the heading once and a Continue", () => {
     const q = {
-      kind: "client",
+      kind: "client", runId: "r1", seq: 4,
       text: "Which client is this for?",
       choices: [
         { id: "c1", name: "Acme Fintech", text: "The client is Acme Fintech" },
-        { id: "new", name: "A new client", text: "The client isn't in Clients yet" },
-        { id: "none", name: "No client", text: "No client for this one" },
+        { id: "new", name: "A new client", text: "The client is {value}, who isn't in Clients yet", input: { label: "Client name" } },
+        { id: "none", name: "No client", text: "No client for this one", quiet: true },
       ],
     };
-    expect(askOptions(q)).toEqual([
-      { label: "Acme Fintech", text: "The client is Acme Fintech" },
-      { label: "A new client", text: "The client isn't in Clients yet" },
-      { label: "No client", text: "No client for this one" },
-    ]);
     const html = renderToStaticMarkup(
-      <LiveTurnBody turn={{ ...newTurn("t", "notes"), status: "done", reply: "Which client is this for?", questions: [q] }} onAnswer={() => {}} onChoose={() => {}} />,
+      <LiveTurnBody turn={{ ...newTurn("t", "notes"), status: "done", reply: "Which client is this for?", questions: [q] }} onAnswer={() => {}} />,
     );
-    for (const label of ["Acme Fintech", "A new client", "No client"]) expect(html).toContain(`>${label}</button>`);
-    expect(html).not.toContain("disabled");
+    // The agent's line that said the same is not shown beside the card's heading.
+    expect(html.match(/Which client is this for\?/g)).toHaveLength(1);
+    for (const label of ["Acme Fintech", "A new client"]) expect(html).toContain(label);
+    expect(html).toContain(">Continue</button>");
+    // "No client" is a way out beside Continue, not a third option.
+    expect(html).toMatch(/class="ch-skip"[^>]*>No client</);
+    // The name is asked for only once "A new client" is picked.
+    expect(html).not.toContain("Client name");
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Continue/);
   });
 
   it("offers a spec that did not come through a retry that needs nothing pasted", async () => {

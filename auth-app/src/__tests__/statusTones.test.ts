@@ -45,7 +45,7 @@ const SURFACES = {
 
 describe("the status vocabulary", () => {
   const WORDS = [
-    "Not contacted", "Shortlisted", "In outreach", "Contacted", "Replied", "Interviewing", "Offer out", "Hired", "Passed",
+    "Not contacted", "Shortlisted", "In outreach", "Contacted", "Replied", "Interviewing", "Offer out", "Hired", "Rejected",
     "Not interested", "Do not contact", "Found", "Saved",
   ];
 
@@ -63,7 +63,7 @@ describe("the status vocabulary", () => {
     expect(toneOfLabel("Replied")).toBe("replied");
     expect(toneOfLabel("Interviewing")).toBe("interviewing");
     expect(toneOfLabel("Hired")).toBe("hired");
-    for (const w of ["Passed", "Not interested", "Do not contact"]) expect(toneOfLabel(w)).toBe("passed");
+    for (const w of ["Rejected", "Not interested", "Do not contact"]) expect(toneOfLabel(w)).toBe("passed");
     // A word this build does not know is plain ink; a status with no word at all too.
     expect(toneOfLabel("Something new")).toBe("ink");
     expect(toneOfLabel(null)).toBe("ink");
@@ -104,8 +104,9 @@ describe("contrast", () => {
 
   it("is used where a status is shown", () => {
     const ws = read("CampaignWorkspace.tsx");
-    expect(ws).toContain('{...statusProps(statusOf(p))} className="sl-status st"');
-    expect(ws).toContain("<span {...statusProps(s.label)}>{s.label}</span>");
+    expect(ws).toContain('{...tone} className={`sl-status ${tone.className}`}');
+    // A column's name takes the colour of its stage: the campaign's own, or the tone of its kind (boardStages.stageText).
+    expect(ws).toContain("<span {...stageText(s, columns.indexOf(s))}>{s.name}</span>");
     expect(read("ProfileSidebar.tsx")).toContain('{...statusProps("Not contacted")}');
     expect(read("Contacts.tsx")).toContain("{...statusProps(stageLabel(at))}");
   });

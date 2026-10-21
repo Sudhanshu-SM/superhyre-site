@@ -165,6 +165,9 @@ label.qa-ask { display: block; cursor: text; }
 }
 textarea.qa-input { display: block; padding: 10px 14px; resize: none; overflow: hidden; }
 textarea.qa-input.is-area { height: auto; min-height: 68px; }
+/* A pasted job description is long: it scrolls inside the box instead of growing the card. */
+textarea.qa-input.is-doc { overflow: auto; min-height: 132px; max-height: 280px; resize: vertical; }
+.qa-err { color: #a2552f; }
 .qa-input::placeholder { color: var(--ink-3); }
 .qa-input:hover:not(:disabled) { border-color: #cbc2b9; }
 .qa-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(234, 90, 30, 0.15); }
@@ -238,3 +241,16 @@ textarea.qa-input.is-area { height: auto; min-height: 68px; }
 .qa-step .qa-quote { flex: 0 1 auto; max-width: 100%; font: var(--type-body-sm); }
 .qa-step .qa-change { justify-self: end; margin-left: 0; font: var(--type-label); }
 @media (prefers-reduced-motion: reduce) { .qa-step { animation: none; } }
+
+/* ── short answers, as chips ──
+   Tiles that are only a name ("One", "Two", "Three", "Five", "Other") sit in one row that wraps evenly, every chip the
+   same height, nothing cut. Tiles that say more about themselves stay rows. */
+.qa-opts .qa-opt { min-height: 48px; }
+.qa-opts.is-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.qa-opts.is-chips > li { display: grid; }
+.qa-opts.is-chips .qa-opt { width: auto; min-height: 44px; padding: 8px 16px 8px 10px; white-space: nowrap; }
+.qa-opts.is-chips .qa-tick { display: none; }
+
+/* "Other" opens its field right under the tiles, with the card's Continue below it. */
+.qa-other { display: grid; gap: 6px; max-width: 360px; }
+.qa-other .qa-input { height: 44px; }

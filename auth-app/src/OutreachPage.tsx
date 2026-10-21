@@ -1,31 +1,48 @@
-import { ArrowRight, CaretRight, MagnifyingGlass, PaperPlaneTilt, X } from "@phosphor-icons/react";
+import { ArrowRight, CaretRight, MagnifyingGlass, PaperPlaneTilt, PhoneCall, X } from "@phosphor-icons/react";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import type { ActivityFilters, ActivityRow, Channel } from "./api/outreachActivity";
 import { listActivity } from "./api/outreachActivity";
-import { LIVE } from "./api/client";
+import { logCall, removeLoggedCall } from "./api/calls";
+import { LIVE, messageOf } from "./api/client";
+import { addSuppression } from "./api/suppressions";
 import { Lit } from "./CallLine";
 import type { Ctx } from "./CampaignWorkspace";
 import { CampaignHeader } from "./CampaignWorkspace";
 import { can, type Standing, standingOf } from "./can";
 import {
-  arrowsStepRows, BAND_LABEL, campaignInitials, groupKey, GROUP_ROWS, initialsOf, openGroups, RANGE_LABEL, rangeOf, stepIndex,
+  arrowsStepRows, BAND_LABEL, campaignInitials, groupKey, GROUP_ROWS, initialsOf, openGroups, RANGE_LABEL, rangeOf, ROW_PAGE, stepIndex,
 } from "./callsView";
 import type { RangePreset } from "./callsView";
 import { ChannelMark, channelName } from "./ChannelMark";
-import { Loader } from "./components/Loader";
+import { FilterChips } from "./components/FilterChips";
+import type { FilterChip } from "./components/FilterChips";
+import { Pager } from "./components/Pager";
+import { useScrollMemory, useSectionSave } from "./sectionMemory";
+import { clampedOffset, hasDeepLink, loadSection, settledOffset, take } from "./sectionState";
+import { PAGE_FALLBACK, PAGE_MAX, PAGE_MIN, PAGER_FOOT, usePageSize } from "./usePageSize";
+import { useStuckBar } from "./useStuckBar";
+import { KlGroupsGhost, KlRowsGhost, PagerSlot } from "./klGhosts";
 import { EmptyArt } from "./EmptyArt";
 import { GhostChart } from "./GhostChart";
 import { OutreachSheet } from "./OutreachSheet";
 import {
-  bandOfActivity, byLine, CHANNEL_TABS, countWord, lastWord, lengthOf, lineOf, personChoices, personOf, readRemembered, STATUS_FILTERS, STATUS_LABEL,
-  STATUS_TONE, statusFilterOf, summaryLine, tabCount, WHATSAPP_WAITING, whenOf, writeRemembered,
+  bandOfActivity, byLine, CHANNEL_TABS, countWord, lastWord, lengthOf, lineOf, personChoices, personOf, readRemembered, statusFilterName, statusFiltersFor,
+  STATUS_TONE, statusFilterOf, statusForTab, statusWords, summaryLine, tabOf, tabCount, WHATSAPP_WAITING, whenOf, writeRemembered,
 } from "./outreachActivityView";
 import type { ChannelTab } from "./outreachActivityView";
 import { fixtureActivity } from "./outreachFixtures";
+import { useCampaignRow } from "./campaignStore";
 import { useSession } from "./roleStore";
 import { toneProps } from "./statusTones";
+import { invalidateViews } from "./invalidate";
+import { LogCallDialog } from "./LogCallDialog";
+import { bodyOf, fitsFilters, loggedLine, newKey, NO_CALLS_LINE, NO_CALLS_TITLE, pendingRow } from "./logCallView";
+import type { LogCallForm, PersonPick } from "./logCallView";
+import { useToast } from "./toast";
 import { Dialog, LoadFailed } from "./ui";
-import { useOutreachActivity, visibleActivity } from "./useOutreachActivity";
+import { SwitchPane, useHeldView, useSlide } from "./switchMotion";
+import { activityKey, activitySettled, useOutreachActivity, visibleActivity } from "./useOutreachActivity";
 import "./calls.css";
 import "./outreachActivity.css";
 
@@ -70,6 +87,7 @@ export function OutreachLine({ r, on, showBy, hit, onOpen }: {
   onOpen: (r: ActivityRow) => void;
 }) {
   const line = lineOf(r);
+  const words = statusWords(r);
   const by = showBy ? byLine(r) : r.direction === "in" ? byLine(r) : "";
   const length = lengthOf(r);
   const name = personOf(r);
@@ -93,7 +111,10 @@ export function OutreachLine({ r, on, showBy, hit, onOpen }: {
         </span>
         {line && <span className="kl-sum kl-ell"><Lit text={line} q={hit} /></span>}
       </span>
-      <span {...toneProps(STATUS_TONE[r.status])} className="kl-how kl-ell st">{STATUS_LABEL[r.status]}</span>
+      <span {...toneProps(STATUS_TONE[r.status])} className="kl-how kl-ell st">
+        {words.label}
+        {words.sub && <span className={`kl-how-sub${words.action ? " is-act" : ""}`}>{words.sub}</span>}
+      </span>
       <span className="kl-tail">
         <span className="kl-len">{length}</span>
         <span className="kl-when">{whenOf(r.at)}</span>
@@ -119,12 +140,19 @@ export type ToolbarProps = {
   people: Array<{ value: string; label: string }>;
   /** An owner or admin can pick a person; nobody else is offered one. */
   showPerson: boolean;
+  /** The channel being looked at: the status filter offers its words, and is "Outcome" for calls. */
+  tab?: ChannelTab;
+  /** What the channel lets you do (on Calls: Log a call), before the pager. */
+  action?: ReactNode;
+  /** The pager, at the right end of the bar (the bar is what stays in view while the list scrolls). */
+  pager?: ReactNode;
 };
 
-/** Search, status, dates and (for an owner or admin) person. */
+/** Search, status, dates and (for an owner or admin) person; and the pager, when the list has more than a page. */
 export function OutreachToolbar(p: ToolbarProps) {
+  const bar = useStuckBar<HTMLDivElement>();
   return (
-    <div className="kl-bar" role="search">
+    <div ref={bar} className="kl-bar" role="search">
       <label className="kl-search">
         <MagnifyingGlass size={15} aria-hidden="true" />
         <input
@@ -139,10 +167,10 @@ export function OutreachToolbar(p: ToolbarProps) {
         )}
       </label>
       <label className="kl-pick">
-        <span className="sr-only">Status</span>
-        <select value={p.status} onChange={(e) => p.onStatus(e.target.value)} aria-label="Status">
-          <option value="">All statuses</option>
-          {STATUS_FILTERS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        <span className="sr-only">{statusFilterName(p.tab ?? "")}</span>
+        <select value={p.status} onChange={(e) => p.onStatus(e.target.value)} aria-label={statusFilterName(p.tab ?? "")}>
+          <option value="">{p.tab === "call" ? "All outcomes" : "All statuses"}</option>
+          {statusFiltersFor(p.tab ?? "").map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       </label>
       <label className="kl-pick">
@@ -166,6 +194,8 @@ export function OutreachToolbar(p: ToolbarProps) {
           </select>
         </label>
       )}
+      {p.action}
+      {p.pager}
     </div>
   );
 }
@@ -184,10 +214,15 @@ export function ChannelSwitch({ value, onChange, counts }: {
     if (!next) return;
     e.preventDefault();
     onChange(next.value);
-    window.requestAnimationFrame(() => e.currentTarget.querySelector<HTMLElement>('[aria-checked="true"]')?.focus());
+    // `currentTarget` is gone once the handler has returned, so the group is taken now.
+    const group = e.currentTarget;
+    window.requestAnimationFrame(() => group.querySelector<HTMLElement>('[aria-checked="true"]')?.focus());
   };
+  // The fill of the active tab is a mark that slides to the next one (switchMotion.tsx).
+  const slide = useSlide<HTMLDivElement>('[aria-checked="true"]');
   return (
-    <div className="ko-switch" role="radiogroup" aria-label="Channel" onKeyDown={step}>
+    <div className="ko-switch sw-host" role="radiogroup" aria-label="Channel" onKeyDown={step} {...slide.host}>
+      {slide.mark}
       {CHANNEL_TABS.map((t) => (
         <button
           key={t.value || "all"}
@@ -209,7 +244,6 @@ export function ChannelSwitch({ value, onChange, counts }: {
 
 /* ═════════════════════════ all of a campaign's lines ═════════════════════════ */
 
-const PAGE = 25;
 export type ModalGroup = { id: string; name: string; client: string | null; count: number };
 
 function OutreachModal({ group, filters, tab, showBy, focusId, initialQ, onView, onOpen, onClose }: {
@@ -234,8 +268,8 @@ function ModalBody({ group, filters, tab, showBy, focusId, initialQ, onView, onO
   const [q, setQ] = useState(initialQ);
   const [dq, setDq] = useState(initialQ.trim());
   const [status, setStatus] = useState(filters.status ?? "");
-  const [state, setState] = useState<{ items: ActivityRow[]; next: string | null; phase: "loading" | "ready" | "failed"; more: boolean }>({
-    items: [], next: null, phase: "loading", more: false,
+  const [state, setState] = useState<{ items: ActivityRow[]; total: number | null; phase: "loading" | "ready" | "failed" }>({
+    items: [], total: null, phase: "loading",
   });
   const asked = useRef(0);
   const list = useRef<HTMLUListElement>(null);
@@ -253,18 +287,28 @@ function ModalBody({ group, filters, tab, showBy, focusId, initialQ, onView, onO
     return () => window.clearTimeout(id);
   }, [focusId]);
 
-  const f: ActivityFilters = { ...filters, campaignId: group.id, q: dq || undefined, status: statusFilterOf(status) || undefined };
+  const f: ActivityFilters = { ...filters, campaignId: group.id, q: dq || undefined, status: statusFilterOf(status, tab) || undefined };
   const key = JSON.stringify(f);
+  /* The page belongs to the filters it was chosen in: another word or status is page 1 again. */
+  const [paged, setPaged] = useState<{ key: string; offset: number }>({ key, offset: 0 });
+  const at = paged.key === key ? paged.offset : 0;
   useEffect(() => {
     const mine = ++asked.current;
-    setState((s) => ({ ...s, phase: "loading" }));
-    const read = LIVE ? listActivity(f, { limit: PAGE }) : Promise.resolve(fixtureActivity(f));
+    setState((s) => ({ ...s, phase: s.items.length ? s.phase : "loading" }));
+    const page = { limit: ROW_PAGE, offset: at };
+    const read = LIVE ? listActivity(f, page) : Promise.resolve(fixtureActivity(f, page));
     read.then(
-      (page) => { if (mine === asked.current) setState({ items: page.rows, next: page.nextCursor, phase: "ready", more: false }); },
+      (got) => { if (mine === asked.current) setState({ items: got.rows, total: got.total, phase: "ready" }); },
       () => { if (mine === asked.current) setState((s) => ({ ...s, phase: s.items.length ? "ready" : "failed" })); },
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [key, at]);
+  /* A list that has got shorter than the page asked for goes back to its last page. */
+  useEffect(() => {
+    if (state.total === null) return;
+    const held = clampedOffset(at, state.total, ROW_PAGE);
+    if (held !== at) setPaged({ key, offset: held });
+  }, [state.total, at, key]);
 
   useEffect(() => {
     if (!focusId || focused.current || state.phase !== "ready") return;
@@ -274,23 +318,6 @@ function ModalBody({ group, filters, tab, showBy, focusId, initialQ, onView, onO
     el.focus({ preventScroll: true });
     el.scrollIntoView({ block: "nearest" });
   }, [focusId, state.phase, state.items]);
-
-  const more = useCallback(() => {
-    if (!state.next || state.more) return;
-    const mine = asked.current;
-    setState((s) => ({ ...s, more: true }));
-    listActivity(f, { limit: PAGE, cursor: state.next }).then(
-      (page) => {
-        if (mine !== asked.current) return;
-        setState((s) => {
-          const seen = new Set(s.items.map((r) => r.id));
-          return { items: [...s.items, ...page.rows.filter((r) => !seen.has(r.id))], next: page.nextCursor, phase: "ready", more: false };
-        });
-      },
-      () => { if (mine === asked.current) setState((s) => ({ ...s, more: false })); },
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.next, state.more, key]);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
@@ -320,7 +347,7 @@ function ModalBody({ group, filters, tab, showBy, focusId, initialQ, onView, onO
           <p className="klm-meta">
             {group.client && <span className="kl-ell">{group.client}</span>}
             <span className="klm-count">
-              {state.phase === "ready" && narrowed ? `${state.items.length}${state.next ? "+" : ""} of ${countWord(group.count, tab)}` : countWord(group.count, tab)}
+              {state.phase === "ready" && narrowed && state.total !== null ? `${state.total.toLocaleString("en-IN")} of ${countWord(group.count, tab)}` : countWord(group.count, tab)}
             </span>
           </p>
         </div>
@@ -332,15 +359,18 @@ function ModalBody({ group, filters, tab, showBy, focusId, initialQ, onView, onO
           {q && <button type="button" className="kl-search-x" onClick={() => { setQ(""); search.current?.focus(); }} aria-label="Clear search"><X size={11} weight="bold" /></button>}
         </label>
         <label className="kl-pick">
-          <span className="sr-only">Status</span>
-          <select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Status">
-            <option value="">All statuses</option>
-            {STATUS_FILTERS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          <span className="sr-only">{statusFilterName(tab)}</span>
+          <select value={status} onChange={(e) => setStatus(e.target.value)} aria-label={statusFilterName(tab)}>
+            <option value="">{tab === "call" ? "All outcomes" : "All statuses"}</option>
+            {statusFiltersFor(tab).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </label>
+        {state.total !== null && state.total > ROW_PAGE && (
+          <Pager offset={at} limit={ROW_PAGE} total={state.total} unit="items" target=".klm-rows" onChange={(o) => setPaged({ key, offset: o })} />
+        )}
       </div>
       <div className="klm-body">
-        {state.phase === "loading" && state.items.length === 0 && <div className="kl-wait is-small" aria-busy="true"><Loader size="md" label="Loading" block /></div>}
+        {state.phase === "loading" && state.items.length === 0 && <KlRowsGhost variant="modal" kind="outreach" n={5} label="Loading outreach" />}
         {state.phase === "failed" && <p className="t-body kl-quiet kl-pad">These couldn't be loaded. Close this and try again in a moment.</p>}
         {state.phase === "ready" && state.items.length === 0 && <p className="t-body kl-quiet kl-pad">{narrowed ? "Nothing matches." : "Nothing here yet."}</p>}
         {state.items.length > 0 && (
@@ -350,10 +380,8 @@ function ModalBody({ group, filters, tab, showBy, focusId, initialQ, onView, onO
             ))}
           </ul>
         )}
-        {state.next && (
-          <button type="button" className="kl-more klm-more" disabled={state.more} onClick={more}>
-            {state.more ? <><Loader size="sm" tone="inherit" /> Loading</> : "Load more"}
-          </button>
+        {state.total !== null && state.total > ROW_PAGE && (
+          <Pager offset={at} limit={ROW_PAGE} total={state.total} unit="items" target=".klm-rows" variant="foot" onChange={(o) => setPaged({ key, offset: o })} />
         )}
       </div>
     </div>
@@ -364,8 +392,32 @@ function ModalBody({ group, filters, tab, showBy, focusId, initialQ, onView, onO
 
 type Summary = ReturnType<typeof useOutreachActivity>["channels"];
 
-function OutreachList({ campaignId, standing, onSummary, onAgent }: {
+/* Where the person left this list in this tab. A channel, status, date range or page this list cannot have falls back
+   to the top; a person nobody is among is dropped once the people are in. */
+type Remembered = { tab: ChannelTab; q: string; status: string; preset: RangePreset; custom: { from: string; to: string }; person: string; offset: number; size: number };
+const NOTHING: Remembered = { tab: "", q: "", status: "", preset: "any", custom: { from: "", to: "" }, person: "", offset: 0, size: PAGE_FALLBACK };
+const DAY = /^\d{4}-\d\d-\d\d$/;
+export function readListRemembered(r: Record<string, unknown>): Remembered {
+  const custom = take.rec(r.custom);
+  const day = (v: unknown) => (typeof v === "string" && DAY.test(v) ? v : "");
+  const tab = tabOf(r.tab);
+  return {
+    tab,
+    q: take.str(r.q, "", 100),
+    // A status this channel does not have is not one to keep.
+    status: statusFilterOf(take.str(r.status, "", 40), tab),
+    preset: take.oneOf(r.preset, Object.keys(RANGE_LABEL) as RangePreset[], "any"),
+    custom: { from: day(custom.from), to: day(custom.to) },
+    person: take.str(r.person, "", 80),
+    offset: take.int(r.offset, 0, 0, 100_000),
+    size: take.int(r.size, PAGE_FALLBACK, PAGE_MIN, PAGE_MAX),
+  };
+}
+
+function OutreachList({ campaignId, campaignName, standing, onSummary, onAgent }: {
   campaignId?: string | undefined;
+  /** A campaign's own page: what to call it where a call is logged on it. */
+  campaignName?: string | undefined;
   standing: Standing;
   /** The page's one line of figures. */
   onSummary?: ((c: Summary | null) => void) | undefined;
@@ -373,12 +425,15 @@ function OutreachList({ campaignId, standing, onSummary, onAgent }: {
 }) {
   const session = useSession();
   const userId = session.userId;
-  const [tab, setTab] = useState<ChannelTab>("");
-  const [q, setQ] = useState("");
-  const [status, setStatus] = useState("");
-  const [preset, setPreset] = useState<RangePreset>("any");
-  const [custom, setCustom] = useState<{ from: string; to: string }>({ from: "", to: "" });
-  const [person, setPerson] = useState("");
+  const section = campaignId ? `outreach:${campaignId}` : "outreach";
+  const [deep] = useState(() => hasDeepLink());
+  const [start] = useState<Remembered>(() => (deep ? NOTHING : loadSection(section, readListRemembered, NOTHING)));
+  const [tab, setTab] = useState<ChannelTab>(start.tab);
+  const [q, setQ] = useState(start.q);
+  const [status, setStatus] = useState(start.status);
+  const [preset, setPreset] = useState<RangePreset>(start.preset);
+  const [custom, setCustom] = useState<{ from: string; to: string }>(start.custom);
+  const [person, setPerson] = useState(start.person);
   const dq = useDebounced(q.trim(), 250);
 
   const range = preset === "custom" ? { from: custom.from || undefined, to: custom.to || undefined } : rangeOf(preset);
@@ -386,7 +441,7 @@ function OutreachList({ campaignId, standing, onSummary, onAgent }: {
     () => ({
       channel: tab || undefined,
       q: dq || undefined,
-      status: statusFilterOf(status) || undefined,
+      status: statusFilterOf(status, tab) || undefined,
       from: range.from,
       to: range.to,
       person: person || undefined,
@@ -403,7 +458,26 @@ function OutreachList({ campaignId, standing, onSummary, onAgent }: {
 
   const flat = campaignId !== undefined;
   const [openSet, setOpenSet] = useState<ReadonlySet<string>>(new Set());
-  const data = useOutreachActivity({ campaignId, filters, open: openSet });
+  /* The page belongs to the filters it was chosen in: another channel, word, status, date or person is page 1 again. A
+     campaign's own page pages its lines; the top-level list pages its campaigns. */
+  const viewKey = JSON.stringify(filters);
+  const [paged, setPaged] = useState<{ key: string; offset: number }>({ key: viewKey, offset: start.offset });
+  const wanted = paged.key === viewKey ? paged.offset : 0;
+  /* As many lines (or campaigns) as fit under the list's top; a remembered offset lands on the page that holds its first row. */
+  const size = usePageSize(flat ? 59 : 80, { fallback: start.size, rowSelector: flat ? ".kl-row" : undefined, gap: 1, reserve: 40 + PAGER_FOOT });
+  const data = useOutreachActivity({ campaignId, filters, open: openSet, offset: flat ? wanted : 0, pageSize: size });
+  const liveGroups = useMemo(() => data.groups.filter((g) => g.count > 0), [data.groups]);
+  const ownTotal = flat && data.phase === "ready" ? data.groups[0]?.count ?? 0 : null;
+  const listTotal = flat ? ownTotal : data.phase === "ready" ? liveGroups.length : null;
+  /* A remembered page is held inside the list only once the list's total is known: before that it is left exactly as it was. */
+  const { offset, fix } = settledOffset(wanted, listTotal, size);
+  useEffect(() => {
+    if (fix !== null) setPaged((cur) => (cur.key === viewKey && cur.offset === fix ? cur : { key: viewKey, offset: fix }));
+  }, [fix, viewKey]);
+  const pageKeys = useMemo(
+    () => new Set((flat ? data.groups : liveGroups.slice(offset, offset + size)).map(groupKey)),
+    [flat, data.groups, liveGroups, offset],
+  );
   const opened = useMemo(() => openGroups(data.groups, remembered), [data.groups, remembered]);
   /* While searching, every group that has something to show is open, so the matches are in view; closing one is for
      this search only and is not remembered. */
@@ -415,9 +489,10 @@ function OutreachList({ campaignId, standing, onSummary, onAgent }: {
     [searching, data.groups, searchShut, opened],
   );
   useEffect(() => {
-    const next = new Set(Object.entries(shown).filter(([, v]) => v).map(([k]) => k));
+    // Only the campaigns on this page have their lines read.
+    const next = new Set(Object.entries(shown).filter(([k, v]) => v && (flat || pageKeys.has(k))).map(([k]) => k));
     setOpenSet((cur) => (cur.size === next.size && [...next].every((k) => cur.has(k)) ? cur : next));
-  }, [shown]);
+  }, [shown, pageKeys, flat]);
   useEffect(() => { setSeen(data.groups.map(groupKey)); }, [data.groups]);
 
   const toggle = (key: string) => {
@@ -430,13 +505,29 @@ function OutreachList({ campaignId, standing, onSummary, onAgent }: {
     writeRemembered(storage(), userId, next);
   };
 
+  /* A switch of channel (or of any filter) keeps the list that is on screen until the next one is whole, so nothing
+     goes empty and no loader shows in between. `v` is what is drawn: the held list, or the live one when nothing is
+     being waited for. `data` stays the live read, and is what the open groups and the actions go by. */
+  const hit = flat ? "" : dq;
+  const asked = activityKey(filters, campaignId);
+  const needed = flat ? [campaignId as string] : data.groups.map(groupKey).filter((k) => shown[k] && pageKeys.has(k));
+  /* A page is held like a switch: the page on screen stays until the next one's lines are in. */
+  const held = useHeldView(
+    { data, tab, narrowed, hit, open: shown, offset, size },
+    { key: `${asked}|${offset}|${size}`, scope: campaignId ?? "", ready: activitySettled(data, asked, needed, flat ? offset : undefined), holdable: (s) => s.data.phase === "ready" },
+  );
+  const v = held.value;
+  const heldGroups = useMemo(() => v.data.groups.filter((g) => g.count > 0), [v.data.groups]);
+  const pageGroups = flat ? v.data.groups : heldGroups.slice(v.offset, v.offset + v.size);
+  const shownSet = useMemo(() => new Set(Object.entries(v.open).filter(([, on]) => on).map(([k]) => k)), [v.open]);
+
   // The line that is open, and the keyboard.
   const [openRow, setOpenRow] = useState<ActivityRow | null>(null);
   const [all, setAll] = useState<ModalGroup | null>(null);
   /* A line opened from the "view all" dialog: where the dialog was, so closing the sheet brings it back there. */
   const [back, setBack] = useState<{ group: ModalGroup; q: string; id: string } | null>(null);
   const view = useRef<{ q: string }>({ q: "" });
-  const rows = useMemo(() => visibleActivity(data, openSet, flat, flat ? undefined : GROUP_ROWS), [data, openSet, flat]);
+  const rows = useMemo(() => visibleActivity(v.data, shownSet, flat, flat ? undefined : GROUP_ROWS), [v.data, shownSet, flat]);
 
   const list = useRef<HTMLDivElement>(null);
   const focusRow = useCallback((id: string) => {
@@ -469,28 +560,88 @@ function OutreachList({ campaignId, standing, onSummary, onAgent }: {
     return () => window.removeEventListener("keydown", onKey);
   }, [rows, openRow, focusRow]);
 
-  const everyone = data.canSeeEveryone || standing === "owner" || standing === "admin";
-  const personOptions = personChoices(data.people, userId);
+  /* Log a call: the form comes from the dialog; the call is on the list at once and the server is told after. A refusal takes
+     it off again and says why; a "no" offers do-not-contact beside the Undo, and never does it. */
+  const toast = useToast();
+  const [logging, setLogging] = useState<{ person: PersonPick | null; n: number } | null>(null);
+  const fixed = campaignId ? { id: campaignId, name: campaignName || data.groups[0]?.campaign?.name || "this campaign" } : null;
+  const startLog = useCallback((person: PersonPick | null = null) => setLogging((cur) => ({ person, n: (cur?.n ?? 0) + 1 })), []);
+  const saveLog = (f: LogCallForm) => {
+    const key = newKey();
+    const row = pendingRow(f, key, { id: userId ?? null, name: session.name || null }, fixed);
+    setLogging(null);
+    if (fitsFilters(row, filters)) data.addRow(row, fixed ? { name: fixed.name, client: null } : null);
+    const said = loggedLine(f);
+    const person = f.person;
+    if (!LIVE) { toast(said); return; }
+    logCall(bodyOf(f, key)).then(
+      (done) => {
+        invalidateViews(["calls"]);
+        const undo = () => void removeLoggedCall(key).then(
+          () => { invalidateViews(["calls"]); data.refresh(); toast("Taken back."); },
+          (err: unknown) => toast(messageOf(err), "error"),
+        );
+        if (done.offerDoNotContact && person) {
+          toast(said, "done", {
+            label: "Do not contact",
+            onClick: () => void addSuppression({ candidateId: person.id, reason: "do_not_contact" }).then(
+              () => toast(`${person.name.split(/\s+/)[0] ?? "They"} won't be contacted.`),
+              (err: unknown) => toast(messageOf(err), "error"),
+            ),
+          });
+        } else {
+          toast(said, "done", { label: "Undo", onClick: undo });
+        }
+      },
+      (err: unknown) => {
+        data.dropRow(key);
+        toast(messageOf(err), "error");
+      },
+    );
+  };
+  const logButton = (
+    <button type="button" className="kl-btn lc-open" onClick={() => startLog()}>
+      <PhoneCall size={15} aria-hidden="true" /> Log a call
+    </button>
+  );
+
+  const everyone = v.data.canSeeEveryone || standing === "owner" || standing === "admin";
+  const personOptions = personChoices(v.data.people, userId);
+  /* A remembered person who has nothing here (or is not in this workspace) is not a filter to keep. */
+  useEffect(() => {
+    // Only on an answer to the filters as they are now: the people of the list before is not the people of this one.
+    if (data.phase === "ready" && data.key === asked && person && data.canSeeEveryone && !data.people.some((p) => p.id === person)) setPerson("");
+  }, [data.phase, data.key, asked, data.canSeeEveryone, data.people, person]);
+  useSectionSave(section, { tab, q, status, preset, custom, person, offset, size }, data.phase === "ready");
+  useScrollMemory(section, data.phase === "ready", !deep);
   const clear = () => { setQ(""); setStatus(""); setPreset("any"); setCustom({ from: "", to: "" }); setPerson(""); };
+  /* A channel has its own words for a status: the one chosen is kept if the new channel has it and dropped with the switch
+     if not, so no state is ever left that nothing would correct. */
+  const pickTab = (t: ChannelTab) => { setTab(t); setStatus((s) => statusForTab(s, t)); };
+  /* What is narrowing the list, in the list's own words, so a filter that came back from the last visit is never invisible. */
+  const chips: FilterChip[] = [];
+  if (dq) chips.push({ key: "q", label: `“${dq}”`, onClear: () => setQ("") });
+  if (status && statusFilterOf(status, tab)) chips.push({ key: "status", label: statusFiltersFor(tab).find((o) => o.value === status)?.label ?? status, onClear: () => setStatus("") });
+  if (preset !== "any") chips.push({ key: "date", label: preset === "custom" ? [custom.from, custom.to].filter(Boolean).join(" to ") || RANGE_LABEL.custom : RANGE_LABEL[preset], onClear: () => { setPreset("any"); setCustom({ from: "", to: "" }); } });
+  if (person) chips.push({ key: "person", label: personOptions.find((o) => o.value === person)?.label ?? "A teammate", onClear: () => setPerson("") });
 
   useEffect(() => {
     if (!onSummary) return;
-    onSummary(data.phase === "ready" ? data.channels : null);
-  }, [onSummary, data.phase, data.channels]);
+    onSummary(v.data.phase === "ready" ? v.data.channels : null);
+  }, [onSummary, v.data.phase, v.data.channels]);
 
-  const bands = new Set(data.groups.filter((g) => g.count > 0).map((g) => bandOfActivity(g.lastAt)));
+  const bands = new Set(pageGroups.filter((g) => g.count > 0).map((g) => bandOfActivity(g.lastAt)));
   const showBands = !flat && bands.size > 1;
-  const hit = flat ? "" : dq;
-  const nothingAtAll = data.phase === "ready" && data.channels.all === 0 && !narrowed;
-  const whatsappEmpty = tab === "whatsapp" && data.phase === "ready" && data.total === 0 && !narrowed;
+  const nothingAtAll = v.data.phase === "ready" && v.data.channels.all === 0 && !v.narrowed;
+  const whatsappEmpty = v.tab === "whatsapp" && v.data.phase === "ready" && v.data.total === 0 && !v.narrowed;
 
   return (
     <>
-      {(data.phase !== "ready" || !nothingAtAll || narrowed) && (
-        <ChannelSwitch value={tab} onChange={setTab} counts={data.phase === "ready" ? data.channels : null} />
+      {(v.data.phase !== "ready" || !nothingAtAll || v.narrowed) && (
+        <ChannelSwitch value={tab} onChange={pickTab} counts={v.data.phase === "ready" ? v.data.channels : null} />
       )}
 
-      {(data.phase !== "ready" || data.channels.all > 0 || narrowed) && (
+      {(v.data.phase !== "ready" || v.data.channels.all > 0 || v.narrowed) && (
         <OutreachToolbar
           q={q} onQ={setQ}
           status={status} onStatus={setStatus}
@@ -498,112 +649,119 @@ function OutreachList({ campaignId, standing, onSummary, onAgent }: {
           custom={custom} onCustom={setCustom}
           person={person} onPerson={setPerson}
           people={personOptions}
-          showPerson={everyone && data.people.length > 1}
+          showPerson={everyone && v.data.people.length > 1}
+          tab={tab}
+          action={tab === "call" ? logButton : undefined}
+          pager={listTotal !== null && listTotal > size
+            ? <Pager offset={offset} limit={size} total={listTotal} unit={flat ? "items" : "campaigns"} busy={held.holding} onChange={(o) => setPaged({ key: viewKey, offset: o })} />
+            : data.phase === "loading" ? <PagerSlot /> : null}
         />
       )}
+      <FilterChips chips={chips} onClearAll={clear} />
 
-      <div ref={list} className={`kl-list${openRow ? " has-open" : ""}`}>
-        {data.phase === "loading" && (
-          <div className="kl-wait" aria-busy="true"><Loader size="lg" label="Loading outreach" block /></div>
-        )}
-        {data.phase === "failed" && <LoadFailed what="Your outreach" onRetry={data.refresh} />}
-        {whatsappEmpty && (
-          <GhostChart kind="table" title="WhatsApp" line={data.whatsappConnected ? "No WhatsApp chats yet." : WHATSAPP_WAITING} />
-        )}
-        {data.phase === "ready" && data.total === 0 && !whatsappEmpty && (
-          <div className="kl-empty">
-            {narrowed ? <EmptyArt name="empty-search" size={160} /> : <EmptyArt name="empty-sent" size={200} />}
-            <p className="t-body-strong">{narrowed ? "Nothing matches." : "No outreach yet."}</p>
-            <p className="t-body-sm kl-quiet">
-              {narrowed
-                ? "Try another word, status or date."
-                : "Emails you send, WhatsApp chats and calls you place from SuperHyre show up here."}
-            </p>
-            {narrowed && <button type="button" className="kl-btn" onClick={clear}>Clear filters</button>}
-          </div>
-        )}
-        {data.phase === "ready" && data.total > 0 && (
-          <ul className={`kl-groups${flat ? " is-flat" : ""}`}>
-            {data.groups.map((g, gi) => {
-              const key = groupKey(g);
-              if (g.count === 0) return null;
-              const isOpen = flat || (shown[key] ?? false);
-              const rowsOf = data.rows[key];
-              const band = bandOfActivity(g.lastAt);
-              const prev = data.groups.slice(0, gi).reverse().find((x) => x.count > 0);
-              const newBand = showBands && (!prev || bandOfActivity(prev.lastAt) !== band);
-              return (
-                <Fragment key={key}>
-                {/* What is on no campaign comes last whatever its date, so it takes the divider without a word. */}
-                {newBand && <li className="kl-band" role="presentation">{g.campaign && <span>{BAND_LABEL[band]}</span>}</li>}
-                <li className={`kl-group${isOpen ? " is-open" : ""}`}>
-                  {!flat && (
-                    <h2 className="kl-ghead">
-                      <button type="button" className="kl-gbtn" aria-expanded={isOpen} aria-controls={`ko-g-${key}`} onClick={() => toggle(key)}>
-                        <span className="kl-gchip" aria-hidden="true">
-                          {g.campaign ? campaignInitials(g.campaign.name) : <PaperPlaneTilt size={16} weight="bold" />}
-                        </span>
-                        <span className="kl-gtitle">
-                          <span className="kl-gname kl-ell"><Lit text={g.campaign?.name ?? "Not on a campaign"} q={hit} /></span>
-                          {g.campaign?.client && <span className="kl-gclient kl-ell"><Lit text={g.campaign.client} q={hit} /></span>}
-                        </span>
-                        <span className="ko-gstats">
-                          <span className="ko-gcount">{countWord(g.count, tab)}</span>
-                          <span className="ko-glast"><span className="kl-glast-w">{lastWord(g.lastAt).word} </span>{whenOf(g.lastAt)}</span>
-                        </span>
-                        <CaretRight size={14} weight="bold" className="kl-caret" aria-hidden="true" />
-                      </button>
-                    </h2>
-                  )}
-                  {isOpen && (
-                    <div id={`ko-g-${key}`} className="kl-gbody">
-                      {!rowsOf || (rowsOf.phase === "loading" && rowsOf.items.length === 0) ? (
-                        <div className="kl-wait is-small" aria-busy="true"><Loader size="md" label="Loading" block /></div>
-                      ) : rowsOf.phase === "failed" ? (
-                        <LoadFailed what="These" compact onRetry={data.refresh} />
-                      ) : rowsOf.items.length === 0 ? (
-                        <p className="t-body kl-quiet kl-pad">{narrowed ? "Nothing matches here." : "Nothing here yet."}</p>
-                      ) : (
-                        <>
-                          <ul className="kl-rows">
-                            {(flat ? rowsOf.items : rowsOf.items.slice(0, GROUP_ROWS)).map((r) => (
-                              <li key={r.id}>
-                                <OutreachLine r={r} on={r.id === openRow?.id} showBy={everyone} hit={hit} onOpen={(row) => { setBack(null); setOpenRow(row); }} />
-                              </li>
-                            ))}
-                          </ul>
-                          {!flat && g.count > GROUP_ROWS && (
-                            <div className="kl-gfoot">
-                              <span className="kl-gfoot-note">Latest {GROUP_ROWS} shown</span>
-                              <button
-                                type="button"
-                                className="kl-all"
-                                onClick={() => setAll({ id: key, name: g.campaign?.name ?? "Not on a campaign", client: g.campaign?.client ?? null, count: g.count })}
-                                aria-haspopup="dialog"
-                              >
-                                View all {g.count}
-                                <ArrowRight size={14} weight="bold" aria-hidden="true" />
-                              </button>
-                            </div>
-                          )}
-                          {flat && rowsOf.next && (
-                            <div className="kl-gfoot is-more">
-                              <button type="button" className="kl-more" disabled={rowsOf.more === "loading"} onClick={() => data.loadMore(key)}>
-                                {rowsOf.more === "loading" ? <><Loader size="sm" tone="inherit" /> Loading</> : rowsOf.more === "failed" ? "Couldn't load more. Try again" : "Load more"}
-                              </button>
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  )}
-                </li>
-                </Fragment>
-              );
-            })}
-          </ul>
-        )}
+      <div ref={list} className={`kl-list${openRow ? " has-open" : ""}`} data-pager-list>
+        <SwitchPane k={v.tab || "all"} settle={held.shownKey} busy={held.slow}>
+          {v.data.phase === "loading" && (
+            flat ? <KlRowsGhost variant="page" kind="outreach" n={size} label="Loading outreach" /> : <KlGroupsGhost kind="outreach" n={size} label="Loading outreach" />
+          )}
+          {v.data.phase === "failed" && <LoadFailed what="Your outreach" onRetry={data.refresh} />}
+          {whatsappEmpty && (
+            <GhostChart kind="table" title="WhatsApp" line={v.data.whatsappConnected ? "No WhatsApp chats yet." : WHATSAPP_WAITING} />
+          )}
+          {v.data.phase === "ready" && v.data.total === 0 && !whatsappEmpty && (
+            <div className="kl-empty">
+              {v.narrowed ? <EmptyArt name="empty-search" size={160} /> : <EmptyArt name="empty-sent" size={200} />}
+              <p className="t-body-strong">{v.narrowed ? "Nothing matches." : v.tab === "call" ? NO_CALLS_TITLE : "No outreach yet."}</p>
+              <p className="t-body-sm kl-quiet">
+                {v.narrowed
+                  ? "Try another word, status or date."
+                  : v.tab === "call"
+                    ? NO_CALLS_LINE
+                    : "Emails you send, WhatsApp chats and calls you place from SuperHyre show up here."}
+              </p>
+              {v.narrowed && <button type="button" className="kl-btn" onClick={clear}>Clear filters</button>}
+              {!v.narrowed && (v.tab === "call" || nothingAtAll) && logButton}
+            </div>
+          )}
+          {v.data.phase === "ready" && v.data.total > 0 && (
+            <ul className={`kl-groups${flat ? " is-flat" : ""}`}>
+              {pageGroups.map((g, gi) => {
+                const key = groupKey(g);
+                if (g.count === 0) return null;
+                const isOpen = flat || (v.open[key] ?? false);
+                const rowsOf = v.data.rows[key];
+                const band = bandOfActivity(g.lastAt);
+                const prev = pageGroups.slice(0, gi).reverse().find((x) => x.count > 0);
+                const newBand = showBands && (!prev || bandOfActivity(prev.lastAt) !== band);
+                return (
+                  <Fragment key={key}>
+                  {/* What is on no campaign comes last whatever its date, so it takes the divider without a word. */}
+                  {newBand && <li className="kl-band" role="presentation">{g.campaign && <span>{BAND_LABEL[band]}</span>}</li>}
+                  <li className={`kl-group${isOpen ? " is-open" : ""}`}>
+                    {!flat && (
+                      <h2 className="kl-ghead">
+                        <button type="button" className="kl-gbtn" aria-expanded={isOpen} aria-controls={`ko-g-${key}`} onClick={() => toggle(key)}>
+                          <span className="kl-gchip" aria-hidden="true">
+                            {g.campaign ? campaignInitials(g.campaign.name) : <PaperPlaneTilt size={16} weight="bold" />}
+                          </span>
+                          <span className="kl-gtitle">
+                            <span className="kl-gname kl-ell"><Lit text={g.campaign?.name ?? "Not on a campaign"} q={v.hit} /></span>
+                            {g.campaign?.client && <span className="kl-gclient kl-ell"><Lit text={g.campaign.client} q={v.hit} /></span>}
+                          </span>
+                          <span className="ko-gstats">
+                            <span className="ko-gcount">{countWord(g.count, v.tab)}</span>
+                            <span className="ko-glast"><span className="kl-glast-w">{lastWord(g.lastAt).word} </span>{whenOf(g.lastAt)}</span>
+                          </span>
+                          <CaretRight size={14} weight="bold" className="kl-caret" aria-hidden="true" />
+                        </button>
+                      </h2>
+                    )}
+                    {isOpen && (
+                      <div id={`ko-g-${key}`} className="kl-gbody">
+                        {!rowsOf || (rowsOf.phase === "loading" && rowsOf.items.length === 0) ? (
+                          <KlRowsGhost kind="outreach" n={Math.max(1, Math.min(g.count, flat ? size : GROUP_ROWS))} label="Loading outreach" />
+                        ) : rowsOf.phase === "failed" ? (
+                          <LoadFailed what="These" compact onRetry={data.refresh} />
+                        ) : rowsOf.items.length === 0 ? (
+                          <p className="t-body kl-quiet kl-pad">{v.narrowed ? "Nothing matches here." : "Nothing here yet."}</p>
+                        ) : (
+                          <>
+                            <ul className="kl-rows">
+                              {(flat ? rowsOf.items : rowsOf.items.slice(0, GROUP_ROWS)).map((r) => (
+                                <li key={r.id}>
+                                  <OutreachLine r={r} on={r.id === openRow?.id} showBy={everyone} hit={v.hit} onOpen={(row) => { setBack(null); setOpenRow(row); }} />
+                                </li>
+                              ))}
+                            </ul>
+                            {!flat && g.count > GROUP_ROWS && (
+                              <div className="kl-gfoot">
+                                <span className="kl-gfoot-note">Latest {GROUP_ROWS} shown</span>
+                                <button
+                                  type="button"
+                                  className="kl-all"
+                                  onClick={() => setAll({ id: key, name: g.campaign?.name ?? "Not on a campaign", client: g.campaign?.client ?? null, count: g.count })}
+                                  aria-haspopup="dialog"
+                                >
+                                  View all {g.count}
+                                  <ArrowRight size={14} weight="bold" aria-hidden="true" />
+                                </button>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </li>
+                  </Fragment>
+                );
+              })}
+            </ul>
+          )}
+        </SwitchPane>
       </div>
+      {listTotal !== null && listTotal > size && (
+        <Pager offset={offset} limit={size} total={listTotal} unit={flat ? "items" : "campaigns"} busy={held.holding} variant="foot" onChange={(o) => setPaged({ key: viewKey, offset: o })} />
+      )}
 
       <OutreachModal
         group={all}
@@ -622,11 +780,14 @@ function OutreachList({ campaignId, standing, onSummary, onAgent }: {
         onClose={() => { setBack(null); setAll(null); }}
       />
 
+      <LogCallDialog seed={logging} fixed={fixed} onClose={() => setLogging(null)} onSave={saveLog} />
+
       {openRow && (
         <OutreachSheet
           row={openRow}
           onAgent={onAgent}
           onChanged={data.refresh}
+          onLogCall={(person) => startLog(person)}
           onClose={() => {
             const id = openRow.id;
             setOpenRow(null);
@@ -641,7 +802,7 @@ function OutreachList({ campaignId, standing, onSummary, onAgent }: {
 
 /* ═════════════════════════ the pages ═════════════════════════ */
 
-/** The title and one plain muted line of figures: "412 emails, 31 WhatsApp chats, 96 calls, 38% answered". */
+/** The title and one plain muted line of figures: "412 emails, 31 WhatsApp chats, 96 calls, 38% of calls answered". */
 export function OutreachHead({ counts }: { counts?: Summary | null }) {
   const line = counts ? summaryLine(counts) : "";
   return (
@@ -674,12 +835,13 @@ export function OutreachPage({ onAgent }: { onAgent?: (prompt: string) => void }
 /** One campaign's outreach, in the campaign's own chrome. */
 export function CampaignOutreach({ ctx }: { ctx: Ctx }) {
   const standing = standingOf(useSession());
+  const name = useCampaignRow(ctx.campaignId)?.name;
   const [counts, setCounts] = useState<Summary | null>(null);
   const line = counts ? summaryLine(counts) : "";
   return (
     <div className="cw kl ko kl-in-campaign">
       <CampaignHeader ctx={ctx} title="Outreach" meta={line || "Emails, WhatsApp chats and calls for this campaign."} />
-      <OutreachList campaignId={ctx.campaignId} standing={standing} onSummary={setCounts} onAgent={(p) => ctx.onAgent(p)} />
+      <OutreachList campaignId={ctx.campaignId} campaignName={name} standing={standing} onSummary={setCounts} onAgent={(p) => ctx.onAgent(p)} />
     </div>
   );
 }

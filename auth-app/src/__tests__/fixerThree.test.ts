@@ -92,9 +92,9 @@ describe("one zone, one name", () => {
 
   it("does not name the zone when the reader's is the same one under another spelling", () => {
     const iso = "2026-10-10T10:00:00Z";
-    expect(whenLabel(iso, "Asia/Kolkata", { now: NOW, viewerTz: "Asia/Calcutta" })).toBe("Today, 15:30");
-    expect(whenLabel(iso, "Asia/Calcutta", { now: NOW, viewerTz: "Asia/Kolkata" })).toBe("Today, 15:30");
-    expect(whenLabel(iso, "Asia/Kolkata", { now: NOW, viewerTz: "UTC" })).toBe("Today, 15:30 IST");
+    expect(whenLabel(iso, "Asia/Kolkata", { now: NOW, viewerTz: "Asia/Calcutta" })).toBe("Today, 3:30 pm");
+    expect(whenLabel(iso, "Asia/Calcutta", { now: NOW, viewerTz: "Asia/Kolkata" })).toBe("Today, 3:30 pm");
+    expect(whenLabel(iso, "Asia/Kolkata", { now: NOW, viewerTz: "UTC" })).toBe("Today, 3:30 pm IST");
   });
 
   it("writes a day beside its weekday one way, here and on Home", () => {
@@ -137,15 +137,15 @@ describe("how an email's run reads once its message has had its own ending", () 
 
   it("tells a Gmail that wasn't connected the same way in the run's own line", () => {
     const failed = { ...run, status: "failed" as const, message: "Connect Gmail in Settings \u2192 Connections to send." };
-    expect(runLine(failed, KOLKATA, NOW, KOLKATA, sched(), true, true)).toBe("Today, 13:30 \u00b7 Didn't go out: Gmail wasn't connected.");
-    expect(runLine(failed, KOLKATA, NOW, KOLKATA, sched(), true, false)).toBe("Today, 13:30 \u00b7 Didn't go out: Gmail wasn't connected for whoever sends it.");
+    expect(runLine(failed, KOLKATA, NOW, KOLKATA, sched(), true, true)).toBe("Today, 1:30 pm \u00b7 Didn't go out: Gmail wasn't connected.");
+    expect(runLine(failed, KOLKATA, NOW, KOLKATA, sched(), true, false)).toBe("Today, 1:30 pm \u00b7 Didn't go out: Gmail wasn't connected for whoever sends it.");
   });
 
   it("says withdrawn, not done, for the newest run of a withdrawn email", () => {
-    expect(runLine(run, KOLKATA, NOW, KOLKATA)).toBe("Today, 13:30 · Done");
-    expect(runLine(run, KOLKATA, NOW, KOLKATA, withdrawn, true)).toBe("Today, 13:30 · Withdrawn before it was sent");
-    expect(runLine(run, KOLKATA, NOW, KOLKATA, withdrawn, false)).toBe("Today, 13:30 · Done");
-    expect(runLine(run, KOLKATA, NOW, KOLKATA, sched({ status: "done", result: { delivery: "sent" } }), true)).toBe("Today, 13:30 · Sent");
+    expect(runLine(run, KOLKATA, NOW, KOLKATA)).toBe("Today, 1:30 pm · Done");
+    expect(runLine(run, KOLKATA, NOW, KOLKATA, withdrawn, true)).toBe("Today, 1:30 pm · Withdrawn before it was sent");
+    expect(runLine(run, KOLKATA, NOW, KOLKATA, withdrawn, false)).toBe("Today, 1:30 pm · Done");
+    expect(runLine(run, KOLKATA, NOW, KOLKATA, sched({ status: "done", result: { delivery: "sent" } }), true)).toBe("Today, 1:30 pm · Sent");
   });
 });
 
@@ -205,8 +205,21 @@ describe("the agent's lead-in to a card that has been answered", () => {
     const long = `${lead}\n\nAlso, three people replied overnight.`;
     expect(settledLead(long, [card(true)])).toBe(long);
     expect(settledLead("Here are the three best matches.", [card(true)])).toBe("Here are the three best matches.");
-    expect(settledLead(lead, [{ action: "shortlist", decided: { decision: "approve", outcome: {} } }])).toBe(lead);
     expect(settledLead(lead, [])).toBe(lead);
+  });
+});
+
+describe("a pointer at a card that has been answered", () => {
+  const sent = (decided: boolean) => ({ action: "admin_note", decided: decided ? { decision: "approve" as const, outcome: {} } : null });
+
+  it("goes with the waiting words, so only the result is left", () => {
+    const lead = "Here's the note. Approve it below and your admins will see it in their notifications.";
+    expect(settledLead(lead, [sent(true)])).toBe("");
+    expect(settledLead(lead, [sent(false)])).toBe(lead);
+  });
+
+  it("keeps a pointer at something else", () => {
+    expect(settledLead("Here are the three best matches.", [sent(true)])).toBe("Here are the three best matches.");
   });
 });
 
@@ -233,8 +246,8 @@ describe("quick find", () => {
     expect(ids).toContain("campaign-overview");
   });
 
-  it("reaches the Settings pages, and Members only in an organisation", () => {
-    expect(settingsPages(true).map((p) => p.id)).toEqual(["connections", "members"]);
+  it("reaches the Settings pages (Members is on the Teams page now)", () => {
+    expect(settingsPages(true).map((p) => p.id)).toEqual(["connections"]);
     expect(settingsPages(false).map((p) => p.id)).toEqual(["connections"]);
   });
 });
@@ -259,9 +272,9 @@ describe("the Campaigns row", () => {
     expect(workspaceRows(input([row({ status: "closed" })], "admin")).find((r) => r.label === "Campaigns")?.action).toMatchObject({ label: "Create a campaign" });
   });
 
-  it("offers to create one when there is none, to someone who can, and says so plainly to someone who can't", () => {
+  it("offers to create one when there is none, to an admin and to a recruiter, whose campaign is their own", () => {
     expect(workspaceRows(input([], "admin")).find((r) => r.label === "Campaigns")?.action).toMatchObject({ label: "Create a campaign" });
-    expect(workspaceRows(input([], "recruiter")).find((r) => r.label === "Campaigns")?.value).toBe("None yet");
+    expect(workspaceRows(input([], "recruiter")).find((r) => r.label === "Campaigns")?.action).toMatchObject({ label: "Create a campaign" });
   });
 });
 

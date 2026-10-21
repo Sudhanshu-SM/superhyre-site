@@ -1,5 +1,5 @@
 import { Check } from "@phosphor-icons/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { applyFeed } from "../agentFeed";
 import type { FeedLine } from "../agentFeed";
 import { applyPhaseEvent, closePhases, lineNote, verdictOf } from "../agentPhases";
@@ -12,10 +12,12 @@ import { PhaseSummary, PhaseTimeline } from "./PhaseTimeline";
  * campaign), followed by its run: the same lines and the same rising feed the chat shows, then how it went.
  * Nothing here starts anything; it only reads the run's own events.
  */
-export function RunNarration({ runId }: { runId: string }): JSX.Element | null {
+export function RunNarration({ runId, onFinish }: { runId: string; onFinish?: (state: "done" | "failed") => void }): JSX.Element | null {
   const [lines, setLines] = useState<readonly PhaseLine[]>([]);
   const [feed, setFeed] = useState<readonly FeedLine[]>([]);
   const [state, setState] = useState<"running" | "done" | "failed">("running");
+  const finish = useRef(onFinish);
+  finish.current = onFinish;
 
   useEffect(() => {
     setLines([]);
@@ -27,9 +29,11 @@ export function RunNarration({ runId }: { runId: string }): JSX.Element | null {
       if (e.type === "done") {
         setState("done");
         setLines((l) => closePhases(l, "done"));
+        finish.current?.("done");
       } else if (e.type === "error") {
         setState("failed");
         setLines((l) => closePhases(l, "failed"));
+        finish.current?.("failed");
       }
     });
   }, [runId]);

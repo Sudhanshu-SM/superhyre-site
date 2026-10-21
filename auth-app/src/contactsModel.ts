@@ -81,6 +81,16 @@ export type ContactsResult = {
   summary: string;
 };
 
+/** GET /v1/contacts/allowance: whether lookups are on for this server, and what the workspace has left to spend. */
+export type ContactsAllowance = {
+  email: boolean;
+  phone: boolean;
+  /** Phone lookups left; null where phone lookups are not set up. */
+  credits: number | null;
+  /** Unused here: the server's count of the second source's reveals, null where it is not set up. */
+  apolloCredits: number | null;
+};
+
 /** POST /v1/contacts/fetch */
 export type ContactsManyResult = {
   campaigns: Array<{ campaignId: string; name: string; counts: ContactsResult["counts"]; remaining: number }>;
@@ -97,6 +107,17 @@ export type ContactsManyResult = {
 const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString("en-IN")} ${n === 1 ? one : many}`;
 
 export const NO_PHONE_LOOKUPS = "No phone lookups left this month. Email lookups are free.";
+
+/** What Settings says under "Contact lookups": the one rule, in a calm line. */
+export const LOOKUPS_RULE = "Emails are free. A phone number uses one credit, and only when one is found.";
+
+/** Whether lookups are on, and what is left: the same sources and credits the agent's card and the shortlist use. */
+export function allowanceLine(a: ContactsAllowance): string {
+  if (!a.email && !a.phone) return "Not connected on this server";
+  if (a.credits === null) return "On for emails";
+  if (a.credits <= 0) return "On. No phone lookups left this month";
+  return `On. ${plural(a.credits, "phone lookup")} left`;
+}
 export const STILL_LOOKING = "Still looking. It will show here when it arrives.";
 const LOOKING_SLOW = "this can take a few minutes";
 

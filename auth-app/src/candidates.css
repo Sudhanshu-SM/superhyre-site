@@ -84,6 +84,8 @@
 /* Not judged yet: a short dash, unknown rather than a miss. */
 .cb-fit.is-unscored { border-color: transparent; }
 .cb-fit.is-unscored::after { content: ""; width: 8px; height: 1.5px; border-radius: 1px; background: var(--ink-3); opacity: 0.7; }
+/* Partly met: half the ring filled. */
+.cb-fit.is-partial { border-style: solid; border-color: var(--c-sage-line); background: linear-gradient(90deg, var(--c-sage-tint) 50%, transparent 50%); }
 .cb-fit.is-met { border-style: solid; border-color: var(--c-sage-line); background: var(--c-sage-tint); color: var(--c-sage-text); }
 
 .cb-fitrow {
@@ -182,7 +184,7 @@
 .rm {
   position: fixed;
   inset: 0;
-  z-index: var(--z-dialog);
+  z-index: var(--z-panel);
   display: grid;
   place-items: center;
   padding: 24px 16px;
@@ -444,10 +446,17 @@
    it lines up with the name rather than with the avatar. */
 .rm-reason {
   grid-column: 2 / -1;
+  display: grid;
+  gap: 2px;
   margin: 0 0 0 46px;
   font: 400 13px/1.45 var(--ui);
   color: var(--ink);
 }
+.rm-reason p { margin: 0; }
+/* What the server concluded, in the status colour, and how much of the role it could check. */
+.rm-state { font: var(--type-label); }
+.rm-cover { font-weight: 400; color: var(--ink-2); }
+.cb-state { font-weight: 600; }
 
 .rm-foot {
   flex: none;
@@ -483,7 +492,7 @@
 .ps {
   position: fixed;
   inset: 0;
-  z-index: calc(var(--z-dialog) + 2);
+  z-index: var(--z-sheet);
   pointer-events: none;
 }
 
@@ -884,3 +893,40 @@
 }
 
 .ps-sec.is-empty { display: none; }
+
+/* ── a match result in the profile sheet (MatchResult.tsx) ───────────────────
+   Text, rules between rows and the console's own type tokens: no cards inside the card, no marker in front of a word. */
+.mr { display: grid; gap: 14px; }
+.mr-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.mr-state { margin: 0; font: var(--type-title-sm); }
+.mr-cover, .mr-meta { margin: 0; font: var(--type-caption); color: var(--ink-2); }
+.mr-note { margin: 0; font: var(--type-body-sm); color: var(--ink); }
+.mr-block { display: grid; gap: 6px; }
+.mr-k { margin: 0; font: var(--type-label); color: var(--ink); }
+.mr-body { margin: 0; font: var(--type-body-sm); color: var(--ink); }
+.mr-list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; font: var(--type-body-sm); color: var(--ink); }
+.mr-reqs { display: grid; margin: 0; padding: 0; list-style: none; }
+.mr-req { display: grid; gap: 3px; padding: 10px 0; border-top: 1px solid var(--hairline); }
+.mr-req:first-child { border-top: 0; padding-top: 4px; }
+.mr-req-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.mr-req-t { font: var(--type-body-strong); color: var(--ink); }
+.mr-req-v { flex: none; font: var(--type-label); }
+.mr-quote { margin: 0; font: var(--type-body-sm); color: var(--ink); }
+.mr-quote q { quotes: "\201C" "\201D"; }
+.mr-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px 20px; }
+.mr-prov { padding-top: 2px; }
+.mr-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.mr-history { display: grid; gap: 10px; margin: 0; padding: 10px 0 0; list-style: none; border-top: 1px solid var(--hairline); }
+.mr-history li { display: grid; gap: 2px; }
+
+/* The LinkedIn page, as a labelled button in the sheet's header. */
+.ps-li {
+  display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px;
+  border: 1px solid var(--hairline); border-radius: var(--r-pill); background: var(--nav-surface);
+  font: 500 13px/1 var(--ui); letter-spacing: -0.006em; color: var(--ink); text-decoration: none;
+  transition: background var(--t), border-color var(--t);
+}
+.ps-li svg:first-child { color: #0a66c2; }
+.ps-li svg:last-child { color: var(--ink-3); }
+.ps-li:hover { background: var(--sub); }
+.ps-li:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }

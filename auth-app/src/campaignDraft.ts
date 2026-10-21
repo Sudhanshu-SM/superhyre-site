@@ -17,7 +17,9 @@ export const EMPLOYMENT_LABEL: Readonly<Record<Employment, string>> = { "full-ti
 export const WORK_MODE_LABEL: Readonly<Record<WorkMode, string>> = { onsite: "On-site", hybrid: "Hybrid", remote: "Remote" };
 export const CHANNEL_LABEL: Readonly<Record<Channel, string>> = { email: "Email", whatsapp: "WhatsApp", linkedin: "LinkedIn" };
 export const PRIORITY_LABEL: Readonly<Record<Priority, string>> = { low: "Low", normal: "Normal", high: "High", urgent: "Urgent" };
-export const VISIBILITY_LABEL: Readonly<Record<Visibility, string>> = { team: "Assigned team only", org: "Everyone in the organisation" };
+export const VISIBILITY_LABEL: Readonly<Record<Visibility, string>> = { team: "Its team and admins", org: "Everyone in the organisation" };
+/** The one line under that choice, in both forms: who sees it is one thing, who changes it another. */
+export const VISIBILITY_HELP = "Its team is the people on it and the team it belongs to. A shared campaign is seen by everyone here, but only its team changes it.";
 export const NOTICE_OPTIONS = ["Any", "Immediate", "Up to 30 days", "Up to 60 days", "Up to 90 days"] as const;
 export const AGENTS = ["Sourcing", "Outreach", "Screening"] as const;
 export type AgentName = (typeof AGENTS)[number];
@@ -74,6 +76,15 @@ export function blankDraft(owner: string): CampaignDraft {
 }
 
 /**
+ * A recruiter's campaign is theirs alone: they own it and nobody else is on it (an admin decides who owns a
+ * campaign and adds teammates later). Whatever the draft said about its owner or team, for instance a draft kept
+ * from a workspace where the person was an admin, is put back.
+ */
+export function ownCampaign(d: CampaignDraft, me: string): CampaignDraft {
+  return { ...d, owner: me, recruiters: [] };
+}
+
+/**
  * Picking a client fills what the client already says: its primary contact
  * as the hiring manager, its fee terms, and its city when no location has
  * been typed. Fields the admin already filled are left alone, except the
@@ -89,6 +100,69 @@ export function prefillFromClient(d: CampaignDraft, c: Client | undefined): Camp
     fee: c.fee && c.fee !== "To be agreed" ? c.fee : d.fee,
     locations: d.locations.length ? d.locations : c.location ? [c.location] : d.locations,
   };
+}
+
+/* ── cities, said many ways ── */
+
+/** Each city's display name, then the other ways people say it. Matched whole, ignoring case, dots and spacing. */
+const CITY_SPELLINGS: ReadonlyArray<readonly [string, ...string[]]> = [
+  ["Bengaluru", "bangalore", "bengalooru", "banglore", "blr", "bengaluru urban"],
+  ["Mumbai", "bombay"],
+  ["Gurugram", "gurgaon"],
+  ["Chennai", "madras"],
+  ["Kolkata", "calcutta"],
+  ["Pune", "poona"],
+  ["Delhi NCR", "delhi", "new delhi", "ncr", "delhi/ncr", "national capital region"],
+  ["Hyderabad", "hyd"],
+  ["Noida"],
+  ["Kochi", "cochin"],
+  ["Thiruvananthapuram", "trivandrum"],
+  ["Mysuru", "mysore"],
+  ["Visakhapatnam", "vizag", "vishakhapatnam"],
+  ["Vadodara", "baroda"],
+  ["Ahmedabad"], ["Jaipur"], ["Coimbatore"], ["Indore"], ["Chandigarh"], ["Lucknow"], ["Nagpur"], ["Bhubaneswar"], ["Surat"], ["Bhopal"], ["Patna"],
+];
+
+const cityKey = (s: string) => s.toLowerCase().replace(/\./g, "").replace(/[\s\-/_]+/g, " ").trim();
+const CITY_OF = new Map<string, string>();
+for (const [name, ...others] of CITY_SPELLINGS) for (const s of [name, ...others]) CITY_OF.set(cityKey(s), name);
+
+/** Every spelling of a city the console knows, lower case: what "in <place>" is checked against. */
+export const KNOWN_CITY_SPELLINGS: readonly string[] = [...CITY_OF.keys()];
+
+/** The console's name for a city said in any of its spellings ("Blr" is "Bengaluru"), or null when it is not one it knows. */
+export function knownCity(text: string): string | null {
+  return CITY_OF.get(cityKey(text)) ?? null;
+}
+
+/**
+ * A city as the console shows it: a known one under its one name, any other as it was typed (a word typed in
+ * lower case gets its capitals). "" for nothing.
+ */
+export function canonicalCity(text: string | null | undefined): string {
+  const t = (text ?? "").trim().replace(/\s+/g, " ");
+  if (!t) return "";
+  return knownCity(t) ?? (t === t.toLowerCase() ? t.replace(/\b([a-z])/g, (c) => c.toUpperCase()) : t);
+}
+
+/* ── how many hires ── */
+
+const COUNT_WORDS: Readonly<Record<string, number>> = {
+  one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+  eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, twenty: 20,
+};
+export const COUNT_WORD_PATTERN = `\\d{1,2}|${Object.keys(COUNT_WORDS).join("|")}`;
+export const MOST_OPENINGS = 99;
+/** The most of a job description the server keeps on a campaign. */
+export const JD_MAX_CHARS = 30_000;
+
+/** "3", "three" or "3 hires" as a number of hires, 1 to 99; null for anything else. */
+export function parseOpenings(text: string): number | null {
+  const m = /^\s*(\d{1,3}|[a-z]+)\s*(?:hires?|people|openings?|positions?)?\s*$/i.exec(text);
+  const w = m?.[1]?.toLowerCase();
+  if (!w) return null;
+  const n = /^\d+$/.test(w) ? Number(w) : COUNT_WORDS[w];
+  return n !== undefined && Number.isInteger(n) && n >= 1 && n <= MOST_OPENINGS ? n : null;
 }
 
 /** A number typed in a field, or null when it is empty or not a number. */

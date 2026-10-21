@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { useFocusTrap } from "./components/focusTrap";
 import { download, toCSV } from "./exportTable";
 import { GhostChart, type GhostAction, type GhostKind } from "./GhostChart";
+import { useSlide } from "./switchMotion";
 import { Dialog } from "./ui";
 import type { Table } from "./xlsx";
 
@@ -82,8 +83,11 @@ export function Segmented<T extends string | number>({ label, value, options, on
   options: ReadonlyArray<{ id: T; name: string; count?: number | null }>;
   onChange: (v: T) => void;
 }): JSX.Element {
+  // The fill of the pressed button is a mark that slides to the next one (switchMotion.tsx).
+  const slide = useSlide<HTMLDivElement>('[aria-pressed="true"]');
   return (
-    <div className="an-seg" role="group" aria-label={label}>
+    <div className="an-seg sw-host" role="group" aria-label={label} {...slide.host}>
+      {slide.mark}
       {options.map((o) => (
         <button key={String(o.id)} type="button" aria-pressed={value === o.id} onClick={() => onChange(o.id)}>
           {o.name}

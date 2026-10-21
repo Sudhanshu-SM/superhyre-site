@@ -76,12 +76,13 @@ export type LeanFinishBody = NonNullable<ReturnType<typeof import("../setup/lean
 export type LeanResult = {
   /** The organisation made by the set-up; null when everything went into Personal. */
   organisationId: string | null;
-  campaignId: string;
+  /** Null when the person carried on without a first role: nothing is made for a role that is not there. */
+  campaignId: string | null;
   clientId: string | null;
-  /** The chat to open: focused on the campaign. The first search appears in it as the run goes on. */
-  conversationId: string;
+  /** The chat to open: focused on the campaign. The first search appears in it as the run goes on. Null with no campaign. */
+  conversationId: string | null;
   /** The first turn's run: with a job description it reads it, approves the spec and starts the search, in the background. */
-  setupRunId: string;
+  setupRunId: string | null;
   /** The starting spec drafted from the title, when the job description was skipped. */
   specRunId: string | null;
 };

@@ -16,6 +16,7 @@ const UNWIRED: Readonly<Record<string, string>> = {
   "su-work-email": "owner: no art in the set-up",
   "su-site-unreadable": "owner: no art in the set-up (and no website is asked for)",
   "su-workspace-setup": "owner: no art in the set-up",
+  "form-thanks": "owner: the thank-you screen is a small check mark and two lines, never a picture",
   "empty-replies": "analytics: each Analytics page draws empty-analytics once, and a chart that is empty says it in words",
 };
 

@@ -85,6 +85,10 @@ export type EmailItem = {
   campaignName: string | null;
   canApprove: boolean;
   canCancel: boolean;
+  /** Why it didn't go out, as the server stored it; null when none was kept (older rows) or it did go. */
+  error: string | null;
+  /** A failed email that may be sent again here (by the person who approved it, from their own Gmail). */
+  canRetry: boolean;
 };
 export type WhatsAppItem = { kind: "whatsapp"; id: string; at: string; direction: "out" | "in"; text: string; by: By | null };
 export type CallItem = { kind: "call"; id: string; at: string; call: CallRow };
@@ -203,6 +207,9 @@ function itemOf(raw: unknown): TimelineItem | null {
       campaignName: str(o.campaignName),
       canApprove: o.canApprove === true,
       canCancel: o.canCancel === true,
+      error: str(o.error),
+      /* A server that does not say: a failed email can be sent again, and the send answers if it may not. */
+      canRetry: typeof o.canRetry === "boolean" ? o.canRetry : statusOf(o.status) === "failed" && direction === "out",
     };
   }
   if (o.kind === "whatsapp") {
@@ -250,17 +257,20 @@ function queryOf(f: ActivityFilters, extra: Record<string, string | number | und
   return s ? `?${s}` : "";
 }
 
+/** `offset` reads a numbered page (the server answers with the whole `total`); `cursor` reads the rows after the last one seen. */
 export async function listActivity(
   f: ActivityFilters,
-  page: { limit?: number; cursor?: string | null } = {},
-): Promise<{ rows: ActivityRow[]; nextCursor: string | null }> {
-  const res = await api<{ rows?: unknown[]; nextCursor?: string | null }>(
+  page: { limit?: number; cursor?: string | null; offset?: number } = {},
+): Promise<{ rows: ActivityRow[]; nextCursor: string | null; total: number | null }> {
+  const res = await api<{ rows?: unknown[]; nextCursor?: string | null; total?: unknown }>(
     "GET",
-    `/v1/outreach/activity${queryOf(f, { limit: page.limit ?? 25, cursor: page.cursor ?? undefined })}`,
+    `/v1/outreach/activity${queryOf(f, { limit: page.limit ?? 25, cursor: page.cursor ?? undefined, offset: page.offset || undefined })}`,
   );
+  const total = num(res.total);
   return {
     rows: (res.rows ?? []).map(activityRowOf).filter((r): r is ActivityRow => r !== null),
     nextCursor: str(res.nextCursor),
+    total: total === null ? null : Math.max(0, total),
   };
 }
 

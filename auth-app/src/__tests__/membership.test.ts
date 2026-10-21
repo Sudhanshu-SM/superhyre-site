@@ -5,7 +5,7 @@ import { identityApi } from "../api/identity";
 import { answerInvitation, answerRequest, resetHomeStore } from "../homeStore";
 import {
   askOf, groupByRole, importedLine, importOfferLine, isolationLine, joinOfferButton, joinOfferLine, joinPolicyLabel,
-  leaveFirstLine, noticeLine, ownerLeaveLine, requestSentLine, ROLE_LABEL, ROLE_LINE, settleRequest, withoutNotice, workspaceHint,
+  leaveFirstLine, noticeLine, noticeOutcome, ownerLeaveLine, requestSentLine, ROLE_LABEL, ROLE_LINE, settleRequest, withoutNotice, workspaceHint,
 } from "../membership";
 
 /**
@@ -58,8 +58,9 @@ describe("what a person may do to another", () => {
     expect(actionsOn("owner", { role: "admin" })).toEqual({ roles: ["recruiter"], remove: true, makeOwner: true });
   });
 
-  it("gives an admin removal of a recruiter and nothing else", () => {
-    expect(actionsOn("admin", { role: "recruiter" })).toEqual({ roles: [], remove: true, makeOwner: false });
+  it("gives an admin no removal from the organisation (they take people off the teams they lead), and the owner both", () => {
+    expect(actionsOn("admin", { role: "recruiter" })).toEqual({ roles: [], remove: false, makeOwner: false });
+    expect(actionsOn("owner", { role: "recruiter" })).toMatchObject({ remove: true });
     expect(actionsOn("admin", { role: "admin" })).toEqual({ roles: [], remove: false, makeOwner: false });
   });
 
@@ -177,6 +178,22 @@ describe("what a bell line says once it has been answered", () => {
     expect(noticeLine({ kind: "join_request", open: true, text })).toBe(text);
     expect(noticeLine({ kind: "join_request", open: false, text })).toBe("t2.gus@gmail.com asked to join T2 Hire.");
     expect(noticeLine({ kind: "invitation", open: false, text })).toBe(text);
+  });
+});
+
+describe("how an answered request ended", () => {
+  it("says approved or declined, and by whom, only once it has been answered", () => {
+    const base = { kind: "join_request", open: false } as const;
+    expect(noticeOutcome({ ...base, outcome: "approved", decidedByName: "Rohan Mehta" })).toEqual({ text: "Approved by Rohan", tone: "hired" });
+    expect(noticeOutcome({ ...base, outcome: "declined", decidedByName: null })).toEqual({ text: "Declined", tone: "passed" });
+    expect(noticeOutcome({ ...base, open: true, outcome: null })).toBeNull();
+    expect(noticeOutcome({ kind: "invitation", open: false, outcome: "approved" })).toBeNull();
+  });
+
+  it("settles the line with the answer at once, so the bell never reads as still waiting", () => {
+    const items = [{ id: "a", readAt: null, open: true }];
+    const [done] = settleRequest(items, "a", new Date("2026-10-11T10:00:00Z"), { outcome: "approved", by: "you" });
+    expect(done).toMatchObject({ open: false, outcome: "approved", decidedByName: "you" });
   });
 });
 

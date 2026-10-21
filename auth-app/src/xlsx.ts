@@ -5,7 +5,15 @@
  */
 
 export type Cell = string | number | null;
-export type Table = { headers: string[]; rows: Cell[][]; widths: number[]; wrap?: boolean[] };
+export type Table = {
+  /** The worksheet's tab: what the list is ("Shortlist"), not what the first export was made of. */
+  name?: string;
+  headers: string[]; rows: Cell[][]; widths: number[]; wrap?: boolean[];
+};
+
+/** A tab name Excel accepts: at most 31 characters and none of \\ / ? * [ ] : */
+export const tabName = (name: string | undefined): string =>
+  (name ?? "").replace(/[\\/?*[\]:]/g, " ").replace(/\s+/g, " ").trim().slice(0, 31).trim() || "Responses";
 
 const CRC = (() => {
   const t = new Uint32Array(256);
@@ -110,7 +118,7 @@ export function toXLSX(t: Table): Blob {
       + `</Types>`],
     ["_rels/.rels", HEAD + `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`
       + `<Relationship Id="rId1" Type="${REL}/officeDocument" Target="xl/workbook.xml"/></Relationships>`],
-    ["xl/workbook.xml", HEAD + `<workbook xmlns="${NS}" xmlns:r="${REL}"><sheets><sheet name="Responses" sheetId="1" r:id="rId1"/></sheets></workbook>`],
+    ["xl/workbook.xml", HEAD + `<workbook xmlns="${NS}" xmlns:r="${REL}"><sheets><sheet name="${esc(tabName(t.name))}" sheetId="1" r:id="rId1"/></sheets></workbook>`],
     ["xl/_rels/workbook.xml.rels", HEAD + `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`
       + `<Relationship Id="rId1" Type="${REL}/worksheet" Target="worksheets/sheet1.xml"/>`
       + `<Relationship Id="rId2" Type="${REL}/styles" Target="styles.xml"/></Relationships>`],

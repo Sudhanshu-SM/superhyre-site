@@ -90,6 +90,7 @@
 .ntp-line:hover { background: var(--nav-hover); }
 .ntp-row.is-unread .ntp-line { color: var(--ink); }
 .ntp-text { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.ntp-outcome { display: block; margin-top: 2px; }
 .ntp-when { display: inline-flex; align-items: center; gap: 8px; flex: none; padding-top: 2px; color: var(--ink-2); white-space: nowrap; }
 .ntp-dot { width: 7px; height: 7px; border-radius: 50%; background: transparent; }
 .ntp-row.is-unread .ntp-dot { background: var(--accent-fill, #cc4d17); }

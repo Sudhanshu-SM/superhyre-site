@@ -14,7 +14,7 @@ vi.mock("../api/client", () => ({
   messageOf: (e: unknown) => (e instanceof Error ? e.message : "Something went wrong."),
 }));
 
-const { ApplyForm } = await import("../ApplyForm");
+const { ApplyForm, Done } = await import("../ApplyForm");
 const { formLinks } = await import("../FormLinkChip");
 const { TINTS, tintKey } = await import("../formKit");
 
@@ -85,6 +85,40 @@ describe("the page's look, from its stylesheet", () => {
     expect(rule(".ap-band")).toMatch(/background:\s*var\(--ap-band\)/);
     expect(css).toMatch(/--ap-band:\s*#cc4d17/);
     expect(rule(".ap-band .ap-h1")).toMatch(/color:\s*#fff/);
+  });
+});
+
+describe("the thank-you screen", () => {
+  const who = { name: "Arnab Jay", email: "arnab@acme.com", phone: "", linkedin: "" };
+  const done = (over: Partial<Parameters<typeof Done>[0]> = {}) =>
+    renderToStaticMarkup(<Done refEl={{ current: null }} who={who} already={null} message={null} company="Acme" preview={false} onReset={() => {}} {...over} />);
+
+  it("is a small check mark in a circle, the heading and one line, with no picture", () => {
+    const html = done();
+    expect(html).toContain('class="ap-done-mark"');
+    expect(html).toContain("ap-done-ring");
+    expect(html).toContain("ap-done-tick");
+    expect(html).not.toContain("<img");
+    expect(html).toContain("Thanks, Arnab. Your application is in.");
+    expect(html).toContain("Acme&#x27;s hiring team will read it and get back to you at arnab@acme.com.");
+    expect((html.match(/<p[ >]/g) ?? []).length).toBe(1);
+    expect(html).not.toContain("<button");
+  });
+
+  it("says a preview was a preview, and offers to start over, only in the preview", () => {
+    expect(done({ preview: true })).toContain("This was a preview, so nothing was sent.");
+    expect(done()).not.toContain("a preview");
+  });
+
+  it("keeps the owner's own words when the form has some", () => {
+    expect(done({ message: "We reply on Fridays." })).toContain("We reply on Fridays.");
+  });
+
+  it("sits centred in a card with the form's normal edge: focus on its heading never draws the orange ring", () => {
+    const css = read("apply.css");
+    expect(css).toMatch(/\.ap-done \{[^}]*justify-items: center[^}]*text-align: center/);
+    expect(css).toMatch(/\.ap-block\.is-note:focus-within \{[^}]*border-color: var\(--ap-block-line\)/);
+    expect(read("ApplyForm.tsx")).not.toContain("form-thanks");
   });
 });
 

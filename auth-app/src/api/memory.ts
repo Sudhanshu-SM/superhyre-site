@@ -53,6 +53,10 @@ export type MemoryItem = {
   lastUsedAt: string | null;
   /** When it is dropped by itself, if it is. */
   expiresAt: string | null;
+  /** When the agent stopped opening with it because answers that leaned on it were turned down; null while trusted. */
+  doubted: string | null;
+  /** How many answers that used it were turned down: what the doubt rests on. */
+  turnedDown: number;
 };
 
 export type MemoryStats = {
@@ -74,7 +78,8 @@ export type MemoryQuery = {
   type?: MemoryType;
   clientId?: string;
   campaignId?: string;
-  status?: "active" | "pending" | "all";
+  /** `doubted`: current notes the agent has stopped opening with, waiting for a yes or a forget. */
+  status?: "active" | "pending" | "doubted" | "all";
   q?: string;
   limit?: number;
   cursor?: string | null;
@@ -137,6 +142,8 @@ export function memoryItemOf(raw: unknown): MemoryItem | null {
     usedCount: typeof o.usedCount === "number" && o.usedCount > 0 ? Math.floor(o.usedCount) : 0,
     lastUsedAt: str(o.lastUsedAt),
     expiresAt: str(o.expiresAt),
+    doubted: str(o.doubted),
+    turnedDown: typeof o.turnedDown === "number" && o.turnedDown > 0 ? Math.floor(o.turnedDown) : 0,
   };
 }
 

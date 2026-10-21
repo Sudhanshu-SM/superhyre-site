@@ -1,0 +1,47 @@
+/* ── a question with fixed options ──
+   The agent's question as the conversation continuing: the sentence on the canvas, the options under it, one
+   Continue. No box round it. Once answered it is one quiet line, and nothing else of it stays. */
+.ch { display: grid; gap: 10px; justify-items: start; }
+.ch-opts { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.ch-opts.is-long { max-height: 148px; overflow-y: auto; align-content: flex-start; width: 100%; padding: 2px; margin: -2px; }
+.ch-none { font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-3); }
+.ch-find { width: min(100%, 260px); height: 36px; }
+.ch-opt { gap: 6px; }
+.ch-opt[aria-checked="true"] { background: var(--accent-tint); border-color: var(--accent); color: var(--accent-text); }
+.ch-opt:disabled { cursor: default; opacity: 0.55; }
+.ch-opt:disabled:hover { background: var(--nav-surface); border-color: var(--hairline); color: var(--ink); }
+.ch-opt[aria-checked="true"]:disabled:hover { background: var(--accent-tint); border-color: var(--accent); color: var(--accent-text); }
+.ch-opt svg { flex: none; }
+
+/* The value an option asks for, inside the card: a label over the field. */
+.ch-field { display: grid; gap: 4px; width: min(100%, 360px); }
+.ch-field-l { font: var(--type-caption); letter-spacing: 0.02em; color: var(--ink-3); }
+.ch-input {
+  width: 100%; height: 40px; padding: 0 12px;
+  border: 1px solid var(--nav-edge-panel); border-radius: var(--r-field); background: var(--nav-surface);
+  font: var(--type-body); letter-spacing: var(--track-body); color: var(--ink);
+  transition: border-color var(--t), box-shadow var(--t);
+}
+.ch-input::placeholder { color: var(--ink-3); }
+.ch-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(234, 90, 30, 0.15); }
+.ch-input:disabled { background: var(--sub); color: var(--ink-2); }
+
+.ch-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.ch-acts .rep-commit { cursor: pointer; }
+.ch-acts .rep-commit:disabled { cursor: default; opacity: 0.55; }
+.ch-skip {
+  padding: 0; border: 0; background: none; cursor: pointer;
+  font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2);
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.ch-skip:hover { color: var(--ink); }
+.ch-skip:disabled { cursor: default; opacity: 0.55; }
+.ch-skip:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.ch-done { display: inline-flex; align-items: center; gap: 8px; margin: 0; max-width: 62ch; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); }
+.ch-done svg { flex: none; }
+.ch-done.is-skipped { color: var(--ink-3); }
+
+/* An answer starts a turn of its own under the card: it reads as the same reply, with no mark and no gap of a new exchange. */
+.orc.is-agent .orc-log > .orc-turn.is-continued { margin-top: -18px; }
+.orc-turn.is-continued > .orc-answer > .orc-mark { visibility: hidden; }

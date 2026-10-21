@@ -1,3 +1,4 @@
+import { canSetStatus } from "./can";
 import { useCampaignRow } from "./campaignStore";
 import type { Assignable, Session } from "./roleStore";
 import { isAssigned, useSession } from "./roleStore";
@@ -14,13 +15,32 @@ import { isAssigned, useSession } from "./roleStore";
 
 /** One calm line where the controls would have been. Said once on a screen, never as a toast. */
 export const FOLLOWING_LINE =
-  "You can follow this campaign. Ask its owner to add you to change the role spec or start a search.";
+  "You can follow this campaign. Ask its owner or the team lead to add you to change the role spec or start a search.";
+
+/** The same line for an admin, whose way in is the team's lead or the owner rather than being added. */
+export const FOLLOWING_LINE_ADMIN = "This campaign isn't on a team you lead. Ask its team's lead or the owner to change it.";
+
+/** The line that fits the person reading it. */
+export function useFollowingLine(): string {
+  return useSession().role === "admin" ? FOLLOWING_LINE_ADMIN : FOLLOWING_LINE;
+}
 
 /** Whether a person may change this campaign. A row not loaded yet is left to the server, which says it too. */
 export function mayChangeCampaign(session: Session, row: Assignable | undefined): boolean {
-  if (session.role === "admin") return true;
   if (!row) return true;
+  /* The server says it for every live row; an admin otherwise changes any (fixtures, older servers). */
+  if (row.canManage !== undefined) return row.canManage;
+  if (session.role === "admin") return true;
   return isAssigned(row, session);
+}
+
+/**
+ * Whether a person may close or reopen this campaign: an admin or its owner, and, for an admin, only one on a
+ * campaign they manage (the server's `canManage`), so the control is not offered only to be refused.
+ */
+export function mayCloseCampaign(session: Session, row: Assignable | undefined): boolean {
+  const own = canSetStatus(session, { ownerId: row?.ownerId }) || (!row?.ownerId && !!row && row.owner === session.name);
+  return own && mayChangeCampaign(session, row);
 }
 
 /** `mayChangeCampaign` for the signed-in person and one campaign, as a hook. */

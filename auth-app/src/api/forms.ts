@@ -239,7 +239,7 @@ export function decidedLine(
   ok: number,
   linked?: Pick<PossibleMatch, "name" | "campaignCandidateId"> | null,
 ): string {
-  if (decision === "pass") return ok === 1 ? "Passed" : `Passed on ${ok}`;
+  if (decision === "pass") return ok === 1 ? "Rejected" : `Rejected ${ok}`;
   if (linked && ok === 1) {
     return linked.campaignCandidateId
       ? `Linked to ${linked.name}, who is already on this campaign`
@@ -311,15 +311,18 @@ export type Traffic = {
 export const getTraffic = (formId: string) =>
   api<{ traffic?: Traffic }>("GET", `/v1/forms/${formId}/summary`).then((r) => r.traffic ?? null);
 
-/** `linkTo`: add the applicant as this existing candidate rather than as a new person. */
-export const decide = (formId: string, responseId: string, decision: "add" | "pass", linkTo?: string) =>
-  api<{ id: string; decision: "added" | "passed" | null; campaignCandidateId: string | null }>(
-    "POST", `/v1/forms/${formId}/responses/${responseId}/decision`, linkTo ? { decision, linkTo } : { decision },
+/**
+ * `linkTo`: add the applicant as this existing candidate rather than as a new person. "save" keeps them in
+ * Candidates without shortlisting them (no card on the board, no decision recorded): the answer names the candidate.
+ */
+export const decide = (formId: string, responseId: string, decision: "add" | "pass" | "save", linkTo?: string, reason?: string) =>
+  api<{ id: string; decision: "added" | "passed" | null; campaignCandidateId: string | null; candidateId?: string }>(
+    "POST", `/v1/forms/${formId}/responses/${responseId}/decision`, { decision, ...(linkTo ? { linkTo } : {}), ...(reason ? { reason } : {}) },
   );
 
 /* ── the public page: no session ── */
 
-async function publicApi<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<T> {
+export async function publicApi<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<T> {
   if (!API_URL) throw new ApiError(0, "offline", "This form isn't available right now.");
   let res: Response;
   try {

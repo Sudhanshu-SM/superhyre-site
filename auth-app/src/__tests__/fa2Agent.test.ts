@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { liveNotes } from "../agentCards/ApprovalCard";
-import { NEW_CLIENT, newCampaignAnswers, newCampaignQuestion } from "../clarify";
+import { NEW_CLIENT, newCampaignAnswers, newCampaignQuestion, newClientOf } from "../clarify";
 import { logLine } from "../api/campaigns";
 import type { MomentCtx } from "../moments";
 import { applyEvent, newTurn } from "../liveChat";
@@ -22,39 +22,27 @@ describe("a client the message names that is not in Clients yet (X3 D3)", () => 
 
   it("is kept, as a new client, and not dropped to 'Internal hire'", () => {
     const a = newCampaignAnswers(said, {});
-    expect(a).toMatchObject({ role: "Data Analyst", location: "Pune", newClient: "Orchid Bank" });
-    expect(a.client).toBeUndefined();
+    expect(a).toMatchObject({ role: "Data Analyst", location: "Pune", newClient: "Orchid Bank", client: NEW_CLIENT });
   });
 
-  it("is the first thing offered when the client is asked, by its name alone", () => {
+  it("is not asked about: a company the message names that is not a client yet is added, by its name alone", () => {
     const q = newCampaignQuestion(said, ctx({}));
-    expect(q?.id).toBe("nc-client");
-    expect(q?.options[0]).toMatchObject({ id: NEW_CLIENT, label: "Add Orchid Bank as a new client" });
-    expect(q?.options.at(-1)).toMatchObject({ id: "none", label: "No client" });
-    // Choosing it is the answer, and the questions go on.
-    expect(q?.apply([NEW_CLIENT]).answers).toEqual({ client: NEW_CLIENT });
-    expect(newCampaignQuestion(said, ctx({ client: NEW_CLIENT }))?.id).toBe("nc-dept");
+    expect(q?.id).toBe("nc-dept");
+    expect(newClientOf(newCampaignAnswers(said, {}))).toBe("Orchid Bank");
   });
 
-  it("is asked even when there are no clients at all, with 'No client' beside it", () => {
-    // Nothing to choose from is "no client" and nothing is asked: unless the message named a company.
-    expect(liveCampaignAnswers(said, {}, []).client).toBeUndefined();
+  it("is added even when there are no clients at all", () => {
+    expect(liveCampaignAnswers(said, {}, []).client).toBe(NEW_CLIENT);
     expect(liveCampaignAnswers("create a campaign called Data Analyst in Pune", {}, []).client).toBe("none");
     const ask = liveCampaignAsk(() => ({ clients: [], rows: [] }));
-    const q = ask("campaign-new", said, ctx({}));
-    // Before this the question was skipped ("no client" was taken) and the card read "Internal hire".
-    expect(q?.id).toBe("nc-client");
-    expect(q?.options[0]).toMatchObject({ id: NEW_CLIENT, label: "Add Orchid Bank as a new client" });
-    expect(q?.options.at(-1)?.id).toBe("none");
+    expect(ask("campaign-new", said, ctx({}))?.id).not.toBe("nc-client");
   });
 
-  it("is offered for a company that does not exist when other clients do, ahead of them", () => {
+  it("is added for a company that does not exist when other clients do", () => {
     const ask = liveCampaignAsk(() => ({ clients: [], rows: [] }));
-    const q = ask("campaign-new", "create a campaign called Data Analyst for the client Zenith Foods", ctx({}));
-    expect(q?.id).toBe("nc-client");
-    expect(q?.options[0]?.label).toBe("Add Zenith Foods as a new client");
-    expect(q?.options.length).toBeGreaterThan(2);
-    expect(q?.options.at(-1)?.label).toBe("No client");
+    const text = "create a campaign called Data Analyst for the client Zenith Foods";
+    expect(newCampaignAnswers(text, {})).toMatchObject({ client: NEW_CLIENT, newClient: "Zenith Foods" });
+    expect(ask("campaign-new", text, ctx({}))?.id).not.toBe("nc-client");
   });
 
   it("makes a draft with no client of its own: the client is added when the campaign is created", () => {
