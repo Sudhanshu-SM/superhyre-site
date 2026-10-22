@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.1 (2026-10-23)
+
+### Fixed
+- **A page cached or left open across a deploy no longer breaks.** Each deploy used to delete the previous build's files, and browsers keep `index.html` for ten minutes (and tabs stay open for days), so a returning person could land on a blank page or a screen that would not open. The deploy now keeps the last three builds' files, and the app reloads itself once onto the current build if a screen's file is still missing (never twice within a minute).
+
 ## 1.1.0 (2026-10-23)
 
 ### Added

@@ -7,7 +7,11 @@ import { applyKeyFrom } from "./applyKey";
 import { reviewTokenFrom } from "./reviewKey";
 import { stylesReady } from "./stylesReady";
 import { Loader } from "./components/Loader";
+import { recoverFromMissingChunks } from "./chunkRecovery";
 import { startTheme } from "./theme";
+
+/* A deploy can remove the file a screen needs while a page is open or cached: reload once onto the current build. */
+recoverFromMissingChunks();
 
 /* The candidate's page is a file of its own: nobody opening the console or the sign-in carries it. */
 const ApplyPage = lazy(() => import("./ApplyPage").then((m) => ({ default: m.ApplyPage })));
