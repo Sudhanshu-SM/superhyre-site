@@ -149,6 +149,9 @@ export type Match = {
   hasPhone?: boolean;
   /** Contact details were looked up (or typed); false means nobody has asked for them yet. */
   contactsChecked?: boolean;
+  /** Their profile says they are open to a move / they recently changed jobs; ranked a little higher. Absent from older servers. */
+  openToWork?: boolean;
+  recentlyChangedJob?: boolean;
   /** What was decided about them (on the board, or passed); null or absent while they wait for a call. */
   decision?: "shortlisted" | "passed" | null;
 };

@@ -159,6 +159,7 @@ export function candidateFromMatch(
     scored: result ? result.status === "scored" || result.status === "insufficient_evidence" : (profile?.judgement ?? m.judgement) !== null,
     ...(result ? { checks: criteria.map((c) => checkOf(c.id)), result } : {}),
     ...(opts.campaignId ? { resultCampaignId: opts.campaignId } : {}),
+    ...(m.openToWork ? { openToWork: true } : {}),
     totalYears: Math.round(years),
     avgTenure: jobs.length && years ? Math.round(years / jobs.length) : 0,
     about: pr?.summary ?? "",
