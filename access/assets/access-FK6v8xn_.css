@@ -1,0 +1,1 @@
+.lv-acts{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:4px}.lv-none{display:grid;gap:10px}.lv-none .src-para{margin:0}.lv-fail{display:grid;gap:8px;justify-items:start}.lv-fail .lt-note{margin:0}.lv-problem{margin:2px 0 0;font:400 12.5px/1.45 var(--ui);color:var(--ink)}.lv-problem .cn-link{color:var(--ink)}

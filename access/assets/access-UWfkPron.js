@@ -1,0 +1,1 @@
+import{r as t}from"./access-DdgGs7Sa.js";function s(e=650){const[r,o]=t.useState(!1);return t.useEffect(()=>{const u=typeof matchMedia=="function"&&matchMedia("(prefers-reduced-motion: reduce)").matches,a=window.setTimeout(()=>o(!0),u?0:e);return()=>window.clearTimeout(a)},[e]),r}export{s as u};
