@@ -45,7 +45,7 @@ a{color:inherit;}
 }
 .logo{display:flex;align-items:center;padding-left:26px;}
 .logo .logo-img{height:54px;width:auto;display:block;}
-.logo svg{width:30px;height:60px;}
+.logo svg{width:52px;height:54px;}
 .get-started{
   background:var(--accent);color:#fff;text-decoration:none;
   font-family:var(--pixel);font-size:23px;letter-spacing:.4px;

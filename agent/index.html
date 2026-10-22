@@ -1,0 +1,1257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>SuperHyre — WhatsApp hiring assistant</title>
+<link rel="icon" type="image/svg+xml" href="logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fanwood+Text:ital@0;1&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* Matches superhyre.com: white page, near-black ink, orange accent, Fanwood / IBM Plex / PP Mondwest. */
+  @font-face {
+    font-family: 'PP Mondwest';
+    src: url('/assets/mondwest-neuebit-font/ppmondwest-regular.otf') format('opentype');
+    font-weight: 400; font-display: swap;
+  }
+  :root {
+    --accent: #EA5A1E; --accent-soft: #fdefe8; --black: #0a0a0a; --ink2: #1a1a1a; --muted: #555;
+    --rule: #e2e2e2; --rule-strong: #9a9a9a; --bg: #ffffff; --panel: #fafafa;
+    --danger: #b3261e; --danger-bg: #fdecea; --ok: #1e7a3c; --ok-bg: #e8f5ec;
+    --serif: 'Fanwood Text', Georgia, serif;
+    --pixel: 'PP Mondwest', 'Fanwood Text', Georgia, serif;
+    --ui: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    min-height: 100vh; min-height: 100dvh; background: var(--bg); color: var(--black);
+    font: 16px/1.5 var(--ui); -webkit-font-smoothing: antialiased; -webkit-text-size-adjust: 100%;
+    display: flex; align-items: flex-start; justify-content: center;
+    padding: max(20px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  }
+  main { width: 100%; max-width: 440px; margin-top: clamp(0px, 5vh, 48px); }
+  main.wide { max-width: 680px; margin-top: 0; }
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 2px 22px; }
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--black); }
+  .brand img { width: 34px; height: 35px; display: block; }
+  .brand span { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-weight: 500; font-size: 22px; letter-spacing: .02em; }
+  .brand b { font-weight: 500; color: var(--accent); }
+  .card { background: var(--bg); border: 1px solid var(--accent); border-radius: 20px; padding: 28px 22px 24px; box-shadow: 0 24px 70px rgba(0,0,0,.08); }
+  .card + .card, .card + .section, .section + .section { margin-top: 16px; }
+  h1 { font-family: var(--pixel); font-weight: 400; color: var(--accent); font-size: 32px; line-height: 1.05; margin: 0 0 10px; overflow-wrap: anywhere; }
+  h2 { font-family: var(--pixel); font-weight: 400; color: var(--black); font-size: 24px; line-height: 1.1; margin: 0 0 14px; }
+  p.lead { font-family: var(--serif); font-size: 18px; line-height: 1.5; color: var(--ink2); margin: 0 0 22px; }
+  .banner { background: var(--accent-soft); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 18px; font-family: var(--serif); font-size: 17px; }
+  .banner.ok { background: var(--ok-bg); color: var(--ok); }
+  .field { margin-bottom: 16px; }
+  label, .label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 6px; }
+  input[type=text], input[type=tel], select {
+    width: 100%; height: 52px; padding: 0 14px; font: inherit; font-size: 16px; color: var(--black);
+    background: #fff; border: 1px solid var(--rule-strong); border-radius: var(--radius); outline: none; appearance: none; -webkit-appearance: none;
+  }
+  input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(234,90,30,.18); }
+  .phone { display: grid; grid-template-columns: 112px 1fr; gap: 8px; }
+  select { background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 18px) 23px, calc(100% - 13px) 23px; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 30px; }
+  button, a.btn {
+    display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 54px;
+    border: 1px solid var(--accent); border-radius: 100px; background: var(--accent); color: #fff; cursor: pointer; text-decoration: none;
+    font-family: var(--pixel); font-size: 21px; letter-spacing: .3px; box-shadow: 0 8px 22px rgba(234,90,30,.30); transition: filter .15s;
+  }
+  button:hover, a.btn:hover { filter: brightness(1.07); }
+  button:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+  a.btn svg { width: 22px; height: 22px; fill: #fff; flex: none; }
+  a.btn.ghost { background: #fff; color: var(--accent); box-shadow: none; }
+  a.btn.ghost svg { fill: var(--accent); }
+  .link { background: none; border: 0; box-shadow: none; color: var(--accent); min-height: 44px; font-family: var(--ui); font-size: 15px; font-weight: 500; width: auto; padding: 0 6px; }
+  .link:hover { text-decoration: underline; filter: none; }
+  .link:disabled { color: var(--rule-strong); text-decoration: none; }
+  .link.muted { color: var(--muted); }
+  .row { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; gap: 8px; }
+  .otp { text-align: center; font-size: 28px !important; letter-spacing: .5em; padding-left: .5em !important; font-variant-numeric: tabular-nums; }
+  /* The two ways in, side by side, and the tiles they lead to. */
+  .tabs { display: flex; gap: 10px; margin: 0 0 22px; }
+  .tab {
+    flex: 1; height: 56px; font: inherit; font-size: 16px; font-weight: 500; cursor: pointer;
+    color: var(--black); background: #fff; border: 1px solid var(--rule-strong); border-radius: var(--radius);
+  }
+  .tab[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(216px, 1fr)); gap: 14px; }
+  .tile {
+    display: flex; flex-direction: column; gap: 8px; min-height: 184px; padding: 18px;
+    border: 1px solid var(--rule); border-radius: 14px; background: #fff;
+  }
+  .tile .ico { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 9px; background: var(--accent-soft); color: var(--accent); }
+  .tile .ico svg { width: 20px; height: 20px; }
+  .tile .nm { font-weight: 500; font-size: 16.5px; }
+  .tile .br { color: var(--muted); font-size: 14px; line-height: 1.45; flex: 1; }
+  .tile .act { width: 100%; margin-top: 2px; }
+  .tile.on { border-color: var(--accent); }
+  .back {
+    font: inherit; font-size: 15px; cursor: pointer; color: var(--muted); background: none;
+    border: 0; padding: 0; margin: 0 0 10px; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .back::before { content: "\2190"; }
+  #detail h1 { margin: 0 0 20px; }
+  /* Two choices side by side, for a question with exactly two answers. */
+  .seg { display: flex; gap: 8px; }
+  .seg button {
+    flex: 1; height: 52px; font: inherit; font-size: 15.5px; cursor: pointer; color: var(--black);
+    background: #fff; border: 1px solid var(--rule-strong); border-radius: var(--radius);
+  }
+  .seg button.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 500; }
+  .error { display: none; background: var(--danger-bg); color: var(--danger); border-radius: 10px; padding: 10px 12px; margin: 0 0 14px; font-size: 14.5px; }
+  .error.show { display: block; }
+  .hint { color: var(--muted); font-size: 14px; font-weight: 300; margin: 14px 0 0; text-align: center; }
+  .dev { background: #fff7d6; color: #6b5300; border-radius: 10px; padding: 8px 12px; font-size: 14px; margin-bottom: 14px; }
+  .check { width: 64px; height: 64px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; margin: 4px auto 16px; }
+  .center { text-align: center; }
+  [hidden] { display: none !important; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .spin { width: 18px; height: 18px; border: 3px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: r .7s linear infinite; }
+  .spin.small { display: inline-block; width: 12px; height: 12px; border-width: 2px; vertical-align: -1px; margin-right: 4px; }
+  @keyframes r { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spin { animation-duration: 2s; } }
+  .code { font-family: var(--ui); font-size: 34px; font-weight: 600; letter-spacing: .3em; padding: 12px 0 12px .3em; font-variant-numeric: tabular-nums; background: var(--accent-soft); color: var(--black); border-radius: var(--radius); margin: 0 0 18px; }
+  .foot { text-align: center; color: var(--muted); font-size: 13px; font-weight: 300; margin-top: 18px; }
+  .foot a { color: var(--accent); text-decoration: none; font-weight: 400; }
+  .foot a:hover { text-decoration: underline; }
+  .switch { text-align: center; margin: 14px 0 0; font-size: 15px; color: var(--muted); }
+  .switch .link { display: inline; min-height: 0; padding: 0; }
+
+  /* Dashboard */
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media (max-width: 520px) { .two { grid-template-columns: 1fr; gap: 0; } }
+  .section h2 { display: flex; align-items: baseline; gap: 8px; margin: 26px 2px 12px; }
+  .section h2 small { font-family: var(--ui); font-size: 14px; color: var(--muted); }
+  .empty { border: 1px dashed var(--rule-strong); border-radius: 16px; padding: 20px; text-align: center; color: var(--muted); font-size: 15px; }
+  .job { border: 1px solid var(--rule); border-radius: 16px; padding: 18px 16px 12px; background: #fff; }
+  .job + .job { margin-top: 12px; }
+  .job.new { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(234,90,30,.14); }
+  .job.closed { background: var(--panel); }
+  .job-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .job-title { font-family: var(--serif); font-size: 22px; line-height: 1.2; margin: 0; overflow-wrap: anywhere; }
+  .job-co { color: var(--ink2); font-size: 15px; margin: 2px 0 0; overflow-wrap: anywhere; }
+  .job-meta { color: var(--muted); font-size: 13.5px; margin: 6px 0 14px; }
+  .pill { flex: none; font-size: 12.5px; font-weight: 500; padding: 3px 10px; border-radius: 100px; background: var(--ok-bg); color: var(--ok); }
+  .pill.closed { background: #eee; color: var(--muted); }
+  .inv { border: 1px solid var(--rule); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
+  .inv-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .inv-label { font-size: 14px; font-weight: 500; }
+  .inv-url { font-size: 13px; color: var(--muted); word-break: break-all; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .acts { display: flex; gap: 6px; flex: none; }
+  button.sm {
+    width: auto; min-height: 36px; padding: 0 14px; font-family: var(--ui); font-size: 14px; font-weight: 500; letter-spacing: 0;
+    background: #fff; color: var(--accent); border: 1px solid var(--accent); box-shadow: none;
+  }
+  button.sm.fill { background: var(--accent); color: #fff; }
+  .job-foot { display: flex; justify-content: flex-end; gap: 16px; }
+  details.closed-list > summary { list-style: none; cursor: pointer; }
+  details.closed-list > summary::-webkit-details-marker { display: none; }
+  details.closed-list > summary h2::after { content: "+"; font-family: var(--ui); color: var(--muted); margin-left: auto; font-size: 20px; }
+  details.closed-list[open] > summary h2::after { content: "−"; }
+  .tool { display: flex; align-items: center; gap: 14px; border: 1px solid var(--rule); border-radius: 16px; padding: 14px; }
+  .tool + .tool { margin-top: 10px; }
+  .tool.flash { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(234,90,30,.14); }
+  .tool-icon { flex: none; width: 40px; height: 40px; border-radius: 10px; background: var(--panel); display: grid; place-items: center; }
+  .tool-main { flex: 1; min-width: 0; }
+  .tool-name { font-weight: 500; }
+  .tool-desc { color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
+  .tool-desc.ok { color: var(--ok); }
+  .accts { margin-top: 6px; font-size: 14px; }
+  .acct { display: flex; align-items: center; gap: 10px; padding: 3px 0; }
+  .acct .em { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .acct .main { color: var(--muted); }
+  .acct button { background: none; border: 0; padding: 0; color: var(--accent); font: inherit; cursor: pointer; }
+  .tool .sm { flex: none; }
+  .more { color: var(--muted); font-size: 14px; margin: 12px 2px 0; }
+  @media (max-width: 420px) { .tool { flex-wrap: wrap; } .tool .sm { width: 100%; } }
+  .toast { position: fixed; left: 50%; bottom: max(20px, env(safe-area-inset-bottom)); transform: translateX(-50%); background: var(--black); color: #fff; padding: 10px 16px; border-radius: 100px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  /* Organisation */
+  label.opt { display: flex; gap: 10px; align-items: flex-start; margin: -4px 0 18px; font-size: 15px; font-weight: 400; color: var(--ink2); cursor: pointer; }
+  label.opt input { width: 18px; height: 18px; margin: 2px 0 0; accent-color: var(--accent); flex: none; }
+  input[readonly] { background: var(--panel); color: var(--ink2); }
+  input[readonly]:focus { border-color: var(--rule-strong); box-shadow: none; }
+  .mate { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 2px; border-top: 1px solid var(--rule); min-height: 52px; }
+  .mate:first-child { border-top: 0; }
+  .mate-name { overflow-wrap: anywhere; min-width: 0; }
+  .mate .acts { align-items: center; }
+  .pill.role { background: var(--accent-soft); color: var(--accent); }
+  .pill.role.plain { background: #eee; color: var(--muted); }
+</style>
+</head>
+<body>
+<main id="main">
+  <div class="top">
+    <a class="brand" href="https://superhyre.com" aria-label="SuperHyre home"><img src="logo.svg" alt=""><span>SUPER<b>HYRE</b></span></a>
+    <button type="button" class="link muted" id="b-logout" hidden>Sign out</button>
+  </div>
+
+  <section class="card" id="s-details" hidden>
+    <h1 id="title">Get started</h1>
+    <p class="lead" id="lead">Set up your hiring assistant on WhatsApp. Create jobs, share invite links and let it coordinate interviews for you.</p>
+    <div class="banner" id="invited" hidden></div>
+    <div class="error" id="e1" role="alert"></div>
+    <form id="f-details" novalidate>
+      <div class="field" id="name-field">
+        <label for="name">Full name</label>
+        <input id="name" type="text" autocomplete="name" autocapitalize="words" maxlength="80" required>
+      </div>
+      <div class="field" id="use-field">
+        <span class="label" id="use-label">What will you use it for?</span>
+        <div class="seg" role="radiogroup" aria-labelledby="use-label">
+          <button type="button" data-use="work" class="on" role="radio" aria-checked="true">Work</button>
+          <button type="button" data-use="personal" role="radio" aria-checked="false">My own things</button>
+        </div>
+      </div>
+      <div class="field" id="company-field">
+        <label for="company">Company name</label>
+        <input id="company" type="text" autocomplete="organization" autocapitalize="words" maxlength="120">
+      </div>
+      <label class="opt" id="org-opt"><input type="checkbox" id="create-org" checked><span>Set up an organisation for my team, so colleagues can join with an invite link. I'll be its owner.</span></label>
+      <div class="field">
+        <label for="phone">Mobile number (WhatsApp)</label>
+        <div class="phone">
+          <select id="cc" aria-label="Country code">
+            <option value="91" selected>IN +91</option><option value="1">US +1</option><option value="44">UK +44</option>
+            <option value="971">AE +971</option><option value="65">SG +65</option><option value="61">AU +61</option>
+            <option value="49">DE +49</option><option value="33">FR +33</option><option value="966">SA +966</option>
+            <option value="92">PK +92</option><option value="880">BD +880</option><option value="94">LK +94</option>
+            <option value="977">NP +977</option><option value="234">NG +234</option><option value="27">ZA +27</option>
+          </select>
+          <input id="phone" type="tel" inputmode="numeric" autocomplete="tel-national" placeholder="98765 43210" maxlength="16" required>
+        </div>
+      </div>
+      <button type="submit" id="b-send">Continue</button>
+    </form>
+    <p class="hint">Next, you'll confirm your number with one WhatsApp message.</p>
+    <p class="switch" id="switch"></p>
+  </section>
+
+  <section class="card" id="s-otp" hidden>
+    <h1>Enter your code</h1>
+    <p class="lead" id="otp-lead"></p>
+    <div class="dev" id="dev" hidden>Test mode: use code <b>123456</b></div>
+    <div class="error" id="e2" role="alert"></div>
+    <form id="f-otp" novalidate>
+      <div class="field">
+        <label for="otp" class="sr">6-digit code</label>
+        <input id="otp" class="otp" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]*" placeholder="······" required>
+      </div>
+      <button type="submit" id="b-verify">Verify</button>
+    </form>
+    <div class="row">
+      <button type="button" class="link" id="b-back">Change number</button>
+      <button type="button" class="link" id="b-resend" disabled>Resend code</button>
+    </div>
+  </section>
+
+  <section class="card center" id="s-wa" hidden>
+    <h1>Confirm on WhatsApp</h1>
+    <p class="lead" id="wa-lead"></p>
+    <div class="code" id="wa-code" aria-label="Your code"></div>
+    <div class="error" id="e3" role="alert"></div>
+    <a class="btn wa" id="wa-send" href="#" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path id="wa-icon" d="M20.5 3.5A11.4 11.4 0 0 0 12 0C5.7 0 .6 5.1.6 11.4c0 2 .5 4 1.5 5.7L.5 24l7.1-1.9a11.4 11.4 0 0 0 5.4 1.4h.1c6.3 0 11.4-5.1 11.4-11.4 0-3-1.2-5.9-3.3-8.1zM13 21.6a9.5 9.5 0 0 1-4.9-1.3l-.4-.2-4.2 1.1 1.1-4.1-.2-.4a9.5 9.5 0 1 1 8.6 4.9zm5.2-7.1c-.3-.1-1.7-.8-1.9-.9-.3-.1-.5-.1-.7.1l-.9 1.1c-.2.2-.3.2-.6.1a7.8 7.8 0 0 1-3.9-3.4c-.3-.5.3-.5.8-1.5.1-.2 0-.4 0-.5l-.9-2.1c-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.1.2 2.1 3.2 5.1 4.5 1.9.8 2.6.9 3.5.7.6-.1 1.7-.7 2-1.4.2-.7.2-1.3.2-1.4-.1-.2-.3-.3-.6-.4z"/></svg>Send code on WhatsApp</a>
+    <p class="hint" id="wa-wait"><span class="spin small" aria-hidden="true"></span> Waiting for your message…</p>
+    <div class="row">
+      <button type="button" class="link" id="b-back2">Change number</button>
+      <button type="button" class="link" id="b-new" disabled>Get a new code</button>
+    </div>
+  </section>
+
+  <section class="card center" id="s-done" hidden>
+    <div class="check" aria-hidden="true">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+    </div>
+    <h1 id="done-title">You're all set</h1>
+    <p class="lead" id="done-lead"></p>
+    <a class="btn wa" id="wa" href="#" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#wa-icon"/></svg>Chat with Superhyre</a>
+    <p class="hint" id="wa-hint"></p>
+  </section>
+
+  <div id="s-dash" hidden>
+    <div id="hub">
+      <h1 id="d-hello">Your assistant</h1>
+      <div class="tabs">
+        <button type="button" class="tab" id="tab-agents" aria-pressed="true">Agents</button>
+        <button type="button" class="tab" id="tab-tools" aria-pressed="false">Connectors</button>
+      </div>
+      <div class="grid" id="v-agents"></div>
+    </div>
+
+    <div id="detail" hidden>
+      <button type="button" class="back" id="d-back">Back</button>
+      <h1 id="d-title"></h1>
+    </div>
+
+    <section class="card" id="v-sourcing" hidden></section>
+
+    <section class="card" id="team">
+      <h2 id="t-title">Your team</h2>
+      <div class="error" id="e6" role="alert"></div>
+      <div id="t-has" hidden>
+        <p class="job-meta" id="t-meta"></p>
+        <div class="inv">
+          <div class="inv-top">
+            <div class="inv-label">Teammate invite link</div>
+            <div class="acts"><button type="button" class="sm" id="t-copy">Copy</button><button type="button" class="sm fill" id="t-share">Share</button></div>
+          </div>
+          <div class="inv-url" id="t-url"></div>
+        </div>
+        <div id="t-list"></div>
+        <div class="job-foot">
+          <button type="button" class="link muted" id="t-rotate" hidden>Get a new link</button>
+          <button type="button" class="link muted" id="t-leave" hidden>Leave team</button>
+          <button type="button" class="link muted" id="t-delete" hidden>Delete team</button>
+        </div>
+      </div>
+      <form id="f-org" hidden novalidate>
+        <p class="lead" style="font-size:16px;margin-bottom:16px">You aren't in a team yet. Set one up to bring your recruiting team onto Superhyre. Everyone gets their own assistant, and as the owner you can ask yours what anyone is working on.</p>
+        <div class="field">
+          <label for="o-name">Organisation name</label>
+          <input id="o-name" type="text" autocapitalize="words" maxlength="120" required>
+        </div>
+        <button type="submit" id="b-org">Create organisation</button>
+      </form>
+    </section>
+
+    <section class="card" id="tools">
+      <div class="error" id="e5" role="alert"></div>
+      <div class="tool" id="g-tool">
+        <div class="tool-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.7 13.2l7.9 6.2C12.5 13.6 17.8 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 7l7.2 5.6c4.2-3.9 7.1-9.7 7.1-17.1z"/><path fill="#FBBC05" d="M10.5 28.6A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.8-4.6l-7.9-6.2A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.8l7.9-6.2z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.2-5.6c-2.2 1.5-5.1 2.4-8.7 2.4-6.2 0-11.5-4.2-13.4-9.9l-7.9 6.2C6.6 42.6 14.6 48 24 48z"/></svg></div>
+        <div class="tool-main">
+          <div class="tool-name">Google Workspace</div>
+          <div class="tool-desc" id="g-desc">Gmail, Calendar, Drive, Docs and Sheets: summarise and send emails, schedule Meet calls, find files, update sheets.</div>
+          <div class="accts" id="g-accts" hidden></div>
+        </div>
+        <button type="button" class="sm fill" id="g-btn" hidden>Connect</button>
+      </div>
+      <div class="tool" id="nt-tool">
+        <div class="tool-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24"><path fill="#000" d="M4.46 4.21c.75.6 1.03.56 2.44.47l13.23-.8c.28 0 .05-.28-.05-.32l-2.2-1.59c-.42-.33-.98-.7-2.06-.6L3.05 2.32c-.47.05-.56.28-.38.47zm.8 3.08v13.92c0 .75.37 1.03 1.21.98l14.54-.84c.84-.05.94-.56.94-1.17V6.35c0-.6-.24-.93-.75-.88l-15.19.88c-.56.05-.75.33-.75.94zm14.36.75c.09.42 0 .84-.42.89l-.7.14v10.27c-.61.33-1.17.52-1.64.52-.75 0-.94-.24-1.5-.94l-4.58-7.19v6.95l1.45.33s0 .84-1.17.84l-3.22.19c-.09-.19 0-.66.33-.75l.84-.23V9.85L7.84 9.75c-.1-.42.14-1.03.79-1.08l3.46-.23 4.77 7.29V9.28l-1.22-.14c-.09-.51.28-.89.75-.93z"/></svg></div>
+        <div class="tool-main">
+          <div class="tool-name">Notion</div>
+          <div class="tool-desc" id="nt-desc"></div>
+        </div>
+        <button type="button" class="sm fill" id="nt-btn" hidden>Connect</button>
+      </div>
+      <div class="tool" id="sl-tool">
+        <div class="tool-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24"><path fill="#E01E5A" d="M5.04 15.17a2.53 2.53 0 1 1-2.52-2.53h2.52zm1.27 0a2.53 2.53 0 0 1 5.05 0v6.31a2.53 2.53 0 1 1-5.05 0z"/><path fill="#36C5F0" d="M8.83 5.04a2.53 2.53 0 1 1 2.53-2.52v2.52zm0 1.27a2.53 2.53 0 0 1 0 5.05H2.52a2.53 2.53 0 0 1 0-5.05z"/><path fill="#2EB67D" d="M18.96 8.83a2.53 2.53 0 1 1 2.52 2.53h-2.52zm-1.27 0a2.53 2.53 0 0 1-5.05 0V2.52a2.53 2.53 0 1 1 5.05 0z"/><path fill="#ECB22E" d="M15.17 18.96a2.53 2.53 0 1 1-2.53 2.52v-2.52zm0-1.27a2.53 2.53 0 0 1 0-5.05h6.31a2.53 2.53 0 0 1 0 5.05z"/></svg></div>
+        <div class="tool-main">
+          <div class="tool-name">Slack</div>
+          <div class="tool-desc" id="sl-desc"></div>
+        </div>
+        <button type="button" class="sm fill" id="sl-btn" hidden>Connect</button>
+      </div>
+      <div class="tool" id="tr-tool">
+        <div class="tool-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24"><rect width="24" height="24" rx="4" fill="#0C66E4"/><rect x="4" y="4" width="7" height="14" rx="1.5" fill="#fff"/><rect x="13" y="4" width="7" height="9" rx="1.5" fill="#fff"/></svg></div>
+        <div class="tool-main">
+          <div class="tool-name">Trello</div>
+          <div class="tool-desc" id="tr-desc"></div>
+        </div>
+        <button type="button" class="sm fill" id="tr-btn" hidden>Connect</button>
+      </div>
+      <div class="tool" id="mg-tool">
+        <div class="tool-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="#25A366" stroke-width="2.5"/><path d="M15.5 15.5 21 21" stroke="#25A366" stroke-width="2.5" stroke-linecap="round"/></svg></div>
+        <div class="tool-main">
+          <div class="tool-name">Magnifi</div>
+          <div class="tool-desc" id="mg-desc"></div>
+        </div>
+        <button type="button" class="sm fill" id="mg-btn" hidden>Connect</button>
+      </div>
+    </section>
+
+    <section class="card" id="newjob">
+      <h2>New job</h2>
+      <div class="error" id="e4" role="alert"></div>
+      <form id="f-job" novalidate>
+        <div class="two">
+          <div class="field">
+            <label for="j-company">Company</label>
+            <input id="j-company" type="text" autocapitalize="words" maxlength="120" required>
+          </div>
+          <div class="field">
+            <label for="j-role">Role</label>
+            <input id="j-role" type="text" autocapitalize="words" maxlength="120" placeholder="e.g. Backend Engineer" required>
+          </div>
+        </div>
+        <button type="submit" id="b-job">Create job</button>
+      </form>
+      <p class="hint">You'll get two links: one for candidates, one for hiring managers.</p>
+    </section>
+
+    <section class="section" id="openwrap">
+      <h2>Open jobs <small id="n-open"></small></h2>
+      <div id="open-jobs"></div>
+    </section>
+
+    <details class="section closed-list" id="closed-wrap" hidden>
+      <summary><h2>Closed jobs <small id="n-closed"></small></h2></summary>
+      <div id="closed-jobs"></div>
+    </details>
+  </div>
+
+  <div class="card center" id="s-loading" aria-live="polite"><span class="spin" style="display:inline-block;color:var(--accent)" aria-hidden="true"></span><span class="sr">Loading</span></div>
+
+  <p class="foot">By continuing you agree to receive WhatsApp messages from Superhyre. <a href="privacy.html">Privacy policy</a></p>
+</main>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="config.js"></script>
+<script>
+(function () {
+  var API = window.SUPERHYRE_API;
+  var $ = function (id) { return document.getElementById(id); };
+  var params = new URLSearchParams(location.search);
+  var clean = function (v) { return (v || "").toLowerCase().replace(/[^a-z0-9]/g, ""); };
+  var jobCode = clean(params.get("j"));
+  var orgCode = clean(params.get("o"));
+  var legacy = clean(params.get("r"));
+  var magic = (params.get("t") || "").toLowerCase().replace(/[^a-f0-9]/g, "");
+  var state = { phone: "", name: "", company: "", use: "work", mode: "signup", resendAt: 0, timer: null, me: null, newJob: null };
+  var SCREENS = ["s-details", "s-otp", "s-wa", "s-done", "s-dash", "s-loading"];
+
+  // ---------- storage (may be blocked; the page still works, you just sign in again) ----------
+  function getSession() { try { return localStorage.getItem("sh_session") || ""; } catch (x) { return ""; } }
+  function setSession(s) { try { s ? localStorage.setItem("sh_session", s) : localStorage.removeItem("sh_session"); } catch (x) {} state.session = s || ""; }
+  state.session = getSession();
+
+  // Sent here by one of the pages under /agent because there was no session; go back once there is one.
+  var next = params.get("next") || "";
+  if (state.session && /^\/agent\/[a-z-]+\/?$/.test(next)) { location.replace(next); return; }
+
+  function call(body) {
+    return fetch(API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json().catch(function () { return { ok: false, message: "Something went wrong. Please try again." }; }); })
+      .catch(function () { return { ok: false, message: "No connection. Please check your internet and try again." }; });
+  }
+  function show(id) {
+    SCREENS.forEach(function (s) { $(s).hidden = s !== id; });
+    $("main").classList.toggle("wide", id === "s-dash");
+    $("b-logout").hidden = id !== "s-dash";
+    window.scrollTo(0, 0);
+  }
+  function err(id, msg) { var e = $(id); e.textContent = msg || ""; e.classList.toggle("show", !!msg); }
+  function busy(btn, on, label) {
+    btn.disabled = on;
+    btn.innerHTML = on ? '<span class="spin" aria-hidden="true"></span>' : label;
+  }
+  function toast(msg) {
+    var t = $("toast"); t.textContent = msg; t.classList.add("show");
+    clearTimeout(toast.h); toast.h = setTimeout(function () { t.classList.remove("show"); }, 1800);
+  }
+  function timeZone() {
+    try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (x) { return undefined; }
+  }
+  function e164() {
+    var digits = $("phone").value.replace(/\D/g, "").replace(/^0+/, "");
+    return digits.length >= 6 && digits.length <= 14 ? "+" + $("cc").value + digits : "";
+  }
+
+  // ---------- entry form: recruiter sign-up, recruiter sign-in, or joining a job ----------
+  /**
+   * Signing up for their own things or for work. Work is where it starts, since that is what most people are here for;
+   * choosing their own things drops the company (there isn't one) and makes the group a circle of friends.
+   */
+  function setUse(use) {
+    state.use = use === "personal" ? "personal" : "work";
+    Array.prototype.forEach.call(document.querySelectorAll("#use-field .seg button"), function (b) {
+      var on = b.getAttribute("data-use") === state.use;
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-checked", on ? "true" : "false");
+    });
+    if (state.mode === "signup") setMode("signup");
+  }
+  $("use-field").addEventListener("click", function (e) {
+    var u = e.target.getAttribute && e.target.getAttribute("data-use");
+    if (u) setUse(u);
+  });
+
+  function setMode(mode) {
+    state.mode = mode;
+    err("e1", "");
+    $("name-field").hidden = mode === "login";
+    // Only a new account is asked; joining a team or a job is already answered by the link.
+    $("use-field").hidden = mode !== "signup";
+    var personal = mode === "signup" && state.use === "personal";
+    // Joining a team: the organisation comes from the link and can't be changed; only name and number are typed.
+    $("company-field").hidden = personal || (mode !== "signup" && mode !== "team");
+    $("company").readOnly = mode === "team";
+    $("company-field").querySelector("label").textContent = mode === "team" ? "Organisation" : "Company name";
+    $("org-opt").hidden = mode !== "signup";
+    $("org-opt").querySelector("span").textContent = personal
+      ? "Start a circle so friends can join with an invite link. I'll be its owner, and nothing of mine is shared with them unless I say so."
+      : "Set up an organisation for my team, so colleagues can join with an invite link. I'll be its owner.";
+    if (mode === "signup") {
+      $("title").textContent = "Get started";
+      $("lead").textContent = personal
+        ? "Set up your assistant on WhatsApp. Connect your email, calendar and notes and it works in them for you, by text or voice note."
+        : "Set up your hiring assistant on WhatsApp. Create jobs, share invite links and let it coordinate interviews for you.";
+      $("switch").innerHTML = 'Already signed up? <button type="button" class="link" data-mode="login">Sign in</button>';
+    } else if (mode === "login") {
+      $("title").textContent = "Welcome back";
+      $("lead").textContent = "Sign in with your WhatsApp number to see your jobs and invite links.";
+      $("switch").innerHTML = orgCode
+        ? 'New to Superhyre? <button type="button" class="link" data-mode="team">Join your team</button>'
+        : 'New to Superhyre? <button type="button" class="link" data-mode="signup">Create an account</button>';
+    } else if (mode === "team") {
+      $("title").textContent = "Join your team";
+      $("lead").textContent = "Get your own hiring assistant on WhatsApp. It creates jobs, shares invite links and coordinates interviews for you.";
+      $("switch").innerHTML = 'Already on Superhyre? <button type="button" class="link" data-mode="login">Sign in</button>';
+    } else {
+      $("switch").innerHTML = "";
+    }
+  }
+  $("switch").addEventListener("click", function (e) {
+    var m = e.target.getAttribute && e.target.getAttribute("data-mode");
+    if (m) { setMode(m); (m === "login" ? $("phone") : $("name")).focus(); }
+  });
+
+  function sendBody() {
+    var b = { action: "send", phone: state.phone, tz: timeZone() };
+    if (state.mode === "join") { b.name = state.name; b.job = jobCode; }
+    else if (state.mode === "team") { b.name = state.name; b.org = orgCode; }
+    else if (state.mode === "login") b.login = true;
+    else {
+      b.name = state.name; b.create_org = $("create-org").checked; b.use_case = state.use;
+      // Someone signing up for their own things has no company to give.
+      if (state.use !== "personal") b.company = state.company;
+    }
+    return b;
+  }
+
+  function sendCode() {
+    err("e1", "");
+    var name = $("name").value.replace(/\s+/g, " ").trim();
+    var company = $("company").value.replace(/\s+/g, " ").trim();
+    var phone = e164();
+    if (state.mode !== "login" && name.length < 2) return err("e1", "Please enter your full name."), $("name").focus();
+    if (state.mode === "signup" && state.use !== "personal" && company.length < 2) return err("e1", "Please enter your company name."), $("company").focus();
+    if (!phone) return err("e1", "Please enter a valid mobile number."), $("phone").focus();
+    state.phone = phone; state.name = name; state.company = company;
+    var btn = $("b-send");
+    busy(btn, true);
+    return call(sendBody()).then(function (r) {
+      busy(btn, false, "Continue");
+      if (!r.ok) {
+        if (r.code === "no_account") setMode("signup");
+        if (r.code === "already_member") setMode("login");
+        return err("e1", r.message);
+      }
+      if (r.mode === "reverse") return startWhatsApp(r);
+      $("otp-lead").textContent = "We sent a 6-digit code to " + phone + " on WhatsApp.";
+      $("dev").hidden = !r.dev;
+      $("otp").value = "";
+      err("e2", "");
+      show("s-otp");
+      startResendTimer();
+      $("otp").focus();
+    });
+  }
+  $("f-details").addEventListener("submit", function (e) { e.preventDefault(); sendCode(); });
+
+  // Reverse OTP: the person sends the shown code from their own WhatsApp, which proves they own the number.
+  function startWhatsApp(r) {
+    state.code = r.code;
+    $("wa-lead").textContent = "Send this code from the WhatsApp account on " + state.phone + ". We'll continue as soon as it arrives.";
+    $("wa-code").textContent = r.code;
+    $("wa-send").href = r.wa_url;
+    $("wa-wait").hidden = false;
+    err("e3", "");
+    show("s-wa");
+    clearTimeout(state.newTimer);
+    $("b-new").disabled = true;
+    state.newTimer = setTimeout(function () { $("b-new").disabled = false; }, 30000);
+    poll();
+  }
+
+  function poll() {
+    clearTimeout(state.poll);
+    var code = state.code;
+    state.poll = setTimeout(function () {
+      if (code !== state.code || $("s-wa").hidden) return;
+      call({ action: "status", phone: state.phone, code: code }).then(function (r) {
+        if (code !== state.code) return;
+        if (r.ok && r.verified) return done(r);
+        if (!r.ok && r.code === "expired") { $("wa-wait").hidden = true; return err("e3", r.message); }
+        poll();
+      });
+    }, document.hidden ? 1500 : 2500);
+  }
+
+  function done(r) {
+    clearTimeout(state.poll); clearInterval(state.timer);
+    state.code = "";
+    if (r.kind === "recruiter" && r.session) {
+      setSession(r.session);
+      return loadDashboard({ welcome: state.mode === "signup" || state.mode === "team" });
+    }
+    $("done-title").textContent = "You're all set, " + r.first_name;
+    $("done-lead").textContent = r.kind === "recruiter"
+      ? "Your Superhyre assistant is ready. Continue in WhatsApp."
+      : "You're connected. Your assistant will message you on WhatsApp when there's something to do, like sharing your availability.";
+    var wa = $("wa");
+    if (r.wa_url) { wa.href = r.wa_url; wa.hidden = false; $("wa-hint").textContent = "Your chat with Superhyre is already open in WhatsApp."; }
+    else { wa.hidden = true; $("wa-hint").textContent = "You can close this page and continue in WhatsApp."; }
+    show("s-done");
+  }
+
+  $("b-back2").addEventListener("click", function () { state.code = ""; clearTimeout(state.poll); show("s-details"); });
+  $("b-new").addEventListener("click", function () {
+    $("b-new").disabled = true;
+    call(sendBody()).then(function (r) {
+      if (!r.ok) { $("b-new").disabled = false; return err("e3", r.message); }
+      startWhatsApp(r);
+    });
+  });
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) return;
+    if (!$("s-wa").hidden) poll();
+    if (!$("s-dash").hidden) refresh();
+  });
+
+  // Typed-code fallback (template / dev modes).
+  function startResendTimer() {
+    clearInterval(state.timer);
+    state.resendAt = Date.now() + 30000;
+    var b = $("b-resend"); b.disabled = true;
+    state.timer = setInterval(function () {
+      var s = Math.ceil((state.resendAt - Date.now()) / 1000);
+      if (s <= 0) { clearInterval(state.timer); b.disabled = false; b.textContent = "Resend code"; }
+      else b.textContent = "Resend in " + s + "s";
+    }, 500);
+  }
+  $("b-back").addEventListener("click", function () { clearInterval(state.timer); show("s-details"); });
+  $("b-resend").addEventListener("click", function () {
+    $("b-resend").disabled = true;
+    call(sendBody()).then(function (r) {
+      if (!r.ok) { err("e2", r.message); return; }
+      err("e2", ""); $("otp").value = ""; startResendTimer(); $("otp").focus();
+    });
+  });
+  $("otp").addEventListener("input", function () {
+    this.value = this.value.replace(/\D/g, "").slice(0, 6);
+    if (this.value.length === 6) verify();
+  });
+  $("f-otp").addEventListener("submit", function (e) { e.preventDefault(); verify(); });
+  var verifying = false;
+  function verify() {
+    if (verifying) return;
+    var code = $("otp").value;
+    if (code.length !== 6) return err("e2", "Please enter the 6-digit code.");
+    verifying = true; err("e2", "");
+    var btn = $("b-verify"); busy(btn, true);
+    call({ action: "verify", phone: state.phone, otp: code, tz: timeZone() }).then(function (r) {
+      verifying = false; busy(btn, false, "Verify");
+      if (!r.ok) { $("otp").select(); return err("e2", r.message); }
+      done(r);
+    });
+  }
+
+  // ---------- dashboard ----------
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function fmtDate(iso) {
+    try { return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }); } catch (x) { return ""; }
+  }
+  function plural(n, w) { return n + " " + w + (n === 1 ? "" : "s"); }
+
+  function inviteText(job, who) {
+    var label = job.role + " at " + job.company;
+    return who === "candidate"
+      ? "You're invited to coordinate your interview for " + label + " over WhatsApp with Superhyre. Join here: " + job.links.candidate
+      : "Join Superhyre to coordinate interviews for " + label + " over WhatsApp: " + job.links.hiring_manager;
+  }
+  function copy(text) {
+    function fallback() {
+      var ta = el("textarea"); ta.value = text; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); toast("Link copied"); } catch (x) { toast("Couldn't copy. Press and hold the link to copy it."); }
+      document.body.removeChild(ta);
+    }
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(function () { toast("Link copied"); }, fallback);
+    else fallback();
+  }
+  function share(job, who) {
+    var text = inviteText(job, who);
+    if (navigator.share) {
+      navigator.share({ text: text }).catch(function () {});
+    } else {
+      window.open("https://wa.me/?text=" + encodeURIComponent(text), "_blank", "noopener");
+    }
+  }
+
+  function inviteRow(job, who) {
+    var box = el("div", "inv");
+    var top = el("div", "inv-top");
+    top.appendChild(el("div", "inv-label", who === "candidate" ? "Candidate link" : "Hiring manager link"));
+    if (job.status === "open") {
+      var acts = el("div", "acts");
+      var c = el("button", "sm", "Copy"); c.type = "button";
+      c.setAttribute("aria-label", "Copy " + (who === "candidate" ? "candidate" : "hiring manager") + " link for " + job.role);
+      c.addEventListener("click", function () { copy(job.links[who]); });
+      var s = el("button", "sm fill", "Share"); s.type = "button";
+      s.setAttribute("aria-label", "Share " + (who === "candidate" ? "candidate" : "hiring manager") + " link for " + job.role);
+      s.addEventListener("click", function () { share(job, who); });
+      acts.appendChild(c); acts.appendChild(s); top.appendChild(acts);
+    }
+    box.appendChild(top);
+    box.appendChild(el("div", "inv-url", job.links[who]));
+    return box;
+  }
+
+  function jobCard(job) {
+    var card = el("article", "job" + (job.status === "closed" ? " closed" : "") + (job.id === state.newJob ? " new" : ""));
+    card.id = "job-" + job.id;
+    var head = el("div", "job-head");
+    var t = el("div");
+    t.appendChild(el("h3", "job-title", job.role));
+    t.appendChild(el("p", "job-co", job.company));
+    head.appendChild(t);
+    head.appendChild(el("span", "pill" + (job.status === "closed" ? " closed" : ""), job.status === "closed" ? "Closed" : "Open"));
+    card.appendChild(head);
+    card.appendChild(el("p", "job-meta", plural(job.candidates, "candidate") + " · " + plural(job.hiring_managers, "hiring manager") + " joined · " +
+      (job.status === "closed" && job.closed_at ? "closed " + fmtDate(job.closed_at) : "created " + fmtDate(job.created_at))));
+    if (job.status === "open") {
+      card.appendChild(inviteRow(job, "candidate"));
+      card.appendChild(inviteRow(job, "hiring_manager"));
+    }
+    var foot = el("div", "job-foot");
+    var b = el("button", "link" + (job.status === "open" ? " muted" : ""), job.status === "open" ? "Close job" : "Reopen job");
+    b.type = "button";
+    b.addEventListener("click", function () {
+      if (job.status === "open" && !confirm("Close " + job.role + " at " + job.company + "? Its invite links will stop accepting sign-ups.")) return;
+      b.disabled = true;
+      call({ action: job.status === "open" ? "close_job" : "reopen_job", session: state.session, job_id: job.id }).then(function (r) {
+        b.disabled = false;
+        if (!r.ok) return handleDashErr(r, toast);
+        state.me.jobs = r.jobs; render();
+        toast(job.status === "open" ? "Job closed" : "Job reopened");
+      });
+    });
+    foot.appendChild(b);
+    card.appendChild(foot);
+    return card;
+  }
+
+  // ---------- the hub: two ways in, then one agent at a time ----------
+
+  /**
+   * Which sections each view shows; everything else is hidden. The two tabs are a toggle, not a journey: `agents` and
+   * `tools` keep the same heading and the same buttons in place and swap only what is under them. Opening one agent
+   * is the one thing that does replace the screen, because that is a different place to be.
+   */
+  var VIEWS = {
+    agents: ["hub", "v-agents"],
+    tools: ["hub", "tools"],
+    talent_ops: ["detail", "newjob", "openwrap", "closed-wrap", "team"],
+    sourcing: ["detail", "v-sourcing"],
+  };
+  var PANELS = ["hub", "v-agents", "detail", "tools", "newjob", "openwrap", "closed-wrap", "team", "v-sourcing"];
+  var TITLES = { talent_ops: "Talent operations", sourcing: "Sourcing" };
+
+  function view(name) {
+    state.view = VIEWS[name] ? name : "agents";
+    var on = VIEWS[state.view];
+    PANELS.forEach(function (id) {
+      var n = $(id);
+      if (!n) return;
+      n.hidden = on.indexOf(id) < 0;
+    });
+    // Closed jobs are a details block that only appears when there are any.
+    if (!$("closed-wrap").hidden) $("closed-wrap").hidden = !state.hasClosed;
+    if (TITLES[state.view]) $("d-title").textContent = TITLES[state.view];
+    if (state.view === "sourcing") loadJds();
+    // Toggling stays where the eye already is; opening an agent is a new screen, so it starts at the top.
+    if (!VIEWS[state.view] || state.view === "talent_ops" || state.view === "sourcing") window.scrollTo(0, 0);
+  }
+
+  function tile(o) {
+    var t = el("div", "tile" + (o.on ? " on" : ""));
+    var ico = el("div", "ico");
+    ico.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + o.icon + "</svg>";
+    t.appendChild(ico);
+    t.appendChild(el("div", "nm", o.name));
+    t.appendChild(el("div", "br", o.brief));
+    var b = el("button", "sm act" + (o.on ? "" : " fill"), o.action);
+    b.type = "button";
+    b.addEventListener("click", o.onClick);
+    t.appendChild(b);
+    return t;
+  }
+
+  var ICONS = {
+    assistant: '<path d="M12 3v3"/><rect x="4" y="6" width="16" height="12" rx="3"/><path d="M9 11v2M15 11v2"/>',
+    talent_ops: '<path d="M16 21v-2a4 4 0 0 0-8 0v2"/><circle cx="12" cy="7" r="4"/>',
+    sourcing: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+  };
+
+  function renderAgents() {
+    var box = $("v-agents");
+    box.textContent = "";
+    var list = (state.agents || []).slice().sort(function (a, b) {
+      // What they already have comes first; the assistant always leads, since it is the one they got with the account.
+      return (b.enabled || b.always_on) - (a.enabled || a.always_on) || (b.always_on - a.always_on);
+    });
+    if (!list.length) return box.appendChild(el("div", "empty", "Couldn't load your agents. Reload the page."));
+    list.forEach(function (a) {
+      var on = a.enabled || a.always_on;
+      box.appendChild(tile({
+        on: on,
+        icon: ICONS[a.agent] || ICONS.assistant,
+        name: a.name,
+        brief: BRIEFS[a.agent] || a.about,
+        action: on ? "Open" : "Switch on",
+        // The assistant's own screen is the tools it can reach, which is the other tab: send them there rather than
+        // building a second screen that says the same thing.
+        onClick: function () {
+          if (!on) return (location.href = a.page + "/");
+          if (a.agent === "assistant") { setTab("tools"); return view("tools"); }
+          view(a.agent);
+        },
+      }));
+    });
+  }
+
+  /** Shorter than what the agent's own page says: a tile is a glance, not a description. */
+  var BRIEFS = {
+    assistant: "Your email, calendar, documents and notes, worked on from WhatsApp.",
+    talent_ops: "Jobs, invite links, candidates and interviews, booked and reminded.",
+    sourcing: "Send a JD, get candidates in a sheet in your own Drive.",
+  };
+
+  function loadJds() {
+    var box = $("v-sourcing");
+    box.innerHTML = '<p class="empty"><span class="spin" aria-hidden="true"></span> Loading…</p>';
+    call({ action: "jds_list", session: state.session }).then(function (r) {
+      box.textContent = "";
+      if (!r.ok) return box.appendChild(el("div", "empty", r.message || "Couldn't load your JDs."));
+      if (!r.jds.length) {
+        return box.appendChild(el("div", "empty", "No JDs yet. Send one to your assistant on WhatsApp and it will appear here with its sheet of candidates."));
+      }
+      r.jds.forEach(function (j) {
+        var row = el("div", "jdrow");
+        row.appendChild(el("div", "nm", [j.role, j.company].filter(Boolean).join(" at ") || "Untitled role"));
+        var links = el("div", "job-meta");
+        if (j.jd_url) links.appendChild(link(j.jd_url, "Open the JD"));
+        if (j.sheet_url) links.appendChild(link(j.sheet_url, "Candidates" + (j.runs ? " (" + j.runs + " run" + (j.runs === 1 ? "" : "s") + ")" : "")));
+        if (!j.jd_url && !j.sheet_url) links.textContent = "No links yet.";
+        row.appendChild(links);
+        box.appendChild(row);
+      });
+    });
+  }
+  function link(href, text) {
+    var a = document.createElement("a");
+    a.href = href; a.target = "_blank"; a.rel = "noopener"; a.textContent = text;
+    a.style.marginRight = "14px";
+    return a;
+  }
+
+  $("tab-agents").addEventListener("click", function () { setTab("agents"); view("agents"); });
+  $("tab-tools").addEventListener("click", function () { setTab("tools"); view("tools"); });
+  // Back from an agent returns to the tab they came from, which is the one still lit.
+  $("d-back").addEventListener("click", function () { view(state.tab === "tools" ? "tools" : "agents"); });
+  function setTab(which) {
+    state.tab = which;
+    $("tab-agents").setAttribute("aria-pressed", which === "agents" ? "true" : "false");
+    $("tab-tools").setAttribute("aria-pressed", which === "tools" ? "true" : "false");
+  }
+
+  function render() {
+    var me = state.me;
+    $("d-hello").textContent = "Hi " + me.first_name;
+    if (!$("j-company").value && me.company) $("j-company").value = me.company;
+    var open = me.jobs.filter(function (j) { return j.status === "open"; });
+    var closed = me.jobs.filter(function (j) { return j.status !== "open"; });
+    var oj = $("open-jobs"), cj = $("closed-jobs");
+    oj.textContent = ""; cj.textContent = "";
+    if (!open.length) oj.appendChild(el("div", "empty", "No open jobs yet. Create one above, or tell your assistant on WhatsApp: “New role: Backend Engineer at Acme”."));
+    open.forEach(function (j) { oj.appendChild(jobCard(j)); });
+    closed.forEach(function (j) { cj.appendChild(jobCard(j)); });
+    $("n-open").textContent = open.length ? "(" + open.length + ")" : "";
+    $("n-closed").textContent = "(" + closed.length + ")";
+    state.hasClosed = closed.length > 0;
+    renderTeam();
+    renderTools();
+    renderAgents();
+    view(state.view || "agents");
+  }
+
+  // ---------- organisation ----------
+  function teamInvite(o) { return "Join " + o.name + " on Superhyre and get your own hiring assistant on WhatsApp: " + o.link; }
+  function renderTeam() {
+    var o = state.me.org;
+    $("t-has").hidden = !o;
+    $("f-org").hidden = !!o;
+    if (!o) {
+      // A suggestion only: a filled-in name here read as if the team still existed.
+      $("t-title").textContent = "No team yet";
+      $("o-name").placeholder = state.me.company ? "e.g. " + state.me.company : "";
+      return;
+    }
+    $("t-title").textContent = o.name;
+    $("t-meta").textContent = (o.is_owner ? "You're the owner. " : "You're a recruiter in this team. ") + plural(o.team.length, "recruiter") +
+      ". Send colleagues the link; they fill in their own name and number. You can also ask your assistant for it on WhatsApp.";
+    $("t-url").textContent = o.link;
+    $("t-rotate").hidden = !o.is_owner;
+    $("t-leave").hidden = o.is_owner;
+    $("t-delete").hidden = !o.is_owner;
+    var list = $("t-list");
+    list.textContent = "";
+    o.team.forEach(function (m) {
+      var row = el("div", "mate");
+      row.appendChild(el("span", "mate-name", m.name + (m.you ? " (you)" : "")));
+      var acts = el("div", "acts");
+      if (o.is_owner && !m.you && m.id) {
+        var rm = el("button", "link muted", "Remove"); rm.type = "button";
+        rm.setAttribute("aria-label", "Remove " + m.name);
+        rm.addEventListener("click", function () {
+          if (!confirm("Remove " + m.name + " from " + o.name + "? They keep their own account and jobs, but leave the team.")) return;
+          rm.disabled = true;
+          call({ action: "org_remove", session: state.session, member_id: m.id }).then(function (r) {
+            rm.disabled = false;
+            if (!r.ok) return handleDashErr(r, function (msg) { err("e6", msg); });
+            state.me.org = r.org; renderTeam(); toast(m.name + " removed");
+          });
+        });
+        acts.appendChild(rm);
+      }
+      acts.appendChild(el("span", "pill role" + (m.owner ? "" : " plain"), m.owner ? "Owner" : "Recruiter"));
+      row.appendChild(acts);
+      list.appendChild(row);
+    });
+  }
+  $("t-copy").addEventListener("click", function () { copy(state.me.org.link); });
+  $("t-share").addEventListener("click", function () {
+    var text = teamInvite(state.me.org);
+    if (navigator.share) navigator.share({ text: text }).catch(function () {});
+    else window.open("https://wa.me/?text=" + encodeURIComponent(text), "_blank", "noopener");
+  });
+  $("t-rotate").addEventListener("click", function () {
+    if (!confirm("Make a new teammate invite link? The current link will stop working.")) return;
+    var b = $("t-rotate"); b.disabled = true; err("e6", "");
+    call({ action: "org_rotate", session: state.session }).then(function (r) {
+      b.disabled = false;
+      if (!r.ok) return handleDashErr(r, function (m) { err("e6", m); });
+      state.me.org = r.org; renderTeam(); toast("New link ready");
+    });
+  });
+  function quitTeam(id, action, question, done) {
+    var o = state.me.org;
+    if (!confirm(question(o))) return;
+    var b = $(id); b.disabled = true; err("e6", "");
+    call({ action: action, session: state.session }).then(function (r) {
+      b.disabled = false;
+      if (!r.ok) return handleDashErr(r, function (m) { err("e6", m); });
+      state.me.org = null; $("o-name").value = ""; renderTeam(); toast(done(o));
+    });
+  }
+  $("t-leave").addEventListener("click", function () {
+    quitTeam("t-leave", "org_leave",
+      function (o) { return "Leave " + o.name + "? You keep your own account and jobs, but you'd need a new invite to rejoin."; },
+      function (o) { return "You left " + o.name; });
+  });
+  $("t-delete").addEventListener("click", function () {
+    quitTeam("t-delete", "org_delete",
+      function (o) { return "Delete " + o.name + "? This can't be undone. Everyone in it is taken out of the team, the invite link stops working and all sharing ends. Everyone keeps their own account and jobs."; },
+      function (o) { return o.name + " deleted"; });
+  });
+  $("f-org").addEventListener("submit", function (e) {
+    e.preventDefault();
+    err("e6", "");
+    var name = $("o-name").value.replace(/\s+/g, " ").trim();
+    if (name.length < 2) return err("e6", "Please enter your organisation's name."), $("o-name").focus();
+    var btn = $("b-org"); busy(btn, true);
+    call({ action: "org_create", session: state.session, name: name }).then(function (r) {
+      busy(btn, false, "Create organisation");
+      if (!r.ok) return handleDashErr(r, function (m) { err("e6", m); });
+      state.me.org = r.org; renderTeam(); toast("Organisation created");
+    });
+  });
+
+  // ---------- connected tools ----------
+  var TOOLS = {
+    google: { id: "g", name: "Google Workspace", what: "Gmail, Calendar, Drive, Docs and Sheets", short: "Gmail, Calendar, Drive, Docs and Sheets",
+      pitch: "Gmail, Calendar, Drive, Docs and Sheets: summarise and send emails, schedule Meet calls, find files, update sheets." },
+    notion: { id: "nt", name: "Notion", what: "your Notion pages and databases", short: "Pages, trackers and databases",
+      pitch: "Find pages, read and update your hiring trackers and databases, add notes and comments. You choose which pages to share." },
+    slack: { id: "sl", name: "Slack", what: "your Slack", short: "Channels, threads and messages",
+      pitch: "Search and summarise conversations, read channels and threads, and post messages as you after you approve them. The first person in a workspace to connect has to be an owner; after that anyone can." },
+    trello: { id: "tr", name: "Trello", what: "your Trello boards", short: "Boards, lists and cards",
+      pitch: "See what's on your boards, add and move cards, set due dates and comment. Only boards you're a member of." },
+    magnifi: { id: "mg", name: "Magnifi", what: "your Magnifi workspace", short: "Client conversations on WhatsApp",
+      pitch: "Ask who's unhappy, what a client said, what needs attention, and update tickets. A Magnifi admin approves the connection." }
+  };
+  function drawAccounts(accounts) {
+    var box = $("g-accts");
+    box.innerHTML = ""; box.hidden = false;
+    accounts.forEach(function (a) {
+      var row = document.createElement("div"); row.className = "acct";
+      var em = document.createElement("span"); em.className = "em";
+      em.textContent = a.email + (a.active ? "" : " (expired, reconnect it)");
+      row.appendChild(em);
+      if (a.primary && accounts.length > 1) {
+        var m = document.createElement("span"); m.className = "main"; m.textContent = "Main"; row.appendChild(m);
+      } else if (!a.primary) {
+        var mk = document.createElement("button"); mk.type = "button"; mk.textContent = "Make main";
+        mk.addEventListener("click", function () { accountAction({ action: "google_primary", account: a.email }, a.email + " is now your main account"); });
+        row.appendChild(mk);
+      }
+      var off = document.createElement("button"); off.type = "button"; off.textContent = "Remove";
+      off.addEventListener("click", function () {
+        if (!confirm("Disconnect " + a.email + "? Your assistant will no longer be able to use its Gmail, Calendar, Drive, Docs and Sheets.")) return;
+        accountAction({ action: "tool_disconnect", provider: "google", account: a.email }, a.email + " disconnected");
+      });
+      row.appendChild(off);
+      box.appendChild(row);
+    });
+  }
+  function accountAction(body, done) {
+    err("e5", "");
+    body.session = state.session;
+    return call(body).then(function (r) {
+      if (!r.ok) return handleDashErr(r, function (m) { err("e5", m); });
+      state.me.tools = r.tools; renderTools(); toast(done);
+    });
+  }
+  function renderTools() {
+    $("g-accts").hidden = true;
+    Object.keys(TOOLS).forEach(function (p) {
+      var t = TOOLS[p], s = (state.me.tools && state.me.tools[p]) || {};
+      var desc = $(t.id + "-desc"), btn = $(t.id + "-btn");
+      desc.className = "tool-desc";
+      btn.hidden = !s.available;
+      btn.className = "sm fill";
+      if (!s.available) {
+        desc.textContent = t.short + ". Coming soon.";
+      } else if (p === "google" && s.accounts && s.accounts.length) {
+        // Several Google accounts: each listed with its own Remove, and the button adds another.
+        desc.className = "tool-desc ok";
+        desc.textContent = s.accounts.length > 1 ? "Connected to " + s.accounts.length + " accounts. New emails and events go from the main one unless you say otherwise." : "Connected" +
+          (s.missing && s.missing.length ? ". Not allowed: " + s.missing.join(", ") + "." : "");
+        drawAccounts(s.accounts);
+        btn.textContent = "Add another account"; btn.className = "sm";
+      } else if (s.connected) {
+        desc.className = "tool-desc ok";
+        var acct = s.account || s.email;
+        desc.textContent = "Connected" + (acct ? (p === "google" || p === "trello" ? " as " : " to ") + acct : "") +
+          (s.missing && s.missing.length ? ". Not allowed: " + s.missing.join(", ") + "." : "");
+        btn.textContent = "Disconnect"; btn.className = "sm";
+      } else if (s.expired) {
+        desc.textContent = "Connection expired. Reconnect to keep using " + t.what + ".";
+        btn.textContent = "Reconnect";
+      } else {
+        desc.textContent = t.pitch;
+        btn.textContent = "Connect";
+      }
+    });
+  }
+  Object.keys(TOOLS).forEach(function (p) {
+    var t = TOOLS[p];
+    $(t.id + "-btn").addEventListener("click", function () {
+      var s = state.me.tools[p] || {}, btn = $(t.id + "-btn"), label = btn.textContent;
+      err("e5", "");
+      // Google: the button adds another account; each one is removed from its own row.
+      if (p === "google" && s.accounts && s.accounts.length) return startTool(p, btn, label);
+      if (s.connected) {
+        if (!confirm("Disconnect " + t.name + "? Your assistant will no longer be able to use " + t.what + ".")) return;
+        busy(btn, true);
+        return call({ action: "tool_disconnect", provider: p, session: state.session }).then(function (r) {
+          busy(btn, false, label);
+          if (!r.ok) return handleDashErr(r, function (m) { err("e5", m); });
+          state.me.tools = r.tools; renderTools(); toast(t.name + " disconnected");
+        });
+      }
+      startTool(p, btn, label);
+    });
+  });
+  // Sends the browser to the tool's own consent screen (Google, Notion or Slack).
+  function startTool(p, btn, label) {
+    if (btn) busy(btn, true);
+    return call({ action: "tool_start", provider: p, session: state.session }).then(function (r) {
+      if (!r.ok) { if (btn) busy(btn, false, label); show("s-dash"); flashTools(p); return handleDashErr(r, function (m) { err("e5", m); }); }
+      location.href = r.url;
+    });
+  }
+  function flashTools(p) {
+    // Coming back from a tool's consent screen: the connectors view is the one that shows what just happened.
+    setTab("tools");
+    view("tools");
+    var t = $(((TOOLS[p] || TOOLS.google).id) + "-tool"); t.classList.add("flash");
+    $("tools").scrollIntoView({ behavior: "smooth", block: "center" });
+    setTimeout(function () { t.classList.remove("flash"); }, 4000);
+  }
+
+  function handleDashErr(r, report) {
+    if (r.code === "signed_out") { setSession(""); setMode("login"); show("s-details"); return err("e1", "Please sign in again."); }
+    report(r.message);
+  }
+
+  function loadDashboard(opts) {
+    show("s-loading");
+    return call({ action: "me", session: state.session }).then(function (r) {
+      if (!r.ok) {
+        if (r.code === "signed_out") { setSession(""); setMode("login"); return show("s-details"); }
+        setMode("login"); show("s-details"); return err("e1", r.message);
+      }
+      state.me = r;
+      return call({ action: "agents_list", session: state.session }).then(function (a) {
+        if (a.ok) state.agents = a.agents;
+        return r;
+      });
+    }).then(function (r) {
+      if (!r || !r.ok) return;
+      render();
+      // A "connect <tool>" link from chat goes straight on to that tool's consent screen.
+      var start = state.pendingConnect;
+      state.pendingConnect = "";
+      if (start && r.tools && r.tools[start] && r.tools[start].available) {
+        show("s-loading");
+        return startTool(start);
+      }
+      show("s-dash");
+      if (start) flashTools(start);
+      if (opts && opts.tools) flashTools(opts.tools);
+      if (opts && opts.toolsError) { err("e5", opts.toolsError); flashTools(opts.provider); }
+    });
+  }
+  function refresh() {
+    if (!state.session || $("s-dash").hidden) return;
+    call({ action: "me", session: state.session }).then(function (r) {
+      if (r.ok) { state.me = r; render(); }
+      else if (r.code === "signed_out") handleDashErr(r, toast);
+    });
+  }
+  setInterval(function () { if (!document.hidden) refresh(); }, 60000);
+
+  $("f-job").addEventListener("submit", function (e) {
+    e.preventDefault();
+    err("e4", "");
+    var company = $("j-company").value.replace(/\s+/g, " ").trim();
+    var role = $("j-role").value.replace(/\s+/g, " ").trim();
+    if (company.length < 2) return err("e4", "Please enter the company name."), $("j-company").focus();
+    if (role.length < 2) return err("e4", "Please enter the role."), $("j-role").focus();
+    var btn = $("b-job"); busy(btn, true);
+    call({ action: "create_job", session: state.session, company: company, role: role }).then(function (r) {
+      busy(btn, false, "Create job");
+      if (!r.ok) return handleDashErr(r, function (m) { err("e4", m); });
+      state.newJob = r.job_id;
+      state.me.jobs = r.jobs; render();
+      $("j-role").value = "";
+      toast(r.existing ? "This job already exists" : "Job created");
+      var card = $("job-" + r.job_id);
+      if (card) card.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  });
+
+  $("b-logout").addEventListener("click", function () {
+    call({ action: "logout", session: state.session });
+    setSession(""); state.me = null;
+    setMode("login"); show("s-details");
+  });
+
+  // ---------- start ----------
+  function stripParam(name) {
+    params.delete(name);
+    var q = params.toString();
+    history.replaceState(null, "", location.pathname + (q ? "?" + q : "") + location.hash);
+  }
+
+  // ?connect=<tool> (from a chat link) opens the page at that tool's connect button.
+  var connect = TOOLS[params.get("connect")] ? params.get("connect") : "";
+  var oauthState = params.get("state");
+  // Trello (OAuth 1.0a) comes back with oauth_verifier and its request token instead of a code; Magnifi adds iss.
+  var oauthCode = params.get("code") || params.get("oauth_verifier"), oauthError = params.get("error");
+  var oauthToken = params.get("oauth_token"), oauthIss = params.get("iss");
+  if (params.has("connect")) stripParam("connect");
+  state.pendingConnect = connect;
+
+  if (oauthState && (oauthCode || oauthError)) {
+    // Back from a tool's consent screen. The state starts with the tool's name (the server checks its signature); the
+    // code is exchanged with the signed-in session that started it.
+    var provider = TOOLS[oauthState.split(".")[0]] ? oauthState.split(".")[0] : "google", tname = TOOLS[provider].name;
+    ["state", "code", "scope", "error", "error_description", "authuser", "hd", "prompt", "iss", "oauth_token", "oauth_verifier"].forEach(function (p) { params.delete(p); });
+    stripParam("state");
+    if (!state.session) {
+      setMode("login"); show("s-details");
+      err("e1", "Please sign in, then connect " + tname + " again.");
+    } else if (oauthError) {
+      loadDashboard({ provider: provider, toolsError: oauthError === "access_denied" ? tname + " wasn't connected because access wasn't allowed." : tname + " didn't complete the connection. Please try again." });
+    } else {
+      show("s-loading");
+      call({ action: "tool_callback", session: state.session, code: oauthCode, state: oauthState, token: oauthToken, iss: oauthIss }).then(function (r) {
+        if (!r.ok && r.code === "signed_out") { setSession(""); setMode("login"); show("s-details"); return err("e1", "Please sign in, then connect " + tname + " again."); }
+        loadDashboard(r.ok ? { tools: provider } : { provider: provider, toolsError: r.message }).then(function () {
+          if (r.ok) toast(tname + " connected");
+        });
+      });
+    }
+  } else if (orgCode) {
+    // Teammate invite: the organisation is filled in from the link; they add their own name and number.
+    setMode("team");
+    show("s-details");
+    call({ action: "invite", org: orgCode }).then(function (r) {
+      var b = $("invited");
+      if (r.ok) {
+        $("company").value = r.org;
+        b.textContent = "You've been invited to join " + r.org + " on Superhyre as a recruiter.";
+      } else {
+        b.textContent = r.message || "This team invite link is no longer valid. Please ask your team for a new one.";
+        $("b-send").disabled = true;
+      }
+      b.hidden = false;
+    });
+  } else if (jobCode) {
+    // Job invite: the link decides the role, so there is nothing to choose.
+    setMode("join");
+    $("title").textContent = "Join on Superhyre";
+    $("lead").textContent = "Your personal assistant will handle interview scheduling and reminders for you on WhatsApp.";
+    show("s-details");
+    call({ action: "invite", job: jobCode }).then(function (r) {
+      var b = $("invited");
+      if (r.ok && !r.closed) {
+        b.textContent = (r.recruiter ? r.recruiter + " has invited you to join as a " : "You're invited to join as a ") +
+          (r.as === "hiring_manager" ? "hiring manager" : "candidate") + " for " + r.role + " at " + r.company + ".";
+      } else {
+        b.textContent = r.ok ? "This job is closed and no longer taking sign-ups." : (r.message || "This invite link is no longer valid. Please ask for a new one.");
+        $("b-send").disabled = true;
+      }
+      b.hidden = false;
+    });
+  } else if (legacy) {
+    setMode("join");
+    $("title").textContent = "Join on Superhyre";
+    $("lead").textContent = "";
+    $("invited").textContent = "This invite link has been replaced. Please ask your recruiter for the new link for your job.";
+    $("invited").hidden = false;
+    $("b-send").disabled = true;
+    show("s-details");
+  } else if (magic) {
+    stripParam("t");
+    show("s-loading");
+    call({ action: "redeem", token: magic }).then(function (r) {
+      if (r.ok) { setSession(r.session); return loadDashboard(); }
+      if (state.session) return loadDashboard();
+      setMode("login"); show("s-details");
+      err("e1", connect ? "That link has expired. Sign in with your number to connect " + TOOLS[connect].name + ", or ask your assistant on WhatsApp for a new link." : r.message);
+    });
+  } else if (state.session) {
+    loadDashboard();
+  } else {
+    // Signed out with a connect link: sign in first, then it carries on to the tool.
+    setMode(connect ? "login" : "signup");
+    show("s-details");
+    if (connect) err("e1", "Sign in with your number to connect " + TOOLS[connect].name + ".");
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>What your assistant knows - Superhyre</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="../logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fanwood+Text&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../agent.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <img src="../logo.svg" alt="">
+    <span class="name">Superhyre</span>
+    <span class="sp"></span>
+    <a class="link" href="../connectors/">Connectors and agents</a>
+  </div>
+
+  <h1>What your assistant knows</h1>
+  <p class="lead">Everything it has worked out from your own tools, where each piece came from, and a way to delete any of it.</p>
+  <div class="banner" id="msg" hidden></div>
+
+  <section class="card">
+    <h2>What I keep, and what I don't</h2>
+    <p>I keep a catalogue and the conclusions I drew from it: who you deal with, what your files are called and where
+      they live, how you work. <strong>I never keep copies of your email, your documents or your messages.</strong>
+      Those stay in Gmail, Drive, Notion and Slack, which are the real thing and have better search than I could
+      build; when I need what one of them actually says, I open it there and then.</p>
+    <p>So what is below is the whole of it. If something here is wrong, delete it — it goes from the next message I
+      write, and the file, email or message it was drawn from is untouched.</p>
+    <p class="foot">None of this is shared with anyone: not your teammates, not whoever owns your team. Everyone's
+      assistant reads only their own tools. You can also correct me in chat — "forget that Acme is a client" — and I'll
+      keep that as a standing correction, which is the one thing a delete here doesn't do.</p>
+  </section>
+
+  <section class="card" id="profile">
+    <h2>How I'd describe you</h2>
+    <p class="muted"><span class="spin" aria-hidden="true"></span> Loading…</p>
+  </section>
+
+  <section class="card" id="people">
+    <h2>People and companies</h2>
+    <p class="muted"><span class="spin" aria-hidden="true"></span> Loading…</p>
+  </section>
+
+  <section class="card" id="places">
+    <h2>Where your things live</h2>
+    <p class="muted"><span class="spin" aria-hidden="true"></span> Loading…</p>
+  </section>
+</div>
+
+<script src="../config.js"></script>
+<script src="../agent.js"></script>
+<script src="../memory.js"></script>
+</body>
+</html>

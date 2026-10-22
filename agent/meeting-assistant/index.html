@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>Meeting assistant - Superhyre</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="../logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fanwood+Text&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../agent.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <img src="../logo.svg" alt="">
+    <span class="name">Superhyre</span>
+    <span class="sp"></span>
+    <a class="link" href="../connectors/">All agents</a>
+  </div>
+
+  <h1>Meeting assistant <span class="pill" id="state">…</span></h1>
+  <p class="lead">Add the extension to Chrome. Leave a Google Meet, and the summary is on your WhatsApp before you've closed the tab.</p>
+  <div class="banner" id="msg" hidden></div>
+
+  <section class="card">
+    <h2>What it does</h2>
+    <ul class="what">
+      <li>Writes you a summary after every Meet call: what it was about, what was decided and why, who promised what by when.</li>
+      <li>Sends it on WhatsApp, in one message. Reply to it and your assistant carries on from there — reminders, a draft to someone who was on the call, a row in a tracker.</li>
+      <li>Keeps it, so "what did we settle with Acme?" is answerable next month.</li>
+      <li>Files every call as a row in a sheet in your own Drive, with the promises on their own tab. Tick one off there and the reminder stops.</li>
+    </ul>
+    <p class="foot">The audio is never saved: it is transcribed and discarded in the same request. The transcript is kept only until the summary is written, then deleted. The summary goes to your WhatsApp, your assistant's memory and your sheet, and nowhere else. The other people in the call are not told — Meet's captions are per-device, and recording a tab does not notify them — so telling them is your call, and in some places your obligation.</p>
+  </section>
+
+  <section class="card">
+    <h2>Add it to Chrome</h2>
+    <ol class="what" id="steps">
+      <li>Download the extension and unzip it, or install it from the Chrome Web Store once it is listed.</li>
+      <li>Open <code>chrome://extensions</code>, turn on Developer mode, choose <b>Load unpacked</b> and pick the folder.</li>
+      <li>Come back to this page and press Connect. The extension will pick it up by itself.</li>
+    </ol>
+    <button type="button" class="btn fill" id="connect">Connect this browser</button>
+    <p class="foot" id="connectFoot">If nothing happens, open the extension's popup and choose "Use a code instead" — then type that code below.</p>
+    <div class="row">
+      <input id="code" class="in" maxlength="9" placeholder="ABCD-EFGH" aria-label="Pairing code from the extension">
+      <button type="button" class="btn" id="claim">Use code</button>
+    </div>
+  </section>
+
+  <section class="card" id="browsers">
+    <h2>Browsers sending me your calls</h2>
+    <p class="muted" id="browsersEmpty">None yet.</p>
+    <div id="browsersList"></div>
+  </section>
+</div>
+
+<script src="../config.js"></script>
+<script src="../agent.js"></script>
+<script src="../meeting-assistant.js"></script>
+</body>
+</html>

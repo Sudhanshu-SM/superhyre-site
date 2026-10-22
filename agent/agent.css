@@ -1,0 +1,94 @@
+/* The pages under /agent: connectors and one per agent. Same look as the main page (white, near-black ink, orange
+   accent, Fanwood / IBM Plex), kept separately so the main page's own styles are untouched. */
+:root {
+  --accent: #EA5A1E; --accent-soft: #fdefe8; --black: #0a0a0a; --ink2: #1a1a1a; --muted: #555;
+  --rule: #e2e2e2; --bg: #ffffff; --panel: #fafafa;
+  --ok: #1e7a3c; --ok-bg: #e8f5ec; --danger: #b3261e; --danger-bg: #fdecea;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--black); }
+body {
+  font: 400 16px/1.55 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased; padding: 0 16px 64px;
+}
+a { color: inherit; }
+.wrap { max-width: 760px; margin: 0 auto; }
+.top { display: flex; align-items: center; gap: 12px; padding: 22px 0 10px; }
+.top img { width: 26px; height: 26px; }
+.top .name { font-family: 'Fanwood Text', Georgia, serif; font-size: 20px; letter-spacing: .2px; }
+.top .sp { flex: 1; }
+h1 { font-family: 'Fanwood Text', Georgia, serif; font-weight: 400; font-size: 34px; line-height: 1.15; margin: 18px 0 8px; }
+h2 { font-family: 'Fanwood Text', Georgia, serif; font-weight: 400; font-size: 22px; margin: 0 0 12px; }
+.lead { color: var(--muted); margin: 0 0 22px; }
+.card { border: 1px solid var(--rule); border-radius: 14px; padding: 20px; margin: 0 0 18px; background: var(--bg); }
+.row { display: flex; align-items: flex-start; gap: 14px; padding: 16px 0; border-top: 1px solid var(--rule); }
+.row:first-of-type { border-top: 0; padding-top: 0; }
+.row .body { flex: 1; min-width: 0; }
+.row .t { font-weight: 500; }
+.row .d { color: var(--muted); font-size: 14.5px; margin-top: 3px; }
+.btn, .sm {
+  font: inherit; cursor: pointer; border-radius: 10px; border: 1px solid var(--black);
+  background: var(--bg); color: var(--black); padding: 10px 16px;
+}
+.sm { padding: 7px 13px; font-size: 14.5px; white-space: nowrap; }
+.fill { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn[disabled], .sm[disabled] { opacity: .5; cursor: default; }
+.link { background: none; border: 0; padding: 0; font: inherit; color: var(--accent); cursor: pointer; text-decoration: underline; }
+.muted { color: var(--muted); }
+.pill { font-size: 13px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--rule); color: var(--muted); white-space: nowrap; }
+.pill.on { background: var(--ok-bg); border-color: #bfe0cb; color: var(--ok); }
+.banner { border-radius: 10px; padding: 12px 14px; margin: 0 0 16px; font-size: 15px; background: var(--panel); border: 1px solid var(--rule); }
+.banner.bad { background: var(--danger-bg); border-color: #f3c9c5; color: var(--danger); }
+.banner.ok { background: var(--ok-bg); border-color: #bfe0cb; color: var(--ok); }
+.jd { border-top: 1px solid var(--rule); padding: 14px 0; }
+.jd:first-of-type { border-top: 0; }
+.jd .meta { color: var(--muted); font-size: 14px; margin-top: 2px; }
+.jd .links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+.jd .links a { font-size: 14.5px; color: var(--accent); }
+ul.what, ol.what { margin: 0; padding-left: 20px; color: var(--ink2); }
+ul.what li, ol.what li { margin: 6px 0; }
+ol.what li::marker { color: var(--muted); }
+ol.what code {
+  font: 500 14px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; padding: 1px 6px;
+}
+/* A control and its field on one line, which `.row` is not: that one is a list row and draws a rule above itself. */
+.field { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+.field label { color: var(--muted); font-size: 14.5px; }
+/* Where a card ends in things to press rather than things to read. */
+.acts { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+/* A link that is a button has to be told it is one, or the padding lands under the text. */
+a.btn, a.sm { display: inline-flex; align-items: center; text-decoration: none; }
+/* /agent/memory: one item per thing the assistant has worked out, with where it came from under it and its own
+   delete. Deliberately plain and vertical — the list is long, and someone auditing it reads rather than scans. */
+.count { color: var(--muted); font-size: 14px; margin: -4px 0 16px; }
+.item { border-top: 1px solid var(--rule); padding: 16px 0; }
+.item:first-of-type { border-top: 0; }
+.item .t { font-weight: 500; }
+.item .meta { color: var(--muted); font-size: 14px; margin-top: 3px; }
+.item .txt { margin: 8px 0 0; color: var(--ink2); }
+.item .facts { margin: 8px 0 0; padding-left: 18px; color: var(--ink2); font-size: 14.5px; }
+.item .facts li { margin: 4px 0; }
+.item .facts .meta { display: inline; margin: 0; }
+.item .act { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+.item .act .ask { color: var(--muted); font-size: 14.5px; flex: 1; min-width: 220px; }
+.tag { font-size: 12.5px; padding: 2px 8px; border-radius: 999px; background: var(--panel); border: 1px solid var(--rule); color: var(--muted); }
+.link-out { font-size: 14.5px; color: var(--accent); }
+.danger { border-color: var(--danger); color: var(--danger); }
+.foot { color: var(--muted); font-size: 14px; margin-top: 26px; }
+/* The one text field under /agent: the pairing code the meeting assistant's extension shows. */
+.in {
+  font: 500 15px/1.2 inherit; letter-spacing: .06em; text-transform: uppercase;
+  padding: 10px 12px; border: 1px solid var(--rule); border-radius: 10px; background: var(--bg); color: inherit;
+  /* Wide enough for the whole code, its hyphen and the tracking, because a field that cuts off what you typed reads
+     as a mistake you made. */
+  width: 15ch; min-width: 0;
+}
+.in:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+.in::placeholder { letter-spacing: normal; color: var(--muted); text-transform: none; }
+.spin { display: inline-block; width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: s .7s linear infinite; }
+@keyframes s { to { transform: rotate(360deg); } }
+@media (max-width: 560px) {
+  h1 { font-size: 28px; }
+  .row { flex-wrap: wrap; }
+}

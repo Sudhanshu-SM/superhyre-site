@@ -29,3 +29,9 @@ auth-app/src/__harness__/
 auth-app/.env
 auth-app/.env.*
 !auth-app/.env.example
+# Live credentials — the file says it is git-ignored, so make that true.
+API_Gateway.md
+
+# Sourcing tool: secrets and local candidate database
+sourcing/.env
+sourcing/data/
