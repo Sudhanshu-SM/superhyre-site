@@ -1,6 +1,9 @@
 import { CheckCircle, FileText, Sparkle, UploadSimple, X } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
 import { FACET_LABEL, read } from "./brief";
+import { isSheetFile } from "./jdIntake";
+import { sheetLinkIn } from "./importFiles";
+import { SheetNeeds } from "./SheetNeeds";
 import { Dialog } from "./ui";
 import "./composer.css";
 
@@ -20,6 +23,8 @@ export type Jd = { name: string; size: string; text: string; facets: readonly { 
 const SAMPLE = `Senior Backend Engineer, Ledger Platform. Bangalore or remote in India. 6+ years building backend systems in Go or Rust, with Postgres at scale (sharding, replication, 10TB+). Experience at a Series B+ product company. You will own the ledger's storage layer and on-call for it.`;
 
 const ACCEPT = ".pdf,.docx,.txt,.md";
+/** Where several can be added at once, a sheet of them can be too. */
+const ACCEPT_MANY = `${ACCEPT},.xlsx,.csv,.tsv`;
 
 function facetsOf(text: string) {
   const seen = new Set<string>();
@@ -53,10 +58,14 @@ export function JdDialog({
   lead?: string | undefined;
   /** Someone who follows the campaign reads the description and cannot replace it. */
   viewOnly?: boolean | undefined;
-  /** Present where a new campaign is being started: several descriptions (or a sheet of them) are added together, not here. */
-  onMany?: (() => void) | undefined;
+  /**
+   * Present where a new campaign is being started: several descriptions, or a spreadsheet of them, are taken together
+   * (the files picked or dropped come back, and the import card reads them); one is read here as before.
+   */
+  onMany?: ((pick: { files?: File[]; links?: string[] }) => void) | undefined;
 }) {
-  const [tab, setTab] = useState<"upload" | "paste">("upload");
+  const [tab, setTab] = useState<"upload" | "paste" | "sheet">("upload");
+  const [sheet, setSheet] = useState("");
   const [drag, setDrag] = useState(false);
   const [file, setFile] = useState<{ name: string; size: string; text: string } | null>(null);
   const [reading, setReading] = useState(false);
@@ -65,6 +74,16 @@ export function JdDialog({
   const input = useRef<HTMLInputElement>(null);
 
   useEffect(() => { if (open) { setFile(null); setReading(false); setDrag(false); setProblem(null); } }, [open]);
+
+  /* Several files, or a spreadsheet, are roles to add together: they go to the import card. */
+  const takeMany = (list: File[]): boolean => {
+    if (!onMany || !list.length) return false;
+    if (list.length === 1 && !isSheetFile(list[0] as File)) return false;
+    setProblem(null);
+    onMany({ files: list });
+    onClose();
+    return true;
+  };
 
   const take = (f: File) => {
     setProblem(null);
@@ -93,9 +112,10 @@ export function JdDialog({
     } else done(SAMPLE);
   };
 
-  const text = tab === "upload" ? file?.text ?? "" : paste;
+  const text = tab === "upload" ? file?.text ?? "" : tab === "sheet" ? "" : paste;
   const facets = text ? facetsOf(text) : [];
-  const ready = tab === "upload" ? !!file && !reading : paste.trim().length > 40;
+  const sheetLink = sheetLinkIn(sheet.trim());
+  const ready = tab === "upload" ? !!file && !reading : tab === "sheet" ? !!sheetLink : paste.trim().length > 40;
 
   return (
     <Dialog open={open} onClose={onClose} label="Job description" size="md">
@@ -125,9 +145,9 @@ export function JdDialog({
 
         {!viewOnly && (<>
         <div className="jd-tabs" role="tablist">
-          {(["upload", "paste"] as const).map((t) => (
+          {(onMany ? (["upload", "paste", "sheet"] as const) : (["upload", "paste"] as const)).map((t) => (
             <button key={t} type="button" role="tab" aria-selected={tab === t} className={`jd-tab${tab === t ? " is-on" : ""}`} onClick={() => setTab(t)}>
-              {t === "upload" ? "Upload a file" : "Paste text"}
+              {t === "upload" ? (onMany ? "Upload files" : "Upload a file") : t === "paste" ? "Paste text" : "Google Sheet"}
             </button>
           ))}
         </div>
@@ -149,14 +169,25 @@ export function JdDialog({
               className={`jd-drop${drag ? " is-drag" : ""}`}
               onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
               onDragLeave={() => setDrag(false)}
-              onDrop={(e) => { e.preventDefault(); setDrag(false); const f = e.dataTransfer.files[0]; if (f) take(f); }}
+              onDrop={(e) => { e.preventDefault(); setDrag(false); const all = [...e.dataTransfer.files]; if (takeMany(all)) return; const f = all[0]; if (f) take(f); }}
             >
-              <input ref={input} id="jd-file" type="file" accept={ACCEPT} onChange={(e) => { const f = e.target.files?.[0]; if (f) take(f); }} />
+              <input
+                ref={input} id="jd-file" type="file" accept={onMany ? ACCEPT_MANY : ACCEPT} multiple={!!onMany}
+                onChange={(e) => { const all = [...(e.target.files ?? [])]; e.target.value = ""; if (takeMany(all)) return; const f = all[0]; if (f) take(f); }}
+              />
               <span className="jd-drop-ico"><UploadSimple size={22} weight="bold" aria-hidden="true" /></span>
-              <b>{drag ? "Drop it here" : "Drop the JD here, or browse"}</b>
-              <small>{readFile ? "PDF, Word (.docx) or text" : "PDF, Word or text"} · up to 10 MB</small>
+              <b>{drag ? "Drop it here" : onMany ? "Drop the JDs here, or browse" : "Drop the JD here, or browse"}</b>
+              <small>{onMany ? "PDF, Word, text, Excel or CSV · pick several at once" : readFile ? "PDF, Word (.docx) or text · up to 10 MB" : "PDF, Word or text · up to 10 MB"}</small>
             </label>
           )
+        ) : tab === "sheet" ? (
+          <div className="ji">
+            <input
+              id="jd-sheet" className="jd-paste ji-input" type="url" value={sheet} onChange={(e) => setSheet(e.target.value)}
+              placeholder="docs.google.com/spreadsheets/…" autoComplete="off" spellCheck={false} aria-label="Google Sheet link"
+            />
+            <SheetNeeds />
+          </div>
         ) : (
           <textarea
             id="jd-paste"
@@ -182,7 +213,6 @@ export function JdDialog({
         )}
 
         <footer className="jd-foot">
-          {onMany ? <button type="button" className="st-link jd-many" onClick={onMany}>Several job descriptions, or a sheet? Add them together</button> : null}
           <span className="sp" />
           <button type="button" className="src-btn is-quiet mo-small" onClick={onClose}>Cancel</button>
           <button
@@ -190,13 +220,18 @@ export function JdDialog({
             className="src-btn is-primary mo-small"
             disabled={!ready}
             onClick={() => {
+              if (tab === "sheet") {
+                if (sheetLink && onMany) onMany({ links: [sheetLink] });
+                onClose();
+                return;
+              }
               onApply(tab === "upload" && file
                 ? { name: file.name, size: file.size, text: file.text, facets }
                 : { name: "Pasted job description", size: `${paste.trim().split(/\s+/).length} words`, text: paste, facets });
               onClose();
             }}
           >
-            Use this job description
+            {tab === "sheet" ? "Read the sheet" : "Use this job description"}
           </button>
         </footer>
         </>)}

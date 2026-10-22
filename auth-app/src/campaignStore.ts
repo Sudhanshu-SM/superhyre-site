@@ -438,7 +438,10 @@ export function archiveCampaign(id: string, archived: boolean): Promise<boolean>
     return Promise.resolve(true);
   }
   const name = [...apiCampaigns, ...archivedList].find((c) => c.id === real)?.name ?? "The campaign";
-  return campaignsApi.archiveCampaign(real, archived).then((c) => {
+  const before = [...apiCampaigns, ...archivedList].find((c) => c.id === real);
+  return campaignsApi.archiveCampaign(real, archived).then((made) => {
+    // The answer is the campaign alone; the list's figures (found, replied) are kept from the row it was.
+    const c: ApiCampaign = { ...made, summary: made.summary ?? before?.summary ?? NEW_SUMMARY };
     if (archived) {
       apiCampaigns = apiCampaigns.filter((x) => x.id !== real);
       archivedList = [c, ...archivedList.filter((x) => x.id !== real)];

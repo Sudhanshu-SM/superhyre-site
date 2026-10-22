@@ -35,7 +35,7 @@ import type { Campaign } from "./workspaces";
 import { api, LIVE, messageOf } from "./api/client";
 import { agentApi, attachmentApi, filtersApi } from "./api/agent";
 import { isSheetFile } from "./jdIntake";
-import { stashImportFiles } from "./importFiles";
+import { type ImportSeed, hasSeed, sheetLinkIn, stashImport } from "./importFiles";
 import {
   ATTACH_ACCEPT, MAX_ATTACHMENTS, PATH_NOTE, composeMessage, fileRefusal, readClipboard, typeOf,
 } from "./attachments";
@@ -687,7 +687,9 @@ export function Agent({
   }, []);
 
   const send = useCallback(() => {
-    const said = draftApi.current.get().trim();
+    const bulk = draftApi.current.bulk?.() ?? null;
+    if (bulk) stashImport(bulk);
+    const said = bulk ? "Add roles in bulk" : draftApi.current.get().trim();
     if (!said) return;
     /* Too long for the agent: the composer says by how much and has Send off, and Enter does the same. */
     if (LIVE && chatOver(said)) return;
@@ -1617,7 +1619,7 @@ export function Agent({
             {...(!focused && nextJd ? { onRemove: () => setNextJd(null) } : {})}
             read={readJdFile}
             /* Several descriptions, or a sheet of them, are added together on the import card, not one at a time here. */
-            {...(!focused ? { onMany: () => { setJdOpen(false); sendMessage("Add roles in bulk", undefined); } } : {})}
+            {...(!focused ? { onMany: (pick: { files?: File[]; links?: string[] }) => { stashImport(pick); sendMessage("Add roles in bulk", undefined); } } : {})}
             viewOnly={focused && !mayChange}
             lead={focused
               ? (liveJd
@@ -1925,6 +1927,8 @@ const MAX_LINES = 6;
 type ComposerHandle = {
   get: () => string;
   set: (t: string) => void;
+  /** When what is in the composer is a list of roles (a Google Sheet's link, or several job descriptions), what the import card takes. */
+  bulk?: () => ImportSeed | null;
   attach?: (files: File[]) => void;
   paste?: (out: PasteOutcome) => void;
 };
@@ -1998,7 +2002,7 @@ function Composer({
     const sheets = dropped.filter(isSheetFile);
     const files = dropped.filter((f) => !isSheetFile(f));
     if (sheets.length) {
-      stashImportFiles(sheets);
+      stashImport({ files: sheets });
       sendMessage("Add these roles in bulk", undefined);
       if (!files.length) return;
     }
@@ -2058,6 +2062,26 @@ function Composer({
     },
     attach: addFiles,
     paste: takePaste,
+    /* Several job descriptions attached, or a Google Sheet's link in the words, are roles to add together: the agent
+       answers with the import card, which reads them, instead of one message about all of them. */
+    bulk: () => {
+      if (!LIVE || campaignName) return null;
+      const ready = itemsNow.current.filter((a) => a.status === "ready" && a.text.trim().length >= 60);
+      const typed = draftNow.current.trim();
+      const link = sheetLinkIn(typed);
+      /* Two or more documents with no résumé among them, and nothing typed that says they are something else (a
+         question about them), are roles to add. A file the reader took for a job description counts either way. */
+      const docs = ready.filter((a) => a.docKind !== "resume");
+      const sure = ready.filter((a) => a.docKind === "job_description");
+      const about = !typed || /\b(campaigns?|roles?|jds?|job descriptions?|openings?|positions?|vacanc\w+|hir(?:e|ing))\b/i.test(typed);
+      const many = sure.length >= 2 || (docs.length >= 2 && docs.length === ready.length && about);
+      const seed: ImportSeed = {
+        files: [],
+        texts: many ? docs.map((a) => ({ label: a.name.replace(/\.[a-z0-9]+$/i, ""), jd: a.text })) : [],
+        links: link ? [link] : [],
+      };
+      return hasSeed(seed) ? seed : null;
+    },
   };
   const reading = atts.some((a) => a.status === "reading");
   const withText = items.filter((a) => a.status === "ready").length;

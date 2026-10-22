@@ -26,29 +26,40 @@ vi.mock("../campaignStore", () => ({
 }));
 
 const { JdIntake } = await import("../JdIntake");
-const { stashImportFiles, takeImportFiles } = await import("../importFiles");
+const { hasSeed, sheetLinkIn, stashImport, takeImport } = await import("../importFiles");
 
 const src = (f: string) => readFileSync(resolve(__dirname, "..", f), "utf8");
 
 describe("the add-roles card", () => {
   const html = renderToStaticMarkup(<JdIntake onManual={() => undefined} onClose={() => undefined} />);
 
-  it("starts from the job description: paste it, attach files or a spreadsheet, or give a Google Sheet's link", () => {
-    expect(html).toContain("Paste a job description");
-    expect(html).toContain("Attach files or a spreadsheet");
-    expect(html).toContain("Or a Google Sheet");
-    expect(html).toContain("docs.google.com/spreadsheets");
+  it("starts from the job descriptions: drop or pick several files, paste one, or give a Google Sheet's link", () => {
+    expect(html).toContain("New campaign");
+    for (const tab of ["Upload files", "Paste text", "Google Sheet"]) expect(html).toContain(tab);
+    expect(html).toContain("Drop job descriptions here, or browse");
+    expect(html).toContain("pick several at once");
+    expect(html).toMatch(/<input[^>]*type="file"[^>]*multiple/);
     expect(html).toMatch(/accept="[^"]*\.xlsx[^"]*\.csv/);
   });
 
-  it("says what a sheet needs, and keeps the long form one click away", () => {
-    expect(html).toContain("Anyone with the link can view");
-    expect(html).toContain("Job description");
+  it("keeps the long form one click away, and cannot be started with nothing to read", () => {
     expect(html).toContain("Fill in the details yourself");
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Read it/);
   });
 
-  it("cannot be started with nothing to read", () => {
-    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Read it/);
+  it("has no title of its own when it is drawn in the chat, which already said what it is", () => {
+    const inChat = renderToStaticMarkup(<JdIntake embedded />);
+    expect(inChat).not.toContain("New campaign");
+    expect(inChat).not.toContain('class="jd-top"');
+  });
+});
+
+describe("a Google Sheet's link in the words", () => {
+  it("is found among other words, and only when it is a Sheets address", () => {
+    const id = "1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789";
+    expect(sheetLinkIn(`please create campaigns from https://docs.google.com/spreadsheets/d/${id}/edit?usp=sharing thanks`)).toBe(`https://docs.google.com/spreadsheets/d/${id}/edit?usp=sharing`);
+    expect(sheetLinkIn("https://docs.google.com/document/d/abc")).toBeNull();
+    expect(sheetLinkIn("no link here")).toBeNull();
   });
 });
 
@@ -62,15 +73,17 @@ describe("where it is hosted", () => {
 
   it("is the chat's import view, which takes the files a spreadsheet drop left for it", () => {
     expect(src("liveViews/index.tsx")).toContain('"campaign-import": lazy(() => import("./Import"))');
-    expect(src("liveViews/Import.tsx")).toContain("takeImportFiles()");
-    stashImportFiles([new File(["a"], "roles.xlsx")]);
-    expect(takeImportFiles().map((f) => f.name)).toEqual(["roles.xlsx"]);
-    expect(takeImportFiles()).toEqual([]);
+    expect(src("liveViews/Import.tsx")).toContain("takeImport()");
+    stashImport({ files: [new File(["a"], "roles.xlsx")], links: ["https://docs.google.com/spreadsheets/d/abc"] });
+    const seed = takeImport();
+    expect(seed.files.map((f) => f.name)).toEqual(["roles.xlsx"]);
+    expect(seed.links).toHaveLength(1);
+    expect(hasSeed(takeImport())).toBe(false);
   });
 
   it("is where a spreadsheet dropped in the composer goes, instead of being refused", () => {
     const agent = src("Agent.tsx");
-    expect(agent).toContain("stashImportFiles(sheets)");
+    expect(agent).toContain("stashImport({ files: sheets })");
     expect(agent).toContain('sendMessage("Add these roles in bulk"');
   });
 });

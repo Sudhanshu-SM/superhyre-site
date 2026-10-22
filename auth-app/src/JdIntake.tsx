@@ -1,4 +1,4 @@
-import { ArrowRight, Check, Paperclip, X } from "@phosphor-icons/react";
+import { ArrowRight, Check, FileText, UploadSimple, X } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { specApi, attachmentApi } from "./api/agent";
 import { LIVE, messageOf } from "./api/client";
@@ -15,7 +15,11 @@ import {
   type Answers, type Ask, EXPERIENCE_OPTIONS, type JdFacts, NO_CLIENT, asksFor, clientSaid, draftFromIntake, factLine,
   isSheetFile, parseCities, parseComp, parseExperience, problemsOf,
 } from "./jdIntake";
+import { BatchReview } from "./BatchReview";
+import { SheetNeeds } from "./SheetNeeds";
 import { useSession } from "./roleStore";
+import { type ImportSeed } from "./importFiles";
+import "./composer.css";
 import "./jd-intake.css";
 
 /**
@@ -52,9 +56,17 @@ const OPEN: readonly Phase[] = ["waiting", "reading", "ready", "failed", "creati
 const short = (s: string, n = 60) => (s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s);
 const firstLine = (jd: string) => short(jd.trim().split(/\n/)[0] ?? "Job description");
 
-export function JdIntake({ files, onManual, onClose }: {
-  /** Files to read as soon as this opens (a spreadsheet dropped in the chat). */
-  files?: readonly File[];
+type Tab = "upload" | "paste" | "sheet";
+const TABS: ReadonlyArray<readonly [Tab, string]> = [["upload", "Upload files"], ["paste", "Paste text"], ["sheet", "Google Sheet"]];
+
+export function JdIntake({ seed, embedded, onManual, onClose }: {
+  /**
+   * What the chat handed over (files, job descriptions already read, a Google Sheet's link): they are read at once and
+   * the questions start, with nothing more to press. Without it the person adds them here.
+   */
+  seed?: ImportSeed | undefined;
+  /** Drawn in the chat, which already said what this is: no title of its own. */
+  embedded?: boolean;
   /** "Fill in the details yourself": the long form, for a role that has no description. */
   onManual?: () => void;
   onClose?: () => void;
@@ -78,6 +90,8 @@ export function JdIntake({ files, onManual, onClose }: {
   const patch = useCallback((id: string, over: Partial<Item>) => setItems((all) => all.map((i) => (i.id === id ? { ...i, ...over } : i))), []);
 
   /* ── adding ── */
+  const [tab, setTab] = useState<Tab>("upload");
+  const [drag, setDrag] = useState(false);
   const [text, setText] = useState("");
   const [link, setLink] = useState("");
   const [busy, setBusy] = useState<string[]>([]);
@@ -127,25 +141,42 @@ export function JdIntake({ files, onManual, onClose }: {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const addLink = () => {
-    const url = link.trim();
-    if (!url) return;
-    setLink("");
+  const readLink = (url: string) => {
     void working("the Google Sheet", async () => {
       try {
         const r = await jdApi.sheetLink(url);
         addSheet("The Google Sheet", r.roles, r.skipped);
       } catch (err) {
+        // Back on the sheet's own tab with the link still there and what a sheet needs in view: fixing it is one step.
+        setTab("sheet");
+        setLink(url);
         note(messageOf(err));
       }
     });
   };
+  const addLink = () => {
+    const url = link.trim();
+    if (!url) return;
+    setLink("");
+    readLink(url);
+  };
+  /* Handed over by the chat: read at once, then on to the questions as soon as everything is in. */
   const seeded = useRef(false);
+  const autoStart = useRef(!!seed && (seed.files.length + seed.texts.length + seed.links.length) > 0);
   useEffect(() => {
-    if (seeded.current || !files?.length || !LIVE) return;
+    if (seeded.current || !seed || !LIVE) return;
     seeded.current = true;
-    addFiles(files);
-  }, [files, addFiles]);
+    if (seed.texts.length) add(seed.texts);
+    if (seed.files.length) addFiles(seed.files);
+    for (const url of seed.links) readLink(url);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seed, addFiles]);
+  useEffect(() => {
+    if (stage === "add" && autoStart.current && items.length > 0 && busy.length === 0) {
+      autoStart.current = false;
+      setStage("queue");
+    }
+  }, [stage, items.length, busy.length]);
 
   /* ── reading: two at a time, in order, as soon as the queue starts ── */
   const started = useRef(new Set<string>());
@@ -280,60 +311,91 @@ export function JdIntake({ files, onManual, onClose }: {
   if (!LIVE) return <p className="ji-note">Adding roles from job descriptions needs a connected workspace.</p>;
 
   /* ── the screens ── */
+  const shell = embedded ? "ji" : "jd ji";
+  const title = embedded ? null : (
+    <header className="jd-top">
+      <h2>New campaign</h2>
+      <p>{stage === "add"
+        ? "Add one job description or several. I read each one, use what it says, and ask only for what it leaves out."
+        : "I read each one and ask only for what it leaves out."}</p>
+    </header>
+  );
+
   if (stage === "add") {
+    const n = items.length;
     return (
-      <div className="ji">
-        <p className="ji-lede t-body">
-          Add a job description, or many at once. I read each one, use what it says, and ask only for what it leaves out.
-        </p>
-        <label className="ji-box">
-          <span className="ji-l t-label">Paste a job description</span>
-          <textarea
-            className="ji-area" rows={6} value={text} onChange={(e) => setText(e.target.value)} spellCheck={false}
-            placeholder="Paste the job description here"
-          />
-        </label>
-        <div className="ji-row">
-          <button type="button" className="ncx-btn is-sm" onClick={addText} disabled={!text.trim()}>Add this description</button>
-          <label className="ncx-btn is-sm ji-file">
-            <Paperclip size={14} aria-hidden="true" />
-            Attach files or a spreadsheet
+      <div className={shell}>
+        {title}
+        <div className="jd-tabs" role="tablist" aria-label="How to add">
+          {TABS.map(([id, label]) => (
+            <button key={id} type="button" role="tab" aria-selected={tab === id} className={`jd-tab${tab === id ? " is-on" : ""}`} onClick={() => setTab(id)}>{label}</button>
+          ))}
+        </div>
+
+        {tab === "upload" && (
+          <label
+            className={`jd-drop${drag ? " is-drag" : ""}`}
+            onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
+            onDragLeave={() => setDrag(false)}
+            onDrop={(e) => { e.preventDefault(); setDrag(false); addFiles([...e.dataTransfer.files]); }}
+          >
             <input
               type="file" multiple accept={`${ATTACH_ACCEPT.replace(",.png,.jpg,.jpeg,.webp", "")},.xlsx,.csv,.tsv`}
               onChange={(e) => { addFiles([...(e.target.files ?? [])]); e.target.value = ""; }}
             />
+            <span className="jd-drop-ico"><UploadSimple size={22} weight="bold" aria-hidden="true" /></span>
+            <b>{drag ? "Drop them here" : "Drop job descriptions here, or browse"}</b>
+            <small>PDF, Word, text, Excel or CSV · pick several at once</small>
           </label>
-        </div>
-        <form className="ji-link" onSubmit={(e) => { e.preventDefault(); addLink(); }}>
-          <label className="ji-l t-label" htmlFor="ji-sheet">Or a Google Sheet</label>
-          <div className="ji-row">
-            <input
-              id="ji-sheet" className="ncx-in is-grow" type="url" value={link} onChange={(e) => setLink(e.target.value)}
-              placeholder="docs.google.com/spreadsheets/…" autoComplete="off" spellCheck={false}
+        )}
+
+        {tab === "paste" && (
+          <>
+            <textarea
+              id="ji-paste" className="jd-paste" rows={7} value={text} onChange={(e) => setText(e.target.value)} spellCheck={false}
+              placeholder="Paste the job description…" aria-label="Job description"
             />
-            <button type="submit" className="ncx-btn is-sm" disabled={!link.trim()}>Add the sheet</button>
-          </div>
-          <p className="ji-hint t-caption">Set the sheet to “Anyone with the link can view”. Name a column “Job description” and one “Role”; columns like Client, Location, Experience and CTC are used too.</p>
-        </form>
+            <div className="ji-row">
+              <button type="button" className="src-btn is-quiet mo-small" onClick={addText} disabled={!text.trim()}>Add this description</button>
+              <span className="ji-hint t-caption">Add another after it, or read just this one.</span>
+            </div>
+          </>
+        )}
+
+        {tab === "sheet" && (
+          <form className="ji-link" onSubmit={(e) => { e.preventDefault(); addLink(); }}>
+            <div className="ji-row is-nowrap">
+              <input
+                id="ji-sheet" className="jd-paste ji-input" type="url" value={link} onChange={(e) => setLink(e.target.value)}
+                placeholder="docs.google.com/spreadsheets/…" autoComplete="off" spellCheck={false} aria-label="Google Sheet link"
+              />
+              <button type="submit" className="src-btn is-quiet mo-small" disabled={!link.trim()}>Add the sheet</button>
+            </div>
+            <SheetNeeds />
+          </form>
+        )}
 
         {busy.length > 0 && <p className="ji-busy t-body-sm" role="status"><Loader size="sm" />Reading {busy.join(", ")}</p>}
-        {notes.length > 0 && <ul className="ji-notes" role="status">{notes.map((n) => <li key={n} className="t-body-sm">{n}</li>)}</ul>}
-        {items.length > 0 && (
+        {notes.length > 0 && <ul className="ji-notes" role="status">{notes.map((t) => <li key={t} className="t-body-sm">{t}</li>)}</ul>}
+
+        {n > 0 && (
           <ul className="ji-list" aria-label="To read">
             {items.map((i) => (
               <li key={i.id} className="ji-li">
-                <span className="ji-li-t t-body">{i.label}</span>
-                <button type="button" className="ji-x" aria-label={`Remove ${i.label}`} onClick={() => setItems((all) => all.filter((x) => x.id !== i.id))}><X size={12} weight="bold" /></button>
+                <FileText size={16} aria-hidden="true" />
+                <span className="ji-li-t">{i.label}</span>
+                <button type="button" className="jd-x" aria-label={`Remove ${i.label}`} onClick={() => setItems((all) => all.filter((x) => x.id !== i.id))}><X size={13} weight="bold" /></button>
               </li>
             ))}
           </ul>
         )}
 
-        <footer className="ji-foot">
-          {onManual ? <button type="button" className="st-link" onClick={onManual}>Fill in the details yourself</button> : <span />}
-          {onClose && <button type="button" className="ncx-btn" onClick={onClose}>Cancel</button>}
-          <button type="button" className="ncx-btn is-dark" disabled={!items.length && text.trim().length < 60} onClick={begin}>
-            {items.length > 1 ? `Read ${items.length} roles` : "Read it"}<ArrowRight size={14} weight="bold" aria-hidden="true" />
+        <footer className="jd-foot">
+          {onManual ? <button type="button" className="cn-link" onClick={onManual}>Fill in the details yourself</button> : null}
+          <span className="sp" />
+          {onClose && <button type="button" className="src-btn is-quiet mo-small" onClick={onClose}>Cancel</button>}
+          <button type="button" className="src-btn is-primary mo-small" disabled={!n && text.trim().length < 60} onClick={begin}>
+            {n > 1 ? `Read ${n} roles` : "Read it"}<ArrowRight size={13} weight="bold" aria-hidden="true" />
           </button>
         </footer>
       </div>
@@ -342,7 +404,8 @@ export function JdIntake({ files, onManual, onClose }: {
 
   const made = items.filter((i) => i.phase === "made");
   return (
-    <div className="ji">
+    <div className={shell}>
+      {title}
       {total > 1 && (
         <div className="ji-progress" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={doneCount} aria-label="Roles made">
           <span className="ji-progress-t t-body-sm">{current ? `Role ${position} of ${total}` : `${doneCount} of ${total} made`}</span>
@@ -352,7 +415,7 @@ export function JdIntake({ files, onManual, onClose }: {
 
       {current && (
         <section className="ji-now" aria-live="polite">
-          <h3 className="ji-name t-title">{current.facts?.title ?? current.label}</h3>
+          <h3 className="ji-name">{current.facts?.title ?? current.label}</h3>
           {current.facts && <p className="ji-found t-body-sm">{factLine(current.facts, { ...defaults, ...current.answers })}</p>}
 
           {(current.phase === "waiting" || current.phase === "reading") && <p className="ji-busy t-body" role="status"><Loader size="sm" />Reading the job description</p>}
@@ -361,16 +424,16 @@ export function JdIntake({ files, onManual, onClose }: {
             <div className="ji-fail">
               <p className="t-body" role="alert">{current.error ?? "That didn't work."}</p>
               <div className="ji-row">
-                {!current.facts && <button type="button" className="ncx-btn is-sm" onClick={() => { started.current.delete(current.id); patch(current.id, { phase: "waiting", error: "" }); }}>Try again</button>}
-                {current.facts && <button type="button" className="ncx-btn is-sm" onClick={() => { making.current.delete(current.id); create({ ...current, phase: "ready" }); }}>Try again</button>}
-                <button type="button" className="ncx-btn is-sm" onClick={() => patch(current.id, { phase: "skipped" })}>Skip this one</button>
+                {!current.facts && <button type="button" className="src-btn is-quiet mo-small" onClick={() => { started.current.delete(current.id); patch(current.id, { phase: "waiting", error: "" }); }}>Try again</button>}
+                {current.facts && <button type="button" className="src-btn is-quiet mo-small" onClick={() => { making.current.delete(current.id); create({ ...current, phase: "ready" }); }}>Try again</button>}
+                <button type="button" className="src-btn is-quiet mo-small" onClick={() => patch(current.id, { phase: "skipped" })}>Skip this one</button>
               </div>
             </div>
           )}
 
           {current.phase === "ready" && ask && (
             <div className="ji-ask">
-              <p className="ji-q t-body-strong">{ask.text}</p>
+              <p className="ji-q">{ask.text}</p>
               {ask.options.length > 0 && (
                 <div className="ji-opts" role="group" aria-label={ask.text}>
                   {ask.options.map((o) => <button key={o.id} type="button" className="ji-opt" onClick={() => pick(ask, o.id)}>{o.label}</button>)}
@@ -379,34 +442,34 @@ export function JdIntake({ files, onManual, onClose }: {
               {ask.input && (
                 <form className="ji-type" onSubmit={(e) => { e.preventDefault(); submitTyped(ask); }}>
                   <input
-                    className="ncx-in is-grow" value={typed} onChange={(e) => { setTyped(e.target.value); setOops(null); }}
+                    className="jd-paste ji-input" value={typed} onChange={(e) => { setTyped(e.target.value); setOops(null); }}
                     placeholder={ask.input.placeholder} aria-label={ask.input.label} autoComplete="off" spellCheck={false} autoFocus={!ask.options.length}
                   />
-                  <button type="submit" className="ncx-btn is-sm" disabled={!typed.trim()}>Use this</button>
+                  <button type="submit" className="src-btn is-quiet mo-small" disabled={!typed.trim()}>Use this</button>
                 </form>
               )}
               {oops && <p className="ji-oops t-caption" role="alert">{oops}</p>}
               <div className="ji-more">
-                <button type="button" className="st-link" onClick={() => skip(ask)}>Skip this</button>
+                <button type="button" className="cn-link" onClick={() => skip(ask)}>Skip this</button>
                 {others > 0 && (
                   <label className="ji-all t-body-sm">
                     <input type="checkbox" checked={forAll} onChange={(e) => setForAll(e.target.checked)} />
                     Use my answer for the other {others} {others === 1 ? "role" : "roles"} too
                   </label>
                 )}
-                {others > 0 && <button type="button" className="st-link" onClick={() => setSkipRest(true)}>Make the rest without asking</button>}
+                {others > 0 && <button type="button" className="cn-link" onClick={() => setSkipRest(true)}>Make the rest without asking</button>}
               </div>
             </div>
           )}
         </section>
       )}
 
-      {made.length > 0 && (
+      {made.length > 0 && current && (
         <ul className="ji-made" aria-label="Made">
           {made.map((i) => (
             <li key={i.id} className="ji-made-i">
               <Check size={13} weight="bold" aria-hidden="true" />
-              <a className="st-link t-body" href={campaignHref(i.made?.id ?? "")}>{i.made?.name}</a>
+              <a className="cn-link" href={campaignHref(i.made?.id ?? "")}>{i.made?.name}</a>
               <span className="ji-spec t-caption">
                 {i.spec === "drafted" ? "Role spec ready to approve" : i.spec === "failed" ? `Role spec not drafted${i.specWhy ? `: ${i.specWhy}` : ""}` : "Drafting the role spec"}
               </span>
@@ -415,16 +478,19 @@ export function JdIntake({ files, onManual, onClose }: {
         </ul>
       )}
 
+      {/* All made: each role spec in turn, to approve and start finding people, and where each role stands. */}
+      {made.length > 0 && !current && (
+        <BatchReview roles={made.map((i) => ({ id: i.made?.id ?? "", name: i.made?.name ?? i.label, spec: i.spec, specWhy: i.specWhy }))} />
+      )}
+
       {!current && (
-        <footer className="ji-foot is-done">
-          <p className="t-body">
-            {doneCount ? `${doneCount} ${doneCount === 1 ? "campaign" : "campaigns"} created.` : "Nothing was created."}{" "}
-            {doneCount > 0 && "Each role spec needs your approval before a search starts."}
+        <footer className="jd-foot is-done">
+          <p className="ji-done t-body">
+            {doneCount ? `${doneCount} ${doneCount === 1 ? "campaign" : "campaigns"} created. Approve each role spec to start finding people.` : "Nothing was created."}
           </p>
-          <div className="ji-row">
-            <button type="button" className="ncx-btn" onClick={() => { setItems([]); setStage("add"); setSkipRest(false); setDefaults({}); started.current.clear(); making.current.clear(); }}>Add more roles</button>
-            {onClose && <button type="button" className="ncx-btn is-dark" onClick={onClose}>Done</button>}
-          </div>
+          <span className="sp" />
+          <button type="button" className="src-btn is-quiet mo-small" onClick={() => { setItems([]); setStage("add"); setSkipRest(false); setDefaults({}); started.current.clear(); making.current.clear(); }}>Add more roles</button>
+          {onClose && <button type="button" className="src-btn is-primary mo-small" onClick={onClose}>Done</button>}
         </footer>
       )}
     </div>
