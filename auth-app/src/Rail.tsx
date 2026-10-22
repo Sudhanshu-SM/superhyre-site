@@ -227,7 +227,7 @@ export function Rail({
               {canStartNew && (
                 <button type="button" className="rail-new" onClick={onNewBrief}>
                   <Plus size={12} weight="bold" aria-hidden="true" />
-                  New
+                  New chat
                 </button>
               )}
             </div>
@@ -423,7 +423,7 @@ function HistoryDialog({
           <h2 className="hist-title">History</h2>
           <button type="button" className="rail-new" onClick={onNewBrief}>
             <Plus size={12} weight="bold" aria-hidden="true" />
-            New
+            New chat
           </button>
           <button type="button" className="hist-x" onClick={onClose} aria-label="Close history">
             <X size={15} weight="bold" aria-hidden="true" />

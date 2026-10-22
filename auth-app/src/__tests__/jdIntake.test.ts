@@ -149,8 +149,9 @@ describe("the campaign made from it", () => {
   });
 
   it("is said as one line of what was found, with the answers in it", () => {
-    expect(factLine(everything({ seniority: "Senior" }))).toBe("Backend Engineer · Winspire · Senior · Bengaluru · Hybrid · 4–8 yrs · ₹20–30 LPA · Up to 30 days");
-    expect(factLine(facts(), { workMode: "remote", exp: { min: 5, max: null } }, "Acme")).toBe("Backend Engineer · Acme · Remote · 5+ yrs");
+    expect(factLine(everything({ seniority: "Senior" }))).toBe("Winspire · Senior · Bengaluru · Hybrid · 4–8 yrs · ₹20–30 LPA · Up to 30 days");
+    expect(factLine(everything({ title: "QA Lead", seniority: "Lead" }))).toBe("Winspire · Bengaluru · Hybrid · 4–8 yrs · ₹20–30 LPA · Up to 30 days");
+    expect(factLine(facts(), { workMode: "remote", exp: { min: 5, max: null } }, "Acme")).toBe("Acme · Remote · 5+ yrs");
   });
 });
 

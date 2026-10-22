@@ -36,7 +36,7 @@ export function jdFromText(name: string, text: string): Jd {
 const kb = (n: number) => (n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
 
 export function JdDialog({
-  open, onClose, current, onApply, onRemove, read: readFile, lead, viewOnly,
+  open, onClose, current, onApply, onRemove, read: readFile, lead, viewOnly, onMany,
 }: {
   open: boolean;
   onClose: () => void;
@@ -53,6 +53,8 @@ export function JdDialog({
   lead?: string | undefined;
   /** Someone who follows the campaign reads the description and cannot replace it. */
   viewOnly?: boolean | undefined;
+  /** Present where a new campaign is being started: several descriptions (or a sheet of them) are added together, not here. */
+  onMany?: (() => void) | undefined;
 }) {
   const [tab, setTab] = useState<"upload" | "paste">("upload");
   const [drag, setDrag] = useState(false);
@@ -180,6 +182,7 @@ export function JdDialog({
         )}
 
         <footer className="jd-foot">
+          {onMany ? <button type="button" className="st-link jd-many" onClick={onMany}>Several job descriptions, or a sheet? Add them together</button> : null}
           <span className="sp" />
           <button type="button" className="src-btn is-quiet mo-small" onClick={onClose}>Cancel</button>
           <button

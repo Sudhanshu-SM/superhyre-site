@@ -261,7 +261,7 @@ export function draftFromIntake(args: {
 /** What is wrong with the draft as it would be created, in the server's and form's own words; empty when it is fine. */
 export const problemsOf = (d: CampaignDraft): string[] => Object.values(draftProblems(d)).filter((p): p is string => typeof p === "string");
 
-/** The facts as one line for the person to check what was found: "Backend Engineer · Winspire · Bengaluru · 4–8 yrs". */
+/** The facts as one line for the person to check what was found, under the role's name: "Winspire · Senior · Bengaluru · 4–8 yrs". */
 export function factLine(facts: JdFacts, answers: Answers = {}, client?: string | null): string {
   const a = answers;
   const exp = a.exp ?? { min: facts.expMin, max: facts.expMax };
@@ -270,10 +270,11 @@ export function factLine(facts: JdFacts, answers: Answers = {}, client?: string 
     !r || (r.min == null && r.max == null) ? null : r.min != null && r.max != null ? (r.min === r.max ? `${r.min}` : `${r.min}–${r.max}`) + unit : r.min != null ? `${r.min}+${unit}` : `up to ${r.max}${unit}`;
   const sym = facts.comp && facts.comp.currency !== "INR" ? `${facts.comp.currency} ` : "₹";
   const pay = range(comp, " LPA");
+  // A level the role's own name already says ("QA Lead", "Senior Backend Engineer") is not said twice.
+  const level = facts.seniority && !facts.title.toLowerCase().includes(facts.seniority.toLowerCase()) ? facts.seniority : null;
   return [
-    facts.title,
     client ?? facts.client,
-    facts.seniority,
+    level,
     (a.locations ?? facts.locations).join(", ") || null,
     (a.workMode ?? facts.workMode) === "remote" ? "Remote" : (a.workMode ?? facts.workMode) === "hybrid" ? "Hybrid" : (a.workMode ?? facts.workMode) === "onsite" ? "In office" : null,
     range(exp, " yrs"),

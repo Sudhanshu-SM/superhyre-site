@@ -1582,7 +1582,9 @@ export function Agent({
               stats: week,
               statsState: weekState,
               onRetryStats: () => { setWeekState("loading"); setWeekAsk((n) => n + 1); },
-              canStartNew: started,
+              /* Always: a chat that has not started can still be pointing at the campaign the last one was about, and a new
+                 chat is how to leave it. */
+              canStartNew: true,
               ...(config ? { config } : {}),
             }
           : {})}
@@ -1614,6 +1616,8 @@ export function Agent({
             onApply={focused ? sendJd : setNextJd}
             {...(!focused && nextJd ? { onRemove: () => setNextJd(null) } : {})}
             read={readJdFile}
+            /* Several descriptions, or a sheet of them, are added together on the import card, not one at a time here. */
+            {...(!focused ? { onMany: () => { setJdOpen(false); sendMessage("Add roles in bulk", undefined); } } : {})}
             viewOnly={focused && !mayChange}
             lead={focused
               ? (liveJd
