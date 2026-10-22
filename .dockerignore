@@ -1,0 +1,12 @@
+# Railway serves this repo as committed (express.static on the root): the pages, access/ (the built console) and assets/.
+# The console's source, its dev server, the database notes and the markdown are not served, only slow the build down,
+# and were being published to the public as a side effect.
+auth-app
+server
+supabase
+docs
+*.md
+vite.config.ts
+.git
+.gitignore
+node_modules
