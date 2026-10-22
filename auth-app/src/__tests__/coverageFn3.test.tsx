@@ -204,7 +204,7 @@ describe("a campaign's real calls feed the Overview's cards", () => {
 describe("what is coming up is answered in the chat with the list Home shows", () => {
   it("is one of the views the chat draws, and the server's list says so too", () => {
     expect(isViewKind("coming-up")).toBe(true);
-    expect(VIEW_KINDS).toHaveLength(18);
+    expect(VIEW_KINDS).toHaveLength(19);
   });
 
   it("draws Home's own rows (the same List, the same feed) narrowed to the campaign the request named", () => {

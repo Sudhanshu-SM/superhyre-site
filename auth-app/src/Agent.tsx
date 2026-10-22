@@ -34,6 +34,8 @@ import type { Verdict } from "./sourcing";
 import type { Campaign } from "./workspaces";
 import { api, LIVE, messageOf } from "./api/client";
 import { agentApi, attachmentApi, filtersApi } from "./api/agent";
+import { isSheetFile } from "./jdIntake";
+import { stashImportFiles } from "./importFiles";
 import {
   ATTACH_ACCEPT, MAX_ATTACHMENTS, PATH_NOTE, composeMessage, fileRefusal, readClipboard, typeOf,
 } from "./attachments";
@@ -1985,8 +1987,17 @@ function Composer({
   const uid = useRef(0);
 
   const fresh = () => `a${Date.now().toString(36)}${(uid.current += 1)}`;
-  const addFiles = (files: File[]) => {
-    if (!LIVE || !files.length) return;
+  const addFiles = (dropped: File[]) => {
+    if (!LIVE || !dropped.length) return;
+    /* A spreadsheet is a list of roles, not an attachment to one message: the import card reads it, row by row, and
+       asks only what a row leaves out. The files wait for it here, and the chat answers with the card. */
+    const sheets = dropped.filter(isSheetFile);
+    const files = dropped.filter((f) => !isSheetFile(f));
+    if (sheets.length) {
+      stashImportFiles(sheets);
+      sendMessage("Add these roles in bulk", undefined);
+      if (!files.length) return;
+    }
     setNote(null);
     let room = MAX_ATTACHMENTS - attsNow.current.length;
     const refused: string[] = [];
@@ -2306,7 +2317,7 @@ function Composer({
               type="file"
               multiple
               hidden
-              accept={ATTACH_ACCEPT}
+              accept={`${ATTACH_ACCEPT},.xlsx,.csv,.tsv`}
               onChange={(e) => { addFiles(Array.from(e.target.files ?? [])); e.target.value = ""; }}
             />
           )}

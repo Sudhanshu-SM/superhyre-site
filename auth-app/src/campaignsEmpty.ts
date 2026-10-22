@@ -1,4 +1,7 @@
 import type { CampaignStatus } from "./campaignsData";
+
+/** The Campaigns page's tabs: a status, all of them, or the ones put away. */
+export type CampaignsFilter = "all" | CampaignStatus | "archived";
 import type { EmptyArtName } from "./EmptyArt";
 import { plainText } from "./displayText";
 
@@ -27,12 +30,13 @@ export type CampaignsEmpty = {
   canClear: boolean;
 };
 
-const NONE_YET: Readonly<Record<CampaignStatus, string>> = {
+const NONE_YET: Readonly<Record<Exclude<CampaignsFilter, "all">, string>> = {
   active: "Nothing is running right now.",
   closed: "Nothing has been closed yet.",
+  archived: "Nothing is archived. Archive a closed campaign to put it away.",
 };
 
-export function campaignsEmpty(a: { filter: "all" | CampaignStatus; q: string; total: number; mayCreate: boolean }): CampaignsEmpty {
+export function campaignsEmpty(a: { filter: CampaignsFilter; q: string; total: number; mayCreate: boolean }): CampaignsEmpty {
   const q = a.q.trim();
   if (q) {
     return {
@@ -43,7 +47,7 @@ export function campaignsEmpty(a: { filter: "all" | CampaignStatus; q: string; t
       canClear: true,
     };
   }
-  if (a.total === 0) {
+  if (a.total === 0 && a.filter !== "archived") {
     return a.mayCreate
       ? {
           kind: "first",

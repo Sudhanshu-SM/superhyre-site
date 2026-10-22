@@ -45,6 +45,8 @@ export type CampaignRow = {
   department: string;
   location: string;
   status: CampaignStatus;
+  /** Put away: an archived campaign is a closed one that the list leaves out unless the Archived tab asks for it. */
+  archived?: boolean;
   owner: string;
   team: readonly string[];
   /** Live rows: the same people by user id, which is what access goes by (names can repeat). */

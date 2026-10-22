@@ -588,3 +588,9 @@
   .cg-name { align-items: flex-start; }
   .cg-name-t { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; white-space: normal; overflow-wrap: break-word; }
 }
+
+/* Delete campaign: the box that asks for the name. */
+.dc-confirm { display: flex; flex-direction: column; gap: 6px; margin: 14px 0 0; }
+.dc-input { font: inherit; padding: 9px 12px; border: 1px solid var(--c-line, #e3dbd2); border-radius: 10px; background: transparent; color: inherit; }
+.dc-input:focus-visible { outline: 2px solid var(--c-accent, #c2410c); outline-offset: 1px; }
+.cg-status.is-archived { color: var(--c-muted, #76695f); }

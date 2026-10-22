@@ -13,8 +13,8 @@ import { readListRemembered as outreach } from "../OutreachPage";
 describe("restoring a section", () => {
   it("campaigns: filter, search, sort and the row the page started at", () => {
     expect(campaigns({ filter: "closed", q: "design", sort: "name", offset: 20 })).toEqual({ filter: "closed", q: "design", sort: "name", offset: 20 });
-    expect(campaigns({ filter: "archived", q: 4, sort: "colour", offset: -1 })).toEqual({ filter: "all", q: "", sort: "updated", offset: 0 });
-    expect(campaigns({})).toEqual({ filter: "all", q: "", sort: "updated", offset: 0 });
+    expect(campaigns({ filter: "paused", q: 4, sort: "colour", offset: -1 })).toEqual({ filter: "active", q: "", sort: "updated", offset: 0 });
+    expect(campaigns({})).toEqual({ filter: "active", q: "", sort: "updated", offset: 0 });
   });
 
   it("candidates: filters are checked one by one, and the page is the row it started at", () => {

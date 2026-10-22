@@ -388,11 +388,92 @@ export function resetClients() {
 
 let rows: readonly CampaignRow[] = LIVE ? [] : CAMPAIGN_ROWS;
 
+/* Archived campaigns are not in the list the rest of the console reads (the server leaves them out): the Campaigns
+   page's Archived tab asks for them, and they are kept here so putting one away or bringing one back is seen at once. */
+let archivedList: ApiCampaign[] = [];
+let archivedRows: readonly CampaignRow[] = [];
+let archivedState: "idle" | "loading" | "ready" | "failed" = "idle";
+
 /** The campaigns as they are now, outside React (the chat moving to one reads them when it happens). */
 export const campaignRowsNow = (): readonly CampaignRow[] => rows;
 
 export function useCampaignRows(): readonly CampaignRow[] {
   return useSyncExternalStore(subscribe(ensureCampaigns), () => rows, () => rows);
+}
+
+/** The archived campaigns, read when first asked for; `ready` once they have arrived (or failed: then there are none to show). */
+export function useArchivedRows(): { rows: readonly CampaignRow[]; ready: boolean } {
+  const snapshot = useSyncExternalStore(subscribe(ensureArchived), () => archivedRows, () => archivedRows);
+  const state = useSyncExternalStore(subscribe(ensureArchived), () => archivedState, () => archivedState);
+  return { rows: snapshot, ready: !LIVE || state === "ready" || state === "failed" };
+}
+
+function ensureArchived(): void {
+  if (!LIVE || archivedState === "loading" || archivedState === "ready") return;
+  archivedState = "loading";
+  const asked = epoch;
+  campaignsApi.listCampaigns("only").then((list) => {
+    if (asked !== epoch) return;
+    archivedList = list;
+    archivedState = "ready";
+    rebuild();
+  }, () => {
+    if (asked !== epoch) return;
+    archivedState = "failed";
+    emit();
+  });
+}
+
+/** Puts a closed campaign away, or brings it back. Resolves true once the server has done it, false when it refused (and said why). */
+export function archiveCampaign(id: string, archived: boolean): Promise<boolean> {
+  const real = resolveCampaignId(id);
+  if (!LIVE) {
+    const row = [...rows, ...archivedRows].find((r) => r.id === real);
+    if (!row) return Promise.resolve(false);
+    rows = rows.filter((r) => r.id !== real);
+    archivedRows = archivedRows.filter((r) => r.id !== real);
+    if (archived) archivedRows = [{ ...row, archived: true, status: "closed", updatedAgo: "Just now" }, ...archivedRows];
+    else rows = [{ ...row, archived: false, updatedAgo: "Just now" }, ...rows];
+    emit();
+    return Promise.resolve(true);
+  }
+  const name = [...apiCampaigns, ...archivedList].find((c) => c.id === real)?.name ?? "The campaign";
+  return campaignsApi.archiveCampaign(real, archived).then((c) => {
+    if (archived) {
+      apiCampaigns = apiCampaigns.filter((x) => x.id !== real);
+      archivedList = [c, ...archivedList.filter((x) => x.id !== real)];
+    } else {
+      archivedList = archivedList.filter((x) => x.id !== real);
+      apiCampaigns = [c, ...apiCampaigns.filter((x) => x.id !== real)];
+    }
+    rebuild();
+    refreshCampaignAgents(real);
+    return true;
+  }, (err: unknown) => {
+    reportProblem(`${name} wasn't ${archived ? "archived" : "brought back"}. ${messageOf(err)}`);
+    return false;
+  });
+}
+
+/** Deletes a closed campaign for good. Resolves true once the server has done it, false when it refused (and said why). */
+export function deleteCampaign(id: string): Promise<boolean> {
+  const real = resolveCampaignId(id);
+  if (!LIVE) {
+    rows = rows.filter((r) => r.id !== real);
+    archivedRows = archivedRows.filter((r) => r.id !== real);
+    emit();
+    return Promise.resolve(true);
+  }
+  const name = [...apiCampaigns, ...archivedList].find((c) => c.id === real)?.name ?? "The campaign";
+  return campaignsApi.deleteCampaign(real).then(() => {
+    apiCampaigns = apiCampaigns.filter((x) => x.id !== real);
+    archivedList = archivedList.filter((x) => x.id !== real);
+    rebuild();
+    return true;
+  }, (err: unknown) => {
+    reportProblem(`${name} wasn't deleted. ${messageOf(err)}`);
+    return false;
+  });
 }
 
 /** Whether the campaign list has arrived (or failed). Always true on fixtures. */
@@ -456,6 +537,7 @@ export function duplicateCampaign(id: string): CampaignRow | undefined {
 /** Test-only: back to the seeded rows. */
 export function resetCampaignRows() {
   rows = CAMPAIGN_ROWS;
+  archivedRows = [];
   emit();
 }
 
@@ -566,6 +648,7 @@ export const memberName = (id: string | null | undefined): string | undefined =>
 
 function rebuildRows() {
   const now = Date.now();
+  archivedRows = archivedList.map((c) => campaignsApi.rowFromApi(c, undefined, now));
   for (const c of apiCampaigns) {
     if (c.owner?.name) people.set(c.owner.id, c.owner.name);
     for (const p of c.team) if (p.name) people.set(p.id, p.name);
@@ -1319,6 +1402,9 @@ export function resetCampaignStore(): void {
   overviewState.clear();
   olderFrom.clear();
   apiCampaigns = [];
+  archivedList = [];
+  archivedRows = [];
+  archivedState = "idle";
   pendingRows = [];
   pendingClientOf.clear();
   aliases.clear();

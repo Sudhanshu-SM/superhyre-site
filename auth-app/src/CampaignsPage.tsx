@@ -6,8 +6,10 @@ import { interviewWord } from "./boardStages";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CampaignRow, CampaignStatus } from "./campaignsData";
 import { STATUS_LABEL } from "./campaignsData";
-import { duplicateCampaign, refreshCampaignList, resolveCampaignId, retryCampaigns, setCampaignStatus, useCampaignRows, useCampaignsFailed, useCampaignsReady } from "./campaignStore";
+import { archiveCampaign, deleteCampaign, duplicateCampaign, refreshCampaignList, resolveCampaignId, retryCampaigns, setCampaignStatus, useArchivedRows, useCampaignRows, useCampaignsFailed, useCampaignsReady } from "./campaignStore";
 import { campaignsEmpty } from "./campaignsEmpty";
+import type { CampaignsFilter } from "./campaignsEmpty";
+import { DeleteCampaignDialog } from "./DeleteCampaignDialog";
 import { joinParts, plainText } from "./displayText";
 import { AssignDialog, ReopenDialog } from "./RoleBits";
 import { mayChangeCampaign, mayCloseCampaign } from "./campaignRights";
@@ -23,6 +25,8 @@ import { clampedOffset, hasDeepLink, loadSection, take } from "./sectionState";
 import { PAGE_FALLBACK, PAGER_FOOT, usePageSize } from "./usePageSize";
 import { Shimmer, ShimmerRegion } from "./components/Shimmer";
 import { LoadFailed } from "./ui";
+import { LIVE } from "./api/client";
+import { NewCampaignIntake } from "./NewCampaignIntake";
 import "./campaigns-page.css";
 
 /**
@@ -41,13 +45,15 @@ import "./campaigns-page.css";
 /** Rows per page when the room cannot be measured: the list is sorted and filtered whole, then cut here. The page holds as many as fit the window (usePageSize). */
 export const CAMPAIGNS_PER_PAGE = PAGE_FALLBACK;
 
-type Filter = "all" | CampaignStatus;
+type Filter = CampaignsFilter;
 type Sort = "updated" | "name" | "progress";
 
+/* What people work on first, then what is done, then everything still in the list, then what has been put away. */
 const FILTERS: readonly { id: Filter; label: string }[] = [
-  { id: "all", label: "All" },
   { id: "active", label: "Active" },
   { id: "closed", label: "Closed" },
+  { id: "all", label: "All" },
+  { id: "archived", label: "Archived" },
 ];
 
 const FILTER_IDS = FILTERS.map((f) => f.id);
@@ -55,10 +61,10 @@ const SORT_IDS: readonly Sort[] = ["updated", "name", "progress"];
 
 /** What the page remembers for this tab: where the person left the list. */
 type Remembered = { filter: Filter; q: string; sort: Sort; offset: number };
-const NOTHING: Remembered = { filter: "all", q: "", sort: "updated", offset: 0 };
+const NOTHING: Remembered = { filter: "active", q: "", sort: "updated", offset: 0 };
 export const SECTION = "campaigns";
 export const readRemembered = (r: Record<string, unknown>): Remembered => ({
-  filter: take.oneOf(r.filter, FILTER_IDS, "all"),
+  filter: take.oneOf(r.filter, FILTER_IDS, "active"),
   q: take.str(r.q, "", 100),
   sort: take.oneOf(r.sort, SORT_IDS, "updated"),
   offset: take.int(r.offset, 0, 0, 100_000),
@@ -75,7 +81,7 @@ const AGO_ORDER = (s: string): number => {
 /** The rows a view shows, in order: filtered by status and search, a fresh copy first, then sorted. */
 export function arrangeCampaigns(rows: readonly CampaignRow[], filter: Filter, q: string, sort: Sort, fresh?: string | null | false): CampaignRow[] {
   const needle = q.trim().toLowerCase();
-  const xs = rows.filter((r) => (filter === "all" || r.status === filter)
+  const xs = rows.filter((r) => (filter === "all" || filter === "archived" || r.status === filter)
     && (!needle || `${r.name} ${r.department} ${r.location} ${r.owner}`.toLowerCase().includes(needle)));
   const progress = (r: CampaignRow) => r.funnel.hired / Math.max(1, r.target);
   return [...xs].sort((a, b) => (a.id === fresh ? -1 : b.id === fresh ? 1 : 0)
@@ -98,18 +104,24 @@ export function CampaignsPage({ onOpen }: { onOpen: (c: CampaignRow) => void }) 
   const failed = useCampaignsFailed();
   const session = useSession();
   const rows = useMemo(() => visibleCampaigns(allRows, session), [allRows, session]);
+  /* Put away: not in the list the rest of the console reads, so the Archived tab asks for them. */
+  const archived = useArchivedRows();
+  const archivedRows = useMemo(() => visibleCampaigns(archived.rows, session), [archived.rows, session]);
   /* Anyone who works here opens a campaign; copying one is a manager's (the server's requireAdmin). */
   const mayCreate = can(standingOf(session), "campaign.create");
   const manages = can(standingOf(session), "campaign.manage");
   const [assigning, setAssigning] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<string | null>(null);
   const [reopening, setReopening] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
   /* Where the person left this list in this tab (a link of its own, or a first visit, starts from the top). */
   const [start] = useState<Remembered>(() => (hasDeepLink() ? NOTHING : loadSection(SECTION, readRemembered, NOTHING)));
   const [filter, setFilter] = useState<Filter>(start.filter);
   const [q, setQ] = useState(start.q);
   const [sort, setSort] = useState<Sort>(start.sort);
   const [creating, setCreating] = useState(false);
+  /* The long form: for a role with no description. A connected workspace starts from the job description instead. */
+  const [manual, setManual] = useState(false);
   const [made, setFresh] = useState<string | null>(null);
   /* A campaign made here gets its real id when the API answers; follow it. */
   const fresh = made && resolveCampaignId(made);
@@ -125,8 +137,8 @@ export function CampaignsPage({ onOpen }: { onOpen: (c: CampaignRow) => void }) 
     } catch { /* storage unavailable: the button still lands on this page */ }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const count = (f: Filter) => (f === "all" ? rows.length : rows.filter((r) => r.status === f).length);
-  const shown = useMemo(() => arrangeCampaigns(rows, filter, q, sort, fresh), [rows, filter, q, sort, fresh]);
+  const count = (f: Filter) => (f === "all" ? rows.length : f === "archived" ? archivedRows.length : rows.filter((r) => r.status === f).length);
+  const shown = useMemo(() => arrangeCampaigns(filter === "archived" ? archivedRows : rows, filter, q, sort, fresh), [rows, archivedRows, filter, q, sort, fresh]);
 
   /* The page belongs to the view it was chosen in: a different search, filter or sort (or a new copy put first) is page 1 again. */
   const viewKey = `${filter}|${sort}|${q}|${fresh || ""}`;
@@ -148,7 +160,15 @@ export function CampaignsPage({ onOpen }: { onOpen: (c: CampaignRow) => void }) 
   };
   const confirmRow = confirm ? allRows.find((r) => r.id === confirm) : undefined;
   const reopenRow = reopening ? allRows.find((r) => r.id === reopening) : undefined;
+  const deleteRow = deleting ? [...allRows, ...archived.rows].find((r) => r.id === deleting) : undefined;
   const empty = campaignsEmpty({ filter, q, total: rows.length, mayCreate });
+  /* Put away or brought back, said once the server has done it, with the way back. */
+  const archive = (r: CampaignRow, on: boolean) => {
+    const was = plainText(r.name);
+    void archiveCampaign(r.id, on).then((ok) => {
+      if (ok) toast(on ? `${was} archived` : `${was} is back in the list`, "done", { label: "Undo", onClick: () => { void archiveCampaign(r.id, !on); } });
+    });
+  };
   /* The tab counts say nothing until the list has arrived: "All 0" over a skeleton is a wrong answer (`counted`, above). */
 
   return (
@@ -219,6 +239,9 @@ export function CampaignsPage({ onOpen }: { onOpen: (c: CampaignRow) => void }) 
               onOpen={() => onOpen(r)}
               admin={manages}
               mayClose={mayCloseCampaign(session, r)}
+              onArchive={() => archive(r, true)}
+              onUnarchive={() => archive(r, false)}
+              onDelete={() => setDeleting(r.id)}
               mayAssign={mayChangeCampaign(session, r)}
               onAssign={() => setAssigning(r.id)}
               onClose={() => setConfirm(r.id)}
@@ -246,14 +269,22 @@ export function CampaignsPage({ onOpen }: { onOpen: (c: CampaignRow) => void }) 
         </div>
       )}
 
+      {LIVE && (
+        <NewCampaignIntake
+          open={creating}
+          onClose={() => { setCreating(false); setFilter("active"); setQ(""); }}
+          onManual={() => { setCreating(false); setManual(true); }}
+        />
+      )}
       <NewCampaignDialog
-        open={creating}
-        onClose={() => setCreating(false)}
+        open={LIVE ? manual : creating}
+        onClose={() => (LIVE ? setManual(false) : setCreating(false))}
         onCreated={(c, saved) => {
           setFresh(c.id);
           setFilter("all");
           setQ("");
           setCreating(false);
+          setManual(false);
           // Said once the server has it; a refusal shows its own message instead.
           void saved.then((ok) => ok && toast(createdMessage(c)));
         }}
@@ -267,6 +298,17 @@ export function CampaignsPage({ onOpen }: { onOpen: (c: CampaignRow) => void }) 
           if (!confirmRow) return;
           setStatus(confirmRow.id, "closed", `${confirmRow.name} closed`, undefined, forms);
           setConfirm(null);
+        }}
+      />
+      <DeleteCampaignDialog
+        open={!!deleteRow}
+        name={deleteRow ? plainText(deleteRow.name) : ""}
+        onClose={() => setDeleting(null)}
+        onConfirm={() => {
+          if (!deleteRow) return;
+          const was = plainText(deleteRow.name);
+          setDeleting(null);
+          void deleteCampaign(deleteRow.id).then((ok) => { if (ok) toast(`${was} deleted`); });
         }}
       />
       <ReopenDialog
@@ -286,10 +328,13 @@ export function CampaignsPage({ onOpen }: { onOpen: (c: CampaignRow) => void }) 
 
 /* ── a campaign ── */
 
-function Row({ r, fresh, onOpen, admin, mayClose, mayAssign, onAssign, onClose, onReopen, onDuplicate }: {
+function Row({ r, fresh, onOpen, admin, mayClose, mayAssign, onAssign, onClose, onReopen, onDuplicate, onArchive, onUnarchive, onDelete }: {
   r: CampaignRow;
   fresh: boolean;
   onOpen: () => void;
+  onArchive: () => void;
+  onUnarchive: () => void;
+  onDelete: () => void;
   admin: boolean;
   /** The campaign's owner or an admin: the people the server lets close and reopen it. */
   mayClose: boolean;
@@ -336,7 +381,9 @@ function Row({ r, fresh, onOpen, admin, mayClose, mayAssign, onAssign, onClose, 
             <ArrowRight size={13} weight="bold" className="cg-name-go" aria-hidden="true" />
           </button>
           {/* Active is the normal state, so it carries no label; a closed campaign says so. */}
-          {r.status !== "active" && (
+          {r.archived ? (
+            <span className="cg-status is-archived">Archived</span>
+          ) : r.status !== "active" && (
             <span className={`cg-status is-${r.status}`}>{STATUS_LABEL[r.status]}</span>
           )}
           {fresh && <span className="cg-newtag">New</span>}
@@ -359,7 +406,7 @@ function Row({ r, fresh, onOpen, admin, mayClose, mayAssign, onAssign, onClose, 
 
       <Goal hired={r.hires?.count ?? r.funnel.hired} target={r.hires?.target ?? r.target} />
 
-      <RowMenu status={r.status} admin={admin} mayClose={mayClose} mayAssign={mayAssign} onOpen={onOpen} onAssign={onAssign} onClose={onClose} onReopen={onReopen} onDuplicate={onDuplicate} />
+      <RowMenu status={r.status} archived={r.archived === true} admin={admin} mayClose={mayClose} mayAssign={mayAssign} onOpen={onOpen} onAssign={onAssign} onClose={onClose} onReopen={onReopen} onDuplicate={onDuplicate} onArchive={onArchive} onUnarchive={onUnarchive} onDelete={onDelete} />
     </article>
   );
 }
@@ -421,8 +468,12 @@ function Goal({ hired, target }: { hired: number; target: number }) {
   );
 }
 
-function RowMenu({ status, admin, mayClose, mayAssign, onOpen, onAssign, onClose, onReopen, onDuplicate }: {
+function RowMenu({ status, archived, admin, mayClose, mayAssign, onOpen, onAssign, onClose, onReopen, onDuplicate, onArchive, onUnarchive, onDelete }: {
   status: CampaignStatus;
+  archived: boolean;
+  onArchive: () => void;
+  onUnarchive: () => void;
+  onDelete: () => void;
   admin: boolean;
   mayClose: boolean;
   mayAssign: boolean;
@@ -452,9 +503,13 @@ function RowMenu({ status, admin, mayClose, mayAssign, onOpen, onAssign, onClose
           {item("Open in agent", onOpen)}
           {/* The campaign's owner or an admin; absent (not disabled) for everyone else. */}
           {mayClose && status === "active" && item("Close campaign", onClose, "danger")}
-          {mayClose && status === "closed" && item("Reopen campaign", onReopen)}
-          {assigns && mayAssign && item("Assign recruiters", onAssign)}
+          {mayClose && status === "closed" && !archived && item("Reopen campaign", onReopen)}
+          {mayClose && archived && item("Bring back", onUnarchive)}
+          {mayClose && status === "closed" && !archived && item("Archive", onArchive)}
+          {assigns && mayAssign && !archived && item("Assign recruiters", onAssign)}
           {admin && mayAssign && item("Duplicate", onDuplicate)}
+          {/* Only a closed campaign, only by whoever may close it: the server holds the same rule. */}
+          {mayClose && status === "closed" && item("Delete campaign", onDelete, "danger")}
         </div>
       </Popover>
     </>

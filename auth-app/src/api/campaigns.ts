@@ -51,6 +51,8 @@ export type ApiCampaign = {
   agents: number;
   openedAt: string | null;
   closedAt: string | null;
+  /** When it was put away: set only on an archived campaign, which is a closed one. Absent from older servers. */
+  archivedAt?: string | null;
   createdAt: string;
   updatedAt: string;
   /** Only on a single campaign (GET /campaigns/:id and every write). */
@@ -134,7 +136,9 @@ export type ApiMember = { userId: string; email: string | null; fullName: string
 
 /* ── calls ── */
 
-export const listCampaigns = () => api<{ campaigns: ApiCampaign[] }>("GET", "/v1/campaigns").then((r) => r.campaigns);
+/** The campaigns, archived ones left out; `"only"` asks for the archived ones instead. */
+export const listCampaigns = (archived?: "only") =>
+  api<{ campaigns: ApiCampaign[] }>("GET", `/v1/campaigns${archived ? `?archived=${archived}` : ""}`).then((r) => r.campaigns);
 export const getCampaign = (id: string) => api<ApiCampaign>("GET", `/v1/campaigns/${id}`);
 export const campaignOverview = (id: string) => api<ApiOverview>("GET", `/v1/campaigns/${id}/overview`);
 export const listMembers = () => api<{ members: ApiMember[] }>("GET", "/v1/members").then((r) => r.members);
@@ -183,6 +187,11 @@ export type ApiCampaignAgents = {
 };
 export const campaignAgents = (id: string) => api<ApiCampaignAgents>("GET", `/v1/campaigns/${id}/agents`);
 export const setCampaignMembers = (id: string, userIds: string[]) => api<ApiCampaign>("PUT", `/v1/campaigns/${id}/members`, { userIds });
+/** Puts a closed campaign away (closing it first when it is open), or brings it back to the list. */
+export const archiveCampaign = (id: string, archived: boolean) =>
+  api<ApiCampaign>("PUT", `/v1/campaigns/${id}/archive`, { archived });
+/** Deletes a closed campaign and everything on it, for good. */
+export const deleteCampaign = (id: string) => api<{ deleted: true; name: string }>("DELETE", `/v1/campaigns/${id}`);
 export const duplicateCampaign = (id: string) => api<ApiCampaign>("POST", `/v1/campaigns/${id}/duplicate`);
 
 /** The board: its people and, from servers that have them, the campaign's own stages (the columns). */
@@ -270,6 +279,7 @@ export function rowFromApi(c: ApiCampaign, ov?: ApiOverview, now = Date.now()): 
     department: c.department ?? "",
     location: c.location ?? "",
     status: c.status,
+    ...(c.archivedAt ? { archived: true } : {}),
     owner,
     team: team.includes(owner) ? team : [owner, ...team],
     ownerId: c.owner?.id ?? null,
