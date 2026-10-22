@@ -5,7 +5,7 @@ import type { CampaignRow } from "../campaignsData";
 import type { ConnectionsState } from "../connectionsStore";
 import { ROUTES, settingsSectionFromHash } from "../nav";
 import {
-  campaignRows, channelsRow, collaboratorsOf, CONNECTIONS_HREF, fixPhrase, integrationsOf, intakeRow, namesLine, workspaceRows,
+  campaignRows, channelsRow, collaboratorsOf, COMING_SOON, CONNECTIONS_HREF, fixPhrase, integrationsOf, intakeRow, namesLine, workspaceRows,
 } from "../railConfig";
 import type { ConfigRow, IntakeState } from "../railConfig";
 import type { Role } from "../roleStore";
@@ -20,6 +20,11 @@ const ME = "11111111-1111-4111-8111-111111111111";
 const ASHA = "22222222-2222-4222-8222-222222222222";
 const RAVI = "33333333-3333-4333-8333-333333333333";
 const PRIYA = "44444444-4444-4444-8444-444444444444";
+
+/* Slack and Notion are coming soon, so by default the panel leaves them out; these ask for them, so what the panel
+   says about a connected, expired or missing one stays pinned for the day they are offered. */
+const rowWith = (c: Parameters<typeof channelsRow>[0], v: Parameters<typeof channelsRow>[1], r: () => void) => channelsRow(c, v, r, []);
+const integrationsWith = (c: Parameters<typeof integrationsOf>[0]) => integrationsOf(c, []);
 
 const google = (over: Partial<GoogleConnection> = {}): GoogleConnection => ({
   available: true, status: "connected", accountEmail: "me@acme.dev", scopes: [], products: ["gmail", "sheets"], connectedAt: "2026-10-01T00:00:00Z", ...over,
@@ -54,7 +59,7 @@ function reachable(href: string): boolean {
 
 describe("the channels row", () => {
   it("draws only the connected services as marks, and counts what is missing", () => {
-    const r = channelsRow(conns({ slack: null }), admin, noop);
+    const r = rowWith(conns({ slack: null }), admin, noop);
     expect(r.marks?.map((m) => m.id)).toEqual(["google", "notion"]);
     expect(r.marks?.every((m) => m.connected)).toBe(true);
     expect(r.value).toBe("2 of 3");
@@ -62,67 +67,67 @@ describe("the channels row", () => {
   });
 
   it("with nothing connected has no marks, says so, and names all that can be connected", () => {
-    const r = channelsRow(conns({ google: disconnected, slack: null, notion: null }), admin, noop);
+    const r = rowWith(conns({ google: disconnected, slack: null, notion: null }), admin, noop);
     expect(r.marks).toBeUndefined();
     expect(r.value).toBe("None connected");
     expect(r.notes).toEqual([{ text: "Connect Google, Slack and Notion", href: CONNECTIONS_HREF }]);
   });
 
   it("tells someone who can't connect Slack or Notion to ask an admin, but still offers their own Google", () => {
-    const r = channelsRow(conns({ google: disconnected, slack: null, notion: org("notion") }), recruiter, noop);
+    const r = rowWith(conns({ google: disconnected, slack: null, notion: org("notion") }), recruiter, noop);
     expect(r.notes).toEqual([
       { text: "Connect Google", href: CONNECTIONS_HREF },
       { text: "Ask an admin to connect Slack" },
     ]);
-    const onlyOrg = channelsRow(conns({ slack: null, notion: null }), recruiter, noop);
+    const onlyOrg = rowWith(conns({ slack: null, notion: null }), recruiter, noop);
     expect(onlyOrg.notes).toEqual([{ text: "Ask an admin to connect Slack and Notion" }]);
     expect(onlyOrg.notes?.every((n) => n.href === undefined)).toBe(true);
   });
 
   it("asks to reconnect, not connect, what has signed out", () => {
-    const r = channelsRow(conns({ slack: org("slack", { status: "expired" }), notion: null }), admin, noop);
+    const r = rowWith(conns({ slack: org("slack", { status: "expired" }), notion: null }), admin, noop);
     expect(r.marks?.map((m) => m.id)).toEqual(["google"]);
     expect(r.notes?.[0]?.text).toBe("Reconnect Slack, connect Notion");
-    const asked = channelsRow(conns({ slack: org("slack", { status: "error" }) }), recruiter, noop);
+    const asked = rowWith(conns({ slack: org("slack", { status: "error" }) }), recruiter, noop);
     expect(asked.notes?.[0]?.text).toBe("Ask an admin to reconnect Slack");
   });
 
   it("counts Google as working only with Gmail, since sending is what it is for", () => {
-    const sheetsOnly = channelsRow(conns({ google: google({ products: ["sheets"] }) }), admin, noop);
+    const sheetsOnly = rowWith(conns({ google: google({ products: ["sheets"] }) }), admin, noop);
     expect(sheetsOnly.marks?.map((m) => m.id)).toEqual(["slack", "notion"]);
     expect(sheetsOnly.notes?.[0]?.text).toBe("Reconnect Google");
-    expect(channelsRow(conns({ google: google({ status: "expired" }) }), admin, noop).notes?.[0]?.text).toBe("Reconnect Google");
+    expect(rowWith(conns({ google: google({ status: "expired" }) }), admin, noop).notes?.[0]?.text).toBe("Reconnect Google");
   });
 
   it("leaves Google out where the server can't offer it", () => {
-    const r = channelsRow(conns({ google: google({ available: false, status: "disconnected" }) }), admin, noop);
+    const r = rowWith(conns({ google: google({ available: false, status: "disconnected" }) }), admin, noop);
     expect(r.value).toBe("2 of 2");
   });
 
   it("always has a second line, so the row is one height whether loading, failed or whole", () => {
-    expect(channelsRow(conns(), admin, noop).notes).toEqual([{ text: "Manage connections", href: CONNECTIONS_HREF }]);
-    expect(channelsRow(conns(), recruiter, noop).notes).toEqual([{ text: "See connections", href: CONNECTIONS_HREF }]);
-    const loading = channelsRow(conns({ status: "loading" }), admin, noop);
+    expect(rowWith(conns(), admin, noop).notes).toEqual([{ text: "Manage connections", href: CONNECTIONS_HREF }]);
+    expect(rowWith(conns(), recruiter, noop).notes).toEqual([{ text: "See connections", href: CONNECTIONS_HREF }]);
+    const loading = rowWith(conns({ status: "loading" }), admin, noop);
     expect(loading).toMatchObject({ pending: true, reserve: 1 });
     const retry = vi.fn();
-    const failed = channelsRow(conns({ status: "failed" }), admin, retry);
+    const failed = rowWith(conns({ status: "failed" }), admin, retry);
     expect(failed.value).toBe("Couldn't load");
     failed.retry?.();
     expect(retry).toHaveBeenCalledOnce();
   });
 
   it("reads a server that only knows Google as Slack and Notion not connected", () => {
-    const old = integrationsOf({ google: google(), slack: null, notion: null });
+    const old = integrationsWith({ google: google(), slack: null, notion: null });
     expect(old.map((i) => [i.id, i.state])).toEqual([["google", "connected"], ["slack", "missing"], ["notion", "missing"]]);
   });
 
   it("puts where Slack posts into its mark's tooltip", () => {
-    const [, slack] = integrationsOf({ google: google(), slack: org("slack", { settings: { defaultChannel: { id: "C1", name: "hiring" } } }), notion: null });
+    const [, slack] = integrationsWith({ google: google(), slack: org("slack", { settings: { defaultChannel: { id: "C1", name: "hiring" } } }), notion: null });
     expect(slack?.detail).toBe("Acme · posts to #hiring");
   });
 
   it("phrases a fix for one, two or three services", () => {
-    const all = integrationsOf({ google: disconnected, slack: null, notion: null });
+    const all = integrationsWith({ google: disconnected, slack: null, notion: null });
     expect(fixPhrase(all.slice(0, 1))).toBe("Connect Google");
     expect(fixPhrase(all.slice(1))).toBe("Connect Slack and Notion");
     expect(fixPhrase(all)).toBe("Connect Google, Slack and Notion");
@@ -193,7 +198,7 @@ describe("a campaign's panel", () => {
   });
 
   it("includes the channels row, from the same connections", () => {
-    expect(find(rows(row(), admin, live, conns({ slack: null })), "Channels")?.value).toBe("2 of 3");
+    expect(find(rows(row(), admin, live, conns({ slack: null })), "Channels")?.value).toBe("1 of 1");
   });
 
   it("reads intake from the campaign's forms", () => {
@@ -336,5 +341,24 @@ describe("the campaign the chat moves to", () => {
     };
     expect(people("c1")).toMatchObject({ value: expect.stringContaining("Meera Iyer") });
     expect(people("c2")).not.toMatchObject({ value: expect.stringContaining("Meera Iyer") });
+  });
+});
+
+describe("Slack and Notion while they are coming soon", () => {
+  const admin = { role: "admin" as Role };
+  const recruiter = { role: "recruiter" as Role };
+  it("are not offered or counted: the panel lists Google and says the rest are coming", () => {
+    expect(COMING_SOON).toEqual(["slack", "notion"]);
+    expect(integrationsOf({ google: google(), slack: null, notion: null }).map((i) => i.id)).toEqual(["google"]);
+    const r = channelsRow(conns({ slack: null, notion: null }), admin, () => undefined);
+    expect(r.value).toBe("1 of 1");
+    expect(r.notes).toEqual([
+      { text: "Manage connections", href: CONNECTIONS_HREF },
+      { text: "Slack and Notion coming soon" },
+    ]);
+  });
+  it("never ask a recruiter to find an admin to connect them", () => {
+    const r = channelsRow(conns({ slack: null, notion: null }), recruiter, () => undefined);
+    expect(JSON.stringify(r.notes)).not.toMatch(/Ask an admin|[Cc]onnect Slack/);
   });
 });

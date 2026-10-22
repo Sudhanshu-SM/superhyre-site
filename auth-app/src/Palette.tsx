@@ -34,7 +34,7 @@ type Entry = { id: RouteId; label: string; group: string; hint: string };
 
 /** The Settings pages, which the sidebar reaches through one row: quick find reaches each. */
 const SETTINGS_PAGES: ReadonlyArray<{ id: SettingsSection; label: string; hint: string; org?: boolean }> = [
-  { id: "connections", label: "Connections", hint: "Gmail, Slack and Notion" },
+  { id: "connections", label: "Connections", hint: "Gmail and Google" },
 ];
 
 /** The Settings pages this person can open (Members moved to the Teams page, which quick find reaches as a row of its own). */

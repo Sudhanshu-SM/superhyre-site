@@ -432,15 +432,15 @@ describe("where it lives", () => {
     expect(ROUTES["analytics-outreach"].path).toBe("/analytics/outreach");
   });
 
-  it("reads again when an email or a call changes, and lists WhatsApp (via Magnifi) as not connected yet", () => {
+  it("reads again when an email or a call changes, and lists WhatsApp (via Magnifi) as coming soon, greyed out", () => {
     expect(src("useOutreachActivity.ts")).toMatch(/MOVES = \["calls", "pipeline", "campaign", "candidates"\]/);
     expect(effectsOfWrite("PATCH", "/v1/calls/abc")?.effects).toContain("calls");
     const settings = src("SettingsConnections.tsx");
     expect(settings).toContain("WhatsApp (via Magnifi)");
-    expect(settings).toContain("Not connected, available soon");
-    expect(settings).toContain('<ConnectorLogo id="whatsapp" tile={40} decorative />');
-    // No button that does nothing.
-    expect(settings.slice(settings.indexOf("function WhatsAppConnection"))).not.toContain("<button");
+    expect(settings).toContain('<ComingSoonConnection id="whatsapp" name="WhatsApp (via Magnifi)" />');
+    expect(settings).toContain("Coming soon");
+    // Greyed out, and no button that does nothing.
+    expect(settings.slice(settings.indexOf("function ComingSoonConnection"))).not.toContain("<button");
   });
 });
 

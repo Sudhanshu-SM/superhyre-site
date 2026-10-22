@@ -146,11 +146,13 @@ describe("where they are shown", () => {
     };
     const c = (over: Partial<ConnectionsState>): ConnectionsState =>
       ({ status: "ready", google, slack: null, notion: null, oauth: { slack: false, notion: false }, error: null, at: 0, ...over });
-    const none = channelsRow(c({}), { role: "admin" }, () => {});
+    const none = channelsRow(c({}), { role: "admin" }, () => {}, []);
     expect(none.value).toBe("None connected");
     expect(none.offer).toEqual(["google", "slack", "notion"]);
     expect(none.marks).toBeUndefined();
-    const some = channelsRow(c({ slack }), { role: "admin" }, () => {});
+    // While Slack and Notion are coming soon, only Google is offered.
+    expect(channelsRow(c({}), { role: "admin" }, () => {}).offer).toEqual(["google"]);
+    const some = channelsRow(c({ slack }), { role: "admin" }, () => {}, []);
     expect(some.offer).toBeUndefined();
     expect(some.marks?.map((m) => m.id)).toEqual(["slack"]);
   });

@@ -66,6 +66,9 @@
    already draws. A group is a row (who, status, buttons), the form or picker
    that row opens, and one quiet line of what it is for. */
 .st-org { gap: 12px; }
+/* Not offered yet (Slack, Notion, WhatsApp through Magnifi): greyed out, nothing to press. */
+.st-soon { opacity: 0.5; filter: grayscale(1); pointer-events: none; user-select: none; }
+.st-soon .st-mail { font-style: normal; }
 .st-pick { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; }
 .st-pick-l { color: var(--ink-2); }
 .st-pick-block { display: grid; gap: 10px; min-width: 0; }

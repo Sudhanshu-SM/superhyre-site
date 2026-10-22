@@ -104,7 +104,13 @@ const BRAND: Readonly<Record<IntegrationId, { name: string; Icon: Icon; brand: s
 const named = (...parts: Array<string | null | undefined>) => parts.filter(Boolean).join(" · ");
 
 /** The integrations this server offers, in the order the panel lists them, with how each stands. */
-export function integrationsOf(c: Pick<ConnectionsState, "google" | "slack" | "notion">): Integration[] {
+/** Built, but not offered yet: Settings greys them out and the rail says so instead of asking anyone to connect them. */
+export const COMING_SOON: readonly ("slack" | "notion")[] = ["slack", "notion"];
+
+export function integrationsOf(
+  c: Pick<ConnectionsState, "google" | "slack" | "notion">,
+  soon: readonly string[] = COMING_SOON,
+): Integration[] {
   const out: Integration[] = [];
   const g = c.google;
   if (g?.available) {
@@ -114,6 +120,7 @@ export function integrationsOf(c: Pick<ConnectionsState, "google" | "slack" | "n
     out.push({ id: "google", ...BRAND.google, state, detail: named(does, g.accountEmail) });
   }
   for (const id of ["slack", "notion"] as const) {
+    if (soon.includes(id)) continue;
     const conn = c[id];
     out.push({
       id, ...BRAND[id],
@@ -159,11 +166,12 @@ export function channelsRow(
   c: Pick<ConnectionsState, "status" | "google" | "slack" | "notion">,
   viewer: { role: Role; standing?: Standing },
   retry: () => void,
+  soon: readonly string[] = COMING_SOON,
 ): ConfigRow {
   if (c.status === "idle" || c.status === "loading") return { label: "Channels", pending: true, reserve: 1 };
   if (c.status === "failed") return { label: "Channels", value: "Couldn't load", retry, notes: [], failed: true };
 
-  const items = integrationsOf(c);
+  const items = integrationsOf(c, soon);
   const manages = can(standingOf(viewer), "connections.manage");
   const on = items.filter((i) => i.state === "connected");
   const missing = items.filter((i) => i.state !== "connected");
@@ -174,6 +182,9 @@ export function channelsRow(
   if (mine.length) notes.push({ text: fixPhrase(mine), href: CONNECTIONS_HREF });
   if (others.length) notes.push({ text: `Ask an admin to ${fixPhrase(others, false)}` });
   if (!notes.length) notes.push({ text: manages ? "Manage connections" : "See connections", href: CONNECTIONS_HREF });
+  /* Not a link and not a button: nothing to do about them yet. */
+  const waiting = soon.flatMap((id) => (id === "slack" ? ["Slack"] : id === "notion" ? ["Notion"] : []));
+  if (waiting.length) notes.push({ text: `${list(waiting)} coming soon` });
 
   return {
     label: "Channels",

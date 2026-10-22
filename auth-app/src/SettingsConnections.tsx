@@ -20,7 +20,7 @@ import { ErrorState } from "./ErrorStates";
 import { integrationsOf } from "./railConfig";
 import { ConfirmDialog } from "./RoleBits";
 import { LoadFailed } from "./ui";
-import { OrgConnectionCard, takeProviderReturn } from "./SettingsOrgConnection";
+import { takeProviderReturn } from "./SettingsOrgConnection";
 
 /**
  * Connections: the person's own Google account, for sending from Gmail and
@@ -253,11 +253,11 @@ export function SettingsConnections({ canManage = false, onAgent }: {
         <GoogleProductsGhost />
       )}
 
-      <OrgConnectionCard provider="slack" canManage={canManage} {...(onAgent ? { onAgent } : {})} />
-      <OrgConnectionCard provider="notion" canManage={canManage} />
+      <ComingSoonConnection id="slack" name="Slack" />
+      <ComingSoonConnection id="notion" name="Notion" />
       {/* Owners and admins of an organisation, and anyone in Personal (canManage): the lookups spend its credits. */}
       {canManage && <ContactLookups />}
-      <WhatsAppConnection />
+      <ComingSoonConnection id="whatsapp" name="WhatsApp (via Magnifi)" />
       </>
       )}
 
@@ -313,18 +313,18 @@ function ContactLookups() {
 }
 
 /**
- * WhatsApp through Magnifi: not connected here yet. It is listed so the Outreach page's WhatsApp tab has somewhere
- * to point, and says so plainly: no button that does nothing, and no pretending it is half set up.
+ * Slack, Notion and WhatsApp (through Magnifi): built or planned, not offered yet. Listed so people can see they are
+ * coming, greyed out, with nothing to press: no button that does nothing, and no pretending they are half set up.
  */
-function WhatsAppConnection() {
+function ComingSoonConnection({ id, name }: { id: "slack" | "notion" | "whatsapp"; name: string }) {
   return (
-    <div className="st-group st-org">
+    <div className="st-group st-org st-soon" aria-disabled="true">
       <div className="st-item st-conn">
         <span className="st-lead">
-          <ConnectorLogo id="whatsapp" tile={40} decorative />
+          <ConnectorLogo id={id} tile={40} decorative />
           <span className="st-who">
-            <span className="st-name">WhatsApp (via Magnifi)</span>
-            <span className="st-mail t-body-sm">Not connected, available soon</span>
+            <span className="st-name">{name}</span>
+            <span className="st-mail t-body-sm">Coming soon</span>
           </span>
         </span>
       </div>

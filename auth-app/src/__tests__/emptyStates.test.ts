@@ -139,13 +139,13 @@ describe("what is connected", () => {
   });
 
   it("is the empty picture when nothing is connected, and says nothing otherwise", () => {
-    expect(connectionNotice(integrationsOf(conns()))).toEqual({ kind: "none" });
-    expect(connectionNotice(integrationsOf(conns({ slack: org("slack") })))).toBeNull();
+    expect(connectionNotice(integrationsOf(conns(), []))).toEqual({ kind: "none" });
+    expect(connectionNotice(integrationsOf(conns({ slack: org("slack") }), []))).toBeNull();
     expect(connectionNotice([])).toBeNull();
   });
 
   it("names what is signed out, ahead of 'nothing connected'", () => {
-    const n = connectionNotice(integrationsOf(conns({ slack: org("slack", { status: "expired" }), notion: org("notion", { status: "expired" }) })));
+    const n = connectionNotice(integrationsOf(conns({ slack: org("slack", { status: "expired" }), notion: org("notion", { status: "expired" }) }), []));
     expect(n).toEqual({ kind: "signed-out", names: ["Slack", "Notion"] });
     expect(signedOutTitle(["Slack"])).toBe("Slack is signed out");
     expect(signedOutTitle(["Slack", "Notion"])).toBe("Slack and Notion are signed out");
@@ -154,10 +154,10 @@ describe("what is connected", () => {
 
   it("keeps the Agent page's Channels row to text: no picture, with the connect links under it", () => {
     const viewer = { role: "admin" as const };
-    const none = channelsRow(conns(), viewer, () => {});
+    const none = channelsRow(conns(), viewer, () => {}, []);
     expect(none).not.toHaveProperty("art");
     expect(none).toMatchObject({ value: "None connected", notes: [{ text: "Connect Google, Slack and Notion", href: "#/settings/connections" }] });
-    expect(channelsRow(conns({ slack: org("slack") }), viewer, () => {})).not.toHaveProperty("art");
+    expect(channelsRow(conns({ slack: org("slack") }), viewer, () => {}, [])).not.toHaveProperty("art");
     expect(channelsRow(conns({ status: "loading" }), viewer, () => {})).toMatchObject({ pending: true });
   });
 });
