@@ -29,12 +29,12 @@ if (!root) throw new Error("#root is missing from index.html");
 /** The candidate page (#/apply/…) and the client's review page (#/review/…) render on their own, with no console
     and no sign-in: they are what a form link and a client link open. Everything else is the app. */
 function Root() {
-  const [key, setKey] = useState(() => applyKeyFrom(window.location.hash));
+  const [key, setKey] = useState(() => applyKeyFrom(window.location.hash, window.location.pathname));
   const [review, setReview] = useState(() => reviewTokenFrom(window.location.hash, window.location.pathname));
   const [, bump] = useState(0);
   useEffect(() => {
     const on = () => {
-      setKey(applyKeyFrom(window.location.hash));
+      setKey(applyKeyFrom(window.location.hash, window.location.pathname));
       setReview(reviewTokenFrom(window.location.hash, window.location.pathname));
       bump((n) => n + 1);
     };

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SuperHyre</title>
+<meta name="robots" content="noindex" />
+<meta name="referrer" content="no-referrer" />
+<meta property="og:site_name" content="SuperHyre" />
+<meta property="og:title" content="SuperHyre" />
+<meta property="og:description" content="Open this link to continue." />
+<meta property="og:image" content="https://superhyre.com/assets/share/form-share-square.png" />
+<link rel="icon" href="/favicon.ico" sizes="any" />
+<style>
+  html, body { height: 100%; margin: 0; }
+  body { display: flex; align-items: center; justify-content: center; font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; color: #1f1a17; background: #faf6f2; }
+  main { max-width: 26rem; padding: 0 1.5rem; text-align: center; }
+  a { color: #c2410c; }
+</style>
+<script>
+/* The links people share are plain paths on this site: superhyre.com/public/apply/<key> for an application form and
+   superhyre.com/public/review/<token> for a client's review page. A `#` is dropped by chat apps and mail clients, so
+   the shared link has none; this page, which GitHub Pages shows for any address that is not a file, sends the person
+   on to the page inside the console (any ?src= or utm_ tracking goes along). */
+(function () {
+  var m = /^\/public\/(apply|review)\/([^\/?#]+)\/?$/.exec(location.pathname);
+  if (m) location.replace("/access/#/" + m[1] + "/" + m[2] + location.search);
+})();
+</script>
+</head>
+<body>
+<main>
+  <p>Opening your page…</p>
+  <noscript><p>This link needs JavaScript. Or go to <a href="/">superhyre.com</a>.</p></noscript>
+  <p id="lost" hidden>This page isn't here. <a href="/">Go to SuperHyre</a>.</p>
+</main>
+<script>
+  if (!/^\/public\/(apply|review)\//.test(location.pathname)) {
+    document.querySelector("main > p").hidden = true;
+    document.getElementById("lost").hidden = false;
+  }
+</script>
+</body>
+</html>

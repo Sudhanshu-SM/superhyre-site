@@ -4,8 +4,8 @@ import "./formLinkChip.css";
 
 /**
  * A pasted application-form link, shown as a small card (the picture, the role, the host) the way a chat app
- * shows one. Only this console's own links qualify: the API's `/share/<key>` address, or the in-app
- * `#/apply/<key>` one. The words come from the API's share page, so the card says what a chat app would.
+ * shows one. Only this console's own links qualify: the API's `/share/<key>` address, this site's
+ * `/public/apply/<key>`, or the in-app `#/apply/<key>` one. The words come from the API's share page, so the card says what a chat app would.
  * A link that can't be read stays as it was: plain text, no card.
  */
 
@@ -28,6 +28,9 @@ export function formLinks(text: string): FormLink[] {
     if (share && api && u.origin === api) key = share[1] ?? null;
     const app = /^#\/apply\/([^/?]+)/.exec(u.hash);
     if (!key && app && here && u.origin === here) key = app[1] ?? null;
+    /* The link the console hands out: /public/apply/<key> on the site the console is served from. */
+    const shared = /^\/public\/apply\/([^/]+)\/?$/.exec(u.pathname);
+    if (!key && shared && here && u.origin === here) key = shared[1] ?? null;
     if (!key || !KEY.test(key) || seen.has(key)) continue;
     seen.add(key);
     out.push({ url: raw, key, host: u.host });
