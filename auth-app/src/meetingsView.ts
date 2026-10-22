@@ -58,6 +58,18 @@ export function shortWhen(iso: string, timeZone: string, now: number = Date.now(
   return `${dayWords(iso, timeZone)}, ${at}`;
 }
 
+/** An all-day event's date (`2026-10-25`) said as a list says a day: "Today", "Tomorrow", "Tue", else "Sat 25 Oct". */
+export function dateWhen(date: string, timeZone: string, now: number = Date.now()): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(date);
+  if (!m) return date;
+  const noon = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12);
+  const ahead = Math.round(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])) / DAY) - dayIn(now, timeZone);
+  if (ahead === 0) return "Today";
+  if (ahead === 1) return "Tomorrow";
+  if (ahead > 1 && ahead < 7) return part(noon, "UTC", { weekday: "short" }).weekday ?? date;
+  return dayWords(new Date(noon).toISOString(), "UTC");
+}
+
 /** Whether the meeting is an interview: its title says so. Nothing else on the record tells a call from an interview. */
 export const isInterview = (m: Pick<Meeting, "title">): boolean => /\binterview\b/i.test(m.title);
 

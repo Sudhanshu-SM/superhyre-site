@@ -6,9 +6,10 @@ import type { ScheduleDetail, ScheduledItem } from "./api/schedules";
 import { useCampaignRows } from "./campaignStore";
 import { Loader } from "./components/Loader";
 import { Shimmer, ShimmerRegion } from "./components/Shimmer";
+import type { CalendarEvent } from "./api/calendar";
 import type { Meeting } from "./api/meetings";
 import { lengthWords } from "./agentCards/meetingModel";
-import { shortWhen, withWhom } from "./meetingsView";
+import { dateWhen, shortWhen, withWhom } from "./meetingsView";
 import { EmptyArt } from "./EmptyArt";
 import { HomeEmpty } from "./HomeEmpty";
 import { useConnections } from "./connectionsStore";
@@ -139,12 +140,14 @@ export function ComingGhost({ n = 4, compact = false }: { n?: number; compact?: 
   );
 }
 
-export function List({ feed, query, empty, filtered, viewerId, zone, now, onClear, limit, compact, meetings = [] }: {
+export function List({ feed, query, empty, filtered, viewerId, zone, now, onClear, limit, compact, meetings = [], calendar = [] }: {
   feed: Feed; query: FeedQuery; empty: "upcoming" | "history"; filtered: boolean; viewerId: string | null; zone: string; now: number; onClear: () => void;
   /** Home's card: the next few, soonest first, with the rest one click away; rows stack and the empty state is a line. */
   limit?: number; compact?: boolean;
   /** Meetings and interviews coming up, shown among the scheduled things by time. */
   meetings?: readonly Meeting[];
+  /** What is on the person's own Google Calendar (never what SuperHyre booked: that is in `meetings`), among them by time. */
+  calendar?: readonly CalendarEvent[];
 }) {
   const working = useWorking();
   const unavailable = useSchedulesUnavailable();
@@ -157,7 +160,7 @@ export function List({ feed, query, empty, filtered, viewerId, zone, now, onClea
     );
   }
   if (feed.phase === "idle" || feed.phase === "loading") return <ShimmerRegion label="Loading what's coming up"><ComingGhost n={compact ? COMING_GHOST_HOME : 4} compact={!!compact} /></ShimmerRegion>;
-  if (feed.items.length + meetings.length === 0 && compact) {
+  if (feed.items.length + meetings.length + calendar.length === 0 && compact) {
     /* Home's card: the same empty shape as every other card there (picture, headline, one line, one action). */
     return (
       <HomeEmpty
@@ -170,7 +173,7 @@ export function List({ feed, query, empty, filtered, viewerId, zone, now, onClea
       </HomeEmpty>
     );
   }
-  if (feed.items.length + meetings.length === 0) {
+  if (feed.items.length + meetings.length + calendar.length === 0) {
     /* Nothing coming up at all gets its picture; "nothing for this campaign" and "nothing has gone out" are one line. */
     const art = empty === "upcoming" && !filtered;
     return (
@@ -194,18 +197,25 @@ export function List({ feed, query, empty, filtered, viewerId, zone, now, onClea
   }
 
   /* Soonest first; on Home only the next few until someone asks for the rest. */
-  const entries: Array<{ at: number; item: ScheduledItem | null; meeting: Meeting | null }> = [
-    ...feed.items.map((item) => ({ at: Date.parse(nextTime(item)), item, meeting: null })),
-    ...meetings.map((meeting) => ({ at: Date.parse(meeting.startsAt), item: null, meeting })),
+  const entries: Array<{ at: number; item: ScheduledItem | null; meeting: Meeting | null; event: CalendarEvent | null }> = [
+    ...feed.items.map((item) => ({ at: Date.parse(nextTime(item)), item, meeting: null, event: null })),
+    ...meetings.map((meeting) => ({ at: Date.parse(meeting.startsAt), item: null, meeting, event: null })),
+    /* An all-day event is first among its day's, at midnight where the person is. */
+    ...calendar.map((event) => ({
+      at: event.allDay ? (instantFromLocal(`${event.startsAt.slice(0, 10)}T00:00`, zone) ?? Date.parse(event.startsAt)) : Date.parse(event.startsAt),
+      item: null, meeting: null, event,
+    })),
   ];
-  const sorted = limit || meetings.length ? entries.sort((a, b) => a.at - b.at) : entries;
+  const sorted = limit || meetings.length || calendar.length ? entries.sort((a, b) => a.at - b.at) : entries;
   const folded = !!limit && !all && (sorted.length > limit);
   const shown = folded && limit ? sorted.slice(0, limit) : sorted;
   return (
     <>
       <ul className={`sc-list${compact ? " is-compact" : ""}`}>
-        {shown.map(({ item, meeting }) => meeting ? (
+        {shown.map(({ item, meeting, event }) => meeting ? (
           <MeetingRow key={`meeting:${meeting.id}`} meeting={meeting} now={now} />
+        ) : event ? (
+          <CalendarRow key={`calendar:${event.id}`} event={event} zone={zone} now={now} />
         ) : item ? (
           <Row
             key={item.id} item={item} viewerId={viewerId} zone={zone} now={now} busy={working.includes(item.id)}
@@ -250,6 +260,28 @@ export function MeetingRow({ meeting: m, now }: { meeting: Meeting; now: number 
         {m.status === "cancelled" && <span className="sc-status t-body-sm is-bad">Cancelled</span>}
         {m.status === "scheduled" && m.meetUrl && <a className="st-link" href={m.meetUrl} target="_blank" rel="noopener noreferrer">Join</a>}
         {m.eventUrl && <a className="st-link" href={m.eventUrl} target="_blank" rel="noopener noreferrer">Calendar</a>}
+      </div>
+    </li>
+  );
+}
+
+/** An event from the person's own Google Calendar: when (in their zone), what, where and with how many, and the ways in. */
+export function CalendarRow({ event: e, zone, now }: { event: CalendarEvent; zone: string; now: number }) {
+  const minutes = Math.max(1, Math.round((Date.parse(e.endsAt) - Date.parse(e.startsAt)) / 60_000));
+  const meta = ["Your calendar", e.location, e.guests ? `${e.guests} ${e.guests === 1 ? "guest" : "guests"}` : null].filter(Boolean).join(" · ");
+  return (
+    <li className="sc-row is-calendar">
+      <div className="sc-when">
+        <span className="sc-when-t t-body-strong">{e.allDay ? dateWhen(e.startsAt, zone, now) : shortWhen(e.startsAt, zone, now)}</span>
+        <span className="sc-when-s t-caption">{e.allDay ? "All day" : lengthWords(minutes)}</span>
+      </div>
+      <div className="sc-main">
+        <p className="sc-what"><span className="sc-what-t t-body">{e.title}</span></p>
+        <p className="sc-meta t-caption">{meta}</p>
+      </div>
+      <div className="sc-acts">
+        {e.meetUrl && <a className="st-link" href={e.meetUrl} target="_blank" rel="noopener noreferrer">Join</a>}
+        {e.eventUrl && <a className="st-link" href={e.eventUrl} target="_blank" rel="noopener noreferrer">Calendar</a>}
       </div>
     </li>
   );

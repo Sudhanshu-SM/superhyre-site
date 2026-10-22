@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { List, useNow } from "../ComingUp";
 import { useSession } from "../roleStore";
+import { useCalendar } from "../calendarStore";
 import { useMeetings } from "../meetingsStore";
 import { upcoming } from "../meetingsView";
 import { UPCOMING, useFeed } from "../schedulesStore";
@@ -33,13 +34,16 @@ export default function ComingUpView({ card, ctx }: LiveViewProps): JSX.Element 
   /* Meetings and interviews are among what is coming up, for the campaign or for everything. */
   const booked = useMeetings({ campaignId, limit: 20 });
   const meetings = upcoming(booked.meetings);
+  /* Their own Google Calendar is theirs, not a campaign's: it is in the answer for everything, not for one campaign. */
+  const calendarFeed = useCalendar(campaignId === null);
+  const calendar = campaignId === null ? calendarFeed.answer.events : [];
   const grow = ctx.onGrow;
-  useEffect(() => { grow(); }, [feed.phase, feed.items.length, meetings.length, everything, grow]);
+  useEffect(() => { grow(); }, [feed.phase, feed.items.length, meetings.length, calendar.length, everything, grow]);
   return (
     <section className="src mo lv-coming" aria-label="Coming up">
       <List
         feed={feed} query={query} empty="upcoming" viewerId={session.userId ?? null} zone={browserZone()} now={now}
-        filtered={campaignId !== null} onClear={() => setEverything(true)} limit={SHOWN} meetings={meetings}
+        filtered={campaignId !== null} onClear={() => setEverything(true)} limit={SHOWN} meetings={meetings} calendar={calendar}
       />
     </section>
   );

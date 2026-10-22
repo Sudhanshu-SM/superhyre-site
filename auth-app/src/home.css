@@ -55,6 +55,7 @@
 .hm-coming { grid-column: span 5; animation-delay: 160ms; }
 .hm-coming-b { flex: 1; min-height: 0; overflow-y: auto; padding: 0 var(--hm-tx) 14px; scrollbar-width: none; }
 .hm-coming-b .sc-more { padding-top: 6px; }
+.hm-coming-offer { margin: 10px 0 0; color: var(--c-muted, #76695f); }
 
 /* ── tile header (`.bx-h` values; the padding lives here so bodies can bleed) ──
    every tile header is the same box, with or without a ↗, so headers in a
