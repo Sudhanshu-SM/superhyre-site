@@ -3404,6 +3404,29 @@ html[data-surface="app"]:not([data-theme="dark"]) body { background: #ffffff; }
 .nav.is-railed { overflow: visible; }
 .nav.is-railed .nav-body { overflow: visible; }
 
+/* A window too short for the whole rail (a campaign's own pages make it about 735px): the list scrolls, quietly, instead of
+   spilling over the pinned foot. Its hover labels are clipped then, so the rows carry a native title (Nav.tsx). */
+@media (max-height: 780px) {
+  .nav.is-railed .nav-body { overflow-x: hidden; overflow-y: auto; scrollbar-width: none; }
+  .nav.is-railed .nav-body::-webkit-scrollbar { display: none; }
+}
+
+/* And on a short window the rail is lighter: smaller icons, tighter rows (the campaign's own pages included), and a closer
+   head and foot, so it is not a column of icons packed edge to edge. */
+@media (max-height: 780px) {
+  .nav.is-railed { --nav-row-h: 30px; }
+  .nav.is-railed .nav-ico { height: 17px; }
+  .nav.is-railed .nav-campaign-list .nav-row { min-height: 28px; }
+  .nav.is-railed .nav-tools { padding-bottom: 6px; }
+  .nav.is-railed .nav-foot { gap: 2px; padding-top: 4px; padding-bottom: 8px; }
+}
+@media (max-height: 640px) {
+  .nav.is-railed { --nav-row-h: 28px; }
+  .nav.is-railed .nav-ico { height: 16px; }
+  .nav.is-railed .nav-campaign-list .nav-row { min-height: 26px; }
+  .nav.is-railed .nav-ws-block { padding-bottom: 4px; }
+}
+
 /* Railed, the sub-lists are closed and unreachable (aria-hidden + tabIndex in
    Nav.tsx). Collapsing the grid row rather than `display: none` keeps the
    transition intact for when the panel reopens. */
@@ -4301,6 +4324,9 @@ html .con-main .orc-main:has(.sh-bento.is-home) > :is(.orc-page, .orc-stream) {
   border-top: 1px solid var(--hairline);
 }
 
+/* The page-size choice sits beside the range, small and quiet. */
+.pager-size { display: inline-flex; align-items: center; gap: 6px; font: 400 12.5px/1 var(--ui); color: var(--ink-2); }
+.pager-size select { height: 28px; padding: 0 22px 0 8px; border: 1px solid var(--line, #e7e0d8); border-radius: 8px; background: transparent; color: var(--ink); font: inherit; cursor: pointer; }
 .pager-range {
   margin: 0;
   font: 400 13px/1.4 var(--ui);

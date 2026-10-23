@@ -40,6 +40,8 @@ type Props = {
   className?: string;
   /** `bar`: in the sticky toolbar. `foot`: under the list, with its range written out; nothing when there is one page. */
   variant?: "bar" | "foot";
+  /** A page size the person can change (25, 50, 100, and 500 or 1,000 once the list is that long); Auto fits the window. */
+  sizes?: { choices: readonly number[]; value: "auto" | number; onChoose: (c: "auto" | number) => void };
 };
 
 export type PageItem = number | "gap-start" | "gap-end";
@@ -78,7 +80,7 @@ export function scrollListTop(target = "[data-pager-list]"): void {
 /** More pages than this and the pager takes a page number to go to. */
 const GOTO_AFTER = 7;
 
-export function Pager({ offset, limit, total, more = false, count, onChange, unit, target, busy = false, className, variant = "bar" }: Props) {
+export function Pager({ offset, limit, total, more = false, count, onChange, unit, target, busy = false, className, variant = "bar", sizes }: Props) {
   const [typed, setTyped] = useState("");
   const page = Math.floor(offset / limit) + 1;
   const pages = total === null ? page + (more ? 1 : 0) : Math.max(Math.ceil(total / limit), 1);
@@ -117,6 +119,20 @@ export function Pager({ offset, limit, total, more = false, count, onChange, uni
         {fmt(from)}–{fmt(to)}{known && <> of {fmt(total)}</>}
         <span className="sr-only"> {unit}</span>
       </p>
+
+      {sizes && sizes.choices.length > 0 && !foot && (
+        <label className="pager-size">
+          <span className="pager-size-l">Per page</span>
+          <select
+            value={String(sizes.value)}
+            onChange={(e) => { sizes.onChoose(e.target.value === "auto" ? "auto" : Number(e.target.value)); onChange(0); }}
+            aria-label={`${name} per page`}
+          >
+            <option value="auto">Auto</option>
+            {sizes.choices.map((n) => <option key={n} value={n}>{n.toLocaleString("en-IN")}</option>)}
+          </select>
+        </label>
+      )}
 
       {!single && (
         <nav className="pager-nav" aria-label={foot ? `${name}, pages, bottom of the list` : `${name}, pages`}>

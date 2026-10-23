@@ -17,6 +17,7 @@ const SETTINGS: Readonly<Record<SettingsSection, string>> = {
   profile: "Profile",
   organisation: "Organisation",
   connections: "Connections",
+  support: "Support",
 };
 
 const PAGES: Readonly<Record<RouteId, string>> = {

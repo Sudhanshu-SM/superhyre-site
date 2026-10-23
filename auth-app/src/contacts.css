@@ -209,6 +209,8 @@
 .ct-title { font: 400 12.5px/1.3 var(--ui); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
 
 .ct-main { display: block; font: 400 13.5px/1.3 var(--ui); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+/* Who added a person and when: the quietest line in the row. */
+.ct-added { display: block; font: 400 11.5px/1.3 var(--ui); color: var(--ink-3, var(--ink-2)); opacity: 0.8; overflow-wrap: anywhere; }
 .ct-sub { display: block; margin-top: 3px; font: 400 12px/1.3 var(--ui); color: var(--ink-2); white-space: nowrap; }
 .ct-none { font: 400 12.5px/1.3 var(--ui); color: var(--ink-3); }
 

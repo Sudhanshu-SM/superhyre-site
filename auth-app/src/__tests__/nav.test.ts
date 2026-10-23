@@ -12,6 +12,11 @@ describe("routeFromHash", () => {
     // Guards the nav/router contract wholesale: add a route and forget its
     // path, and this fails rather than shipping a row that lands on Overview.
     for (const route of Object.values(ROUTES)) {
+      // Support is a section of Settings now: its old address lands there.
+      if (route.id === "support") {
+        expect(routeFromHash("#/support")).toBe("settings");
+        continue;
+      }
       expect(routeFromHash(`#${route.path}`)).toBe(route.id);
     }
   });
@@ -62,7 +67,8 @@ describe("nav tree", () => {
 
   it("makes every route reachable from the sidebar", () => {
     // The other half of the contract: a page nothing links to is dead code.
-    const declared = Object.keys(ROUTES) as RouteId[];
+    // (Support is reached through Settings, not the sidebar.)
+    const declared = (Object.keys(ROUTES) as RouteId[]).filter((id) => id !== "support");
     expect([...reachable].sort()).toEqual([...declared].sort());
   });
 

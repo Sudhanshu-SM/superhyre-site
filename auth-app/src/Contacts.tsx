@@ -12,7 +12,7 @@ import type { AddResult } from "./AddCandidates";
 import type { CandidateDetail, Note } from "./api/candidates";
 import * as cands from "./api/candidates";
 import { LIVE, messageOf } from "./api/client";
-import { useCampaignRows, useCampaignsReady } from "./campaignStore";
+import { memberIdOf, memberName, useCampaignRows, useCampaignsReady, useTeam } from "./campaignStore";
 import { stageLabel } from "./chatCards";
 import { statusProps } from "./statusTones";
 import { controlState, stagesFrom, withOverlay } from "./shortlistControl";
@@ -20,7 +20,7 @@ import type { StageOverlay } from "./shortlistControl";
 import { Avatar } from "./CandidateBits";
 import type { Contact, ContactNeed, ExpBand, Filters, Seniority, SortKey } from "./contacts";
 import {
-  CONTACTS, EMPTY_FILTERS, EXP_BANDS, MEMBERS, SEED_SHORTLIST, SENIORITIES, activeFilterCount, capturedLabel,
+  CONTACTS, EMPTY_FILTERS, EXP_BANDS, MEMBERS, SEED_SHORTLIST, SENIORITIES, activeFilterCount, addedLine, capturedLabel,
   experienceLabel, matches, mostYears, optionsFor, sortContacts, summaryOf, tenureOf,
 } from "./contacts";
 import { EmptyArt } from "./EmptyArt";
@@ -36,7 +36,7 @@ import { Loader } from "./components/Loader";
 import { Pager } from "./components/Pager";
 import { useScrollMemory, useSectionSave } from "./sectionMemory";
 import { hasDeepLink, loadSection, settledOffset, take } from "./sectionState";
-import { PAGE_FALLBACK, PAGE_MAX, PAGE_MIN, PAGER_FOOT, usePageSize } from "./usePageSize";
+import { PAGE_FALLBACK, PAGE_MAX, PAGE_MIN, PAGER_FOOT, usePageSize, usePageSizeChoice } from "./usePageSize";
 import { Shimmer, ShimmerRegion, ShimmerText } from "./components/Shimmer";
 import { invalidate, onInvalidate } from "./invalidate";
 import { useToast } from "./toast";
@@ -81,6 +81,9 @@ const SECTION = "candidates";
 const SORTS: readonly SortKey[] = ["recent", "name", "experience"];
 const NEEDS = ["email", "phone", "verified"] as const;
 type Remembered = { camp: string; q: string; filters: Filters; sort: SortKey; size: number; offset: number };
+/** The teammate who added a person: nobody for one who applied through a form (no one added them). */
+const addedByOf = (r: { ownerId: string | null; source: string | null }): string => (r.source === "form" ? "" : memberName(r.ownerId) ?? "");
+
 const NOTHING: Remembered = { camp: "all", q: "", filters: EMPTY_FILTERS, sort: "recent", size: PAGE_FALLBACK, offset: 0 };
 const listOf = <T extends string>(v: unknown, allowed: readonly T[]): T[] => take.strs(v).filter((x): x is T => (allowed as readonly string[]).includes(x));
 export function filtersFrom(v: unknown): Filters {
@@ -175,7 +178,10 @@ export function ContactsPage() {
   /* Where the page starts, as a row: held inside the list once its total is known, never before. */
   const [wanted, setWanted] = useState(start.offset);
   /* As many rows as fit under the table's top (its head and the page's foot kept clear); the size the page was left at until measured. */
-  const size = usePageSize(64, { fallback: start.size, reserve: 24 + 44 + PAGER_FOOT });
+  const autoSize = usePageSize(64, { fallback: start.size, reserve: 24 + 44 + PAGER_FOOT });
+  /* The size the window fits is "Auto"; the person may choose a fixed one that suits how many there are (25 to 1,000). */
+  const [knownTotal, setKnownTotal] = useState<number | null>(null);
+  const { size, picker } = usePageSizeChoice("candidates", autoSize, knownTotal);
   const [selected, setSelected] = useState<readonly string[]>([]);
   const [lists, setLists] = useState<Shortlists>(LIVE ? {} : SEED_SHORTLIST);
   /* A link from a call ("#/contacts?open=<id>") opens that person's profile. */
@@ -204,6 +210,9 @@ export function ContactsPage() {
   const [deleted, setDeleted] = useState<ReadonlySet<string>>(deletedSoFar);
   const [confirmDelete, setConfirmDelete] = useState<readonly string[] | null>(null);
   const canDelete = useCan("contact.delete");
+  /* Who added a person, and the filter by who: the organisation's owner and admins (the demo shows it). */
+  const seeAddedBy = useCan("candidate.seeAddedBy");
+  const seeAdded = !LIVE || seeAddedBy;
   const toast = useToast();
 
   /* ── the API's page ──
@@ -218,6 +227,7 @@ export function ContactsPage() {
   const pageAt = settledOffset(wanted, lastTotal.current, size);
   const query: cands.ListQuery | null = LIVE ? {
     q: dq, campaignId: camp === "all" ? undefined : camp, location: filters.location[filters.location.length - 1],
+    ownerId: memberIdOf(filters.capturedBy[filters.capturedBy.length - 1] ?? ""),
     hasEmail: filters.contact.includes("email"), hasPhone: filters.contact.includes("phone"), skills: filters.skills,
     sort: sort === "name" ? "name" : "recent", limit: size, offset: pageAt.offset,
   } : null;
@@ -252,7 +262,7 @@ export function ContactsPage() {
 
   const withEdits = useCallback((c: Contact) => (edits[c.id] ? { ...c, ...edits[c.id] } : c), [edits]);
   const ALL = useMemo(
-    () => (LIVE ? live.rows.map((r) => details[r.id]?.contact ?? cands.contactFromRow(r)) : [...added, ...CONTACTS])
+    () => (LIVE ? live.rows.map((r) => details[r.id]?.contact ?? cands.contactFromRow(r, undefined, addedByOf(r))) : [...added, ...CONTACTS])
       .filter((c) => !deleted.has(c.id)).map(withEdits),
     [added, withEdits, deleted, live.rows, details],
   );
@@ -299,6 +309,7 @@ export function ContactsPage() {
   const inCamp = useMemo(() => (LIVE ? ALL : ALL.filter((c) => camp === "all" || c.campaign === camp)), [ALL, camp]);
   const rows = useMemo(() => (LIVE ? ALL : sortContacts(inCamp.filter((c) => matches(c, filters, q)), sort)), [ALL, inCamp, filters, q, sort]);
   const total = LIVE ? live.total : rows.length;
+  useEffect(() => { if (total !== null) setKnownTotal(total); }, [total]);
   lastTotal.current = total;
   const { offset, fix } = settledOffset(wanted, total, size);
   useEffect(() => { if (fix !== null) setWanted(fix); }, [fix]);
@@ -435,7 +446,7 @@ export function ContactsPage() {
   const nFilters = activeFilterCount(filters);
   /* The pager is drawn twice, in the toolbar and under the list. */
   const pagerProps = {
-    offset, limit: size, unit: "candidates", onChange: setWanted, total,
+    offset, limit: size, unit: "candidates", onChange: setWanted, total, sizes: picker,
   };
   const liveOf = (id: string) => controlState(lists[id] ?? [], stagesOfNow(id)).live;
   const shortlistAll = (campaign: string) => {
@@ -573,7 +584,7 @@ export function ContactsPage() {
             </button>
           )}
         </label>
-        <FiltersButton filters={filters} onChange={setFilters} pool={inCamp} count={nFilters} />
+        <FiltersButton filters={filters} onChange={setFilters} pool={inCamp} count={nFilters} seeAdded={seeAdded} />
         <SortButton sort={sort} onChange={setSort} />
         {shown.length > 0 && <Pager {...pagerProps} />}
       </div>
@@ -615,6 +626,7 @@ export function ContactsPage() {
             {shown.map((c) => (
               <Row
                 key={c.id}
+                showAdded={seeAdded}
                 c={c}
                 fresh={fresh.has(c.id)}
                 checked={selected.includes(c.id)}
@@ -835,8 +847,11 @@ function CampaignPicker({ value, onChange, counts }: { value: string; onChange: 
 /* ── row ── */
 
 function Row({
+  showAdded = true,
   c, fresh = false, checked, onCheck, onOpen, shortlisted, onShortlist, onCopy, onDelete,
 }: {
+  /** Who added them and when, under the name: for the organisation's owner and admins. */
+  showAdded?: boolean;
   c: Contact;
   /** Just added; lit once so it is easy to find. */
   fresh?: boolean;
@@ -873,6 +888,8 @@ function Row({
               {c.title || (!c.company && !c.location ? <span className="ct-none">No title yet</span> : null)}
               {(c.company || c.location) && <span className="ct-title-co">{c.title ? " · " : ""}{[c.company, c.location].filter(Boolean).join(" · ")}</span>}
             </span>
+            {/* Who added them and when: there to be found, not to be read. */}
+            {showAdded && <span className="ct-added" title={new Date(Date.now() - c.capturedAgo * 864e5).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}>{addedLine(c)}</span>}
           </div>
         </div>
       </td>
@@ -1153,12 +1170,23 @@ export function Popover({
 
 /* ── filters ── */
 
-function FiltersButton({ filters, onChange, pool, count }: { filters: Filters; onChange: (f: Filters) => void; pool: readonly Contact[]; count: number }) {
+function FiltersButton({ filters, onChange, pool, count, seeAdded }: { filters: Filters; onChange: (f: Filters) => void; pool: readonly Contact[]; count: number; seeAdded: boolean }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLButtonElement>(null);
   const close = useCallback(() => setOpen(false), []);
-  const locations = useMemo(() => optionsFor(pool, "location", 10), [pool]);
-  const skills = useMemo(() => optionsFor(pool, "skills", 14), [pool]);
+  const team = useTeam();
+  /* The options come from the people on screen; a filter narrows them, and the options the rest would have offered must
+     not vanish with them (apply "Has phone" and Location went empty, so it could not be changed). What has been seen in this
+     list stays offered until the list is left. */
+  const seenOptions = useRef<{ location: Set<string>; skills: Set<string> }>({ location: new Set(), skills: new Set() });
+  const locations = useMemo(() => {
+    for (const l of optionsFor(pool, "location", 10)) seenOptions.current.location.add(l);
+    return [...seenOptions.current.location].slice(0, 12);
+  }, [pool]);
+  const skills = useMemo(() => {
+    for (const k of optionsFor(pool, "skills", 14)) seenOptions.current.skills.add(k);
+    return [...seenOptions.current.skills].slice(0, 16);
+  }, [pool]);
   const set = <K extends keyof Filters>(k: K, v: Filters[K]) => onChange({ ...filters, [k]: v });
   const flip = <T,>(xs: readonly T[], x: T) => (xs.includes(x) ? xs.filter((y) => y !== x) : [...xs, x]);
 
@@ -1205,6 +1233,13 @@ function FiltersButton({ filters, onChange, pool, count }: { filters: Filters; o
             ))}
             {!LIVE && <Chip on={filters.openToWork} onClick={() => set("openToWork", !filters.openToWork)}>Open to work</Chip>}
           </Group>
+          {LIVE && seeAdded && team.length > 1 && (
+            <Group label="Added by">
+              {team.map((m) => (
+                <Chip key={m} on={filters.capturedBy.includes(m)} onClick={() => set("capturedBy", filters.capturedBy.includes(m) ? [] : [m])}>{m}</Chip>
+              ))}
+            </Group>
+          )}
           {!LIVE && (
             <>
               <Group label="Profile">
@@ -1263,7 +1298,7 @@ function ActiveChips({ filters, onChange }: { filters: Filters; onChange: (f: Fi
   if (filters.openToWork) chips.push({ key: "otw", label: "Open to work", clear: drop("openToWork", false) });
   if (filters.profile !== "any") chips.push({ key: "p", label: filters.profile === "full" ? "Full profile" : "Saved page only", clear: drop("profile", "any") });
   if (filters.captured !== "any") chips.push({ key: "d", label: `Last ${filters.captured} days`, clear: drop("captured", "any") });
-  for (const m of filters.capturedBy) chips.push({ key: `m-${m}`, label: `Saved by ${m}`, clear: drop("capturedBy", filters.capturedBy.filter((x) => x !== m)) });
+  for (const m of filters.capturedBy) chips.push({ key: `m-${m}`, label: `Added by ${m}`, clear: drop("capturedBy", filters.capturedBy.filter((x) => x !== m)) });
   return (
     <div className="ct-active">
       {chips.map((c) => (
@@ -1731,7 +1766,7 @@ function AddSlot({ exclude, near, onAdd }: { exclude: readonly string[]; near?: 
     if (!LIVE || !open) return;
     let gone = false;
     cands.listCandidates({ q: dq, campaignId: dq.trim() ? undefined : near?.campaign || undefined, sort: "recent", limit: 12 })
-      .then((r) => { if (!gone) setFound(r.rows.map((x) => cands.contactFromRow(x))); }, () => { if (!gone) setFound([]); });
+      .then((r) => { if (!gone) setFound(r.rows.map((x) => cands.contactFromRow(x, undefined, addedByOf(x)))); }, () => { if (!gone) setFound([]); });
     return () => { gone = true; };
   }, [dq, open, near?.campaign]);
   const list = useMemo(() => {

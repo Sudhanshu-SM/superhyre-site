@@ -23,6 +23,7 @@ import "./newcampaign.css";
 import "./workspace.css";
 import "./settings.css";
 import { Loader } from "./components/Loader";
+import { SupportPage } from "./SupportPage";
 import { ShimmerRegion, ShimmerText } from "./components/Shimmer";
 
 /**
@@ -36,9 +37,10 @@ const LABEL: Record<SettingsSection, string> = {
   profile: "Profile",
   organisation: "Organisation",
   connections: "Connections",
+  support: "Support",
 };
 
-const SECTIONS: readonly SettingsSection[] = ["profile", "organisation", "connections"];
+const SECTIONS: readonly SettingsSection[] = ["profile", "organisation", "connections", "support"];
 
 function useSection(): SettingsSection | null {
   const [at, setAt] = useState(() => settingsSectionFromHash(window.location.hash));
@@ -94,6 +96,8 @@ export function SettingsPage({ account, onAgent }: {
             <Organisation key={org.organizationId} account={account} org={org} manages={manages} />
           ) : section === "organisation" ? (
             <StartOrganisation account={account} />
+          ) : section === "support" ? (
+            <SupportPage account={{ name: account.me.user.fullName ?? "", email: account.me.user.email }} />
           ) : (
             <SettingsConnections canManage={!org || manages} {...(onAgent ? { onAgent } : {})} />
           )}

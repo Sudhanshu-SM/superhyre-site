@@ -247,8 +247,8 @@ describe("quick find", () => {
   });
 
   it("reaches the Settings pages (Members is on the Teams page now)", () => {
-    expect(settingsPages(true).map((p) => p.id)).toEqual(["connections"]);
-    expect(settingsPages(false).map((p) => p.id)).toEqual(["connections"]);
+    expect(settingsPages(true).map((p) => p.id)).toEqual(["connections", "support"]);
+    expect(settingsPages(false).map((p) => p.id)).toEqual(["connections", "support"]);
   });
 });
 

@@ -1,6 +1,6 @@
 import { ApiError } from "./api/client";
 import { readable } from "./api/identity";
-import { routeFromHash } from "./nav";
+import { routeFromHash, settingsSectionFromHash } from "./nav";
 import type { SupportReceipt, SupportRequest, SupportTopic } from "./api/support";
 
 /**
@@ -96,6 +96,8 @@ let before: string | null = null;
 
 /** Remembers the page named by the address, unless it is Support itself (the page they came from is what we want). */
 export function rememberPage(hash: string): void {
+  // Support is a section of Settings now: its own address is not a page they came from.
+  if (settingsSectionFromHash(hash) === "support") return;
   const id = routeFromHash(hash);
   if (id !== "support") before = id.replace(/[^a-z0-9-]/g, "-").slice(0, 40);
 }

@@ -137,3 +137,6 @@
   .st-c-act .st-link { display: block; margin: 2px 0 2px auto; }
   .st-c-act .st-link + .st-link { margin-left: auto; }
 }
+
+/* The connections that are not offered yet sit under their own quiet heading, apart from the ones that work. */
+.st-soon-h { margin: 28px 0 4px; color: var(--ink-3, var(--ink-2)); font-weight: 600; letter-spacing: var(--track-caption, 0); text-transform: none; }

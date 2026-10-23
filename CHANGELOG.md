@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.3.0 (2026-10-23)
+
+### Added
+- **Page size you can change** on Candidates, Campaigns, Clients, Shortlisted, Outreach and Calls: "Per page" next to the range, Auto (fits the window) or a fixed size that suits how many there are. 25, 50 and 100 always; 500 once there are more than 500; 1,000 once there are more than 1,000 (266 people: pages of at most 100). Remembered per list.
+- **Who added a candidate, and when**, as a quiet line under the name ("Added by Ravi · 3d ago"; "Applied via form" for form applicants), and an **Added by** filter. For the organisation's owner and admins.
+- **Review N matches** (and the Pipeline's empty board) open the people found for review in the ranked list, straight from the campaign.
+
+### Changed
+- **Support is a section of Settings** (Profile, Organisation, Connections, Support), no longer a row in the sidebar. The old `#/support` link, quick find and the tour land on it there.
+- **Connections** shows what works first and what is coming (Slack, Notion, WhatsApp) together under "Coming soon", so the two no longer read as one list.
+- **The collapsed sidebar on a short window** scrolls its list instead of stacking icons over the foot, with smaller icons and tighter rows (campaign pages included) below 780px tall.
+
+### Fixed
+- **Candidate filters:** applying one no longer empties the others (Location vanished after "Has phone"), and a blank place no longer shows as an empty chip.
+
 ## 1.2.0 (2026-10-23)
 
 ### Fixed

@@ -12,15 +12,16 @@ import { footNavFor, FOOT_NAV, hashForStanding, isKnownHash, redirectedHash, ROU
 const STANDINGS: readonly Standing[] = ["owner", "admin", "recruiter", "personal"];
 
 describe("who has Teams in the sidebar", () => {
-  it("shows it to the owner and admins, beside Settings and Support, and to nobody else", () => {
+  it("shows it to the owner and admins, beside Settings, and to nobody else", () => {
     for (const s of STANDINGS) {
       const ids = footNavFor(s).map((i) => i.id);
       const has = s === "owner" || s === "admin";
       expect(ids.includes("teams"), s).toBe(has);
       expect(ids, s).toContain("settings");
-      expect(ids, s).toContain("support");
+      // Support is a section of Settings, not a row of its own.
+      expect(ids, s).not.toContain("support");
     }
-    expect(footNavFor("owner").map((i) => i.label)).toEqual(["Teams", "Settings", "Support"]);
+    expect(footNavFor("owner").map((i) => i.label)).toEqual(["Teams", "Settings"]);
   });
 
   it("is the table in can.ts, so the two cannot drift", () => {
@@ -59,9 +60,9 @@ describe("Members is not a Settings page any more", () => {
     expect(settingsSectionFromHash("#/settings/members")).toBeNull();
   });
 
-  it("leaves Settings with Profile, Organisation and Connections", () => {
-    expect([...SETTINGS_SECTIONS]).toEqual(["profile", "organisation", "connections"]);
-    expect(settingsPages(true).map((p) => p.id)).toEqual(["connections"]);
+  it("leaves Settings with Profile, Organisation, Connections and Support", () => {
+    expect([...SETTINGS_SECTIONS]).toEqual(["profile", "organisation", "connections", "support"]);
+    expect(settingsPages(true).map((p) => p.id)).toEqual(["connections", "support"]);
     expect(routeFromHash("#/settings/connections")).toBe("settings");
   });
 });

@@ -66,3 +66,50 @@ export function usePageSize(rowHeight: number, o: Options = {}): number {
 
   return size;
 }
+
+/* ── a page size the person chooses ──
+   The window-fitted size above is "Auto". On top of it a list offers fixed sizes that fit how many people it holds:
+   25, 50 and 100 always; 500 once there are more than 500; 1000 once there are more than 1,000. 266 people can have
+   pages of at most 100. */
+
+export const SIZE_STEPS = [25, 50, 100, 500, 1000] as const;
+
+/** The fixed page sizes worth offering for a list of `total`; none when everything already fits the smallest. */
+export function pageSizeChoices(total: number | null): number[] {
+  if (total === null || total <= SIZE_STEPS[0]) return [];
+  return SIZE_STEPS.filter((n) => n < total && (n <= 100 || (n === 500 && total > 500) || (n === 1000 && total > 1000)));
+}
+
+export type SizeChoice = "auto" | number;
+
+const KEY = (page: string) => `superhyre.pagesize.${page}`;
+
+function readChoice(page: string): SizeChoice {
+  try {
+    const raw = window.localStorage.getItem(KEY(page));
+    const n = Number(raw);
+    return raw && (SIZE_STEPS as readonly number[]).includes(n) ? n : "auto";
+  } catch {
+    return "auto";
+  }
+}
+
+/** The size a list uses: the chosen one cut to what its count allows, else the window's. Remembered per list. */
+export function effectiveSize(choice: SizeChoice, auto: number, choices: readonly number[]): number {
+  if (choice === "auto") return auto;
+  if (!choices.length) return choice;
+  const fits = choices.filter((c) => c <= choice);
+  return fits.length ? Math.max(...fits) : (choices[0] as number);
+}
+
+export function usePageSizeChoice(page: string, auto: number, total: number | null) {
+  const [choice, setChoice] = useState<SizeChoice>(() => (typeof window === "undefined" ? "auto" : readChoice(page)));
+  const choices = pageSizeChoices(total);
+  const size = effectiveSize(choice, auto, choices);
+  const choose = (next: SizeChoice) => {
+    setChoice(next);
+    try { if (next === "auto") window.localStorage.removeItem(KEY(page)); else window.localStorage.setItem(KEY(page), String(next)); } catch { /* not worth failing over */ }
+  };
+  const value: SizeChoice = choice === "auto" ? "auto" : size;
+  return { size, picker: { choices, value, onChoose: choose } };
+}

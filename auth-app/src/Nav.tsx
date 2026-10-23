@@ -696,6 +696,20 @@ export function Nav({
   );
 }
 
+/** A window too short to hold the whole rail: its list scrolls, which clips the hover labels, so rows say their name natively. */
+const SHORT_RAIL = "(max-height: 780px)";
+function useShortWindow(): boolean {
+  const [short, setShort] = useState(() => typeof window !== "undefined" && !!window.matchMedia?.(SHORT_RAIL).matches);
+  useEffect(() => {
+    const mq = window.matchMedia?.(SHORT_RAIL);
+    if (!mq) return undefined;
+    const on = () => setShort(mq.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  return short;
+}
+
 function Row({
   item, route, railed, open, onGroupClick, onGo, standing,
 }: {
@@ -707,6 +721,7 @@ function Row({
   onGo: (id: RouteId) => void;
   standing?: Standing | null;
 }) {
+  const short = useShortWindow();
   if (item.kind === "leaf") {
     const active = route === item.id;
     return (
@@ -716,6 +731,7 @@ function Row({
           href={`#${ROUTES[item.id].path}`}
           aria-current={active ? "page" : undefined}
           data-label={item.label}
+          {...(railed && short ? { title: item.label } : {})}
           data-tour={`nav-${item.id}`}
           onClick={(e) => {
             /* Left-click navigates in place; the href stays real so
@@ -753,6 +769,7 @@ function Row({
         aria-expanded={expanded}
         aria-controls={`nav-group-${item.id}`}
         data-label={item.label}
+        {...(railed && short ? { title: item.label } : {})}
         data-tour={`nav-${item.id}`}
       >
         <item.Icon

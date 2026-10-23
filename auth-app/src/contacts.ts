@@ -333,7 +333,7 @@ export function matches(c: Contact, f: Filters, q: string): boolean {
 /** The values worth offering as filter options for a set of contacts, most common first. */
 export function optionsFor(list: readonly Contact[], key: "location" | "skills", limit = 12): readonly string[] {
   const counts = new Map<string, number>();
-  for (const c of list) for (const v of key === "skills" ? c.skills : [c.location]) counts.set(v, (counts.get(v) ?? 0) + 1);
+  for (const c of list) for (const v of key === "skills" ? c.skills : [c.location]) if (v && v.trim()) counts.set(v, (counts.get(v) ?? 0) + 1);
   return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, limit).map(([v]) => v);
 }
 
@@ -349,6 +349,17 @@ export function sortContacts(list: readonly Contact[], key: SortKey): readonly C
 
 export const capturedLabel = (days: number): string =>
   days === 0 ? "Today" : days === 1 ? "Yesterday" : days < 7 ? `${days}d ago` : days < 30 ? `${Math.floor(days / 7)}w ago` : `${Math.floor(days / 30)}mo ago`;
+
+/**
+ * Who added a person and when, in a few quiet words: "Added by Ravi · 3d ago". A person who applied through a form
+ * was not added by anyone; one the agent or the extension brought in says which, when no teammate is known.
+ */
+export function addedLine(c: Pick<Contact, "origin" | "capturedBy" | "capturedAgo">): string {
+  const when = capturedLabel(c.capturedAgo).toLowerCase();
+  if (c.origin === "Form") return `Applied via form · ${when}`;
+  const who = c.capturedBy || (c.origin === "Agent" ? "the agent" : c.origin === "Extension" ? "the extension" : "");
+  return who ? `Added by ${who} · ${when}` : `Added ${when}`;
+}
 
 /* ── what a recruiter scans a row for ── */
 

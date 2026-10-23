@@ -1,6 +1,6 @@
 import {
   Buildings, UsersThree, ChartLineUp, ClipboardText, Gear, House,
-  Folders, FunnelSimple, Lifebuoy, PaperPlaneTilt, Robot, SquaresFour, Star, UsersFour,
+  Folders, FunnelSimple, PaperPlaneTilt, Robot, SquaresFour, Star, UsersFour,
 } from "@phosphor-icons/react";
 import type { Icon } from "@phosphor-icons/react";
 import type { Standing } from "./can";
@@ -277,12 +277,11 @@ export const CAMPAIGN_NAV: NavLeaf[] = [
 /** Pinned below the nav, above the account. The two rows that are about the
  *  workspace itself rather than the hiring in it, so they sit together and
  *  outside the scrollable body — Settings first, because it is the one people
- *  reach for; Support last, because it is where you go when the rest failed. */
+ *  reach for. Support is a section of Settings. */
 export const FOOT_NAV: NavLeaf[] = [
   /* Teams sits with Settings and Support: it is about the workspace's people, not the hiring in it. */
   { kind: "leaf", id: "teams", label: "Teams", Icon: UsersFour },
   { kind: "leaf", id: "settings", label: "Settings", Icon: Gear },
-  { kind: "leaf", id: "support", label: "Support", Icon: Lifebuoy },
 ];
 
 /**
@@ -366,6 +365,8 @@ export function redirectedHash(hash: string): string | null {
   // Integrations are Connections now, and the extension has no page: Settings' Profile is the nearest place that exists.
   if (path === "/settings/integrations") return query ? `#/settings/connections?${query}` : "#/settings/connections";
   if (path === "/settings/extension") return "#/settings";
+  // Support is a section of Settings now, not a page of its own: an old link, the tour and quick find land on it there.
+  if (path === "/support") return query ? `#/settings/support?${query}` : "#/settings/support";
   if (path === "/integrations" || path === "/extension") return "#/";
   // Usage and Agent activity are out of the navigation: a link to either opens the Analytics overview, and the
   // old Projects page is Campaigns now (its filters, which were never in the address, have nothing to carry).
@@ -415,7 +416,7 @@ export function isKnownHash(hash: string): boolean {
   return path === "/" || path === "/home" || routeFromHash(hash) !== "home" || /^\/invite\//.test(path);
 }
 
-export const SETTINGS_SECTIONS = ["profile", "organisation", "connections"] as const;
+export const SETTINGS_SECTIONS = ["profile", "organisation", "connections", "support"] as const;
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
 
 /** The section a "#/settings/<section>" hash names, if any. */

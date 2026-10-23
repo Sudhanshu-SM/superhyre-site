@@ -1,7 +1,7 @@
 {
   "name": "superhyre-access",
   "private": true,
-  "version": "1.2.0",
+  "version": "1.3.0",
   "type": "module",
   "description": "Sign-in surface for superhyre.com/access/. Source lives here; `npm run build` emits the served files into ../access/.",
   "scripts": {

@@ -38,6 +38,9 @@ export const CAPABILITIES = {
   "campaign.work": EVERYONE,
   /* people */
   "contact.add": EVERYONE,
+  /* Who added a candidate and when, on the row, and the filter by who: a team's own bookkeeping, so the organisation's owner
+     and admins see it. (A personal workspace has one person: nothing to tell apart.) */
+  "candidate.seeAddedBy": TEAM_MANAGERS,
   "contact.delete": MANAGERS,
   /* Taking someone off the do-not-contact list: nobody else decides that they may be written to again. */
   "contact.allowAgain": MANAGERS,

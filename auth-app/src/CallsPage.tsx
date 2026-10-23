@@ -22,7 +22,7 @@ import type { FilterChip } from "./components/FilterChips";
 import { Pager } from "./components/Pager";
 import { useScrollMemory, useSectionSave } from "./sectionMemory";
 import { hasDeepLink, loadSection, settledOffset, take } from "./sectionState";
-import { PAGE_FALLBACK, PAGE_MAX, PAGE_MIN, PAGER_FOOT, usePageSize } from "./usePageSize";
+import { PAGE_FALLBACK, PAGE_MAX, PAGE_MIN, PAGER_FOOT, usePageSize, usePageSizeChoice } from "./usePageSize";
 import { useStuckBar } from "./useStuckBar";
 import { KlGroupsGhost, KlRowsGhost, PagerSlot } from "./klGhosts";
 import { EmptyArt } from "./EmptyArt";
@@ -198,11 +198,15 @@ function CallsList({ campaignId, standing, onTotals }: {
   const [paged, setPaged] = useState<{ key: string; offset: number }>({ key: viewKey, offset: start.offset });
   const wanted = paged.key === viewKey ? paged.offset : 0;
   /* As many lines (or campaigns) as fit under the list's top; a remembered offset lands on the page that holds its first row. */
-  const size = usePageSize(flat ? 59 : 80, { fallback: start.size, rowSelector: flat ? ".kl-row" : undefined, gap: 1, reserve: 40 + PAGER_FOOT });
+  const autoSize = usePageSize(flat ? 59 : 80, { fallback: start.size, rowSelector: flat ? ".kl-row" : undefined, gap: 1, reserve: 40 + PAGER_FOOT });
+  /* The size the window fits is "Auto"; the person may choose a fixed one that suits how many there are (25 to 1,000). */
+  const [knownTotal, setKnownTotal] = useState<number | null>(null);
+  const { size, picker } = usePageSizeChoice("calls", autoSize, knownTotal);
   const data = useCalls({ campaignId, filters, open: openSet, offset: flat ? wanted : 0, pageSize: size });
   const liveGroups = useMemo(() => data.groups.filter((g) => g.count > 0), [data.groups]);
   const ownTotal = flat && data.phase === "ready" ? data.groups[0]?.count ?? 0 : null;
   const listTotal = flat ? ownTotal : data.phase === "ready" ? liveGroups.length : null;
+  useEffect(() => { if (listTotal !== null) setKnownTotal(listTotal); }, [listTotal]);
   /* A remembered page is held inside the list only once the list's total is known: before that it is left exactly as it was. */
   const { offset, fix } = settledOffset(wanted, listTotal, size);
   useEffect(() => { if (fix !== null) setPaged({ key: viewKey, offset: fix }); }, [fix, viewKey]);
@@ -369,7 +373,7 @@ function CallsList({ campaignId, standing, onTotals }: {
           callers={callerOptions}
           showCaller={everyone && data.callers.length > 1}
           pager={listTotal !== null && listTotal > size
-            ? <Pager offset={offset} limit={size} total={listTotal} unit={flat ? "calls" : "campaigns"} onChange={(o) => setPaged({ key: viewKey, offset: o })} />
+            ? <Pager offset={offset} limit={size} total={listTotal} unit={flat ? "calls" : "campaigns"} sizes={picker} onChange={(o) => setPaged({ key: viewKey, offset: o })} />
             : data.phase === "loading" ? <PagerSlot /> : null}
         />
       )}

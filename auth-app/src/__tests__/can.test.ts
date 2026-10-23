@@ -41,6 +41,8 @@ const MATRIX: ReadonlyArray<readonly [Capability, boolean, boolean, boolean, boo
   // What the server's isAdmin lets through
   ["campaign.manage", true, true, true, false],
   ["contact.delete", true, true, true, false],
+  // Who added a candidate, and the filter by who: an organisation's owner and admins (a personal workspace has one person)
+  ["candidate.seeAddedBy", false, true, true, false],
   // Taking someone off the do-not-contact list: the server's requireAdmin
   ["contact.allowAgain", true, true, true, false],
   ["connections.manage", true, true, true, false],

@@ -38,6 +38,8 @@ export type ListQuery = {
   q?: string;
   campaignId?: string;
   location?: string;
+  /** Only the people this team member added (the API's `ownerId`). */
+  ownerId?: string;
   hasEmail?: boolean;
   hasPhone?: boolean;
   skills?: readonly string[];
@@ -53,6 +55,7 @@ export function listPath(q: ListQuery): string {
   if (q.q?.trim()) p.set("q", q.q.trim());
   if (q.campaignId) p.set("campaignId", q.campaignId);
   if (q.location) p.set("location", q.location);
+  if (q.ownerId) p.set("ownerId", q.ownerId);
   if (q.hasEmail) p.set("hasEmail", "true");
   if (q.hasPhone) p.set("hasPhone", "true");
   if (q.skills?.length) p.set("skills", q.skills.join(","));
@@ -73,7 +76,7 @@ const ORIGIN: Readonly<Record<Source, NonNullable<Contact["origin"]>>> = {
 };
 
 /** A list row as a Contact, with this workspace's email and phone when it holds them. */
-export function contactFromRow(r: CandidateRow, now = Date.now()): Contact {
+export function contactFromRow(r: CandidateRow, now = Date.now(), addedBy = ""): Contact {
   const title = r.currentTitle ?? r.headline ?? "";
   const company = r.currentCompanyName ?? "";
   const years = r.yearsOfExperience ?? 0;
@@ -92,7 +95,7 @@ export function contactFromRow(r: CandidateRow, now = Date.now()): Contact {
     phone: r.phone ? { value: r.phone, source: "Manual" } : undefined,
     linkedin: bare(r.linkedinUrl),
     campaign: r.campaigns[0]?.id ?? "",
-    capturedBy: "",
+    capturedBy: addedBy,
     capturedAgo: daysSince(r.createdAt, now),
     profile: r.completeness === "basic" ? "basic" : "full",
     openToWork: false,

@@ -31,7 +31,7 @@ import { Shimmer, ShimmerRegion, ShimmerTableRows } from "./components/Shimmer";
 import { Pager } from "./components/Pager";
 import { useScrollMemory, useSectionSave } from "./sectionMemory";
 import { clampedOffset, hasDeepLink, loadSection, take } from "./sectionState";
-import { PAGE_FALLBACK, PAGER_FOOT, usePageSize } from "./usePageSize";
+import { PAGE_FALLBACK, PAGER_FOOT, usePageSize, usePageSizeChoice } from "./usePageSize";
 import type { ShimCell } from "./components/Shimmer";
 import { DetailTitle } from "./components/DocTitle";
 import { pageTitle } from "./pageTitle";
@@ -202,9 +202,13 @@ function ClientList({ missing }: { missing: string | null }) {
     setWanted(0);
   }, [listKey]);
   /* As many rows as fit under the table's head. */
-  const size = usePageSize(56, { rowSelector: "tbody tr", reserve: 24 + 40 + PAGER_FOOT });
+  const autoSize = usePageSize(56, { rowSelector: "tbody tr", reserve: 24 + 40 + PAGER_FOOT });
+  /* The size the window fits is "Auto"; the person may choose a fixed one that suits how many there are (25 to 1,000). */
+  const [knownTotal, setKnownTotal] = useState<number | null>(null);
+  const { size, picker } = usePageSizeChoice("clients", autoSize, knownTotal);
   const offset = clampedOffset(wanted, shown.length, size);
   const slice = shown.slice(offset, offset + size);
+  useEffect(() => { setKnownTotal(shown.length); }, [shown.length]);
   useSectionSave(SECTION, { f, sort, offset }, true);
   useScrollMemory(SECTION, true, !hasDeepLink(), ".cli .sl-scroll");
 
@@ -252,7 +256,7 @@ function ClientList({ missing }: { missing: string | null }) {
         {filtered && <button type="button" className="cw-link t-body-sm" onClick={() => setF(NO_CLIENT_FILTER)}>Clear</button>}
         <div className="sl-bar-r">
           {shown.length > size
-            ? <Pager offset={offset} limit={size} total={shown.length} unit="clients" onChange={setWanted} />
+            ? <Pager offset={offset} limit={size} total={shown.length} unit="clients" sizes={picker} onChange={setWanted} />
             : <span className="sl-count t-body-sm">{shown.length} {shown.length === 1 ? "client" : "clients"}</span>}
         </div>
       </div>

@@ -33,7 +33,7 @@ import type { MomentCtx, MomentKind } from "./moments";
 import type { Verdict } from "./sourcing";
 import type { Campaign } from "./workspaces";
 import { api, LIVE, messageOf } from "./api/client";
-import { agentApi, attachmentApi, filtersApi } from "./api/agent";
+import { agentApi, attachmentApi, filtersApi, specApi } from "./api/agent";
 import { isSheetFile } from "./jdIntake";
 import { type ImportSeed, hasSeed, sheetLinkIn, stashImport } from "./importFiles";
 import {
@@ -48,11 +48,13 @@ import { BriefSignals } from "./BriefSignals";
 import { refreshCampaign, refreshCampaignList, useCampaignRow, useCampaignRows } from "./campaignStore";
 import { useMayChangeCampaign } from "./campaignRights";
 import { useCampaignSpec } from "./specDraft";
-import type { Conversation } from "./api/agent";
+import type { Conversation, MatchList } from "./api/agent";
 import { campaignById } from "./formKit";
+import { setFromMatches } from "./liveCandidate";
+import { mergeSet } from "./liveSourcing";
 import { CHAT_LIMIT, chatLength, chatNow, chatOver, newChat, onChatFocus, openChat, openChatFor, resumeChat, sendAction, sendMessage, useLiveChat } from "./liveChat";
 import { DOUBTS_ASK, DOUBTS_LABEL, DOUBTS_SHOW } from "./memoryView";
-import { showFromHash, withoutShow } from "./nav";
+import { campaignFromHash, showFromHash, withoutShow } from "./nav";
 import { chatTitle, titleFromMessage, UNTITLED } from "./chatTitle";
 import { tidySeed } from "./seedText";
 import { useToast } from "./Contacts";
@@ -65,7 +67,7 @@ import { getCandidate } from "./api/candidates";
 import { candidateFromDetail, candidateFromMatch } from "./liveCandidate";
 import type { CandidateSet } from "./liveCandidate";
 import { matchFromProfile } from "./liveViews/compareLogic";
-import { campaignIds, campaignOfCandidate, candidateById, clearSets, getSet, setOfCandidate, updateCandidate, useCandidateSets } from "./liveCandidates";
+import { campaignIds, campaignOfCandidate, candidateById, clearSets, getSet, putSet, setOfCandidate, updateCandidate, useCandidateSets } from "./liveCandidates";
 import { LiveMomentProvider } from "./liveViews/LiveMoment";
 import { PassReasonDialog } from "./PassReason";
 import { useRailConfig } from "./useRailConfig";
@@ -136,6 +138,8 @@ function briefOf(c: Conversation): Brief {
   return { id: c.id, title: chatTitle(c.title), campaign: c.focusCampaignName ?? "", when, mode: "agent" };
 }
 
+/** `?show=matches` on an agent link: open the campaign's people found, for review. */
+const MATCHES_SHOW = "matches";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function Agent({
@@ -557,6 +561,31 @@ export function Agent({
     return () => { current = false; };
   }, [profile?.id]);
   const liveSet: CandidateSet | null = LIVE && listCampaign ? getSet(listCampaign) : null;
+
+  /* "Review N matches" (a task, the Pipeline's empty board) opens the campaign's people found for review, in the ranked list
+     with its keyboard triage: the chat may hold no search of this campaign at all, so the list is read from the server.
+     The link is spent at once, and waits for the campaign to be known (the console says it a moment after the address). */
+  useEffect(() => {
+    if (!LIVE) return;
+    const hash = window.location.hash;
+    if (showFromHash(hash) !== MATCHES_SHOW) return;
+    const cid = chatForId ?? campaignFromHash(hash) ?? (campaignIsCurrent && UUID.test(campaign.id) ? campaign.id : null);
+    if (!cid || !UUID.test(cid)) return;
+    history.replaceState(null, "", withoutShow(window.location.hash));
+    let live = true;
+    Promise.all([api<MatchList>("GET", `/v1/campaigns/${cid}/matches`), specApi.get(cid).catch(() => null)])
+      .then(([m, s]) => {
+        if (!live) return;
+        const decided = m.decided ?? [];
+        if (!m.rows.length && !decided.length) return;
+        putSet(mergeSet(getSet(cid), setFromMatches(cid, m.rows, s?.approved?.spec ?? null, new Date(), decided)));
+        setProfile(null);
+        setListCampaign(cid);
+        setMatchesOpen(true);
+      })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [chatForId, campaignIsCurrent, campaign.id]);
   const idsOfSetWith = (id: string): readonly string[] => {
     const cid = campaignOfCandidate(id);
     return (cid ? getSet(cid)?.candidates.map((c) => c.id) : null) ?? [id];

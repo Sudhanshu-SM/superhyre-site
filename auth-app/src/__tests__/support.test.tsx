@@ -262,6 +262,8 @@ describe("which page they were on", () => {
     expect(pageBeforeSupport()).toBe("campaign-candidates");
     rememberPage("#/support");
     expect(pageBeforeSupport()).toBe("campaign-candidates");
+    rememberPage("#/settings/support");
+    expect(pageBeforeSupport()).toBe("campaign-candidates");
     rememberPage("#/clients/6f1c2d3e-0000-4000-8000-000000000000/notes");
     expect(pageBeforeSupport()).toBe("clients");
   });

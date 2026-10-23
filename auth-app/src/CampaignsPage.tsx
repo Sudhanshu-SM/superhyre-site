@@ -22,7 +22,7 @@ import { Pager } from "./components/Pager";
 import { useScrollMemory, useSectionSave } from "./sectionMemory";
 import { inKind, rejectedOf, stagesOf, totalOf } from "./stageDonut";
 import { clampedOffset, hasDeepLink, loadSection, take } from "./sectionState";
-import { PAGE_FALLBACK, PAGER_FOOT, usePageSize } from "./usePageSize";
+import { PAGE_FALLBACK, PAGER_FOOT, usePageSize, usePageSizeChoice } from "./usePageSize";
 import { Shimmer, ShimmerRegion } from "./components/Shimmer";
 import { LoadFailed } from "./ui";
 import { LIVE } from "./api/client";
@@ -144,9 +144,13 @@ export function CampaignsPage({ onOpen }: { onOpen: (c: CampaignRow) => void }) 
   const viewKey = `${filter}|${sort}|${q}|${fresh || ""}`;
   const [paged, setPaged] = useState<{ key: string; offset: number }>({ key: viewKey, offset: start.offset });
   /* As many rows as fit under the list's top; a remembered offset lands on the page that holds its first row. */
-  const size = usePageSize(94, { ready: ready && !(failed && allRows.length === 0), rowSelector: ".cg-row", gap: 10, reserve: 40 + PAGER_FOOT });
+  const autoSize = usePageSize(94, { ready: ready && !(failed && allRows.length === 0), rowSelector: ".cg-row", gap: 10, reserve: 40 + PAGER_FOOT });
+  /* The size the window fits is "Auto"; the person may choose a fixed one that suits how many there are (25 to 1,000). */
+  const [knownTotal, setKnownTotal] = useState<number | null>(null);
+  const { size, picker } = usePageSizeChoice("campaigns", autoSize, knownTotal);
   const offset = clampOffset(paged.key === viewKey ? paged.offset : 0, shown.length, size);
   const pageRows = shown.slice(offset, offset + size);
+  useEffect(() => { setKnownTotal(shown.length); }, [shown.length]);
 
   const counted = ready && !(failed && allRows.length === 0);
   useSectionSave(SECTION, { filter, q, sort, offset }, counted);
@@ -211,7 +215,7 @@ export function CampaignsPage({ onOpen }: { onOpen: (c: CampaignRow) => void }) 
         </label>
         <SortMenu sort={sort} onChange={setSort} />
         {counted && shown.length > size && (
-          <Pager offset={offset} limit={size} total={shown.length} unit="campaigns" onChange={(o) => setPaged({ key: viewKey, offset: o })} />
+          <Pager offset={offset} limit={size} total={shown.length} unit="campaigns" sizes={picker} onChange={(o) => setPaged({ key: viewKey, offset: o })} />
         )}
       </div>
 

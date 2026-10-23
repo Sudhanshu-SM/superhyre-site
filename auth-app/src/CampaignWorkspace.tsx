@@ -64,7 +64,7 @@ import type { ShimCell } from "./components/Shimmer";
 import { Pager } from "./components/Pager";
 import { useScrollMemory, useSectionSave } from "./sectionMemory";
 import { clampedOffset, hasDeepLink, loadSection, take } from "./sectionState";
-import { PAGER_FOOT, usePageSize } from "./usePageSize";
+import { PAGER_FOOT, usePageSize, usePageSizeChoice } from "./usePageSize";
 import { useWarmup } from "./warmup";
 import { Dialog, LoadFailed } from "./ui";
 import { ClientLogo } from "./ClientLogo";
@@ -2222,9 +2222,13 @@ export function CampaignShortlisted({ ctx }: { ctx: Ctx }) {
   }, [everyone, f, needle, sort]);
 
   /* As many rows as fit under the table's head. */
-  const size = usePageSize(56, { rowSelector: ".sl-table tbody tr", reserve: 24 + 40 + PAGER_FOOT });
+  const autoSize = usePageSize(56, { rowSelector: ".sl-table tbody tr", reserve: 24 + 40 + PAGER_FOOT });
+  /* The size the window fits is "Auto"; the person may choose a fixed one that suits how many there are (25 to 1,000). */
+  const [knownTotal, setKnownTotal] = useState<number | null>(null);
+  const { size, picker } = usePageSizeChoice("shortlisted", autoSize, knownTotal);
   const offset = clampedOffset(wanted, rows.length, size);
   const shown = rows.slice(offset, offset + size);
+  useEffect(() => { setKnownTotal(rows.length); }, [rows.length]);
   /* A different search, filter or sort is the top of a new list (not on arrival: that is where it was left). */
   const listKey = JSON.stringify([needle, f, sort]);
   const lastList = useRef(listKey);
@@ -2349,7 +2353,7 @@ export function CampaignShortlisted({ ctx }: { ctx: Ctx }) {
           <SlFilterMenu people={everyone} f={f} onF={setF} count={filterCount} />
           <SlColumnsMenu hidden={cols.hidden} onToggle={cols.toggle} />
           <div className="sl-bar-r">
-            {rows.length > size && <Pager offset={offset} limit={size} total={rows.length} unit="people" onChange={setWanted} />}
+            {rows.length > size && <Pager offset={offset} limit={size} total={rows.length} unit="people" sizes={picker} onChange={setWanted} />}
             {mayChange && <ContactsMenu campaignId={ctx.campaignId} everyone={rows.map((p) => p.id)} picked={picked} narrowed={!!needle || filterCount > 0} />}
             {mayChange && picked.size > 0 ? (
               <>

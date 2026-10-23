@@ -253,10 +253,13 @@ export function SettingsConnections({ canManage = false, onAgent }: {
         <GoogleProductsGhost />
       )}
 
-      <ComingSoonConnection id="slack" name="Slack" />
-      <ComingSoonConnection id="notion" name="Notion" />
       {/* Owners and admins of an organisation, and anyone in Personal (canManage): the lookups spend its credits. */}
       {canManage && <ContactLookups />}
+
+      {/* What can be used is above; what cannot be yet is below, together, so the two never read as one list. */}
+      <h3 className="st-soon-h t-caption">Coming soon</h3>
+      <ComingSoonConnection id="slack" name="Slack" />
+      <ComingSoonConnection id="notion" name="Notion" />
       <ComingSoonConnection id="whatsapp" name="WhatsApp (via Magnifi)" />
       </>
       )}
