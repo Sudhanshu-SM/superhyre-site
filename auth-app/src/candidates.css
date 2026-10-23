@@ -293,6 +293,11 @@
 .rm-triage-l b { font-weight: 600; color: var(--ink); }
 .rm-triage-short { color: var(--accent-text); }
 
+/* People not read closely yet: one line and one button above the list, never a sentence on every row. */
+.rm-catchup { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.rm-catchup-l { margin: 0; font: 400 13px/1.4 var(--ui); color: var(--ink-2); max-width: 62ch; }
+.rm-catchup-l b { font-weight: 600; color: var(--ink); }
+
 /* ── filters: a segmented control ── */
 
 .rm-filters {

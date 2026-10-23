@@ -515,7 +515,8 @@ export function TodayCard({ scope, onOpen }: { scope: Scope; onOpen: (prompt: st
             onChange={(e) => setDueDate(e.target.value)} aria-label="Due date"
           />
         )}
-        <kbd className={draft.trim() ? "is-on" : ""} aria-hidden="true">↵</kbd>
+        {/* A real submit button: with a date field beside the words, Enter adds the task only if the form has one. */}
+        <button type="submit" className={`hm-add-go${draft.trim() ? " is-on" : ""}`} aria-label="Add task" title="Add task (Enter)">↵</button>
       </form>
     </section>
   );

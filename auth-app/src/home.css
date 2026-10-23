@@ -236,12 +236,12 @@
 .hm-add input { flex: 1; min-width: 0; border: 0; background: none; outline: none; color: var(--ink); }
 .hm-add > input[aria-label="Add a task"] { min-width: 110px; }
 .hm-add input::placeholder { color: #776d66; }
-.hm-add kbd {
-  display: grid; place-items: center; width: 24px; height: 24px; border: 1px solid #ebe5df; border-radius: 7px; color: #b5aba3; opacity: 0; transform: scale(0.9);
+.hm-add .hm-add-go {
+  padding: 0; background: none; cursor: pointer; font: inherit; display: grid; place-items: center; width: 24px; height: 24px; border: 1px solid #ebe5df; border-radius: 7px; color: #b5aba3; opacity: 0; transform: scale(0.9);
   transition: opacity 160ms, transform 200ms var(--ease-out), color 160ms, border-color 160ms;
 }
-.hm-add:focus-within kbd { opacity: 1; transform: none; }
-.hm-add kbd.is-on { border-color: var(--accent-line); color: var(--accent-text); }
+.hm-add:focus-within .hm-add-go, .hm-add .hm-add-go:focus-visible { opacity: 1; transform: none; }
+.hm-add .hm-add-go.is-on { border-color: var(--accent-line); color: var(--accent-text); }
 
 /* ═══ your week: four numbers, four hairline quarters ═══ */
 .hm-week .hm-th { padding: 14px 20px 6px var(--hm-tx); }
@@ -861,7 +861,7 @@ a.hm-tl-t { text-decoration: none; }
 .hm-th h2, .hm-feat-t strong, .hm-clear p strong { font: var(--type-title-sm); letter-spacing: var(--track-title-sm); }
 .hm-n { padding: 0; border-radius: 0; background: none; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .hm-th > small, .hm-quad-l, .hm-quad-v small, .hm-tl-camp { font: var(--type-body-sm); letter-spacing: var(--track-body-sm); }
-.hm-prog small, .hm-feat-m, .hm-story-m, .hm-tl-due, .hm-add kbd { font: var(--type-caption); letter-spacing: var(--track-caption); font-variant-numeric: tabular-nums; }
+.hm-prog small, .hm-feat-m, .hm-story-m, .hm-tl-due, .hm-add .hm-add-go { font: var(--type-caption); letter-spacing: var(--track-caption); font-variant-numeric: tabular-nums; }
 .hm-prog small b, .hm-next-done, .hm-done-h, .hm-cl-t strong, .hm-cl-more a, .hm-feed-more, .hm-feed-h, .hm-fact-k, .hm-tl-cols, .hm-tl-gt { font: var(--type-label); letter-spacing: var(--track-label); text-transform: none; }
 .hm-feed-h { color: var(--ink-2); }
 .hm-ring b { font: var(--type-caption); font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -938,7 +938,7 @@ a.hm-tl-t { text-decoration: none; }
   .hm-add { flex-wrap: wrap; height: auto; min-height: 36px; padding-block: 6px; row-gap: 6px; }
   .hm-add > input[aria-label="Add a task"] { flex: 1 1 8rem; }
   .hm-add .hm-add-for, .hm-add input.hm-add-date { flex: 1 1 7rem; min-width: 0; max-width: 100%; }
-  .hm-add kbd { display: none; }
+  .hm-add .hm-add-go { display: none; }
 }
 
 /* A phone: a task gets the whole line for its title (two lines before it is cut) and its date and actions sit

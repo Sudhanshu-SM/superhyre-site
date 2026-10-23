@@ -165,9 +165,13 @@ export function Console({ bootstrap, live, onSignOut, signingOut }: Props) {
      explicit "ask the agent" for a thing it can do in full. */
   const [handoffSend, setHandoffSend] = useState(false);
   const clearHandoff = useCallback(() => { setHandoff(null); setHandoffSend(false); }, []);
-  const brief = useCallback((prompt: string, opts?: { send?: boolean }) => {
+  /* Arriving at the Agent for a campaign (its task, a link to it, a page's "ask the agent"): the chat to open is that campaign's. */
+  const [chatFor, setChatFor] = useState<string | null>(null);
+  const clearChatFor = useCallback(() => setChatFor(null), []);
+  const brief = useCallback((prompt: string, opts?: { send?: boolean; campaignId?: string }) => {
     setHandoff(prompt);
     setHandoffSend(!!opts?.send);
+    if (opts?.campaignId) setChatFor(opts.campaignId);
     /* Hash assignment rather than a router call: routeFromHash reads the hash
        and the hashchange listener already drives `route`, so this is the one
        navigation mechanism the console has. */
@@ -274,6 +278,8 @@ export function Console({ bootstrap, live, onSignOut, signingOut }: Props) {
     const pick = () => {
       const id = campaignFromHash(window.location.hash);
       if (!id) return;
+      // A task or link into the Agent for this campaign: its chat is the one to be in.
+      if (window.location.hash.startsWith("#/agent")) setChatFor(id);
       const c = campaignById(id);
       chooseCampaign(
         c
@@ -438,7 +444,7 @@ export function Console({ bootstrap, live, onSignOut, signingOut }: Props) {
   const cctx = useMemo(() => ({
     campaignId: campaign.id,
     go: navigate,
-    onAgent: (prompt?: string, opts?: { send?: boolean }) => brief(prompt ?? `For ${campaign.name}: `, opts),
+    onAgent: (prompt?: string, opts?: { send?: boolean }) => brief(prompt ?? `For ${campaign.name}: `, { ...opts, ...(campaign.id ? { campaignId: campaign.id } : {}) }),
   }), [campaign.id, campaign.name, navigate, brief]);
 
   return (
@@ -542,6 +548,8 @@ export function Console({ bootstrap, live, onSignOut, signingOut }: Props) {
               handoff={handoff}
               handoffSend={handoffSend}
               onHandoffTaken={clearHandoff}
+              chatFor={chatFor}
+              onChatForTaken={clearChatFor}
               campaignIsCurrent={campaignChosen}
               onNewChat={() => setCampaignChosen(false)}
               onFocusCampaign={focusCampaign}

@@ -49,7 +49,8 @@ import { refreshCampaign, refreshCampaignList, useCampaignRow, useCampaignRows }
 import { useMayChangeCampaign } from "./campaignRights";
 import { useCampaignSpec } from "./specDraft";
 import type { Conversation } from "./api/agent";
-import { CHAT_LIMIT, chatLength, chatNow, chatOver, newChat, onChatFocus, openChat, resumeChat, sendAction, sendMessage, useLiveChat } from "./liveChat";
+import { campaignById } from "./formKit";
+import { CHAT_LIMIT, chatLength, chatNow, chatOver, newChat, onChatFocus, openChat, openChatFor, resumeChat, sendAction, sendMessage, useLiveChat } from "./liveChat";
 import { DOUBTS_ASK, DOUBTS_LABEL, DOUBTS_SHOW } from "./memoryView";
 import { showFromHash, withoutShow } from "./nav";
 import { chatTitle, titleFromMessage, UNTITLED } from "./chatTitle";
@@ -138,7 +139,7 @@ function briefOf(c: Conversation): Brief {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function Agent({
-  campaign, campaignIsCurrent = false, inOrg = false, handoff, handoffSend = false, onHandoffTaken, onOpenForm, onOpenCampaign, onFocusCampaign, onNewChat,
+  campaign, campaignIsCurrent = false, inOrg = false, handoff, handoffSend = false, onHandoffTaken, chatFor = null, onChatForTaken, onOpenForm, onOpenCampaign, onFocusCampaign, onNewChat,
 }: {
   /** Leaves the chat for a campaign, making it current. */
   onOpenCampaign?: (campaignId: string) => void;
@@ -148,6 +149,10 @@ export function Agent({
   onNewChat?: () => void;
   /** Send the handoff at once instead of leaving it in the composer. */
   handoffSend?: boolean;
+  /** Arrived from a campaign (its task, a link, its page): the chat to be in is that campaign's own, not the last one open. */
+  chatFor?: string | null;
+  /** Called once that chat is open, so the choice is made exactly once. */
+  onChatForTaken?: () => void;
   campaign: Campaign;
   /** Whether the recruiter picked or visited `campaign` this session. The
       console always has a default campaign; only a chosen one is assumed. */
@@ -194,9 +199,18 @@ export function Agent({
   })));
   /* Connected: the transcript is the server's chat, replayed from its events. */
   const live = useLiveChat();
+  /* A campaign this page has no real id for (a fixture, nothing chosen) names no chat. */
+  const chatForId = chatFor && UUID.test(chatFor) ? chatFor : null;
   useEffect(() => {
-    if (LIVE) void resumeChat();
+    // Arriving for a campaign opens its chat (below); otherwise the tab picks up the chat it had.
+    if (LIVE && !chatForId) void resumeChat();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  useEffect(() => {
+    if (!chatFor) return;
+    if (!LIVE || !chatForId) { onChatForTaken?.(); return; }
+    void openChatFor(chatForId).finally(() => onChatForTaken?.());
+  }, [chatFor, chatForId, onChatForTaken]);
   useEffect(() => (LIVE && onFocusCampaign ? onChatFocus(onFocusCampaign) : undefined), [onFocusCampaign]);
   /* A task that counts the notes the agent is unsure about opens the Agent with "?show=memory-doubts": the card of
      them is asked for quietly (no message of the person's, no model turn) in the chat they were in. The link is
@@ -1380,7 +1394,8 @@ export function Agent({
      does not re-seed a brief the user already edited or sent. Depending on
      `seed` is safe because it is stable. */
   useEffect(() => {
-    if (handoff === null) return;
+    // A prompt that goes out at once waits until the campaign's chat is the one open, or it lands in the wrong thread.
+    if (handoff === null || chatFor) return;
     seed(handoff);
     /* An explicit "ask the agent" goes out at once: the composer commits the
        seeded text on its own render, so send on the next frame. */
@@ -1388,7 +1403,7 @@ export function Agent({
     onHandoffTaken();
     // `send` is read through a ref so a new identity does not re-run this.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [handoff, onHandoffTaken, seed]);
+  }, [handoff, chatFor, onHandoffTaken, seed]);
 
   return (
     <ConnectorsProvider>
@@ -1670,6 +1685,19 @@ export function Agent({
         activeId={profile?.id ?? null}
         onOpen={(id, ids) => setProfile({ id, ids })}
         {...(LIVE ? { set: liveSet } : {})}
+        scoring={LIVE && live.turns.some((t) => t.searches.some((x) => x.status === "running"))}
+        {...(LIVE && liveSet?.campaignId
+          ? {
+              /* The same sentence the search card's button sends: the chat reads the rest in code and the card follows it. */
+              onScoreRest: () => {
+                setProfile(null);
+                setMatchesOpen(false);
+                // The name is the set's own campaign's, which the page may not be on.
+                const named = (liveSet.campaignId && campaignById(liveSet.campaignId)?.name) || campaign.name;
+                sendMessage(`Score the people found for ${named} again`, liveSet.campaignId ?? undefined);
+              },
+            }
+          : {})}
       />
       <PassReasonDialog
         who={passing ? (candidateById(passing)?.name.split(" ")[0] ?? "them") : null}

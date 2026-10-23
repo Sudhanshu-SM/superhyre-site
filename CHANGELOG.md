@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.2.0 (2026-10-23)
+
+### Fixed
+- **Add a task with a date.** With "Pick a date" chosen, Enter did nothing (a form with two fields and no submit button does not submit). The "↵" is a real button now.
+- **"Review N matches" opens that campaign's own chat**, not the last chat you had open. A task, a link or "ask the agent" from a campaign opens the latest chat about it, or a fresh one that is about it from the first message. A message that waits to be sent goes out only once that chat is open.
+- **A wall of "Not scored yet" is one line.** The ranked list says once how many people haven't been read closely, with a "Score the rest" button (or "Scoring now" while a run is going), instead of a sentence on every row.
+- **Importing roles from a sheet:** a read that runs out of time says nothing was changed (it used to say "it may have gone through"), is tried again on its own for a busy moment, and a role that cannot be read steps aside to the end instead of blocking the rest. A batch of six or more says what to expect.
+
+### Changed
+- **A search that comes back short, or runs dry, asks what to do next** with buttons (add a nearby city, keep watching and add new people, change the city), instead of "no more people to show".
+
 ## 1.1.1 (2026-10-23)
 
 ### Fixed

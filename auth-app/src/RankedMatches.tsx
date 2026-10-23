@@ -67,8 +67,12 @@ const EXIT_MS = 220;
 const SIDEBAR_W = 520;
 
 export function RankedMatches({
-  open, onClose, verdicts: made, onVerdict, activeId, onOpen, set,
+  open, onClose, verdicts: made, onVerdict, activeId, onOpen, set, onScoreRest, scoring = false,
 }: {
+  /** A search is reading people right now: the note says so, and offers nothing to press. */
+  scoring?: boolean;
+  /** Reads the people still without a score: shown as one button on the list's note, not once on every row. */
+  onScoreRest?: (() => void) | undefined;
   /** A connected campaign's matches. Omitted, the list shows the demo's. */
   set?: CandidateSet | null;
   open: boolean;
@@ -82,6 +86,7 @@ export function RankedMatches({
 }): JSX.Element | null {
   const src = sourceOf(set);
   const CANDS = src.candidates;
+  const unscoredN = CANDS.filter((c) => c.scored === false).length;
   /* What the server says was decided, and what was decided in this session on top: people already
      shortlisted or rejected stay in the list (and in its counts) instead of dropping out of it. */
   const decided = set?.decisions;
@@ -239,6 +244,18 @@ export function RankedMatches({
               requestAnimationFrame(() => reveal(i));
             }}
           />
+
+          {/* People nobody has read closely yet are said once, here, with what to do: not on every row. */}
+          {unscoredN > 0 && (
+            <div className="rm-catchup" role="status">
+              <p className="rm-catchup-l">
+                {scoring
+                  ? <><b>{unscoredN}</b> of {CANDS.length} still to read. People move into place as each group is scored.</>
+                  : <><b>{unscoredN}</b> of {CANDS.length} haven't been read closely yet, so they're ordered by keywords, years and place only.</>}
+              </p>
+              {!scoring && onScoreRest && <button type="button" className="rep-opt" onClick={onScoreRest}>Score the rest</button>}
+            </div>
+          )}
 
           <div className="rm-filters" role="tablist" aria-label="Show">
             {(
@@ -402,7 +419,7 @@ function Row({
             {coverageLine(c.result) && <span className="rm-cover"> · {coverageLine(c.result)}</span>}
           </p>
         )}
-        {reason && <p className="rm-why">{reason}</p>}
+        {reason && c.scored !== false && <p className="rm-why">{reason}</p>}
       </div>
     </article>
   );

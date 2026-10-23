@@ -122,7 +122,7 @@ describe("what the cards say", () => {
     expect(specLine({ ...base, spec: null, draftWaiting: true })).toBe("A role spec draft is waiting for your approval");
     expect(specLine({ ...base, spec: null })).toBe("No role spec yet, so nothing can be searched");
     expect(searchLine(base.sourcing)).toBe("42 people found so far. The next search looks for 5 more");
-    expect(searchLine({ shown: 0, exhausted: true, nextSize: 0 })).toBe("Nobody found yet. The search has no more people to show for now");
+    expect(searchLine({ shown: 0, exhausted: true, nextSize: 0 })).toBe("Nobody found yet. That is everyone the search can reach for now");
     expect(campaignFacts(base)).toBe("Acme · Bengaluru · 2 hires wanted");
     expect(campaignFacts({ ...base, client: null, location: null, target: 1, status: "closed" })).toBe("1 hire wanted · closed");
   });

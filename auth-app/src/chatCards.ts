@@ -140,7 +140,7 @@ export function specLine(card: Extract<ChatCard, { kind: "campaign" }>): string 
 
 export function searchLine(s: NonNullable<Extract<ChatCard, { kind: "campaign" }>["sourcing"]>): string {
   const found = s.shown ? `${plural(s.shown, "person", "people")} found so far` : "Nobody found yet";
-  if (s.exhausted) return `${found}. The search has no more people to show for now`;
+  if (s.exhausted) return `${found}. That is everyone the search can reach for now`;
   return `${found}. The next search looks for ${s.nextSize} more`;
 }
 

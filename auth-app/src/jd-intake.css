@@ -7,6 +7,7 @@
 .ji-input { flex: 1 1 auto; min-width: 0; resize: none; padding: 9px 14px; }
 .ji-hint { margin: 0; color: var(--ink-2); max-width: 64ch; }
 .ji-busy { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--ink-2); }
+.ji-aside { margin: 0; color: var(--ink-2); max-width: 62ch; }
 .ji-notes { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; color: var(--ink-2); }
 .ji-note { margin: 0; color: var(--ink-2); }
 

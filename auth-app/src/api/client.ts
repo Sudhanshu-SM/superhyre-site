@@ -195,9 +195,13 @@ export function timeoutFor(path: string, own?: number | false): number | null {
   return LONG_PATHS.some((r) => r.test(bare)) ? LONG_REQUEST_TIMEOUT_MS : REQUEST_TIMEOUT_MS;
 }
 
+/** Requests sent as POST because they carry a file or a long text, that only read: the server changes nothing. */
+const READ_POSTS = [/^\/v1\/campaigns\/jd\/(read|sheet)$/, /^\/v1\/attachments\/read$/];
+
 /** The failure a request that ran out of time becomes: code `timeout`, the same words the API uses for its own. */
 export function slowFailure(method: Method, path: string, ms: number): ApiError {
-  const maybeDone = method !== "GET";
+  const bare = path.split("?")[0] ?? path;
+  const maybeDone = method !== "GET" && !READ_POSTS.some((r) => r.test(bare));
   lastFailure = "timeout";
   lastConnect = null;
   return new ApiError(504, "timeout", maybeDone ? SLOW_WRITE_MESSAGE : SLOW_MESSAGE, { op: `${method} ${path.split("?")[0] ?? path}`, budgetMs: ms, ...(maybeDone ? { maybeDone } : {}) });

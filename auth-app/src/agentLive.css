@@ -392,3 +392,6 @@ a.aa-open:hover, button.aa-open:hover { background: var(--sub); }
 @media (hover: none) {
   .hist .rail-brief-acts { position: static; padding: 0 8px 6px 34px; background: none; opacity: 1; pointer-events: auto; }
 }
+
+/* What to do next when a city search came back short: the choices sit in a row and wrap, not stacked. */
+.lt-choices { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }

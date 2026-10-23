@@ -118,6 +118,8 @@ export type Search = {
    * "Score them again" button says on the person's behalf. Null or absent when everyone was scored.
    */
   rescore?: { campaignId: string; people: number; text: string } | null;
+  /** A search held to a city came back short: what could be done next, each as the sentence the person could type. */
+  choices?: readonly { label: string; text: string }[] | null;
   /** What the search says it is doing: one line per phase. */
   phases: readonly PhaseLine[];
   /** What it is doing right now, as short lines that rise and fade under the matching line. */
@@ -694,9 +696,18 @@ export function applySearch(s: Search, e: RunEvent): Search {
     case "notice": {
       const again = e.rescore && typeof e.rescore === "object" ? (e.rescore as Record<string, unknown>) : null;
       const text = again ? str(again.text) : null;
+      const choices = Array.isArray(e.choices)
+        ? (e.choices as unknown[]).flatMap((c) => {
+            const o = c && typeof c === "object" ? (c as Record<string, unknown>) : null;
+            const label = o ? str(o.label) : null;
+            const say = o ? str(o.text) : null;
+            return label && say ? [{ label, text: say }] : [];
+          })
+        : [];
       return {
         ...s,
         notices: [...s.notices, str(e.text) ?? ""],
+        ...(choices.length ? { choices } : {}),
         ...(again && text ? { rescore: { campaignId: str(again.campaignId) ?? s.campaignId, people: num(again.people) ?? 0, text } } : {}),
       };
     }
@@ -1017,6 +1028,29 @@ export async function openChat(id: string): Promise<void> {
     remember(null);
     set({ ...EMPTY, error: messageOf(err) });
   }
+}
+
+/**
+ * One chat per campaign, the way a chat app keeps a thread per subject: the latest chat about this campaign, or a blank
+ * one that is about it from its first message. A chat already open for it stays as it is. Opening a campaign's task must
+ * not land in whichever chat happened to be last open.
+ */
+export async function openChatFor(campaignId: string): Promise<void> {
+  const open = state.conversationId;
+  try {
+    const { conversations } = await agentApi.conversations();
+    const mine = conversations
+      .filter((c) => c.focusCampaignId === campaignId)
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+    if (mine) {
+      if (mine.id !== open) await openChat(mine.id);
+      return;
+    }
+  } catch {
+    // The list is a convenience: without it the chat that is open stays, rather than losing the person's place.
+    return;
+  }
+  newChat();
 }
 
 export function newChat(): void {

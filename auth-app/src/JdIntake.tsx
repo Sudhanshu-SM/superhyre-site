@@ -1,7 +1,7 @@
 import { ArrowRight, Check, FileText, UploadSimple, X } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { specApi, attachmentApi } from "./api/agent";
-import { LIVE, messageOf } from "./api/client";
+import { ApiError, LIVE, messageOf } from "./api/client";
 import { jdApi } from "./api/jdIntake";
 import { ATTACH_ACCEPT, fileRefusal, isPlainText, typeOf } from "./attachments";
 import { companyIn } from "./campaignAsk";
@@ -52,6 +52,24 @@ const MAX_ITEMS = 60;
 /** How many descriptions are being read at once: enough that the next is ready by the time a question is answered. */
 const READ_AT_ONCE = 2;
 const OPEN: readonly Phase[] = ["waiting", "reading", "ready", "failed", "creating"];
+/** Reading a description is safe to repeat, so a busy moment or a slow answer is tried again before anyone is told. */
+const READ_WAITS_MS = [3_000, 8_000];
+/** A batch this big says what to expect before the first question. */
+const BIG_BATCH = 6;
+
+const transient = (err: unknown) => !(err instanceof ApiError) || err.status >= 500 || err.status === 408 || err.code === "timeout";
+
+async function readWithRetry(jd: string, hints: Record<string, string>) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await jdApi.read(jd, hints);
+    } catch (err) {
+      const wait = READ_WAITS_MS[attempt];
+      if (wait === undefined || !transient(err)) throw err;
+      await new Promise((r) => setTimeout(r, wait));
+    }
+  }
+}
 
 const short = (s: string, n = 60) => (s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s);
 const firstLine = (jd: string) => short(jd.trim().split(/\n/)[0] ?? "Job description");
@@ -189,7 +207,7 @@ export function JdIntake({ seed, embedded, onManual, onClose }: {
       started.current.add(item.id);
       live += 1;
       patch(item.id, { phase: "reading" });
-      jdApi.read(item.jd, item.hints).then(
+      readWithRetry(item.jd, item.hints).then(
         (r) => patch(item.id, { phase: "ready", facts: r.facts, cleaned: r.jd }),
         (err: unknown) => patch(item.id, { phase: "failed", error: messageOf(err) }),
       );
@@ -197,7 +215,10 @@ export function JdIntake({ seed, embedded, onManual, onClose }: {
   }, [stage, items, patch]);
 
   /* ── the one being worked on ── */
-  const current = items.find((i) => OPEN.includes(i.phase));
+  /* One that failed steps aside: the rest go on, and it comes back at the end to try again or skip. */
+  const current = items.find((i) => OPEN.includes(i.phase) && i.phase !== "failed") ?? items.find((i) => i.phase === "failed");
+  const aside = items.filter((i) => i.phase === "failed" && i !== current).length;
+  const unread = items.filter((i) => i.phase === "waiting" || i.phase === "reading").length;
   const lite = useMemo(() => clients.map((c) => ({ id: c.id, name: c.name, status: c.status })), [clients]);
   const cities = useMemo(
     () => [...new Set(items.flatMap((i) => i.answers.locations ?? i.facts?.locations ?? []))].slice(0, 4),
@@ -419,6 +440,12 @@ export function JdIntake({ seed, embedded, onManual, onClose }: {
           {current.facts && <p className="ji-found t-body-sm">{factLine(current.facts, { ...defaults, ...current.answers })}</p>}
 
           {(current.phase === "waiting" || current.phase === "reading") && <p className="ji-busy t-body" role="status"><Loader size="sm" />Reading the job description</p>}
+          {unread > 0 && items.length >= BIG_BATCH && (
+            <p className="ji-aside t-caption">{items.length} roles: I read two at a time, so the first questions come quickly and the rest are read while you answer.</p>
+          )}
+          {aside > 0 && (
+            <p className="ji-aside t-caption">{aside} {aside === 1 ? "role" : "roles"} couldn't be read. I'll come back to {aside === 1 ? "it" : "them"} at the end.</p>
+          )}
           {current.phase === "creating" && <p className="ji-busy t-body" role="status"><Loader size="sm" />Creating the campaign</p>}
           {current.phase === "failed" && (
             <div className="ji-fail">

@@ -227,6 +227,14 @@ export function SearchRun({ turnKey, search, latest, onAsk, onFindMore }: {
       {!running && !settled && may && search.rescore && onAsk && (
         <button type="button" className="rep-opt" onClick={() => onAsk(search.rescore?.text ?? "", partlyScored ? "Score the rest" : "Score them again")}>{partlyScored ? "Score the rest" : "Score them again"}</button>
       )}
+      {/* A city search that came back short asks what to do next: each button is the sentence the person could type. */}
+      {!running && may && onAsk && search.choices && search.choices.length > 0 && (
+        <div className="lt-choices" role="group" aria-label="What next">
+          {search.choices.map((c) => (
+            <button key={c.label} type="button" className="rep-opt" onClick={() => onAsk(c.text, c.label)}>{c.label}</button>
+          ))}
+        </div>
+      )}
       {set && best.length > 0 && (
         <Results
           key="results"
@@ -250,8 +258,10 @@ export function SearchRun({ turnKey, search, latest, onAsk, onFindMore }: {
         />
       )}
       {!running && shown.length === 0 && <p className="lt-note">Nobody new matched this time.</p>}
-      {!running && may && next && latest && (next.exhausted || next.size === 0) && (
-        <p className="lt-note">The search has no more people to show for these filters for now.</p>
+      {/* Through everyone it can reach: said as a result. When the search offered what to do next, those buttons above are the
+          answer; without them this is the whole of it, and it never tells the person to come back and ask later. */}
+      {!running && may && next && latest && (next.exhausted || next.size === 0) && !(search.choices && search.choices.length > 0) && (
+        <p className="lt-note">That's everyone I can find for these filters right now.</p>
       )}
     </section>
   );
