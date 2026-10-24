@@ -1,7 +1,7 @@
 import {
   ArrowRight, ArrowUpRight, CaretDown, CaretLeft, CaretRight, Lightbulb, PencilSimple, Plus, Pulse, Sparkle, Trash,
 } from "@phosphor-icons/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { LIVE } from "./api/client";
 import { EmptyArt } from "./EmptyArt";
 import { HomeEmpty } from "./HomeEmpty";
@@ -12,6 +12,7 @@ import { dateInput, dayHeading, dayProgress, endOfDate, endOfDayAhead, endOfToda
 import type { CampaignRow, CampaignStage } from "./campaignsData";
 import { CAMPAIGN_ROWS } from "./campaignsData";
 import { memberIdOf, memberName, useCampaignRows, useTeam } from "./campaignStore";
+import { dueFromText, memberInText } from "./taskText";
 import { addTask, editTask, reassignTask, removeTask, setTaskDone, undoRemoveTask, useAssignedTasks, useHomeOverview, useMyTasks } from "./homeStore";
 import { Num, useToast } from "./Contacts";
 import { dayLabel } from "./schedulesView";
@@ -238,6 +239,14 @@ function dueLabel(d: number | null): string {
   return dayLabel(t.getTime());
 }
 
+/** A due time in words: "today", "tomorrow", or the day ("Mon 26 Oct"). */
+function dueWords(iso: string): string {
+  const day = dateInput(iso);
+  if (day === dateInput(endOfToday())) return "today";
+  if (day === dateInput(endOfDayAhead(1))) return "tomorrow";
+  return dayLabel(Date.parse(iso));
+}
+
 /** A title short enough to read in a toast; a longer one is cut at a word. */
 const short = (title: string): string => (title.length > 36 ? `${title.slice(0, 36).replace(/\s+\S*$/, "")}…` : title);
 
@@ -258,9 +267,10 @@ export function TodayCard({ scope, onOpen }: { scope: Scope; onOpen: (prompt: st
   const done: Record<string, boolean> = LIVE ? Object.fromEntries(base.map((t) => [t.id, t.state === "done"])) : fixtureDone;
   const [leaving, setLeaving] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
-  /* When a new task is due: today unless said otherwise; "date" opens a day to pick. */
-  const [dueChoice, setDueChoice] = useState<"today" | "tomorrow" | "date">("today");
-  const [dueDate, setDueDate] = useState("");
+  /* What was just added, for the quiet follow-up that offers a day and an owner (the words may already have said them). */
+  const [follow, setFollow] = useState<{ n: number; id: string | null; title: string; dueAt: string; who: string | null } | null>(null);
+  const followSeq = useRef(0);
+  const followRef = useRef<HTMLDivElement>(null);
   /* The task being changed in place, and the toast that offers a deleted one back. */
   const [editing, setEditing] = useState<string | null>(null);
   const toast = useToast();
@@ -269,7 +279,6 @@ export function TodayCard({ scope, onOpen }: { scope: Scope; onOpen: (prompt: st
   /* A recruiter hands work to themselves only; the picker and the reassign menu are an admin's. */
   const mayAssign = useCan("task.assignOthers");
   const others = mayAssign ? team.filter((n) => n !== session.name) : [];
-  const [forWhom, setForWhom] = useState("");
   /* What I handed to teammates; for an admin, what everyone has, so they can see who was given what. */
   const admin = session.role === "admin";
   const handed = useAssignedTasks(admin ? "team" : "assigned");
@@ -277,8 +286,29 @@ export function TodayCard({ scope, onOpen }: { scope: Scope; onOpen: (prompt: st
     .filter((t) => !isScoped(scope) || t.campaignId === scope)
     .slice()
     .sort((a, b) => dueOrder(a.dueInDays) - dueOrder(b.dueInDays));
-  const addRef = useRef<HTMLInputElement>(null);
-  const dateRef = useRef<HTMLInputElement>(null);
+  const addRef = useRef<HTMLTextAreaElement>(null);
+  /* A task needs nothing but its words: the day and the teammate are read from them when they are there. */
+  const said = useMemo(
+    () => ({ due: dueFromText(draft), who: others.length ? memberInText(draft, others) : null }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [draft, others.join("|")],
+  );
+  /* The box grows with what is typed (up to a few lines) and shrinks back when it is cleared. */
+  useLayoutEffect(() => {
+    const el = addRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 140)}px`;
+  }, [draft]);
+  /* The follow-up goes away by itself unless the person is in it. */
+  useEffect(() => {
+    if (!follow) return undefined;
+    const t = window.setTimeout(() => {
+      if (followRef.current?.contains(document.activeElement)) return;
+      setFollow((f) => (f && f.n === follow.n ? null : f));
+    }, 20_000);
+    return () => window.clearTimeout(t);
+  }, [follow]);
   const [folded, setFolded] = useState<ReadonlySet<string>>(new Set(["done"]));
   /* Nothing handed to the team yet: the group stays a quiet line until someone opens it. */
   const [handedOpen, setHandedOpen] = useState(false);
@@ -325,7 +355,7 @@ export function TodayCard({ scope, onOpen }: { scope: Scope; onOpen: (prompt: st
           if (!el) return;
           const checks = [...el.querySelectorAll<HTMLElement>(".hm-today-b .hm-list .hm-check")];
           const to = (row >= 0 ? checks[row] ?? checks[row - 1] : undefined)
-            ?? el.querySelector<HTMLElement>(".hm-next-done") ?? checks[0] ?? el.querySelector<HTMLElement>(".hm-done-h, .hm-add input");
+            ?? el.querySelector<HTMLElement>(".hm-next-done") ?? checks[0] ?? el.querySelector<HTMLElement>(".hm-done-h, .hm-add textarea");
           to?.focus({ preventScroll: true });
         });
       }
@@ -334,23 +364,36 @@ export function TodayCard({ scope, onOpen }: { scope: Scope; onOpen: (prompt: st
   const undo = (id: string) => (LIVE ? setTaskDone(id, false) : setDone((d) => ({ ...d, [id]: false })));
   const add = (e: React.FormEvent) => {
     e.preventDefault();
-    const title = draft.trim();
+    const title = draft.replace(/\s+/g, " ").trim();
     if (!title) return;
-    /* "Pick a date" with no date picked is a question, not a task: the day input is where the caret goes. */
-    const picked = dueChoice === "date" ? endOfDate(dueDate) : null;
-    if (dueChoice === "date" && !picked) { dateRef.current?.focus(); return; }
-    const dueAt = dueChoice === "date" ? picked : dueChoice === "tomorrow" ? endOfDayAhead(1) : endOfToday();
+    const dueAt = said.due?.dueAt ?? endOfToday();
+    const who = said.who;
     if (LIVE) {
       const row = isScoped(scope) ? rows.find((r) => r.id === scope) : undefined;
-      addTask(title, row ? { id: row.id, name: row.name } : null, forWhom ? memberIdOf(forWhom) : undefined, dueAt);
+      const n = ++followSeq.current;
+      setFollow({ n, id: null, title, dueAt, who });
+      addTask(title, row ? { id: row.id, name: row.name } : null, who ? memberIdOf(who) : undefined, dueAt, who ?? undefined)
+        .then((id) => setFollow((f) => (f && f.n === n ? (id ? { ...f, id } : null) : f)));
     } else {
       const camp = isScoped(scope) ? scope : "backend-snr";
-      const ahead = dueChoice === "tomorrow" ? 1 : dueChoice === "date" && dueAt ? Math.round((Date.parse(dueAt) - Date.now()) / 86_400_000) : 0;
+      const ahead = Math.max(0, Math.round((Date.parse(dueAt) - Date.now()) / 86_400_000));
       setAdded((a) => [{ id: `u-${Date.now()}`, title, state: "todo", campaignId: camp, campaign: campaignName(camp), dueInDays: ahead }, ...a]);
     }
     setDraft("");
-    setDueChoice("today");
-    setDueDate("");
+  };
+  /* The follow-up changes the task just added: its day, or who it is for. */
+  const followDay = (day: string) => {
+    const at = endOfDate(day);
+    if (!follow?.id || !at) return;
+    editTask(follow.id, { dueAt: at });
+    setFollow({ ...follow, dueAt: at });
+  };
+  const followWho = (name: string) => {
+    if (!follow?.id || !name) return;
+    const id = memberIdOf(name);
+    if (!id) return;
+    reassignTask(follow.id, id, name);
+    setFollow({ ...follow, who: name === session.name ? null : name });
   };
   /* Deleting is quiet and can be taken back: the task leaves the list and a toast offers it again. */
   const remove = (t: DayTask) => {
@@ -471,7 +514,10 @@ export function TodayCard({ scope, onOpen }: { scope: Scope; onOpen: (prompt: st
                         {t.campaign && <i aria-hidden="true" />}{t.campaign ?? "No campaign"}
                         {t.assigneeId && !isMe(t.assigneeId) && <small className="hm-tl-for"> · for {memberName(t.assigneeId) ?? "a teammate"}</small>}
                       </span>
-                      <span className={`hm-tl-st ${st.c}`}>{st.l}</span>
+                      <span className={`hm-tl-st ${st.c}`} {...(t.progress && !isDone ? { title: `${t.progress.done} of ${t.progress.total} ${t.progress.what}` } : {})}>
+                        {st.l}
+                        {t.progress && !isDone && t.progress.done > 0 && <small className="hm-tl-n">{t.progress.done}/{t.progress.total}</small>}
+                      </span>
                       <span className={`hm-tl-due${t.dueInDays !== null && t.dueInDays < 0 && !isDone ? " is-carried" : ""}`}>
                         {isDone ? "" : dueLabel(t.dueInDays)}
                         {!isDone && AGENT_CAN.test(t.title) && (
@@ -497,27 +543,39 @@ export function TodayCard({ scope, onOpen }: { scope: Scope; onOpen: (prompt: st
 
       <form className="hm-add" onSubmit={add}>
         <Plus size={14} weight="bold" />
-        <input ref={addRef} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Add a task" aria-label="Add a task" maxLength={300} />
-        {LIVE && others.length > 0 && (
-          <select className="hm-add-for" value={forWhom} onChange={(e) => setForWhom(e.target.value)} aria-label="Who the task is for">
-            <option value="">For me</option>
-            {others.map((n) => <option key={n} value={n}>For {n}</option>)}
-          </select>
-        )}
-        <select className="hm-add-for" value={dueChoice} onChange={(e) => setDueChoice(e.target.value as "today" | "tomorrow" | "date")} aria-label="When the task is due" title="When the task is due">
-          <option value="today">Today</option>
-          <option value="tomorrow">Tomorrow</option>
-          <option value="date">Pick a date</option>
-        </select>
-        {dueChoice === "date" && (
-          <input
-            ref={dateRef} className="hm-add-date" type="date" value={dueDate} min={dateInput(endOfToday())}
-            onChange={(e) => setDueDate(e.target.value)} aria-label="Due date"
-          />
-        )}
-        {/* A real submit button: with a date field beside the words, Enter adds the task only if the form has one. */}
+        <textarea
+          ref={addRef} rows={2} value={draft} maxLength={300} aria-label="Add a task"
+          placeholder="Add a task. Say the day or a teammate in it, like “Dev to send the BD list by Monday”"
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            /* Enter adds the task; Shift+Enter is a new line. */
+            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); e.currentTarget.form?.requestSubmit(); }
+          }}
+        />
         <button type="submit" className={`hm-add-go${draft.trim() ? " is-on" : ""}`} aria-label="Add task" title="Add task (Enter)">↵</button>
+        {(said.due || said.who) && draft.trim() && (
+          <p className="hm-add-hint">{[said.due ? `Due ${dueWords(said.due.dueAt)}` : "", said.who ? `for ${said.who}` : ""].filter(Boolean).join(" · ")}</p>
+        )}
       </form>
+      {follow && (
+        <div className="hm-follow" ref={followRef} role="status">
+          <span className="hm-follow-t">Added “{short(follow.title)}” · due {dueWords(follow.dueAt)} · {follow.who ? `for ${follow.who}` : "for you"}</span>
+          <label className="hm-follow-f">
+            <span>Day</span>
+            <input type="date" value={dateInput(follow.dueAt)} min={dateInput(endOfToday())} disabled={!follow.id} onChange={(e) => followDay(e.target.value)} aria-label="Change the day" />
+          </label>
+          {(others.length > 0 || follow.who) && (
+            <label className="hm-follow-f">
+              <span>For</span>
+              <select value="" disabled={!follow.id} onChange={(e) => followWho(e.target.value)} aria-label="Change who it is for">
+                <option value="">{follow.who ?? "Me"}</option>
+                {[...(follow.who ? [session.name] : []), ...others.filter((n) => n !== follow.who)].map((n) => <option key={n} value={n}>{n === session.name ? "Me" : n}</option>)}
+              </select>
+            </label>
+          )}
+          <button type="button" className="hm-follow-x" onClick={() => setFollow(null)} aria-label="Done">Done</button>
+        </div>
+      )}
     </section>
   );
 }

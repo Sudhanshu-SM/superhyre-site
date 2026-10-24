@@ -7,6 +7,7 @@ import { retryCampaigns, useCampaignRows, useCampaignsFailed, useCampaignsReady 
 import { LoadFailed } from "./ui";
 import { CampaignsList, InsightsCard, TodayCard, WeekCard, bentoKind, bentoPlan, startNewCampaign, tileRing } from "./HomeCards";
 import { ComingUpCard } from "./HomeComing";
+import { TransitionNudge } from "./TransitionNudge";
 import { browserZone } from "./schedulesView";
 import { retryHome, useHomeFailed, useHomeReady } from "./homeStore";
 import type { Scope } from "./orchestrator";
@@ -149,6 +150,8 @@ export function Home({
           {ready && failed ? (
             <LoadFailed what="Your day" onRetry={() => { retryHome(); retryCampaigns(); }} />
           ) : ready ? (
+            <>
+            {LIVE && <TransitionNudge onAsk={brief} />}
             <div className={`hm-bento${LIVE ? " is-three" : ""}`}>
               <TodayCard scope={scope} onOpen={brief} />
               <InsightsCard onAsk={brief} />
@@ -158,6 +161,7 @@ export function Home({
                   the schedule routes, which the prototype's fixtures do not have. */}
               {LIVE && <ComingUpCard scope={scope} timeZone={timeZone ?? browserZone()} />}
             </div>
+            </>
           ) : <HomeShimmer />}
         </div>
       </div>

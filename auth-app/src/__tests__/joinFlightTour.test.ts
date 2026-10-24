@@ -180,7 +180,7 @@ describe("the tour's steps by role", () => {
 
   it("walks the sidebar first, then the places that are always there, then the agent's page", () => {
     const all = ids(stepsFor("owner"));
-    expect(all.slice(0, 7)).toEqual(["home", "agent", "campaigns", "candidates", "calls", "clients", "analytics"]);
+    expect(all.slice(0, 6)).toEqual(["home", "agent", "campaigns", "candidates", "calls", "analytics"]);
     expect(all.indexOf("campaign-overview")).toBeLessThan(all.indexOf("quick-find"));
     expect(all.slice(-6)).toEqual(["composer", "jd", "filters", "ideas", "history", "configuration"]);
     // Only the agent's steps live on another page, and they all say which.
@@ -217,7 +217,7 @@ describe("skipping a step whose target is not there", () => {
     const r = await settleStep(plan, 3, 1, present(["candidates", "calls"]));
     expect(r.plan.map((s) => s.id)).not.toContain("candidates");
     expect(r.plan.map((s) => s.id)).not.toContain("calls");
-    expect(r.plan[r.index!]!.id).toBe("clients");
+    expect(r.plan[r.index!]!.id).toBe("analytics");
   });
 
   it("goes back past an absent step to the one before it", async () => {
@@ -366,7 +366,7 @@ describe("the tour's numbering over a whole run", () => {
     const absent = ["candidates"];
     const prepare = async (s: TourStep) => !absent.includes(s.id);
     const into = await walkSteps(plan, 3, 1, prepare, missing);
-    expect(plan[into!]!.id).toBe("clients");
+    expect(plan[into!]!.id).toBe("analytics");
     expect(plan[(await walkSteps(plan, into! - 1, -1, prepare, missing))!]!.id).toBe("campaigns");
   });
 });

@@ -639,6 +639,19 @@ export function Nav({
                   ))}
                 </div>
 
+                {/* Clients: the companies hired for. Looked up rather than worked in, so it lives with the account, not the list. */}
+                <button
+                  type="button"
+                  className={`nav-me-pop-out is-tour${route === "clients" ? " is-on" : ""}`}
+                  role="menuitem"
+                  aria-current={route === "clients" ? "page" : undefined}
+                  data-tour="nav-clients"
+                  onClick={() => { setMeOpen(false); go("clients"); }}
+                >
+                  <Buildings size={15} weight={WEIGHT} aria-hidden="true" />
+                  Clients
+                </button>
+
                 <button
                   type="button"
                   className="nav-me-pop-out is-tour"

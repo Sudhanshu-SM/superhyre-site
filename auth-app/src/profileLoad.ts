@@ -42,9 +42,10 @@ export function withProfile(summary: Candidate, profile: Candidate): Candidate {
 }
 
 /** The candidate with their full profile, and whether it is still on its way (the sheet draws ghosts meanwhile). */
-export function useFullCandidate(c: Candidate, campaignHint: string | null = null): { candidate: Candidate; loading: boolean } {
-  /* A person who came with their history but no match result is read again when a campaign is known to put them in. */
-  const summary = isSummaryOnly(c) || (campaignHint !== null && !c.result);
+export function useFullCandidate(c: Candidate, campaignHint: string | null = null, reload = 0): { candidate: Candidate; loading: boolean } {
+  /* A person who came with their history but no match result is read again when a campaign is known to put them in;
+     `reload` reads them again whatever they came with (their full career was asked for and may have landed). */
+  const summary = isSummaryOnly(c) || (campaignHint !== null && !c.result) || reload > 0;
   const [loaded, setLoaded] = useState<{ id: string; value: Candidate } | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   useEffect(() => {
@@ -77,7 +78,7 @@ export function useFullCandidate(c: Candidate, campaignHint: string | null = nul
       () => { if (!gone) setFailed(c.id); },
     );
     return () => { gone = true; };
-  }, [c.id, c.inWorkspace, c.resultCampaignId, c.name, summary, campaignHint]);
+  }, [c.id, c.inWorkspace, c.resultCampaignId, c.name, summary, campaignHint, reload]);
   if (!summary) return { candidate: c, loading: false };
   if (loaded?.id === c.id) return { candidate: withProfile(c, loaded.value), loading: false };
   return { candidate: c, loading: LIVE && UUID.test(c.id) && failed !== c.id };

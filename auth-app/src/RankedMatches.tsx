@@ -67,8 +67,12 @@ const EXIT_MS = 220;
 const SIDEBAR_W = 520;
 
 export function RankedMatches({
-  open, onClose, verdicts: made, onVerdict, activeId, onOpen, set, onScoreRest, scoring = false,
+  open, onClose, verdicts: made, onVerdict, activeId, onOpen, set, onScoreRest, scoring = false, inline = false, autoSelect = false,
 }: {
+  /** On a page of its own (the campaign's Sourced section) instead of a dialog over another: no scrim, no portal, no way to close it. */
+  inline?: boolean;
+  /** The first person is open as soon as the list is (and moving down the list opens each in turn when `inline`). */
+  autoSelect?: boolean;
   /** A search is reading people right now: the note says so, and offers nothing to press. */
   scoring?: boolean;
   /** Reads the people still without a score: shown as one button on the list's note, not once on every row. */
@@ -175,21 +179,28 @@ export function RankedMatches({
       const c = list[at];
       switch (e.key) {
         case "Escape":
+          if (inline) break;
           e.preventDefault();
           onClose();
           break;
         case "ArrowDown":
-        case "j":
+        case "j": {
           e.preventDefault();
-          setCursor(Math.min(at + 1, list.length - 1));
-          reveal(Math.min(at + 1, list.length - 1));
+          const next = Math.min(at + 1, list.length - 1);
+          setCursor(next);
+          reveal(next);
+          if (inline && list[next]) onOpen(list[next]!.id, ids);
           break;
+        }
         case "ArrowUp":
-        case "k":
+        case "k": {
           e.preventDefault();
-          setCursor(Math.max(at - 1, 0));
-          reveal(Math.max(at - 1, 0));
+          const next = Math.max(at - 1, 0);
+          setCursor(next);
+          reveal(next);
+          if (inline && list[next]) onOpen(list[next]!.id, ids);
           break;
+        }
         case "Enter":
           if (c && !(e.target instanceof HTMLButtonElement)) { e.preventDefault(); onOpen(c.id, ids); }
           break;
@@ -203,14 +214,30 @@ export function RankedMatches({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, list, at, ids, verdicts, onVerdict, onOpen, onClose, reveal]);
+  }, [open, list, at, ids, verdicts, onVerdict, onOpen, onClose, reveal, inline]);
+
+  /* The first person is selected as soon as the list is, so there is always someone to read beside it. Once: a person who
+     closes the profile has chosen to read the list alone, and the page does not open it again behind them. A different
+     campaign's list, or the list being opened again, is a fresh start. It is not the first person that counts: scoring
+     reorders the list, and that must not open a profile that was just closed. */
+  const autoDone = useRef<string | null>(null);
+  const listKey = set?.campaignId ?? "list";
+  useEffect(() => {
+    if (!open) { autoDone.current = null; return; }
+    if (!(autoSelect || inline) || activeId || CANDS.length === 0) return;
+    if (!inline && !fits) return;
+    if (autoDone.current === listKey) return;
+    autoDone.current = listKey;
+    onOpen(CANDS[0]!.id, CANDS.map((c) => c.id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, activeId, CANDS.length, fits]);
 
   if (!mounted) return null;
 
   const docked = !!activeId && open;
 
-  return createPortal(
-    <div className={`rm${leaving ? " is-leaving" : ""}${docked ? (fits ? " is-docked" : " is-covered") : ""}`}>
+  const node = (
+    <div className={`rm${inline ? " rm--inline" : ""}${leaving ? " is-leaving" : ""}${docked ? (fits || inline ? " is-docked" : " is-covered") : ""}`}>
       <div className="rm-scrim" onClick={onClose} aria-hidden="true" />
       <div
         ref={panelRef}
@@ -229,9 +256,9 @@ export function RankedMatches({
                 Top {CANDS.length} of {src.total.toLocaleString("en-IN")}{src.subtitle ? ` · ${src.subtitle}` : ""}
               </p>
             </div>
-            <button type="button" className="rm-close" aria-label="Close (Esc)" title="Close (Esc)" onClick={onClose}>
+{!inline && (            <button type="button" className="rm-close" aria-label="Close (Esc)" title="Close (Esc)" onClick={onClose}>
               <X size={16} weight="bold" />
-            </button>
+            </button>)}
           </div>
 
           <Triage
@@ -323,9 +350,9 @@ export function RankedMatches({
           <span className="rm-foot-right"><kbd>Esc</kbd> close</span>
         </footer>
       </div>
-    </div>,
-    document.body,
+    </div>
   );
+  return inline ? node : createPortal(node, document.body);
 }
 
 const EMPTY: Record<Filter, string> = {

@@ -42,6 +42,8 @@ export type CampaignRow = {
   name: string;
   /** Live rows: the client it is hiring for, when it has one. */
   client?: string;
+  /** Live rows: the role as its spec names it (the campaign's own name may be shorter or a nickname). */
+  roleTitle?: string;
   department: string;
   location: string;
   status: CampaignStatus;

@@ -41,7 +41,7 @@ export function jdFromText(name: string, text: string): Jd {
 const kb = (n: number) => (n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
 
 export function JdDialog({
-  open, onClose, current, onApply, onRemove, read: readFile, lead, viewOnly, onMany,
+  open, onClose, current, onApply, onRemove, read: readFile, lead, viewOnly, onMany, title = "Job description", useLabel = "Use this job description",
 }: {
   open: boolean;
   onClose: () => void;
@@ -63,6 +63,9 @@ export function JdDialog({
    * (the files picked or dropped come back, and the import card reads them); one is read here as before.
    */
   onMany?: ((pick: { files?: File[]; links?: string[] }) => void) | undefined;
+  /** The dialog's name, and what its button says for one description read here. */
+  title?: string;
+  useLabel?: string;
 }) {
   const [tab, setTab] = useState<"upload" | "paste" | "sheet">("upload");
   const [sheet, setSheet] = useState("");
@@ -118,10 +121,10 @@ export function JdDialog({
   const ready = tab === "upload" ? !!file && !reading : tab === "sheet" ? !!sheetLink : paste.trim().length > 40;
 
   return (
-    <Dialog open={open} onClose={onClose} label="Job description" size="md">
+    <Dialog open={open} onClose={onClose} label={title} size="md">
       <div className="jd">
         <header className="jd-top">
-          <h2>Job description</h2>
+          <h2>{title}</h2>
           <p>{viewOnly ? "What this campaign's searches are ranked against." : (lead ?? "Candidates are ranked against the role as written.")}</p>
         </header>
 
@@ -231,7 +234,7 @@ export function JdDialog({
               onClose();
             }}
           >
-            {tab === "sheet" ? "Read the sheet" : "Use this job description"}
+            {tab === "sheet" ? "Read the sheet" : useLabel}
           </button>
         </footer>
         </>)}

@@ -10,7 +10,8 @@ import { archiveCampaign, deleteCampaign, duplicateCampaign, refreshCampaignList
 import { campaignsEmpty } from "./campaignsEmpty";
 import type { CampaignsFilter } from "./campaignsEmpty";
 import { DeleteCampaignDialog } from "./DeleteCampaignDialog";
-import { joinParts, plainText } from "./displayText";
+import { plainText } from "./displayText";
+import { metaParts } from "./campaignMeta";
 import { AssignDialog, ReopenDialog } from "./RoleBits";
 import { mayChangeCampaign, mayCloseCampaign } from "./campaignRights";
 import { can, standingOf, useCan } from "./can";
@@ -28,6 +29,8 @@ import { LoadFailed } from "./ui";
 import { LIVE } from "./api/client";
 import { NewCampaignIntake } from "./NewCampaignIntake";
 import "./campaigns-page.css";
+
+export { metaParts };
 
 /**
  * Campaigns — every hiring campaign in the workspace, one row each.
@@ -82,7 +85,7 @@ const AGO_ORDER = (s: string): number => {
 export function arrangeCampaigns(rows: readonly CampaignRow[], filter: Filter, q: string, sort: Sort, fresh?: string | null | false): CampaignRow[] {
   const needle = q.trim().toLowerCase();
   const xs = rows.filter((r) => (filter === "all" || filter === "archived" || r.status === filter)
-    && (!needle || `${r.name} ${r.department} ${r.location} ${r.owner}`.toLowerCase().includes(needle)));
+    && (!needle || `${r.name} ${r.roleTitle ?? ""} ${r.client ?? ""} ${r.department} ${r.location} ${r.owner}`.toLowerCase().includes(needle)));
   const progress = (r: CampaignRow) => r.funnel.hired / Math.max(1, r.target);
   return [...xs].sort((a, b) => (a.id === fresh ? -1 : b.id === fresh ? 1 : 0)
     || (sort === "name" ? a.name.localeCompare(b.name)
@@ -393,7 +396,7 @@ function Row({ r, fresh, onOpen, admin, mayClose, mayAssign, onAssign, onClose, 
           {fresh && <span className="cg-newtag">New</span>}
         </div>
         <p className="cg-meta">
-          {joinParts([r.department, r.location])}{joinParts([r.department, r.location]) && " · "}<span title={r.team.map(plainText).join(", ")}>{plainText(r.owner)}{r.team.length > 1 && ` +${r.team.length - 1}`}</span>
+          {/* The campaign's name is the title; under it, the role it hires for (when that is not the same words) and the company it is for. */}{metaParts(r)}{metaParts(r) && " · "}<span title={r.team.map(plainText).join(", ")}>{plainText(r.owner)}{r.team.length > 1 && ` +${r.team.length - 1}`}</span>
           {r.teamName && r.teamName.length <= 24 && <span className="cg-team"> · {r.teamName}</span>}
           {need && <span className="cg-need"> · {need}</span>}
         </p>

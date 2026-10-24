@@ -1,4 +1,5 @@
 import { BookmarkSimple, Check, Sparkle, X } from "@phosphor-icons/react";
+import { LIVE } from "./api/client";
 import { stateLabel, stateTone } from "./matchResult";
 import type { MatchResultView } from "./matchResult";
 import type { Candidate, Verdict } from "./sourcing";
@@ -178,8 +179,10 @@ export function Summary({ text, marks }: { text: string; marks: readonly string[
 }
 
 /**
- * Shortlist and pass. Pressing the active one again clears it, so a verdict
- * is never a one-way door. `icons` drops the labels for dense rows; the
+ * Shortlist and pass. Demo mode: pressing the active one again clears it. Connected, a decision is not taken back from
+ * here (a shortlisted person is on the pipeline, a rejection is kept so matching can learn from it), so a button that
+ * stands for a decision already made shows that state and is not pressable, rather than offering to undo what it cannot.
+ * A rejected person can still be shortlisted, which brings them back. `icons` drops the labels for dense rows; the
  * buttons keep their names for assistive tech either way.
  */
 export function Verdicts({
@@ -192,14 +195,19 @@ export function Verdicts({
 }) {
   const short = verdict === "shortlisted";
   const rej = verdict === "rejected";
+  // Connected: a decided person's buttons say where they stand. Shortlisted: neither is pressable. Rejected: shortlisting is.
+  const rejectFixed = LIVE && (rej || short);
+  const shortFixed = LIVE && short;
+  const rejectWhy = rej ? "Rejected. Shortlist them to bring them back." : "On the shortlist. Move them on the Pipeline to change that.";
   return (
     <div className={`cb-verdicts${icons ? " is-icons" : ""}`}>
       <button
         type="button"
         className={`cb-v is-reject${rej ? " is-on" : ""}`}
         aria-pressed={rej}
-        aria-label={`${rej ? "Undo reject" : "Reject"} ${name}`}
-        title={rej ? "Undo reject" : "Reject (X)"}
+        disabled={rejectFixed}
+        aria-label={rejectFixed ? `${name}: ${rejectWhy}` : `${rej ? "Undo reject" : "Reject"} ${name}`}
+        title={rejectFixed ? rejectWhy : rej ? "Undo reject" : "Reject (X)"}
         onClick={(e) => { e.stopPropagation(); onVerdict(rej ? null : "rejected"); }}
       >
         <X size={14} weight="bold" aria-hidden="true" />
@@ -209,8 +217,9 @@ export function Verdicts({
         type="button"
         className={`cb-v is-short${short ? " is-on" : ""}`}
         aria-pressed={short}
-        aria-label={`${short ? "Remove from shortlist" : "Shortlist"} ${name}`}
-        title={short ? "Remove from shortlist" : "Shortlist (S)"}
+        disabled={shortFixed}
+        aria-label={shortFixed ? `${name} is on the shortlist. Move them on the Pipeline to change that.` : `${short ? "Remove from shortlist" : "Shortlist"} ${name}`}
+        title={shortFixed ? "On the shortlist. Move them on the Pipeline to change that." : short ? "Remove from shortlist" : "Shortlist (S)"}
         onClick={(e) => { e.stopPropagation(); onVerdict(short ? null : "shortlisted"); }}
       >
         <BookmarkSimple size={14} weight={short ? "fill" : "bold"} aria-hidden="true" />

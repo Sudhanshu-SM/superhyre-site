@@ -4,10 +4,12 @@ import {
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { CandidateDetail } from "./api/candidates";
+import { agentApi } from "./api/agent";
 import { getCandidate } from "./api/candidates";
 import { LIVE } from "./api/client";
 import { Avatar, Career, FitRow, Logo, Summary, Verdicts } from "./CandidateBits";
 import { MatchResult } from "./MatchResult";
+import { Loader } from "./components/Loader";
 import { ShimmerRegion, ShimmerText } from "./components/Shimmer";
 import { useFullCandidate } from "./profileLoad";
 import { openerNow, restoreFocus, trapTab } from "./components/focusTrap";
@@ -222,7 +224,28 @@ function Profile({
   extra?: React.ReactNode;
 }) {
   /* Whoever came as a summary (a list, a card, a search result) has their history read now; ghosts hold its place. */
-  const { candidate: c, loading } = useFullCandidate(summary, campaignId);
+  const [careerAsk, setCareerAsk] = useState<"idle" | "busy" | "waiting" | "held" | "failed">("idle");
+  const [careerTry, setCareerTry] = useState(0);
+  const { candidate: c, loading } = useFullCandidate(summary, campaignId, careerTry);
+  const undated = c.jobs.some((j) => j.roles.some((r) => !r.start && !r.end));
+  /* The search gives titles without dates; the full career comes from a profile fetch that takes a little while. */
+  useEffect(() => {
+    if (careerAsk !== "waiting") return undefined;
+    if (!undated) { setCareerAsk("idle"); return undefined; }
+    if (careerTry >= 8) { setCareerAsk("failed"); return undefined; }
+    const t = window.setTimeout(() => setCareerTry((n) => n + 1), 5000);
+    return () => window.clearTimeout(t);
+  }, [careerAsk, careerTry, undated]);
+  const loadCareer = async () => {
+    if (!campaignId) return;
+    setCareerAsk("busy");
+    try {
+      const out = await agentApi.screen(campaignId, c.personId ?? c.id);
+      if (out.queued) { setCareerAsk("waiting"); setCareerTry((n) => n + 1); } else setCareerAsk("held");
+    } catch {
+      setCareerAsk("failed");
+    }
+  };
   const bodyRef = useRef<HTMLDivElement>(null);
   const actsRef = useRef<HTMLDivElement>(null);
   const [fetched, setFetched] = useState(0);
@@ -404,6 +427,19 @@ function Profile({
         {c.jobs.length > 0 && (
           <section data-sec="experience" className="ps-sec">
             <h3 className="ps-h">Experience {c.totalYears > 0 && <span>· {c.totalYears} years total</span>}</h3>
+            {undated && campaignId && (
+              <p className="ps-career">
+                {careerAsk === "waiting" || careerAsk === "busy" ? <><Loader size="sm" tone="inherit" /> Fetching their full career…</>
+                  : careerAsk === "held" ? "Today's profile budget is used up. Dates can be loaded tomorrow."
+                  : careerAsk === "failed" ? "Couldn't load their dates just now."
+                  : "This list has no dates yet."}
+                {(careerAsk === "idle" || careerAsk === "failed") && (
+                  <button type="button" className="ps-career-b" onClick={() => void loadCareer()}>
+                    {careerAsk === "failed" ? "Try again" : "Load full career"}
+                  </button>
+                )}
+              </p>
+            )}
             <ol className="ps-jobs">
               {c.jobs.map((j, i) => <JobBlock key={`${j.org.name}${i}`} job={j} />)}
             </ol>
@@ -512,7 +548,9 @@ function RoleBody({ role, bare = false }: { role: Job["roles"][number]; bare?: b
           {role.promotion && <span className="ps-promo">Promotion</span>}
         </p>
       )}
-      <p className="ps-job-d">{role.start} – {role.end} · {role.span}</p>
+      {(role.start || role.end || role.span) && (
+        <p className="ps-job-d">{[role.start && role.end ? `${role.start} – ${role.end}` : role.start || role.end, role.span].filter(Boolean).join(" · ")}</p>
+      )}
       {role.body && (
         <>
           <p ref={bodyRef} className={`ps-role-body${more ? "" : " is-clamped"}`}>{role.body}</p>

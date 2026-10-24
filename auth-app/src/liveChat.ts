@@ -104,6 +104,10 @@ export type Question = {
 };
 
 /** A search the turn started, followed live: progress, then the people it found. */
+/** The runs sent from this page since it opened: a chat that comes back from an earlier visit replays its runs, which were not. */
+const startedHere = new Set<string>();
+export const runStartedHere = (runId: string): boolean => startedHere.has(runId);
+
 export type Search = {
   runId: string;
   campaignId: string;
@@ -1189,6 +1193,7 @@ async function deliver(key: string, text: string, campaignId?: string, again = f
     const clientId = again ? crypto.randomUUID() : key;
     const sent = await agentApi.send(id, { clientId, text, ...(campaignId ? { campaignId } : {}), ...(quiet ? { quiet } : {}), ...(structured ?? {}) });
     if (at !== epoch) return;
+    startedHere.add(sent.runId);
     set(update(claim(state, sent.runId, key), key, (t) => ({ ...t, runId: sent.runId, status: t.status === "sending" ? "working" : t.status })));
   } catch (err) {
     if (at !== epoch) return;
@@ -1338,6 +1343,7 @@ export async function findMore(key: string, campaignId: string): Promise<void> {
   const from = state.conversationId && turn?.runId ? { conversationId: state.conversationId, parentRunId: turn.runId } : undefined;
   try {
     const { runId, size } = await agentApi.findMore(campaignId, from, pressId());
+    startedHere.add(runId);
     set(claim(state, runId, key, { campaignId, size }));
     // Part of the chat, its events arrive on the chat's own stream; otherwise follow the run.
     if (!from) stopSearches.set(runId, follow({ runId }, 0, dispatch));

@@ -140,11 +140,16 @@ export function assignedNow(view?: "assigned" | "team"): AssignedSnap {
   return assignedSnap;
 }
 
-/** Gives an assigned task to someone else, at once on screen, and puts it back with a line if refused. */
+/**
+ * Gives a task to someone else, at once on screen, and puts it back with a line if refused. A task of mine (just typed,
+ * say) leaves My tasks for the list of what I handed out.
+ */
 export function reassignTask(id: string, assigneeId: string, assigneeName: string) {
-  const t = assigned.find((x) => x.id === id);
+  const handed = assigned.find((x) => x.id === id);
+  const t = handed ?? open.find((x) => x.id === id);
   if (!t) return;
-  assigned = assigned.map((x) => (x.id === id ? { ...x, assigneeId, assigneeName } : x));
+  if (!handed) { open = open.filter((x) => x.id !== id); rebuildTasks(); }
+  assigned = [{ ...t, assigneeId, assigneeName }, ...assigned.filter((x) => x.id !== id)];
   rebuildAssigned();
   tasksApi.reassignTask(id, assigneeId).then((saved) => {
     assigned = assigned.map((x) => (x.id === id ? saved : x));
@@ -153,7 +158,11 @@ export function reassignTask(id: string, assigneeId: string, assigneeName: strin
     if (isMe(saved.assigneeId)) { place(saved); rebuildTasks(); }
     refreshHome();
   }, (err: unknown) => {
-    assigned = assigned.map((x) => (x.id === id ? t : x));
+    if (handed) { assigned = assigned.map((x) => (x.id === id ? t : x)); } else {
+      assigned = assigned.filter((x) => x.id !== id);
+      open = [t, ...open];
+      rebuildTasks();
+    }
     rebuildAssigned();
     reportProblem(`"${t.title}" wasn't reassigned. ${messageOf(err)}`);
   });
@@ -402,7 +411,7 @@ export function addTask(
   due?: string | null,
   /** Who it is for, by name, so the stand-in already reads right (the answer replaces it). */
   assigneeName?: string,
-) {
+): Promise<string | null> {
   const dueAt = due === undefined ? tasksApi.endOfToday() : due;
   const temp: ApiTask = {
     id: `t-${Date.now().toString(36)}`, title, kind: "manual", status: "todo", dueAt, assigneeId: assigneeId ?? null,
@@ -414,18 +423,21 @@ export function addTask(
   if (forOther) { assigned = [temp, ...assigned]; rebuildAssigned(); } else { open = [temp, ...open]; rebuildTasks(); }
   /* On a campaign it shows in that campaign's own list (the Overview's panel) at once, whoever it is for. */
   intoCamp(temp);
-  tasksApi.createTask({ title, campaignId: campaign?.id ?? null, dueAt, ...(assigneeId ? { assigneeId } : {}) }).then((made) => {
+  /* Resolves with the task's real id once the server has it (null when it refused), for what is done to it next. */
+  return tasksApi.createTask({ title, campaignId: campaign?.id ?? null, dueAt, ...(assigneeId ? { assigneeId } : {}) }).then((made) => {
     if (forOther) { assigned = assigned.map((x) => (x.id === temp.id ? made : x)); rebuildAssigned(); }
     else { open = open.map((x) => (x.id === temp.id ? made : x)); rebuildTasks(); }
     outOfCamps(temp.id);
     intoCamp(made);
     refreshHome();
+    return made.id;
   }, (err: unknown) => {
     if (forOther) { assigned = assigned.filter((x) => x.id !== temp.id); rebuildAssigned(); }
     else { open = open.filter((x) => x.id !== temp.id); rebuildTasks(); }
     outOfCamps(temp.id);
     const named = title.length > 40 ? `${title.slice(0, 40).trimEnd()}…` : title;
     reportProblem(`"${named}" wasn't added. ${messageOf(err)}`);
+    return null;
   });
 }
 

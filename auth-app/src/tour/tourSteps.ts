@@ -39,7 +39,6 @@ export const TOUR_STEPS: readonly TourStep[] = [
   { id: "campaigns", target: "nav-campaigns", area: "nav", title: "Campaigns", text: "Every role you are hiring for, and how far along each one is.", place: "right" },
   { id: "candidates", target: "nav-contacts", area: "nav", title: "Candidates", text: "Everyone you have a record for, whichever campaign found them.", place: "right" },
   { id: "calls", target: "nav-calls", area: "nav", capability: "calls.all", title: OUTREACH_LABEL, text: "Every email, WhatsApp chat and call, with the whole conversation one click away.", place: "right" },
-  { id: "clients", target: "nav-clients", area: "nav", title: "Clients", text: "The companies you hire for, and the campaigns you run for them.", place: "right" },
   { id: "analytics", target: "nav-analytics", area: "nav", title: "Analytics", text: "How hiring is going: replies, where people drop off and what needs a look.", place: "right" },
   { id: "campaign-overview", target: "nav-campaign-overview", area: "nav", title: "Campaign overview", text: "One campaign at a glance: who is in the pipeline and what the agent is doing.", place: "right" },
   { id: "campaign-pipeline", target: "nav-campaign-candidates", area: "nav", title: "Pipeline", text: "Everyone in this campaign by stage, where you move people along.", place: "right" },

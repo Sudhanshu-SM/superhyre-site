@@ -64,3 +64,8 @@
 .bv-name { min-width: 0; padding: 0; border: 0; background: none; text-align: left; font: 500 13px/1.3 var(--ui); color: var(--ink); cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bv-row.is-here .bv-name { color: var(--accent-text); }
 .bv-state { color: var(--ink-2); white-space: nowrap; }
+
+/* What a sheet left out, by row, kept under the result. */
+.ji-left { margin: 10px 0 0; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--ink) 4%, transparent); color: var(--ink-2); }
+.ji-left-h { margin: 0 0 4px; color: var(--ink); }
+.ji-left ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 3px; }

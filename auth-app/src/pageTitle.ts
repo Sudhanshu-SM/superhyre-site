@@ -36,6 +36,7 @@ const PAGES: Readonly<Record<RouteId, string>> = {
   "campaign-candidates": "Pipeline",
   "campaign-forms": "Forms & responses",
   "campaign-calls": OUTREACH_LABEL,
+  "campaign-sourced": "Sourced",
   "campaign-shortlisted": "Shortlisted",
   settings: "Settings",
   teams: "Teams",

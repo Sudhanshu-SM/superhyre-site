@@ -2,7 +2,7 @@ import { ArrowRight, Check, FileText, UploadSimple, X } from "@phosphor-icons/re
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { specApi, attachmentApi } from "./api/agent";
 import { ApiError, LIVE, messageOf } from "./api/client";
-import { jdApi } from "./api/jdIntake";
+import { jdApi, type LeftOut } from "./api/jdIntake";
 import { ATTACH_ACCEPT, fileRefusal, isPlainText, typeOf } from "./attachments";
 import { companyIn } from "./campaignAsk";
 import { ownCampaign, rowFromDraft } from "./campaignDraft";
@@ -74,6 +74,34 @@ async function readWithRetry(jd: string, hints: Record<string, string>) {
 const short = (s: string, n = 60) => (s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s);
 const firstLine = (jd: string) => short(jd.trim().split(/\n/)[0] ?? "Job description");
 
+const WHY: Record<LeftOut["why"], string> = {
+  "too-little": "has too little to go on",
+  repeat: "repeats an earlier row",
+  "over-limit": "is past the first fifty",
+};
+
+/** What was left out of each sheet and why, by row: "roles.csv: row 3 repeats an earlier row; row 5 has too little to go on." */
+export function leftOutLines(rows: ReadonlyArray<LeftOut & { from: string }>): string[] {
+  const by = new Map<string, Array<LeftOut>>();
+  for (const r of rows) by.set(r.from, [...(by.get(r.from) ?? []), r]);
+  return [...by.entries()].map(([from, list]) => {
+    const shown = list.slice(0, 5).map((l) => `row ${l.row} ${WHY[l.why]}`);
+    const more = list.length > 5 ? `, and ${list.length - 5} more` : "";
+    return `${from}: ${shown.join("; ")}${more}.`;
+  });
+}
+
+function LeftOutNote({ rows }: { rows: ReadonlyArray<LeftOut & { from: string }> }) {
+  const lines = leftOutLines(rows);
+  if (!lines.length) return null;
+  return (
+    <div className="ji-left" role="status">
+      <p className="ji-left-h t-label">Left out</p>
+      <ul>{lines.map((t) => <li key={t} className="t-body-sm">{t}</li>)}</ul>
+    </div>
+  );
+}
+
 type Tab = "upload" | "paste" | "sheet";
 const TABS: ReadonlyArray<readonly [Tab, string]> = [["upload", "Upload files"], ["paste", "Paste text"], ["sheet", "Google Sheet"]];
 
@@ -114,6 +142,8 @@ export function JdIntake({ seed, embedded, onManual, onClose }: {
   const [link, setLink] = useState("");
   const [busy, setBusy] = useState<string[]>([]);
   const [notes, setNotes] = useState<string[]>([]);
+  /** Rows of sheets that did not become roles, by sheet, with the reason: said under the result as well as while adding. */
+  const [leftOut, setLeftOut] = useState<Array<LeftOut & { from: string }>>([]);
   const note = (t: string) => setNotes((n) => [...n.filter((x) => x !== t), t].slice(-4));
   const working = <T,>(what: string, run: () => Promise<T>) => {
     setBusy((b) => [...b, what]);
@@ -132,9 +162,14 @@ export function JdIntake({ seed, embedded, onManual, onClose }: {
     add([{ label: firstLine(t), jd: t }]);
     setText("");
   };
-  const addSheet = (name: string, roles: Array<{ title: string | null; jd: string; hints: Record<string, string>; row: number }>, skipped: number) => {
+  const addSheet = (name: string, roles: Array<{ title: string | null; jd: string; hints: Record<string, string>; row: number }>, skipped: number, left: readonly LeftOut[] = []) => {
     add(roles.map((r) => ({ label: r.title ? `${r.title}` : `${name}, row ${r.row}`, jd: r.jd, hints: r.hints })));
-    if (skipped) note(`${skipped} ${skipped === 1 ? "row" : "rows"} of ${name} had too little to go on and were left out.`);
+    if (left.length) {
+      // Kept after the card moves on to reading: what was left out is said where the result is, not only while adding.
+      setLeftOut((all) => [...all.filter((l) => l.from !== name), ...left.map((l) => ({ ...l, from: name }))]);
+    } else if (skipped) {
+      note(`${skipped} ${skipped === 1 ? "row" : "rows"} of ${name} had too little to go on and were left out.`);
+    }
   };
   const addFiles = useCallback((list: readonly File[]) => {
     for (const f of list) {
@@ -146,7 +181,7 @@ export function JdIntake({ seed, embedded, onManual, onClose }: {
           if (sheet) {
             const type = /\.xlsx$/i.test(f.name) ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : /\.tsv$/i.test(f.name) ? "text/tab-separated-values" : "text/csv";
             const r = await jdApi.sheetFile(f, type);
-            addSheet(f.name, r.roles, r.skipped);
+            addSheet(f.name, r.roles, r.skipped, r.left);
           } else {
             const body = isPlainText(f) ? (await f.text()).trim().slice(0, 30_000) : (await attachmentApi.read(f, typeOf(f))).text.trim();
             if (body.length < 60) note(`I couldn't read enough text from ${f.name}.`);
@@ -163,7 +198,7 @@ export function JdIntake({ seed, embedded, onManual, onClose }: {
     void working("the Google Sheet", async () => {
       try {
         const r = await jdApi.sheetLink(url);
-        addSheet("The Google Sheet", r.roles, r.skipped);
+        addSheet("The Google Sheet", r.roles, r.skipped, r.left);
       } catch (err) {
         // Back on the sheet's own tab with the link still there and what a sheet needs in view: fixing it is one step.
         setTab("sheet");
@@ -398,6 +433,7 @@ export function JdIntake({ seed, embedded, onManual, onClose }: {
 
         {busy.length > 0 && <p className="ji-busy t-body-sm" role="status"><Loader size="sm" />Reading {busy.join(", ")}</p>}
         {notes.length > 0 && <ul className="ji-notes" role="status">{notes.map((t) => <li key={t} className="t-body-sm">{t}</li>)}</ul>}
+        <LeftOutNote rows={leftOut} />
 
         {n > 0 && (
           <ul className="ji-list" aria-label="To read">
@@ -440,7 +476,8 @@ export function JdIntake({ seed, embedded, onManual, onClose }: {
           {current.facts && <p className="ji-found t-body-sm">{factLine(current.facts, { ...defaults, ...current.answers })}</p>}
 
           {(current.phase === "waiting" || current.phase === "reading") && <p className="ji-busy t-body" role="status"><Loader size="sm" />Reading the job description</p>}
-          {unread > 0 && items.length >= BIG_BATCH && (
+          {/* Only while the first role is being read: said alongside a question it moves the question when the last read lands. */}
+          {(current.phase === "waiting" || current.phase === "reading") && unread > 0 && items.length >= BIG_BATCH && (
             <p className="ji-aside t-caption">{items.length} roles: I read two at a time, so the first questions come quickly and the rest are read while you answer.</p>
           )}
           {aside > 0 && (
@@ -509,6 +546,8 @@ export function JdIntake({ seed, embedded, onManual, onClose }: {
       {made.length > 0 && !current && (
         <BatchReview roles={made.map((i) => ({ id: i.made?.id ?? "", name: i.made?.name ?? i.label, spec: i.spec, specWhy: i.specWhy }))} />
       )}
+
+      <LeftOutNote rows={leftOut} />
 
       {!current && (
         <footer className="jd-foot is-done">

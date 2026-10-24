@@ -31,6 +31,8 @@ export type ApiCampaign = {
   priority: Priority;
   visibility: Visibility;
   client: { id: string; name: string | null } | null;
+  /** The role as its spec names it, when there is a spec. */
+  roleTitle?: string | null;
   owner: ApiPerson | null;
   team: (ApiPerson & { role: "owner" | "member" })[];
   /** The organisation's team this campaign is on, if any (`team` above is the campaign's own people). Absent from older servers. */
@@ -276,6 +278,7 @@ export function rowFromApi(c: ApiCampaign, ov?: ApiOverview, now = Date.now()): 
     id: c.id,
     name: c.name,
     ...(c.client?.name ? { client: c.client.name } : {}),
+    ...(c.roleTitle?.trim() ? { roleTitle: c.roleTitle.trim() } : {}),
     department: c.department ?? "",
     location: c.location ?? "",
     status: c.status,
@@ -615,3 +618,35 @@ export function logLine(a: ApiActivity, me: string | null, personIdOf: (candidat
   return null;
 }
 
+
+/* ── the company's own candidate sheet on a campaign (server: campaigns/sheet-sync) ── */
+
+export type SheetLink = { url: string; syncedAt: string; people: number };
+export type SheetPreview = {
+  rows: number;
+  people: number;
+  unreadable: number;
+  stages: Record<string, number>;
+  noStatus: number;
+  read: Array<{ field: string; heading: string }>;
+  left: string[];
+};
+export type SheetSync = {
+  people: number;
+  added: number;
+  alreadyHere: number;
+  unreadable: number;
+  moved: Record<string, number>;
+  notMoved: number;
+};
+
+export const sheetApi = {
+  /** The sheet connected to the campaign, or null. */
+  saved: (campaignId: string) => api<SheetLink | null>("GET", `/v1/campaigns/${campaignId}/sheet`),
+  /** What a sheet holds (nothing is changed). Without a link, the connected one. */
+  preview: (campaignId: string, url?: string) =>
+    api<SheetPreview>("POST", `/v1/campaigns/${campaignId}/sheet/preview`, url ? { url } : {}),
+  /** Brings its people in on the stage their status says. Without a link, reads the connected one again. */
+  sync: (campaignId: string, url?: string) =>
+    api<SheetSync>("POST", `/v1/campaigns/${campaignId}/sheet`, url ? { url } : {}),
+};

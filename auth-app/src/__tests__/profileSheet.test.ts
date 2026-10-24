@@ -63,7 +63,7 @@ describe("a person opened from a list, a card or a search result", () => {
 
   it("the sheet reads it on open, shows ghosts meanwhile, and offers LinkedIn as a labelled button and a Match tab", () => {
     const src = readFileSync(join(__dirname, "..", "ProfileSidebar.tsx"), "utf8");
-    expect(src).toContain("useFullCandidate(summary, campaignId)");
+    expect(src).toContain("useFullCandidate(summary, campaignId, careerTry)");
     expect(src).toContain('label="Loading the profile"');
     expect(src).toMatch(/className="ps-li"[\s\S]*LinkedIn/);
     expect(src).toContain('{ id: "match", label: "Match" }');

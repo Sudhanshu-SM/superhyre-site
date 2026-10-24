@@ -3353,6 +3353,7 @@ html[data-surface="app"]:not([data-theme="dark"]) body { background: #ffffff; }
 /* "Take the tour" is not a way out: it hovers like any other menu row. */
 .nav-me-pop-out.is-tour:hover:not(:disabled) { background: var(--nav-hover); color: var(--ink); }
 .nav-me-pop-out.is-tour:hover:not(:disabled) > svg { color: var(--ink); }
+.nav-me-pop-out.is-on { background: var(--nav-active); }
 .nav-me-pop-out:disabled { opacity: 0.5; cursor: not-allowed; }
 
 

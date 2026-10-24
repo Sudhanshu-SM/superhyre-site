@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.4.0 (2026-10-25)
+
+### Added
+- **Claude-style chat list on the Agent page** (right side): New chat, Search, Campaigns, then Pinned (chats and campaigns, the most active first) and Recents with "View more". Pinned shows only when something is pinned; a pinned campaign opens folded, with its chats under it. A row's menu pins, renames, adds to a campaign (with a search) or archives. The list hides and peeks with the toggle or Ctrl/⌘B, and rows glide to their new place.
+- **Campaigns page**: a search bar over a grid of blocks. Pressing one starts a chat in that campaign, so the agent has its brief, people and tasks from the first message.
+- **The rail's top block** shows the week (Found, Replies, Interviews) for the campaign in the chat, and Owner and Collaborators, which can be added from there.
+- **"Add in bulk"** beside the message box: roles into campaigns from a CSV, Excel file or Google Sheet (with a "Left out" note naming each skipped row), or, in a campaign, candidates from a sheet.
+- **Company sheets**: connect a running role's sheet from the campaign header ("Import from sheet", then "Sync sheet"); Home suggests it once, when active campaigns have nobody in them yet.
+- **Task progress**: a task shows "In progress" and "3/72" as people are reviewed, and tasks refresh when someone is shortlisted or passed. A pasted list makes one task each; the Home add-task takes plain words ("Dev to send the BD list by Monday") and forgives a misspelt teammate.
+- **In chat sourcing the first person is opened for you** with the profile sliding in beside the chat; the Sourced page does the same.
+- **Clients** moved into the profile menu. "Load full career" on a profile's Experience. Campaign headers show client and role title.
+
+### Changed
+- The agent's sparkle beside every reply is gone; the chat has the whole width.
+- Shortlist and Reject on a decided person are shown as disabled, with the reason on hover, because the server has no undo (use the Pipeline to move someone). A press on one says so.
+
+### Fixed
+- **Sourced page:** the profile's cross closed nothing and "Score the rest" looked dead. The profile stays closed once closed, and scoring shows "Reading N…", refreshes the list as people are read and says when everyone has been.
+- Home add-task text used a serif font; it uses the console's.
+
 ## 1.3.0 (2026-10-23)
 
 ### Added

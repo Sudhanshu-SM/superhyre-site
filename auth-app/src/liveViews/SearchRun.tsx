@@ -1,5 +1,5 @@
 import { Check } from "@phosphor-icons/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Match, MatchList, RoleSpec } from "../api/agent";
 import { agentApi, specApi } from "../api/agent";
 import { api } from "../api/client";
@@ -11,7 +11,7 @@ import { vendorWords } from "../displayText";
 import { setFromMatches } from "../liveCandidate";
 import { getSet, putSet } from "../liveCandidates";
 import { onInvalidate } from "../invalidate";
-import { findMore } from "../liveChat";
+import { findMore, runStartedHere } from "../liveChat";
 import type { Search } from "../liveChat";
 import { bucketsLine, bucketsOfRows } from "../agentCards/specView";
 import type { Candidate } from "../sourcing";
@@ -139,6 +139,37 @@ export function SearchRun({ turnKey, search, latest, onAsk, onFindMore }: {
     if (set) putSet(mergeSet(getSet(search.campaignId), set));
   }, [set, search.campaignId]);
 
+  /* A search that is run in front of the person offers its first person as soon as there is one: that card is selected and
+     their profile slides in beside the chat, so it is plain the cards can be opened. Once, and not for a search that was
+     already finished when the chat was opened; a person who closes it has chosen to read on without it. */
+  const sawRunning = useRef(false);
+  const offered = useRef(false);
+  /* The person opened by this card on its own, while it is still the one open and the leader of the list. */
+  const auto = useRef<string | null>(null);
+  if (search.status === "running") sawRunning.current = true;
+  const open0 = set?.candidates.filter((c) => !set.decisions?.[c.id]) ?? [];
+  const close0 = open0.filter(isMatched);
+  const firstId = (search.status === "running" || close0.length === 0 ? open0 : close0)[0]?.id;
+  const people = set?.candidates.map((c) => c.id);
+  useEffect(() => {
+    if (!sawRunning.current || !runStartedHere(search.runId) || !latest || !firstId || !people || !ctx) return;
+    if (auto.current === null) {
+      if (offered.current) return;
+      offered.current = true;
+      if (ctx.profileId) return;
+      auto.current = firstId;
+      ctx.openProfile(firstId, people, { auto: true });
+      return;
+    }
+    /* Scoring moves people into place: while the profile open is still the one this card opened, the first person is the
+       one that stays selected. A person who has opened another, or closed it, has taken over. */
+    if (ctx.profileId === auto.current && firstId !== auto.current) {
+      auto.current = firstId;
+      ctx.openProfile(firstId, people, { auto: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firstId]);
+
   const busy = running;
   const grew = `${items.length}:${search.phases.length}:${search.feed?.length ?? 0}:${search.status}`;
   useEffect(() => {
@@ -240,6 +271,7 @@ export function SearchRun({ turnKey, search, latest, onAsk, onFindMore }: {
           key="results"
           verdicts={ctx?.verdicts ?? {}}
           onVerdict={(id, v) => ctx?.onVerdict(id, v)}
+          activeId={ctx?.profileId ?? null}
           onOpenProfile={(id) => ctx?.openProfile(id, set.candidates.map((c) => c.id))}
           onOpenList={() => ctx?.openList(search.campaignId)}
           data={{

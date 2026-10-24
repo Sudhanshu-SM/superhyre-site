@@ -1,0 +1,12 @@
+/* Sourced: the people found for a campaign, as a page. */
+.sp-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+.sp-sub { margin: 4px 0 0; color: var(--ink-2); }
+.sp-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+.sp-note { margin: 12px 0; color: var(--ink-2); }
+.sp-similar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 0 12px; padding: 10px 14px; border: 1px solid var(--line, rgba(0,0,0,.12)); border-radius: 10px; color: var(--ink); font: 400 14px/1.45 var(--ui); }
+.sp-similar > span { flex: 1 1 320px; }
+.sp-empty { display: grid; justify-items: start; gap: 12px; padding: 32px 0; color: var(--ink-2); }
+
+/* The profile docks at the right edge, 520px wide: the page leaves it that room, so nothing of the list or its buttons is under it. */
+.sp.has-profile { padding-right: 544px; }
+@media (max-width: 1279px) { .sp.has-profile { padding-right: 0; } }

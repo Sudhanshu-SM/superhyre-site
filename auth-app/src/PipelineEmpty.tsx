@@ -28,9 +28,9 @@ export function PipelineEmpty({ campaignId, name, onAgent }: {
   const go: Record<EmptyGo, () => void> = {
     draftSpec: () => onAgent(`Draft the role spec for ${name}`, { send: true }),
     approveSpec: () => onAgent(`Show me the role spec for ${name}`, { send: true }),
-    // The people found, opened for review, not a message to the chat (a campaign id that is not a real one: ask the agent).
+    // The people found, on the Sourced page for review, not a message to the chat (a campaign id that is not a real one: ask the agent).
     matches: () => {
-      if (LIVE && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(campaignId)) window.location.hash = `/agent?campaign=${campaignId}&show=matches`;
+      if (LIVE && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(campaignId)) window.location.hash = `/campaign/sourced?campaign=${campaignId}`;
       else onAgent(`Show the sourcing for ${name}`, { send: true });
     },
     broaden: () => onAgent(`Find more people for ${name} with broader filters`),

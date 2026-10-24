@@ -68,7 +68,8 @@ describe("nav tree", () => {
   it("makes every route reachable from the sidebar", () => {
     // The other half of the contract: a page nothing links to is dead code.
     // (Support is reached through Settings, not the sidebar.)
-    const declared = (Object.keys(ROUTES) as RouteId[]).filter((id) => id !== "support");
+    // (Support is reached through Settings, and Clients through the profile menu.)
+    const declared = (Object.keys(ROUTES) as RouteId[]).filter((id) => id !== "support" && id !== "clients");
     expect([...reachable].sort()).toEqual([...declared].sort());
   });
 
@@ -115,8 +116,8 @@ describe("nav tree", () => {
 const mainIds = () => NAV.flatMap((s) => s.items.map((i) => i.id));
 
 describe("clients", () => {
-  it("is in the sidebar for everyone: what a person may do on it is the page's to say", () => {
-    expect(mainIds()).toContain("clients");
+  it("is in the profile menu, beside Sign out, not in the sidebar list: what a person may do on it is the page's to say", () => {
+    expect(mainIds()).not.toContain("clients");
   });
 
   it("routes one client, and its tab, to the Clients page", () => {

@@ -47,6 +47,7 @@ import { openerNow, restoreFocus } from "./components/focusTrap";
 import { pageTitle } from "./pageTitle";
 import { COMING_SOON_NOTE, comingSoon } from "./emptyStates";
 import { SupportPage } from "./SupportPage";
+import { SourcedPage } from "./SourcedPage";
 import { canonicalZone } from "./schedulesView";
 
 /* The first-run tour is a file of its own; it draws nothing until someone is new here or asks for it. */
@@ -596,6 +597,8 @@ export function Console({ bootstrap, live, onSignOut, signingOut }: Props) {
             <NotOnCampaign key={campaign.id} row={campaignRow} onBack={() => navigate("campaigns")} />
           ) : route === "campaign-overview" ? (
             <CampaignOverview key={campaign.id} ctx={cctx} />
+          ) : route === "campaign-sourced" ? (
+            <SourcedPage key={campaign.id} campaignId={campaign.id} campaignName={campaign.name} onAgent={(p, o) => brief(p ?? `For ${campaign.name}: `, { ...o, campaignId: campaign.id })} />
           ) : route === "campaign-candidates" ? (
             <CampaignCandidates key={campaign.id} ctx={cctx} />
           ) : route === "campaign-forms" ? (

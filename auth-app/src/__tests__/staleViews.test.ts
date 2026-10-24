@@ -24,6 +24,7 @@ vi.mock("../api/agent", () => ({
   onDecision: (fn: (c: string | null) => void) => { h.decisions.add(fn); return () => h.decisions.delete(fn); },
 }));
 vi.mock("../api/identity", () => ({ onWorkspaceChange: () => () => {} }));
+vi.mock("../chatPins", () => ({ loadPins: () => { h.calls.push("chats"); return Promise.resolve(); } }));
 vi.mock("../campaignStore", () => ({
   refreshCampaign: (id: string) => h.calls.push(`boards:${id}`),
   refreshOpenCampaigns: () => h.calls.push("boards:open"),
@@ -84,8 +85,8 @@ const same = (got: string[], want: string[]) => expect([...new Set(got)].sort())
 describe("each kind of effect reads the stores that show it", () => {
   const rows: Array<[CapabilityEffect, string[]]> = [
     ["campaign", ["boards:c1", "campaigns", "week"]],
-    ["pipeline", ["boards:c1", "campaigns", "week"]],
-    ["candidates", ["week"]],
+    ["pipeline", ["boards:c1", "campaigns", "week", "tasks"]],
+    ["candidates", ["week", "tasks"]],
     ["clients", ["clients"]],
     ["team", ["members", "tasks", "bell"]],
     ["connections", ["connections"]],
@@ -95,6 +96,7 @@ describe("each kind of effect reads the stores that show it", () => {
     ["spec", ["specs:c1", "boards:c1", "campaigns", "week", "tasks"]],
     ["sourcing", ["watches", "boards:c1", "campaigns", "week", "tasks"]],
     ["calls", []],
+    ["chats", ["chats"]],
   ];
 
   it("has a row for every kind the server can say", () => {
@@ -109,7 +111,7 @@ describe("each kind of effect reads the stores that show it", () => {
       const got = await read(() => inv.invalidate([kind], { campaignId: "c1" }));
       same(got, want);
       // The pages that keep their own list (Candidates, Calls) are told the kind that changed.
-      if (kind === "candidates" || kind === "calls") expect(heard.flat()).toContain(kind);
+      if (kind === "candidates" || kind === "calls" || kind === "chats") expect(heard.flat()).toContain(kind);
       off();
     });
   }

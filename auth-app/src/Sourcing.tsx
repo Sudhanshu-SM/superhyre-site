@@ -536,8 +536,10 @@ export type ResultsData = {
 };
 
 export function Results({
-  matches, verdicts, onVerdict, onOpenProfile, onOpenList, data,
+  matches, verdicts, onVerdict, onOpenProfile, onOpenList, data, activeId = null,
 }: {
+  /** Whose profile is open: that card shows as selected. */
+  activeId?: string | null;
   matches?: number;
   verdicts: Readonly<Record<string, Verdict>>;
   onVerdict: (id: string, v: Verdict | null) => void;
@@ -580,6 +582,7 @@ export function Results({
               verdict={verdicts[c.id]}
               onVerdict={(v) => onVerdict(c.id, v)}
               onOpen={() => onOpenProfile(c.id)}
+              selected={c.id === activeId}
               {...(data
                 ? data.unscored?.has(c.id)
                   ? {
@@ -604,9 +607,11 @@ export function Results({
  * verdict buttons are the only things inside it that do something else.
  */
 export function CandidateCard({
-  c, verdict, onVerdict, onOpen, reason, criteria, short, pending,
+  c, verdict, onVerdict, onOpen, reason, criteria, short, pending, selected = false,
 }: {
   c: Candidate;
+  /** Their profile is open beside the list. */
+  selected?: boolean;
   verdict?: Verdict;
   onVerdict: (v: Verdict | null) => void;
   onOpen: () => void;
@@ -625,7 +630,7 @@ export function CandidateCard({
   const text = reason ?? REASON[c.id];
   const fit = criteria ?? CRITERIA;
   return (
-    <article className={`src-card${verdict ? ` is-${verdict}` : ""}`}>
+    <article className={`src-card${verdict ? ` is-${verdict}` : ""}${selected ? " is-selected" : ""}`} aria-current={selected ? "true" : undefined}>
       <button type="button" className="src-card-hit" onClick={onOpen} aria-label={`Open ${c.name}'s profile`} />
       <div className="src-card-top">
         <Avatar name={c.name} hue={c.hue} size={38} />

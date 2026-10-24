@@ -70,6 +70,8 @@ export function buildEntries(campaignName: string, standing?: Standing | null): 
   for (const item of footNavFor(standing)) {
     out.push({ id: item.id, label: item.label, group: "Account", hint: ROUTES[item.id].title });
   }
+  // Clients lives in the profile menu now, so quick find is how it is one keystroke away.
+  out.push({ id: "clients", label: "Clients", group: "Account", hint: ROUTES.clients.title });
   return out;
 }
 

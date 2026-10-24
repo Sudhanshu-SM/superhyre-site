@@ -358,6 +358,10 @@
 
 .src-card:hover { border-color: var(--rule); box-shadow: 0 2px 8px rgba(26, 22, 20, 0.06); }
 .src-card.is-shortlisted { border-color: var(--accent-line); }
+/* The person whose profile is open beside the list: lit, with one soft ring that settles as the profile slides in. */
+.src-card.is-selected { border-color: var(--accent-line); background: color-mix(in srgb, var(--accent) 5%, #fff); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent), 0 2px 8px rgba(26, 22, 20, 0.06); animation: src-select 520ms var(--ease-out); }
+@keyframes src-select { from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 36%, transparent), 0 1px 2px rgba(26, 22, 20, 0.04); transform: scale(0.992); } to { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent), 0 2px 8px rgba(26, 22, 20, 0.06); transform: none; } }
+@media (prefers-reduced-motion: reduce) { .src-card.is-selected { animation: none; } }
 .src-card.is-rejected { opacity: 0.55; }
 .src-card.is-rejected:hover { opacity: 0.8; }
 

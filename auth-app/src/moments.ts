@@ -393,7 +393,10 @@ export type MomentCtx = {
   said: string;
   verdicts: Readonly<Record<string, Verdict>>;
   onVerdict: (id: string, v: Verdict | null) => void;
-  openProfile: (id: string, ids?: readonly string[]) => void;
+  /** Opens a profile. `auto` is the page offering the first person on its own: it sits beside the chat and does not dim it. */
+  openProfile: (id: string, ids?: readonly string[], opts?: { auto?: boolean }) => void;
+  /** Whose profile is open now, so the card of that person shows as selected. */
+  profileId?: string | null;
   /** Opens the ranked list (for a campaign, when several are in the chat). */
   openList: (campaignId?: string) => void;
   /** Deploys an agent into the live band; returns its key so it can be undone. */

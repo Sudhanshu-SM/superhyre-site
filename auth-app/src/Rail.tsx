@@ -305,7 +305,7 @@ export const HISTORY_SLOTS = 3;
  * One Configuration row: the whole 40px (Channels, 60px) is one link or button. The label sits left; the value, the
  * brand marks and the second line sit right. Never a text link inside a row: there is one target, and it is all of it.
  */
-function ConfigSlot({ slot }: { slot: RailSlot }) {
+export function ConfigSlot({ slot }: { slot: RailSlot }) {
   const body = (
     <>
       <span className="rail-config-label">{slot.label}</span>

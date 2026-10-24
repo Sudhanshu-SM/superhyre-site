@@ -50,18 +50,29 @@ import { useMayChangeCampaign } from "./campaignRights";
 import { useCampaignSpec } from "./specDraft";
 import type { Conversation, MatchList } from "./api/agent";
 import { campaignById } from "./formKit";
+import { ChatRail } from "./ChatRail";
+import { BulkChip, BulkList, type BulkChoice } from "./BulkAdd";
+import { SheetDialog } from "./SheetDialog";
+import { ChatHeader } from "./ChatHeader";
+import { CampaignsPicker, type PickerCampaign } from "./CampaignsPicker";
+import { RailContext, type WeekStat } from "./RailContext";
+import { metaParts } from "./campaignMeta";
+import { railSlots } from "./railConfig";
+import type { RailChat } from "./chatGroups";
+import "./agentChat.css";
 import { setFromMatches } from "./liveCandidate";
 import { mergeSet } from "./liveSourcing";
 import { CHAT_LIMIT, chatLength, chatNow, chatOver, newChat, onChatFocus, openChat, openChatFor, resumeChat, sendAction, sendMessage, useLiveChat } from "./liveChat";
 import { DOUBTS_ASK, DOUBTS_LABEL, DOUBTS_SHOW } from "./memoryView";
-import { campaignFromHash, showFromHash, withoutShow } from "./nav";
+import { campaignFromHash, campaignLink, showFromHash, withoutShow } from "./nav";
+import { undoNote } from "./verdictUndo";
 import { chatTitle, titleFromMessage, UNTITLED } from "./chatTitle";
 import { tidySeed } from "./seedText";
 import { useToast } from "./Contacts";
 import { LiveTurnBody } from "./LiveTurn";
 import { FormLinkChips } from "./FormLinkChip";
 import { WatchList } from "./WatchList";
-import type { Brief, Stat } from "./orchestrator";
+import type { Brief } from "./orchestrator";
 import { homeOverview } from "./api/home";
 import { getCandidate } from "./api/candidates";
 import { candidateFromDetail, candidateFromMatch } from "./liveCandidate";
@@ -71,6 +82,7 @@ import { campaignIds, campaignOfCandidate, candidateById, clearSets, getSet, put
 import { LiveMomentProvider } from "./liveViews/LiveMoment";
 import { PassReasonDialog } from "./PassReason";
 import { useRailConfig } from "./useRailConfig";
+import { RailDialogs } from "./RailDialogs";
 import "./agentHero.css";
 import "./chat.css";
 
@@ -239,44 +251,23 @@ export function Agent({
     [live.turns],
   );
   const shown = LIVE ? liveTurns : turns;
-  /* The rail's week, from the server's home overview. Gains only: a dip is not news. */
   /* A search that starts, brings its first people or ends moves "Found": the week is read again for each. */
   const searchSig = live.turns
     .flatMap((t) => t.searches.map((x) => `${x.runId}:${x.status}:${(x.items?.length ?? 0) > 0 ? "people" : "none"}`))
     .join("|");
-  const [week, setWeek] = useState<readonly Stat[]>([]);
-  const [weekState, setWeekState] = useState<"loading" | "failed" | "ready">("loading");
-  const [weekAsk, setWeekAsk] = useState(0);
-  useEffect(() => {
-    if (!LIVE) return;
-    let current = true;
-    homeOverview(7)
-      .then((h) => {
-        if (!current) return;
-        const gain = (p: { current: number; previous: number }) => Math.max(0, p.current - p.previous);
-        setWeek([
-          { id: "found", label: "Found", value: h.found.current, hue: "violet", delta: gain(h.found), spark: h.found.series.map((d) => d.count) },
-          { id: "replies", label: "Replies", value: h.replies.current, hue: "blue", delta: gain(h.replies), spark: [] },
-          { id: "interviews", label: "Interviews", value: h.interviews.current, hue: "sage", delta: gain(h.interviews), spark: [] },
-        ]);
-        setWeekState("ready");
-      })
-      /* A refresh that fails after the week was shown keeps what is on screen; only a
-         week that never arrived says so. */
-      .catch(() => { if (current) setWeekState((s) => (s === "ready" ? s : "failed")); });
-    return () => {
-      current = false;
-    };
-  }, [live.turns.length, weekAsk, searchSig]);
-  /* What the agent just did moves these numbers: read them again behind what is shown. */
-  useEffect(() => onInvalidate((effects) => {
-    if (effects.has("pipeline") || effects.has("campaign") || effects.has("candidates") || effects.has("sourcing")) setWeekAsk((n) => n + 1);
-  }), []);
+  /* The agent arranged the list (pinned, renamed, archived or moved a chat): the chats are read again. The pins are
+     read by the invalidate table; this page keeps the chats. */
+  useEffect(() => onInvalidate((effects) => { if (effects.has("chats")) setChatsAsk((n) => n + 1); }), []);
   /* Past chats for the rail, refreshed whenever a chat starts or changes. The server names a chat when
      its first message lands and moves it up when a turn ends, so those two are read again too. */
   const sentCount = live.turns.filter((t) => t.runId !== null).length;
   const settledCount = live.turns.filter((t) => t.status === "done" || t.status === "failed").length;
   const [chats, setChats] = useState<readonly Brief[] | undefined>(undefined);
+  /* The same list as the server gives it: the history rail groups it by campaign. */
+  const [convs, setConvs] = useState<readonly Conversation[] | undefined>(undefined);
+  /* Every chat the server has listed so far: one that was listed and is not now has been archived (by a press, or by the
+     agent), and the open chat is not put back in the list under the name of its first message. */
+  const knownChats = useRef(new Set<string>());
   const [chatsFailed, setChatsFailed] = useState(false);
   const [chatsAsk, setChatsAsk] = useState(0);
   useEffect(() => {
@@ -287,6 +278,8 @@ export function Agent({
       .then(({ conversations }) => {
         if (!current) return;
         setChats(conversations.map(briefOf));
+        for (const c of conversations) knownChats.current.add(c.id);
+        setConvs(conversations);
         setChatsFailed(false);
       })
       .catch(() => current && setChatsFailed(true));
@@ -304,6 +297,117 @@ export function Agent({
     if (!mine) return [{ id, title: titleFromMessage(first), campaign: "", when: "1m", mode: "agent" }, ...chats];
     return mine.title === UNTITLED ? chats.map((c) => (c.id === id ? { ...c, title: titleFromMessage(first) } : c)) : chats;
   }, [chats, live.conversationId, live.turns]);
+  /* ── THE HISTORY, BY CAMPAIGN ──
+     The chats as the left rail groups them. The open chat is named from its first message at once (as `railChats` does),
+     and a chat that is not on the server's list yet is in it from the first word. */
+  const campaignRows = useCampaignRows();
+  const railList = useMemo<readonly RailChat[] | undefined>(() => {
+    if (!convs) return undefined;
+    const list: RailChat[] = convs.map((c) => ({
+      id: c.id,
+      title: chatTitle(c.title),
+      campaignId: c.focusCampaignId,
+      campaignName: c.focusCampaignName ?? "",
+      at: Date.parse(c.updatedAt) || 0,
+      last: c.lastMessage ?? null,
+    }));
+    const id = live.conversationId;
+    const first = live.turns[0]?.said;
+    if (id && first) {
+      const at = list.findIndex((c) => c.id === id);
+      if (at < 0 && knownChats.current.has(id)) { /* archived: it leaves the list */ }
+      else if (at < 0) list.unshift({ id, title: titleFromMessage(first), campaignId: campaignIsCurrent && UUID.test(campaign.id) ? campaign.id : null, campaignName: campaignIsCurrent ? campaign.name : "", at: Date.now(), last: first });
+      else if (list[at]!.title === UNTITLED) list[at] = { ...list[at]!, title: titleFromMessage(first) };
+    }
+    return list;
+  }, [convs, campaignRows, live.conversationId, live.turns, campaignIsCurrent, campaign.id, campaign.name]);
+  const openChatRow = railList?.find((c) => c.id === live.conversationId) ?? null;
+  /* The campaign this chat is about: its own, once it has one; a chat not started yet is about the campaign the page is on. */
+  const chatCampaign = openChatRow
+    ? (openChatRow.campaignId ? { id: openChatRow.campaignId, name: openChatRow.campaignName || campaignById(openChatRow.campaignId)?.name || "Campaign" } : null)
+    : (campaignIsCurrent && UUID.test(campaign.id) ? { id: campaign.id, name: campaign.name } : null);
+  /* ── THE WEEK, FOR THE TOP OF THE CHAT LIST ──
+     Found, replies and interviews over the last 7 days, with what each grew by on the week before (a dip is not news). With a
+     campaign in the chat they are that campaign's; with none, the whole workspace's. Numbers read for one scope are never
+     shown under another: until the new ones arrive the figures are a skeleton. */
+  const weekKey = chatCampaign && UUID.test(chatCampaign.id) ? chatCampaign.id : "all";
+  const [weekRead, setWeekRead] = useState<{ key: string; stats: readonly WeekStat[] } | null>(null);
+  const [weekFailed, setWeekFailed] = useState(false);
+  const [weekAsk, setWeekAsk] = useState(0);
+  useEffect(() => {
+    if (!LIVE) return;
+    let current = true;
+    homeOverview(7, weekKey === "all" ? undefined : weekKey)
+      .then((h) => {
+        if (!current) return;
+        const gain = (p: { current: number; previous: number }) => Math.max(0, p.current - p.previous);
+        setWeekRead({
+          key: weekKey,
+          stats: [
+            { id: "found", label: "Found", value: h.found.current, gain: gain(h.found) },
+            { id: "replies", label: "Replies", value: h.replies.current, gain: gain(h.replies) },
+            { id: "interviews", label: "Interviews", value: h.interviews.current, gain: gain(h.interviews) },
+          ],
+        });
+        setWeekFailed(false);
+      })
+      /* A refresh that fails after the week was shown keeps what is on screen; only a week that never arrived says so. */
+      .catch(() => { if (current) setWeekFailed(true); });
+    return () => {
+      current = false;
+    };
+  }, [live.turns.length, weekAsk, searchSig, weekKey]);
+  /* What the agent just did moves these numbers: read them again behind what is shown. */
+  useEffect(() => onInvalidate((effects) => {
+    if (effects.has("pipeline") || effects.has("campaign") || effects.has("candidates") || effects.has("sourcing")) setWeekAsk((n) => n + 1);
+  }), []);
+  const week = { state: weekRead?.key === weekKey ? ("ready" as const) : weekFailed ? ("failed" as const) : ("loading" as const), stats: weekRead?.key === weekKey ? weekRead.stats : [] };
+  /* The page follows the chat it is showing: a chat that is about a campaign makes that campaign the page's (so what is sent
+     from it, and what the header and the set-up say, are the same campaign), and a general chat leaves none chosen. Without
+     this, reopening an old chat left the page on whichever campaign was chosen last, and the next message re-filed the chat. */
+  useEffect(() => {
+    if (!LIVE || !live.conversationId || !openChatRow) return;
+    if (openChatRow.campaignId) {
+      if (!(campaignIsCurrent && campaign.id === openChatRow.campaignId)) {
+        onFocusCampaign?.(openChatRow.campaignId, openChatRow.campaignName || campaignById(openChatRow.campaignId)?.name || "Campaign");
+      }
+    } else if (campaignIsCurrent) {
+      onNewChat?.();
+    }
+    // Only when the open chat or its campaign changes: choosing a campaign elsewhere must not pull the chat back.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live.conversationId, openChatRow?.campaignId]);
+  const activeCampaigns = useMemo(() => campaignRows.filter((r) => r.status !== "closed" && UUID.test(r.id)).map((r) => ({ id: r.id, name: r.name })), [campaignRows]);
+  const [railHidden, setRailHidden] = useState(() => { try { return window.localStorage.getItem("superhyre.chatrail.hidden") === "1"; } catch { return false; } });
+  const setRail = (hidden: boolean) => { setRailHidden(hidden); try { window.localStorage.setItem("superhyre.chatrail.hidden", hidden ? "1" : "0"); } catch { /* not worth failing over */ } };
+  /* "Campaigns" in the chat list: the page shows every running campaign, to start a chat in one, in place of the conversation. */
+  const [picking, setPicking] = useState(false);
+  const pickerRows = useMemo<readonly PickerCampaign[]>(() => {
+    const seen = new Map<string, { n: number; last: number }>();
+    for (const c of railList ?? []) {
+      if (!c.campaignId) continue;
+      const was = seen.get(c.campaignId) ?? { n: 0, last: 0 };
+      seen.set(c.campaignId, { n: was.n + 1, last: Math.max(was.last, c.at) });
+    }
+    return campaignRows
+      .filter((r) => r.status !== "closed" && UUID.test(r.id))
+      .map((r) => ({ id: r.id, name: r.name, meta: metaParts(r), found: r.funnel.sourced, shortlisted: r.funnel.shortlisted, chats: seen.get(r.id)?.n ?? 0, lastAt: seen.get(r.id)?.last ?? 0 }));
+  }, [campaignRows, railList]);
+  /* The chat list comes and goes with Ctrl/⌘ B, as it does in the chat apps this one is laid out like. */
+  useEffect(() => {
+    if (!LIVE) return undefined;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== "b" || !(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey || e.defaultPrevented) return;
+      if (e.target instanceof HTMLElement && e.target.isContentEditable) return;
+      e.preventDefault();
+      setRail(!railHidden);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [railHidden]);
+  const patchChat = (id: string, body: Record<string, unknown>) => api("PATCH", `/v1/conversations/${id}`, body).then(() => { setChatsAsk((n) => n + 1); });
+
   /* ── SEARCHING PAST CHATS ──
      The search button under the composer and "/" open the History dialog, which is where chats are
      searched and opened (⌘K stays the console's quick find, wherever focus is). Connected, the chats are
@@ -414,6 +518,7 @@ export function Agent({
     campaign, campaignIsCurrent, inOrg,
     LIVE ? { onJd: onLiveJd, onFilters: onLiveFilters, next: { jd: nextJd !== null, filters: nextFiltersWords } } : undefined,
   );
+  const configSlots = railSlots(config?.layout ?? "campaign", config?.rows ?? [], { inOrg: config?.inOrg ?? true, ...(config?.go ? { go: config.go } : {}) });
   /* Filters that were set for the next campaign are saved on it once it exists: the list of campaigns is read
      again while they wait, and the first campaign that was not there when the message went is theirs. */
   const allRows = useCampaignRows();
@@ -460,6 +565,8 @@ export function Agent({
   /* Shortlist and reject, shared by the transcript's cards, the ranked list
      and every profile, so a verdict made in one place shows in all three. */
   const [verdicts, setVerdicts] = useState<Record<string, Verdict>>({});
+  const verdictsNow = useRef(verdicts);
+  verdictsNow.current = verdicts;
   /* The ranked list (a dialog in the middle) and the profile (a sidebar) are
      separate surfaces with separate state. The profile remembers which list
      its arrows walk: every match from the transcript, or whatever the
@@ -476,6 +583,8 @@ export function Agent({
   }, []);
   const [matchesOpen, setMatchesOpen] = useState(false);
   const [profile, setProfile] = useState<{ id: string; ids: readonly string[] } | null>(null);
+  /* A profile the page offered on its own (the first person of a search) sits beside the chat; one that was pressed dims it. */
+  const [profileModal, setProfileModal] = useState(true);
   /* Connected: the ranked list belongs to one campaign's matches, and shortlisting or passing
      is a call to the server, with the reason for a pass asked first. */
   const [listCampaign, setListCampaign] = useState<string | null>(null);
@@ -497,8 +606,12 @@ export function Agent({
       setVerdict(id, v);
       agentApi.shortlist(cid, [id]).catch(() => setVerdict(id, null));
     } else if (v === "rejected") setPassing(id);
-    // Undoing isn't offered by the server for a shortlist or a pass, so a press on a decided person changes nothing.
-  }, [setVerdict]);
+    // Taking a shortlist or a pass back is not offered by the server: the press says so, and where to go.
+    else {
+      const note = undoNote(verdictsNow.current[id]);
+      toast(note.text, "error", note.toPipeline ? { label: "Open the pipeline", onClick: () => { window.location.hash = campaignLink(cid, "pipeline"); } } : undefined);
+    }
+  }, [setVerdict, toast]);
   const passWith = useCallback((reason: string | undefined) => {
     const id = passing;
     setPassing(null);
@@ -858,6 +971,22 @@ export function Agent({
     (file: File) => attachmentApi.read(file, typeOf(file)).then((r) => r.text),
     [],
   );
+  /* ── ADD IN BULK ──
+     What is added many at a time, from the composer: roles become campaigns on the import card in the chat, and a candidate
+     sheet is brought into the campaign in the chat. The second is offered only where it can work (a campaign in the chat that
+     the person may change). */
+  const [bulkRolesOpen, setBulkRolesOpen] = useState(false);
+  const [bulkSheetOpen, setBulkSheetOpen] = useState(false);
+  const bulkChoices = useMemo<readonly BulkChoice[]>(
+    () => (LIVE ? ["roles", ...(focused && mayChange ? (["candidates"] as const) : [])] : []),
+    [focused, mayChange],
+  );
+  const pickBulk = useCallback((c: BulkChoice) => { if (c === "roles") setBulkRolesOpen(true); else setBulkSheetOpen(true); }, []);
+  /* Roles, handed to the import card: one description is a batch of one. */
+  const sendBulk = useCallback((pick: { files?: File[]; links?: string[]; texts?: Array<{ label: string; jd: string }> }) => {
+    stashImport(pick);
+    sendMessage("Add roles in bulk", undefined);
+  }, []);
 
   const saveFilters = useCallback(
     (values: Values) =>
@@ -1414,6 +1543,14 @@ export function Agent({
     setVisit(nextVisit());
     areaRef.current?.focus();
   };
+  /* A new chat, in a campaign or in none. The page may be showing the campaigns list, which hides the composer until it
+     has gone, so the composer is asked for focus again once it is back. */
+  const startIn = (c: { id: string; name: string } | null) => {
+    setPicking(false);
+    startNew();
+    if (c) onFocusCampaign?.(c.id, c.name);
+    window.setTimeout(() => areaRef.current?.focus(), 80);
+  };
 
 
 
@@ -1441,7 +1578,7 @@ export function Agent({
         so the column changed width and the composer changed position each
         time a turn of another kind followed it. */}
     <div
-      className={orcClass(started)}
+      className={`${orcClass(started)}${LIVE ? " orc--lx" : ""}${LIVE && railHidden ? " is-rail-hidden" : ""}${LIVE && picking ? " is-picking" : ""}`}
       ref={rootRef}
       style={configTop !== null ? { ["--config-top" as string]: `${configTop}px` } : undefined}
     >
@@ -1450,7 +1587,66 @@ export function Agent({
           <div className="orc-drop-in">Drop to attach<small>PDF, Word, text or an image, up to 10 MB</small></div>
         </div>
       )}
+      {LIVE && (
+        <ChatRail
+          chats={railList}
+          state={railList ? "ready" : chatsFailed ? "failed" : "loading"}
+          onRetry={() => setChatsAsk((n) => n + 1)}
+          activeId={live.conversationId}
+          campaigns={activeCampaigns}
+          top={
+            <RailContext
+              campaign={chatCampaign ? { id: chatCampaign.id, name: chatCampaign.name } : null}
+              week={week}
+              onRetryWeek={() => { setWeekFailed(false); setWeekAsk((n) => n + 1); }}
+              slots={configSlots}
+            />
+          }
+          hidden={railHidden}
+          onToggle={() => setRail(!railHidden)}
+          campaignsOpen={picking}
+          onCampaigns={() => setPicking((p) => !p)}
+          findAsk={findAsk}
+          /* A new chat is about no campaign; one started from a campaign is about that one, and the page follows: the agent is told which. */
+          onNew={() => startIn(null)}
+          onNewIn={startIn}
+          onOpenCampaign={(id) => onOpenCampaign?.(id)}
+          onOpen={(c) => {
+            setPicking(false);
+            void openChat(c.id);
+            if (c.campaignId) onFocusCampaign?.(c.campaignId, c.campaignName || campaignById(c.campaignId)?.name || "Campaign");
+            else onNewChat?.();
+          }}
+          onRename={(id, title) => patchChat(id, { title })}
+          onMove={async (id, campaignId) => {
+            await patchChat(id, { focusCampaignId: campaignId });
+            if (id === live.conversationId) {
+              if (campaignId) onFocusCampaign?.(campaignId, campaignById(campaignId)?.name ?? "Campaign");
+              else onNewChat?.();
+            }
+          }}
+          onArchive={archiveChat}
+        />
+      )}
+      {/* The two dialogs the owner and collaborators rows in the list open (the campaign's details, and who is on it). */}
+      {LIVE && config?.dialog && <RailDialogs dialog={config.dialog} />}
       <div className="orc-main">
+        {LIVE && picking && <CampaignsPicker campaigns={pickerRows} onStart={startIn} onClose={() => setPicking(false)} />}
+        {LIVE && (
+          <ChatHeader
+            title={openChatRow && openChatRow.title !== UNTITLED ? openChatRow.title : ""}
+            campaign={chatCampaign}
+            counts={(() => {
+              const r = chatCampaign ? campaignRows.find((x) => x.id === chatCampaign.id) : null;
+              return r ? `${r.funnel.sourced} found · ${r.funnel.shortlisted} shortlisted` : null;
+            })()}
+            slots={configSlots}
+            earlier={(railList ?? []).filter((c) => chatCampaign && c.campaignId === chatCampaign.id && c.id !== live.conversationId).slice(0, 3)}
+            agents={<WatchList />}
+            onOpenCampaign={(id) => onOpenCampaign?.(id)}
+            onOpenChat={(c) => { void openChat(c.id); if (c.campaignId) onFocusCampaign?.(c.campaignId, c.campaignName || "Campaign"); }}
+          />
+        )}
 
         {/* ── TWO STATES, AND THE CLASS SAYS WHICH ──
             At rest the column is a heading over a composer. Once a brief is
@@ -1487,8 +1683,11 @@ export function Agent({
                 said: t.said,
                 verdicts,
                 onVerdict,
-                openProfile: (cid: string, ids?: readonly string[]) =>
-                  setProfile({ id: cid, ids: ids ?? (LIVE ? idsOfSetWith(cid) : CANDIDATES.map((c) => c.id)) }),
+                openProfile: (cid: string, ids?: readonly string[], opts?: { auto?: boolean }) => {
+                  setProfileModal(!opts?.auto);
+                  setProfile({ id: cid, ids: ids ?? (LIVE ? idsOfSetWith(cid) : CANDIDATES.map((c) => c.id)) });
+                },
+                profileId: profile?.id ?? null,
                 openList: (cid?: string) => {
                   setProfile(null);
                   if (LIVE) setListCampaign(cid ?? campaignIds().at(-1) ?? null);
@@ -1564,6 +1763,8 @@ export function Agent({
                 }
               : {})}
             onOpenJd={() => setJdOpen(true)}
+            bulk={bulkChoices}
+            onBulk={pickBulk}
             onOpenFilters={LIVE ? openLiveFilters : openFilters}
             onSend={send}
             sendRef={sendRef}
@@ -1603,6 +1804,7 @@ export function Agent({
         </div>
       </div>
 
+      {!LIVE && (
       <Rail
         campaign={campaign}
         agents={
@@ -1625,9 +1827,6 @@ export function Agent({
           : {})}
         {...(LIVE
           ? {
-              stats: week,
-              statsState: weekState,
-              onRetryStats: () => { setWeekState("loading"); setWeekAsk((n) => n + 1); },
               /* Always: a chat that has not started can still be pointing at the campaign the last one was about, and a new
                  chat is how to leave it. */
               canStartNew: true,
@@ -1652,6 +1851,7 @@ export function Agent({
           }
         }}
       />
+      )}
 
       {LIVE ? (
         <>
@@ -1671,6 +1871,19 @@ export function Agent({
                 : "The agent reads it, drafts the role spec and starts finding people.")
               : "It goes with your next message, and the agent starts a campaign from it."}
           />
+          {/* Add in bulk: several roles, a spreadsheet of them or a Google Sheet. They go to the import card in the chat. */}
+          <JdDialog
+            open={bulkRolesOpen}
+            onClose={() => setBulkRolesOpen(false)}
+            current={null}
+            onApply={(jd) => { setBulkRolesOpen(false); sendBulk({ texts: [{ label: jd.name, jd: jd.text }] }); }}
+            read={readJdFile}
+            onMany={sendBulk}
+            title="Add roles in bulk"
+            useLabel="Add this role"
+            lead="Several roles at once: drop job descriptions or a spreadsheet of roles, or paste a Google Sheet's link. I read each one and ask only for what it leaves out. Each campaign is made as its role is done."
+          />
+          {focused && mayChange && <SheetDialog open={bulkSheetOpen} onClose={() => setBulkSheetOpen(false)} campaignId={liveCampaignId} name={campaign.name} />}
           <FiltersDialog
             open={liveFiltersOpen}
             onClose={() => setLiveFiltersOpen(false)}
@@ -1748,7 +1961,7 @@ export function Agent({
         })()}
         verdict={profile ? verdicts[profile.id] : undefined}
         onVerdict={onVerdict}
-        scrim={!matchesOpen}
+        scrim={profileModal && !matchesOpen}
         canDecide={!LIVE || !profile || setOfCandidate(profile.id)?.campaignId != null}
         {...(() => {
           const set = LIVE && profile ? setOfCandidate(profile.id) : null;
@@ -1798,7 +2011,8 @@ function TurnView({
     get said() { return ctxRef.current.said; },
     get verdicts() { return ctxRef.current.verdicts; },
     onVerdict: (id, v) => ctxRef.current.onVerdict(id, v),
-    openProfile: (id, ids) => ctxRef.current.openProfile(id, ids),
+    openProfile: (id, ids, opts) => ctxRef.current.openProfile(id, ids, opts),
+    get profileId() { return ctxRef.current.profileId ?? null; },
     openList: (cid) => ctxRef.current.openList(cid),
     deploy: (role, cid) => ctxRef.current.deploy(role, cid),
     undeploy: (key) => ctxRef.current.undeploy(key),
@@ -1836,6 +2050,8 @@ function TurnView({
     if (!el || !flyFrom) return;
 
     const to = el.getBoundingClientRect();
+    /* The mark is not drawn beside the answer in the chat (see agentChat.css): there is nothing to arrive. */
+    if (to.width === 0) { onFlown(); return; }
     const dx = flyFrom.x - (to.left + to.width / 2);
     const dy = flyFrom.y - (to.top + to.height / 2);
 
@@ -1991,7 +2207,7 @@ type ComposerHandle = {
 };
 
 function Composer({
-  api, mode, onMode, context, jd, filterCount, onOpenJd, onOpenFilters, onSend,
+  api, mode, onMode, context, jd, filterCount, onOpenJd, onOpenFilters, bulk, onBulk, onSend,
   sendRef, areaRef, rootRef, sending, started, preview, below, campaignName, brief,
 }: {
   /** The campaign in focus, which a job description and the filters act on at once. Absent: they wait for the next message. */
@@ -2015,6 +2231,9 @@ function Composer({
   jd: Jd | null;
   filterCount: number;
   onOpenJd: () => void;
+  /** What can be added many at a time from here (roles; a candidate sheet when a campaign is in the chat). Empty: nothing. */
+  bulk?: readonly BulkChoice[];
+  onBulk?: (choice: BulkChoice) => void;
   /** Opens the filters, pre-filled from what the draft already says; `category` scrolls the dialog to that group. */
   onOpenFilters: (draft: string, category?: string) => void;
   onSend: () => void;
@@ -2378,6 +2597,7 @@ function Composer({
                 <span className="orc-chip-l">{filterCount ? "Filters" : LIVE ? "Filters" : "Set filters"}</span>
                 {filterCount > 0 && <b className="orc-ctx-n" key={filterCount}>{filterCount}</b>}
               </button>
+              {LIVE && bulk && onBulk && <BulkChip choices={bulk} onPick={onBulk} />}
             </div>
           )}
 
@@ -2391,6 +2611,7 @@ function Composer({
               filterCount={filterCount}
               onOpenJd={onOpenJd}
               onOpenFilters={() => onOpenFilters(draft)}
+              {...(LIVE && bulk && onBulk ? { bulk, onBulk } : {})}
             />
           )}
 
@@ -2522,7 +2743,7 @@ function Composer({
 /* ── the docked bar's one control ────────────────────────────────────────── */
 
 function TuneMenu({
-  mode, onMode, jd, filterCount, onOpenJd, onOpenFilters,
+  mode, onMode, jd, filterCount, onOpenJd, onOpenFilters, bulk, onBulk,
 }: {
   mode: ModeId;
   onMode: (m: ModeId) => void;
@@ -2530,6 +2751,8 @@ function TuneMenu({
   filterCount: number;
   onOpenJd: () => void;
   onOpenFilters: () => void;
+  bulk?: readonly BulkChoice[];
+  onBulk?: (choice: BulkChoice) => void;
 }) {
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
@@ -2580,6 +2803,7 @@ function TuneMenu({
             <span className="orc-tune-l"><b>Filters</b><small>{filterCount ? `${filterCount} set` : "Location, seniority, company…"}</small></span>
             {filterCount > 0 && <b className="orc-ctx-n">{filterCount}</b>}
           </button>
+          {bulk && bulk.length > 0 && onBulk && <BulkList choices={bulk} onPick={(c) => { setOpen(false); onBulk(c); }} />}
         </div>
       )}
     </div>

@@ -6,6 +6,7 @@ import { onHiredChange, refreshCampaign, refreshCampaignsNow, refreshClients, re
 import { reloadConnections } from "./connectionsStore";
 import { refreshFormCounts } from "./formsStore";
 import { refreshHome, refreshNotices, refreshTasks } from "./homeStore";
+import { loadPins } from "./chatPins";
 import { onChatEffects, onChatRunEnd, watchesChanged } from "./liveChat";
 import { meetingsChanged } from "./meetingsStore";
 import { memoryNow, openMemory, reloadMemoryStats } from "./memoryStore";
@@ -57,7 +58,9 @@ export type View =
   | "watches"
   /** A campaign's forms: their status and link, their questions and their response counts. */
   | "forms"
-  /** Pages that keep their own lists (Candidates, Calls) are told through `onInvalidate`; these two are for them. */
+  /** The chat list's pins and chats: the pins are read again here; the Agent page reads its chats when it is told. */
+  | "chats"
+  /** Pages that keep their own lists (Candidates, Calls) are told through `onInvalidate`; these are for them. */
   | "candidates"
   | "calls";
 
@@ -93,20 +96,22 @@ export const READ: Readonly<Record<View, (campaigns: Campaigns) => void>> = {
     eachCampaign(c, (id) => void refreshFormCounts(id));
     if (c.has(null)) void refreshFormCounts(null);
   },
+  chats: () => void loadPins(),
   // Told to the pages through onInvalidate (see EFFECT_OF_VIEW): nothing to read here.
   candidates: () => {},
   calls: () => {},
 };
 
 /** The effect a page that keeps its own list listens for, for a view that is only ever told to it. */
-const EFFECT_OF_VIEW: Partial<Record<View, CapabilityEffect>> = { candidates: "candidates", calls: "calls" };
+const EFFECT_OF_VIEW: Partial<Record<View, CapabilityEffect>> = { candidates: "candidates", calls: "calls", chats: "chats" };
 
 /** What each kind of effect (the server's vocabulary) leaves stale. */
 export const VIEWS_OF_EFFECT: Readonly<Record<CapabilityEffect, readonly View[]>> = {
   campaign: ["boards", "campaigns", "week", "candidates"],
   // People moved, passed, shortlisted or taken off a board (by the agent, a bulk move, a filter): Candidates shows where each stands.
-  pipeline: ["boards", "campaigns", "week", "candidates"],
-  candidates: ["week", "candidates"],
+  // Reviewing people (shortlisting, passing) moves "Review N matches", and how far along it is, on Home.
+  pipeline: ["boards", "campaigns", "week", "candidates", "tasks"],
+  candidates: ["week", "candidates", "tasks"],
   clients: ["clients"],
   // People and who has what: members, the work given to them, and what is addressed to them.
   team: ["members", "tasks", "bell"],
@@ -118,6 +123,7 @@ export const VIEWS_OF_EFFECT: Readonly<Record<CapabilityEffect, readonly View[]>
   spec: ["specs", "boards", "campaigns", "week", "tasks"],
   sourcing: ["watches", "boards", "campaigns", "week", "candidates", "tasks"],
   calls: ["calls"],
+  chats: ["chats"],
 };
 
 /**
@@ -398,6 +404,7 @@ export const VIEWS_OF_ROUTE: Readonly<Record<string, readonly View[]>> = {
   clients: ["clients", "campaigns"],
   "campaign-overview": ["boards", "campaigns", "week", "specs", "tasks"],
   "campaign-candidates": ["boards", "campaigns", "members"],
+  "campaign-sourced": ["boards", "campaigns"],
   "campaign-shortlisted": ["boards", "campaigns"],
   "campaign-forms": ["forms", "boards"],
   "campaign-calls": ["boards"],

@@ -9,6 +9,7 @@ import {
   Fire, FunnelSimple, Kanban, ListChecks, MagnifyingGlass, NotePencil, PaperPlaneTilt, Phone, Plus, Rows,
   Snowflake, Sparkle, SunDim, X, UsersThree, MinusCircle,
 } from "@phosphor-icons/react";
+import { SheetButton } from "./SheetDialog";
 import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -733,8 +734,11 @@ export function CampaignOverview({ ctx }: { ctx: Ctx }) {
   };
 
   const day = agoDays(row?.createdAgo ?? "Just now") + 1;
+  /* Under the campaign's name: the role it hires for (when the spec names it in other words) and the company it is for. */
+  const roleName = row?.roleTitle && row.roleTitle.trim().toLowerCase() !== plainText(row.name).trim().toLowerCase() ? plainText(row.roleTitle) : "";
   const meta = (
     <span className="ov3-meta">
+      {roleName && <span className="ov3-meta-i" title="The role this campaign is hiring for"><Briefcase size={13} aria-hidden="true" />{roleName}</span>}
       {client ? (
         <span className="ov2-client">
           {canClient
@@ -767,6 +771,7 @@ export function CampaignOverview({ ctx }: { ctx: Ctx }) {
     <div className="cw is-wide ov2">
       <CampaignHeader ctx={ctx} meta={meta}>
         {LIVE && <button type="button" className="cw-btn" onClick={() => setSpecOpen(true)}><ListChecks size={14} /> Role spec</button>}
+        {LIVE && mayChange && <SheetButton campaignId={resolveCampaignId(ctx.campaignId)} name={name} />}
         {/* The one control for whether the campaign is on. */}
         {mayClose && (m.phase === "closed"
           ? <button type="button" className="cw-btn" onClick={() => setReopening(true)}>Reopen campaign</button>

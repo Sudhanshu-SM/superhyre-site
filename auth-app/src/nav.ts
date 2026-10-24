@@ -1,5 +1,5 @@
 import {
-  Buildings, UsersThree, ChartLineUp, ClipboardText, Gear, House,
+  MagnifyingGlass, UsersThree, ChartLineUp, ClipboardText, Gear, House,
   Folders, FunnelSimple, PaperPlaneTilt, Robot, SquaresFour, Star, UsersFour,
 } from "@phosphor-icons/react";
 import type { Icon } from "@phosphor-icons/react";
@@ -38,6 +38,7 @@ export type RouteId =
   | "analytics-pipeline"
   | "analytics-campaigns"
   | "campaign-overview"
+  | "campaign-sourced"
   | "campaign-candidates"
   | "campaign-forms"
   | "campaign-calls"
@@ -138,6 +139,11 @@ export const ROUTES: Record<RouteId, Route> = {
     backing: "campaigns, org_candidates",
     blurb: "This campaign at a glance: the roles it is filling, who is in the pipeline and what the agent is working on.",
   },
+  "campaign-sourced": {
+    id: "campaign-sourced", path: "/campaign/sourced", title: "Sourced",
+    backing: "matches",
+    blurb: "The people found for this campaign, ranked, to review: shortlist the ones worth contacting.",
+  },
   "campaign-candidates": {
     id: "campaign-candidates", path: "/campaign/pipeline", title: "Pipeline",
     backing: "org_candidates",
@@ -204,9 +210,9 @@ export const NAV: NavSection[] = [
       { kind: "leaf", id: "agent", label: "Agent", Icon: Robot },
       { kind: "leaf", id: "campaigns", label: "Campaigns", Icon: Folders },
       { kind: "leaf", id: "contacts", label: "Candidates", Icon: UsersThree },
-      /* The work lists together: campaigns, the people on them, the emails, chats and calls made to them. */
+      /* The work lists together: campaigns, the people on them, the emails, chats and calls made to them.
+         (Clients is in the profile menu, beside Sign out: it is looked up, not worked in.) */
       { kind: "leaf", id: "calls", label: OUTREACH_LABEL, Icon: PaperPlaneTilt },
-      { kind: "leaf", id: "clients", label: "Clients", Icon: Buildings },
       {
         kind: "group", id: "analytics", label: "Analytics", Icon: ChartLineUp,
         children: [
@@ -268,6 +274,7 @@ export const CAMPAIGN_NAV: NavLeaf[] = [
   /* The campaign's name row opens its Overview, which also holds where people
      come from and recent searches; the pages below are the working views. */
   { kind: "leaf", id: "campaign-overview", label: "Overview", Icon: SquaresFour },
+  { kind: "leaf", id: "campaign-sourced", label: "Sourced", Icon: MagnifyingGlass },
   { kind: "leaf", id: "campaign-candidates", label: "Pipeline", Icon: FunnelSimple },
   { kind: "leaf", id: "campaign-forms", label: "Forms & responses", Icon: ClipboardText },
   { kind: "leaf", id: "campaign-calls", label: OUTREACH_LABEL, Icon: PaperPlaneTilt },

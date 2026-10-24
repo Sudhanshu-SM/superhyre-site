@@ -144,8 +144,11 @@
   transition: background-color var(--t), border-color var(--t), color var(--t);
 }
 
-.cb-v:hover { background: var(--page-2); }
-.cb-v:active { transform: scale(0.95); transition: transform 60ms var(--ease-out); }
+.cb-v:hover:not(:disabled) { background: var(--page-2); }
+.cb-v:active:not(:disabled) { transform: scale(0.95); transition: transform 60ms var(--ease-out); }
+/* A decision already made reads as a state, not a control: the one that stands for it keeps its colour, the others dim. */
+.cb-v:disabled { cursor: default; }
+.cb-v:disabled:not(.is-on) { opacity: 0.4; }
 .cb-v:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .cb-v svg { flex: none; }
 .cb-v.is-on svg { animation: cb-pop 260ms var(--ease-out); }
@@ -717,6 +720,9 @@
 
 .ps-job-org { margin: 0; font: 600 14.5px/1.35 var(--ui); letter-spacing: -0.011em; color: var(--ink); }
 .ps-job-role { margin: 0; font: 400 13.5px/1.4 var(--ui); color: var(--ink); }
+.ps-career { margin: 0 0 12px; font: 400 13px/1.45 var(--ui); color: var(--ink-2); display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.ps-career-b { all: unset; cursor: pointer; font: 500 13px/1.45 var(--ui); color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.ps-career-b:focus-visible { outline: 2px solid var(--focus, currentColor); outline-offset: 2px; border-radius: 3px; }
 .ps-job-d { margin: 0; font: 400 13px/1.45 var(--ui); color: var(--ink-2); }
 
 .ps-roles { display: grid; gap: 18px; margin: 12px 0 0; padding: 0; list-style: none; }
@@ -935,3 +941,15 @@
 .ps-li svg:last-child { color: var(--ink-3); }
 .ps-li:hover { background: var(--sub); }
 .ps-li:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* ── the ranked list as a page (the campaign's Sourced section): no dialog, no scrim; the profile docks beside it ── */
+.rm.rm--inline { position: static; inset: auto; z-index: auto; display: block; padding: 0; }
+.rm--inline .rm-scrim { display: none; }
+.rm--inline .rm-panel { width: 100%; height: calc(100dvh - 176px); min-height: 440px; animation: none; box-shadow: none; translate: none !important; border-radius: 14px; }
+.rm--inline .rm-foot { display: none; }
+
+/* the sheet dialog: what it does, said before it does it */
+.sd-does { margin: 0 24px 10px; padding-left: 18px; display: grid; gap: 4px; color: var(--ink); }
+.sd-needs { margin: 0 24px 14px; color: var(--ink-2); }
+.sd-p { margin: 0 24px 12px; }
+.sd-p p { margin: 0 0 6px; }

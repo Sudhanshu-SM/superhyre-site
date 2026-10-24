@@ -227,15 +227,25 @@
 
 /* quick add: on the tile's own padding, the `.cl-form` focus ring */
 .hm-add {
-  flex: none; display: flex; align-items: center; gap: 10px; height: 36px; margin: 2px var(--hm-fx) 14px; padding: 0 8px 0 calc(var(--hm-ix) - 1px);
+  flex: none; display: flex; flex-wrap: wrap; align-items: flex-start; gap: 4px 10px; min-height: 36px; margin: 2px var(--hm-fx) 14px; padding: 9px 8px 9px calc(var(--hm-ix) - 1px);
   border: 1px dashed transparent; border-radius: 12px; color: #776d66;
   transition: border-color 160ms, background 160ms, box-shadow 160ms, color 160ms;
 }
 .hm-add:hover { border-color: #e3d9d0; }
 .hm-add:focus-within { border-style: solid; border-color: #f0a46e; background: #fff; box-shadow: 0 0 0 4px #fdeae0; color: var(--accent-text); }
-.hm-add input { flex: 1; min-width: 0; border: 0; background: none; outline: none; color: var(--ink); }
-.hm-add > input[aria-label="Add a task"] { min-width: 110px; }
-.hm-add input::placeholder { color: #776d66; }
+.hm-add > svg { margin-top: 3px; }
+.hm-add input, .hm-add textarea { flex: 1; min-width: 0; border: 0; background: none; outline: none; color: var(--ink); }
+.hm-add textarea { resize: none; min-height: 2.9em; max-height: 140px; padding: 0; font: inherit; line-height: 1.45; overflow-y: auto; }
+.hm-add > textarea[aria-label="Add a task"] { min-width: 110px; }
+.hm-add input::placeholder, .hm-add textarea::placeholder { color: #776d66; }
+.hm-add-hint { flex: 1 0 100%; margin: 0 0 0 24px; font: 500 12.5px/1.4 var(--ui); color: var(--accent-text); }
+.hm-follow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: -6px var(--hm-fx) 14px; padding: 8px 12px; border: 1px solid #ebe5df; border-radius: 10px; background: #fffdfb; color: var(--ink-2); font: 400 13px/1.4 var(--ui); }
+.hm-follow-t { flex: 1 1 220px; min-width: 0; color: var(--ink); }
+.hm-follow-f { display: inline-flex; align-items: center; gap: 6px; }
+.hm-follow-f > span { color: var(--ink-2); }
+.hm-follow input[type="date"], .hm-follow select { font: inherit; font-size: 12.5px; color: var(--ink-2); border: 1px solid var(--line, #e7e0d8); border-radius: 8px; padding: 3px 6px; background: transparent; max-width: 150px; }
+.hm-follow-x { all: unset; cursor: pointer; font: 500 12.5px/1.4 var(--ui); color: var(--ink-2); text-decoration: underline; text-underline-offset: 3px; }
+.hm-follow-x:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; border-radius: 3px; }
 .hm-add .hm-add-go {
   padding: 0; background: none; cursor: pointer; font: inherit; display: grid; place-items: center; width: 24px; height: 24px; border: 1px solid #ebe5df; border-radius: 7px; color: #b5aba3; opacity: 0; transform: scale(0.9);
   transition: opacity 160ms, transform 200ms var(--ease-out), color 160ms, border-color 160ms;
@@ -532,7 +542,7 @@
 @media (min-width: 1241px) and (max-height: 860px) {
   .hm-bento { grid-template-rows: minmax(0, 1fr) clamp(188px, 24vh, 228px); }
   .hm-list li { min-height: 44px; padding-top: 4px; padding-bottom: 4px; }
-  .hm-add { height: 34px; margin: 0 var(--hm-fx) 12px; }
+  .hm-add { margin: 0 var(--hm-fx) 12px; padding-block: 7px; }
   .hm-today .hm-th, .hm-ins .hm-th { padding-top: 18px; padding-bottom: 8px; }
   .hm-next { gap: 6px; padding-top: 14px; padding-bottom: 14px; }
   .hm-feed-h { margin-top: 12px; }
@@ -832,6 +842,7 @@ a.hm-tl-t { text-decoration: none; }
 .hm-tl-camp { display: inline-flex; align-items: center; gap: 7px; min-width: 0; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hm-tl-camp i { flex: none; width: 8px; height: 8px; border-radius: 2.5px; background: var(--hue); }
 .hm-tl-st { justify-self: start; display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 5px; border: 1px solid transparent; white-space: nowrap; }
+.hm-tl-n { margin-left: 5px; font-variant-numeric: tabular-nums; opacity: 0.75; }
 .hm-tl-st.is-todo { border-color: #ebe4dd; color: var(--ink-2); }
 .hm-tl-st.is-doing { background: #eef5fd; border-color: #d5e6f8; color: #2f6db3; }
 .hm-tl-st.is-wait { background: #fdf5e8; border-color: #f3e0bd; color: #8a5a10; }
@@ -865,7 +876,7 @@ a.hm-tl-t { text-decoration: none; }
 .hm-prog small b, .hm-next-done, .hm-done-h, .hm-cl-t strong, .hm-cl-more a, .hm-feed-more, .hm-feed-h, .hm-fact-k, .hm-tl-cols, .hm-tl-gt { font: var(--type-label); letter-spacing: var(--track-label); text-transform: none; }
 .hm-feed-h { color: var(--ink-2); }
 .hm-ring b { font: var(--type-caption); font-weight: 600; font-variant-numeric: tabular-nums; }
-.hm-clear p, .hm-add input, .hm-feat-s, .hm-fact-x { font: var(--type-body); letter-spacing: var(--track-body); }
+.hm-clear p, .hm-add input, .hm-add textarea, .hm-feat-s, .hm-fact-x { font: var(--type-body); letter-spacing: var(--track-body); }
 .hm-story-t strong, .hm-tl-t { font: var(--type-body-strong); letter-spacing: var(--track-body-strong); }
 .hm-quad-v strong { font: var(--type-num-lg); letter-spacing: var(--track-num-lg); font-variant-numeric: tabular-nums; }
 .hm-up { font: var(--type-caption); font-weight: 500; letter-spacing: var(--track-caption); }
@@ -884,9 +895,7 @@ a.hm-tl-t { text-decoration: none; }
 @media (min-width: 1241px) and (max-height: 760px) { .hm-bento { grid-template-rows: minmax(0, 1fr) 206px; } }
 
 /* who a typed task is for */
-.hm-add-for { font: inherit; font-family: var(--ui); font-size: 12px; color: var(--ink-2); border: 1px solid var(--line, #e7e0d8); border-radius: 8px; padding: 3px 6px; background: transparent; max-width: 140px; }
 .hm-tl-for { color: var(--ink-3, var(--ink-2)); font-size: 12px; }
-.hm-add input.hm-add-date { flex: none; width: auto; max-width: 140px; padding: 3px 6px; border: 1px solid var(--line, #e7e0d8); border-radius: 8px; font: inherit; font-family: var(--ui); font-size: 12px; color: var(--ink-2); }
 /* A task's words and day, changed in place under its row. */
 .hm-tl-edit { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; padding: 6px 0 4px 30px; }
 .hm-tl-edit input { min-width: 0; padding: 5px 8px; border: 1px solid var(--line, #e7e0d8); border-radius: 8px; background: #fff; font: var(--type-body); letter-spacing: var(--track-body); color: var(--ink); }
@@ -935,9 +944,7 @@ a.hm-tl-t { text-decoration: none; }
 /* A phone: who the typed task is for and when it is due wrap under the field, instead of pushing the card (and
    the page) wider. The longer a teammate's name, the wider the select was. */
 @container (max-width: 520px) {
-  .hm-add { flex-wrap: wrap; height: auto; min-height: 36px; padding-block: 6px; row-gap: 6px; }
-  .hm-add > input[aria-label="Add a task"] { flex: 1 1 8rem; }
-  .hm-add .hm-add-for, .hm-add input.hm-add-date { flex: 1 1 7rem; min-width: 0; max-width: 100%; }
+  .hm-add > textarea[aria-label="Add a task"] { flex: 1 1 8rem; }
   .hm-add .hm-add-go { display: none; }
 }
 
@@ -1034,3 +1041,13 @@ a.hm-tl-t { text-decoration: none; }
 /* Home's lists scroll without a bar: the bar's pale thumb was the loudest thing in a card. */
 .hm-coming-b::-webkit-scrollbar, .hm-today-b::-webkit-scrollbar, .hm-cl::-webkit-scrollbar,
 .hm-done .hm-list::-webkit-scrollbar, .hm-ticker.is-static::-webkit-scrollbar { display: none; }
+
+/* the transition recommendation: one quiet line under the greeting, never a card among the cards */
+.hm-nudge { flex: none; display: flex; align-items: center; gap: 8px 16px; margin: 0 0 12px; padding: 10px 14px; border: 1px solid #ebe5df; border-radius: 12px; background: #fffdfb; color: var(--ink-2); font: 400 13.5px/1.45 var(--ui); }
+.hm-nudge-t { flex: 1 1 auto; min-width: 0; margin: 0; }
+.hm-nudge-t b { color: var(--ink); font-weight: 600; }
+.hm-nudge-go { flex: none; cursor: pointer; border: 1px solid var(--accent-line, #f0a46e); border-radius: 9px; background: transparent; color: var(--accent-text, var(--ink)); font: 500 13px/1 var(--ui); padding: 8px 12px; }
+.hm-nudge-go:hover { background: #fdeae0; }
+.hm-nudge-x { flex: none; display: grid; place-items: center; width: 26px; height: 26px; border: 0; border-radius: 7px; background: transparent; color: var(--ink-2); cursor: pointer; }
+.hm-nudge-x:hover { background: #f3eee9; }
+@media (max-width: 760px) { .hm-nudge { flex-wrap: wrap; } }

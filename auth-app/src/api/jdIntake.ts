@@ -7,7 +7,9 @@ import { api } from "./client";
  */
 
 export type SheetRole = { title: string | null; jd: string; hints: Record<string, string>; row: number };
-export type SheetRoles = { roles: SheetRole[]; skipped: number };
+/** A row of the sheet that did not become a role: its place (the header being row 1) and why. */
+export type LeftOut = { row: number; why: "too-little" | "repeat" | "over-limit" };
+export type SheetRoles = { roles: SheetRole[]; skipped: number; duplicates?: number; left?: LeftOut[] };
 
 const READ_MS = 90_000;
 

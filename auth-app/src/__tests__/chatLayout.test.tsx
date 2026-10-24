@@ -234,7 +234,7 @@ describe("the Agent page's layout does not reach other pages", () => {
     const agent = readFileSync(resolve(__dirname, "../Agent.tsx"), "utf8");
     expect(home).toMatch(/className="orc is-solo"/);
     expect(home).not.toMatch(/is-agent|orcClass/);
-    expect(agent).toMatch(/className=\{orcClass\(started\)\}/);
+    expect(agent).toMatch(/orcClass\(started\)/);
     expect(orcClass(false)).toContain("is-agent");
     // Home is an `.orc` too: no rule here may match `.orc` or `.orc.is-solo` on its own
     expect(selectors(css).filter((sel) => /^\.orc(\.is-solo)?(\s|$|>|:)/.test(sel) && !/is-agent/.test(sel))).toEqual([]);

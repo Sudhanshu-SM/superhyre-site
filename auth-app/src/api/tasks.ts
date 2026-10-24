@@ -61,6 +61,8 @@ export type DayTask = {
   /** Where the task is done, as a console hash ("#/campaign/shortlisted?campaign=…"); tasks
       the agent's rules keep (review applicants, log replies, reconnect Gmail) carry one. */
   open?: string | null;
+  /** How far along a task that is worked through a piece at a time is ("3 of 72 reviewed"), kept true by the server. */
+  progress?: { done: number; total: number; what: string } | null;
   /** Typed by a person, so it can be deleted; tasks the agent's rules keep close themselves. */
   removable?: boolean;
   /** Who it's for, when that's someone named (Home shows "for <name>" unless it's you). */
@@ -75,6 +77,13 @@ export type DayTask = {
 export function taskLink(action: ApiTask["action"]): string | null {
   if (!action || action.kind !== "open" || typeof action.path !== "string") return null;
   return action.path.startsWith("/") ? `#${action.path}` : null;
+}
+
+/** The progress a task's action carries, when it is well formed. */
+export function taskProgress(action: ApiTask["action"]): DayTask["progress"] {
+  const p = action && typeof action.progress === "object" ? (action.progress as Record<string, unknown> | null) : null;
+  if (!p || typeof p.done !== "number" || typeof p.total !== "number" || typeof p.what !== "string") return null;
+  return p.total > 0 ? { done: Math.min(p.done, p.total), total: p.total, what: p.what } : null;
 }
 
 const dayStart = (t: number) => { const d = new Date(t); d.setHours(0, 0, 0, 0); return d.getTime(); };
@@ -96,6 +105,7 @@ export function dayTask(t: ApiTask, now = Date.now()): DayTask {
     dueAt: t.dueAt,
     resolvedAt: t.resolvedAt,
     open: taskLink(t.action),
+    progress: taskProgress(t.action),
     removable: t.kind === "manual",
     assigneeId: t.assigneeId,
     assigneeName: t.assigneeName ?? null,
