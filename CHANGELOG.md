@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.4.1 (2026-10-25)
+
+### Added
+- **Delete a chat** from its menu in the chat list: red, apart from the other rows, and it asks once more ("Keep it" is where focus starts). Deleting the chat that is open starts a fresh one. The question says that chats nobody has written in for 60 days are deleted on their own, and that a pinned chat is kept.
+
+### Changed
+- **The chat list keeps the page's white ground** and carries the brand orange in small things: its headings (Last 7 days, Pinned, Recents), the icon of the row you point at, and a light peach under a hovered or open row.
+- **Job description and Filters are no longer on every composer.** In a campaign's chat they are not shown (they are the campaign's set-up, in the header's "What the agent knows" and on each sourcing card). In a chat about no campaign the job description shows from the start and Filters once there is a brief (words, a description, or filters already set). The docked menu follows the same rule and holds only "Add in bulk" in a campaign's chat.
+
+### Fixed
+- **The New chat, Search and Campaigns rows ran 15px past the right edge of the chat list**: the open search field's own width stretched their column. They now hold to the list's width, open or closed.
+- **The chat list floating open (list hidden, pointer on its button) was painted under the message box**, which covered the first letters of its rows on a narrow window. It now sits above the conversation, and under menus and dialogs.
+- **The header on the landing cut the top off the watermark behind the heading** with an opaque band; it only gets a ground once there is a conversation. With the list hidden, the header's chip no longer runs under the list's button on a narrow window.
+
 ## 1.4.0 (2026-10-25)
 
 ### Added

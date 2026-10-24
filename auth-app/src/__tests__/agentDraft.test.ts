@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { keepsDraft, slotsFor } from "../agentDraft";
+import { composerChips, keepsDraft, slotsFor } from "../agentDraft";
 
 describe("a draft belongs to one conversation", () => {
   it("stays on the first resume, on the first message, and in the same chat", () => {
@@ -84,5 +84,30 @@ describe("the two chips have one anatomy", () => {
     expect(on).toMatch(/font-weight: 500/);
     // the circle does not change when selected
     expect(css).toMatch(/\.orc-gslot\.orc-ctx\.is-on \.orc-ctx-ico,[\s\S]*?background: var\(--sub\)/);
+  });
+});
+
+describe("which composer chips show", () => {
+  const base = { live: true, inCampaign: false, hasJd: false, filters: 0, saying: false };
+
+  it("a new chat about no campaign offers the job description, not yet the filters", () => {
+    expect(composerChips(base)).toEqual({ jd: true, filters: false });
+  });
+
+  it("offers the filters once there is a brief to refine: words, a description, or filters already set", () => {
+    expect(composerChips({ ...base, saying: true })).toEqual({ jd: true, filters: true });
+    expect(composerChips({ ...base, hasJd: true })).toEqual({ jd: true, filters: true });
+    expect(composerChips({ ...base, filters: 2 })).toEqual({ jd: true, filters: true });
+  });
+
+  it("shows neither in a campaign's chat, whatever the campaign has set", () => {
+    for (const extra of [{}, { hasJd: true, filters: 3 }, { saying: true }]) {
+      expect(composerChips({ ...base, inCampaign: true, ...extra })).toEqual({ jd: false, filters: false });
+    }
+  });
+
+  it("keeps both in the prototype, which is never connected", () => {
+    expect(composerChips({ ...base, live: false })).toEqual({ jd: true, filters: true });
+    expect(composerChips({ ...base, live: false, inCampaign: true })).toEqual({ jd: true, filters: true });
   });
 });

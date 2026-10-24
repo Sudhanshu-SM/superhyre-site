@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { ChatRail } from "../ChatRail";
+import { ChatRail, DeleteAsk } from "../ChatRail";
 import { RailContext } from "../RailContext";
 import { ChatHeader } from "../ChatHeader";
 import type { RailSlot } from "../railConfig";
@@ -32,6 +32,7 @@ const render = (over: Partial<Parameters<typeof ChatRail>[0]> = {}) =>
       onRename={async () => {}}
       onMove={async () => {}}
       onArchive={async () => {}}
+      onDelete={async () => {}}
       {...over}
     />,
   );
@@ -252,5 +253,57 @@ describe("controls that are shown work", () => {
     expect(page).toContain("setReload((n) => n + 1);\n    }, 4000)");
     expect(page).toContain('toast("Couldn\'t start reading them. Try again.", "error")');
     expect(page).toContain("scoring={scoring || reading}");
+  });
+});
+
+describe("deleting a chat", () => {
+  const ask = (pinned: boolean) =>
+    renderToStaticMarkup(<DeleteAsk chat={chat("7", { title: "Backend shortlist" })} pinned={pinned} onKeep={noop} onDelete={noop} />);
+
+  it("asks once more, names the chat, and says what happens to it", () => {
+    const html = ask(false);
+    expect(html).toContain("Delete this chat?");
+    expect(html).toContain("Backend shortlist");
+    expect(html).toContain("removed for good");
+    expect(html).toContain("60 days");
+    expect(html).toContain("Keep it");
+  });
+
+  it("says a pinned chat is kept by the 60-day clean-up, an unpinned one how to be", () => {
+    expect(ask(true)).toContain("It is pinned");
+    expect(ask(true)).not.toContain("60 days");
+    expect(ask(false)).toContain("pin one to keep it");
+  });
+
+  it("has the menu row and the question styled, in the warning colour, apart from the other rows", () => {
+    for (const rule of [".hx-mi--danger", ".hx-ask-del", ".hx-ask-keep"]) expect(css).toContain(rule);
+    expect(css).toMatch(/\.hx-ask-del \{[^}]*c-rose-fill/);
+  });
+
+  it("keeps the list's ground the page's own and puts the brand colour on its headings", () => {
+    expect(css).not.toMatch(/\.hx-panel \{[^}]*linear-gradient/);
+    expect(css).toMatch(/\.hx-sec-h \{[^}]*color: var\(--accent-text/);
+    expect(css).toMatch(/\.hx-wk-t \{[^}]*color: var\(--accent-text/);
+  });
+
+  it("lays the list above the conversation's own layers (the composer's go to 20) and under menus and dialogs (60)", () => {
+    const z = (sel: string) => Number(new RegExp(`${sel.replace(/[.]/g, "\\.")} \\{[^}]*z-index: (\\d+)`).exec(css)?.[1]);
+    expect(z(".hx-rail")).toBeGreaterThan(20);
+    expect(z(".hx-rail")).toBeLessThan(60);
+    expect(z(".hx-toggle")).toBeGreaterThan(z(".hx-rail"));
+  });
+
+  it("gives the header a ground only once there is a conversation, so it does not cut the landing's watermark", () => {
+    expect(css).toMatch(/\.orc\.orc--lx:not\(\.is-chat\) \.hx-head \{ background: transparent; \}/);
+  });
+
+  it("keeps the header's chip clear of the list's button when the list is hidden", () => {
+    expect(css).toMatch(/\.is-rail-hidden \.hx-head \{ padding-right: 68px; \}/);
+  });
+
+  it("holds the New chat, Search and Campaigns rows to the column's width, whatever the search field's own size", () => {
+    expect(css).toMatch(/\.hx-navs \{[^}]*grid-template-columns: minmax\(0, 1fr\)/);
+    expect(css).toMatch(/\.hx-nav \{[^}]*min-width: 0/);
+    expect(css).toMatch(/\.hx-nav--search\.is-open input \{[^}]*width: 100%/);
   });
 });

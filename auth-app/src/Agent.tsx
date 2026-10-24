@@ -1,4 +1,4 @@
-import { ArrowUp, Check, FileText, FunnelSimple, Plus, SlidersHorizontal } from "@phosphor-icons/react";
+import { ArrowUp, Check, FileText, FunnelSimple, ListPlus, Plus, SlidersHorizontal } from "@phosphor-icons/react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Campaigns } from "./Campaigns";
 import { Loader } from "./components/Loader";
@@ -42,7 +42,7 @@ import {
 import type { Attachment, PasteOutcome } from "./attachments";
 import { diffFilters, filtersLine, summariseFilters, valuesFromSetup, valuesFromSpec, withSaved } from "./liveFilters";
 import { TRANSCRIPT_TAIL, orcClass, tailPadding } from "./agentLayout";
-import { keepsDraft, slotsFor } from "./agentDraft";
+import { composerChips, keepsDraft, slotsFor } from "./agentDraft";
 import { AttachChips } from "./AttachChips";
 import { BriefSignals } from "./BriefSignals";
 import { refreshCampaign, refreshCampaignList, useCampaignRow, useCampaignRows } from "./campaignStore";
@@ -82,6 +82,7 @@ import { campaignIds, campaignOfCandidate, candidateById, clearSets, getSet, put
 import { LiveMomentProvider } from "./liveViews/LiveMoment";
 import { PassReasonDialog } from "./PassReason";
 import { useRailConfig } from "./useRailConfig";
+import { loadPins } from "./chatPins";
 import { RailDialogs } from "./RailDialogs";
 import "./agentHero.css";
 import "./chat.css";
@@ -1551,6 +1552,20 @@ export function Agent({
     if (c) onFocusCampaign?.(c.id, c.name);
     window.setTimeout(() => areaRef.current?.focus(), 80);
   };
+  /* Deleting a chat is for good (the row asked twice): the server removes it and its pin, the list is read again, and if it
+     was the open one the page starts a fresh chat about the same campaign. */
+  const deleteChat = async (id: string) => {
+    try {
+      await api("DELETE", `/v1/conversations/${id}`);
+    } catch (err) {
+      toast(err instanceof Error && err.message ? err.message : "Couldn't delete that chat. Try again.", "error");
+      throw err;
+    }
+    void loadPins();
+    setChatsAsk((n) => n + 1);
+    if (id === live.conversationId) startIn(chatCampaign);
+    toast("Chat deleted", "done");
+  };
 
 
 
@@ -1626,6 +1641,7 @@ export function Agent({
             }
           }}
           onArchive={archiveChat}
+          onDelete={deleteChat}
         />
       )}
       {/* The two dialogs the owner and collaborators rows in the list open (the campaign's details, and who is on it). */}
@@ -2446,6 +2462,11 @@ function Composer({
   const hasAttached = items.length > 0 || !!filterChip;
   /* What the brief says so far, from the words and from the files, shown instead of the ideas while there is any. */
   const sayingSomething = draft.trim().length > 0 || items.some((a) => a.status === "ready");
+  /* Which of the job description and filters chips this chat shows: see `composerChips`. */
+  const forNext = !LIVE || !campaignName;
+  const chips = composerChips({ live: LIVE, inCampaign: !!campaignName, hasJd: !!jd, filters: filterCount, saying: sayingSomething });
+  const showJd = chips.jd;
+  const showFilters = chips.filters;
 
   return (
     <>
@@ -2574,7 +2595,7 @@ function Composer({
               icons with the count as a badge. */}
           {(LIVE || context.length > 0) && (
             <div className="orc-slots">
-              <button
+              {showJd && <button
                 type="button"
                 className={`orc-gslot orc-ctx${jd ? " is-on" : ""}`}
                 data-tour="jd-slot"
@@ -2585,10 +2606,10 @@ function Composer({
                   {jd ? <Check size={12} weight="bold" /> : <FileText size={14} weight="bold" />}
                 </span>
                 <span className="orc-chip-l orc-chip-name">{jd ? (LIVE ? jd.name : "JD attached") : "Job description"}</span>
-              </button>
-              <button
+              </button>}
+              {showFilters && <button
                 type="button"
-                className={`orc-gslot orc-ctx${filterCount ? " is-on" : ""}`}
+                className={`orc-gslot orc-ctx${filterCount ? " is-on" : ""}${LIVE && !jd && !filterCount ? " is-new" : ""}`}
                 data-tour="filters-slot"
                 title={filterCount ? `${filterCount} filters set` : "Set filters"}
                 onClick={() => onOpenFilters(draft)}
@@ -2596,17 +2617,19 @@ function Composer({
                 <span className="orc-ctx-ico" aria-hidden="true">{LIVE ? <SlidersHorizontal size={14} weight="bold" /> : <FunnelSimple size={14} weight="bold" />}</span>
                 <span className="orc-chip-l">{filterCount ? "Filters" : LIVE ? "Filters" : "Set filters"}</span>
                 {filterCount > 0 && <b className="orc-ctx-n" key={filterCount}>{filterCount}</b>}
-              </button>
+              </button>}
               {LIVE && bulk && onBulk && <BulkChip choices={bulk} onPick={onBulk} />}
             </div>
           )}
 
           {/* Docked, the modes and the two context buttons fold into one
               control, so the bar reads as field → tune → send. */}
-          {started && (
+          {started && (showJd || (LIVE && bulk && bulk.length > 0 && onBulk)) && (
             <TuneMenu
               mode={mode}
               onMode={onMode}
+              withBrief={showJd}
+              withFilters={forNext}
               jd={jd}
               filterCount={filterCount}
               onOpenJd={onOpenJd}
@@ -2743,10 +2766,13 @@ function Composer({
 /* ── the docked bar's one control ────────────────────────────────────────── */
 
 function TuneMenu({
-  mode, onMode, jd, filterCount, onOpenJd, onOpenFilters, bulk, onBulk,
+  mode, onMode, withBrief, withFilters, jd, filterCount, onOpenJd, onOpenFilters, bulk, onBulk,
 }: {
   mode: ModeId;
   onMode: (m: ModeId) => void;
+  /** Whether the job description and the filters are offered (a chat about no campaign); else it holds only "Add in bulk". */
+  withBrief: boolean;
+  withFilters: boolean;
   jd: Jd | null;
   filterCount: number;
   onOpenJd: () => void;
@@ -2756,7 +2782,7 @@ function TuneMenu({
 }) {
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
-  const set = (jd ? 1 : 0) + filterCount;
+  const set = (withBrief && jd ? 1 : 0) + (withFilters ? filterCount : 0);
 
   useEffect(() => {
     if (!open) return;
@@ -2776,11 +2802,11 @@ function TuneMenu({
         className={`orc-tune${open ? " is-open" : ""}${set ? " is-set" : ""}`}
         aria-haspopup="menu"
         aria-expanded={open}
-        title={LIVE ? "Job description and filters" : "Mode, job description and filters"}
+        title={!withBrief ? "Add in bulk" : LIVE ? "Job description and filters" : "Mode, job description and filters"}
         onClick={() => setOpen((o) => !o)}
       >
         {!LIVE && Current && <Current size={14} weight="bold" aria-hidden="true" />}
-        <SlidersHorizontal size={14} weight="bold" aria-hidden="true" />
+        {withBrief ? <SlidersHorizontal size={14} weight="bold" aria-hidden="true" /> : <ListPlus size={15} weight="bold" aria-hidden="true" />}
         {set > 0 && <b className="orc-tune-n" key={set}>{set}</b>}
       </button>
       {open && (
@@ -2794,15 +2820,15 @@ function TuneMenu({
               ))}
             </div>
           )}
-          <button type="button" role="menuitem" className="orc-tune-item" onClick={() => { setOpen(false); onOpenJd(); }}>
+          {withBrief && <button type="button" role="menuitem" className="orc-tune-item" onClick={() => { setOpen(false); onOpenJd(); }}>
             <span className="orc-ctx-ico" aria-hidden="true">{jd ? <Check size={12} weight="bold" /> : <FileText size={14} weight="bold" />}</span>
             <span className="orc-tune-l"><b>Job description</b><small>{jd ? jd.name : "Rank against the role as written"}</small></span>
-          </button>
-          <button type="button" role="menuitem" className="orc-tune-item" onClick={() => { setOpen(false); onOpenFilters(); }}>
+          </button>}
+          {withFilters && <button type="button" role="menuitem" className="orc-tune-item" onClick={() => { setOpen(false); onOpenFilters(); }}>
             <span className="orc-ctx-ico" aria-hidden="true"><FunnelSimple size={14} weight="bold" /></span>
             <span className="orc-tune-l"><b>Filters</b><small>{filterCount ? `${filterCount} set` : "Location, seniority, company…"}</small></span>
             {filterCount > 0 && <b className="orc-ctx-n">{filterCount}</b>}
-          </button>
+          </button>}
           {bulk && bulk.length > 0 && onBulk && <BulkList choices={bulk} onPick={(c) => { setOpen(false); onBulk(c); }} />}
         </div>
       )}

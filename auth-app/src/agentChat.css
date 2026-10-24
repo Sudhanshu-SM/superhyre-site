@@ -25,6 +25,11 @@
 /* The header is the first row of the conversation, floating over the top of the stream (which leaves room for it). */
 .orc.orc--lx .hx-head { grid-column: 1; grid-row: 1; align-self: start; position: sticky; top: 0; background: var(--orc-ground, var(--page)); }
 .orc.orc--lx .orc-stream { grid-column: 1; padding-top: calc(var(--page-top, 24px) + 40px); }
+/* On the landing nothing scrolls under the header, and an opaque band there cut the top off the watermark behind the heading
+   (a flat edge across the mark): it is only given a ground once there is a conversation to keep out from under it. */
+.orc.orc--lx:not(.is-chat) .hx-head { background: transparent; }
+/* With the list hidden its button floats in the top right corner, where the chip would otherwise run under it on a narrow window. */
+.orc.orc--lx.is-rail-hidden .hx-head { padding-right: 68px; }
 /* One column: the second track the page used to keep beside the conversation is not needed without a side panel. */
 .orc.orc--lx .orc-main { grid-template-columns: minmax(0, 1fr); }
 /* The campaigns list stands in for the conversation while it is open; the conversation is kept, draft and all. */
@@ -36,13 +41,16 @@
    on either theme. */
 
 .hx-rail {
-  --hx-wash: color-mix(in srgb, var(--ink) 6%, transparent);
-  --hx-wash-2: color-mix(in srgb, var(--ink) 10%, transparent);
+  --hx-wash: color-mix(in srgb, var(--accent) 6%, transparent);
+  --hx-wash-2: color-mix(in srgb, var(--accent) 11%, transparent);
   position: sticky;
   top: 0;
   height: 100dvh;
   min-width: 0;
   overflow: clip;
+  /* A sticky box is a layer of its own, and the composer's layers (up to 20) were painted over the list when it floated
+     open over the page. Above the conversation, below menus and dialogs (--z-pop 60). */
+  z-index: 30;
 }
 .hx-panel {
   width: var(--hx-w);
@@ -77,7 +85,7 @@
   position: fixed;
   top: var(--page-top, 16px);
   right: 14px;
-  z-index: 24;
+  z-index: 31;
   display: grid;
   place-items: center;
   width: 38px;
@@ -120,7 +128,7 @@
    title row is as tall as the toggle beside it so the two sit on one line. */
 .hx-top { flex: none; display: flex; flex-direction: column; gap: 10px; margin: 0 -2px 8px; padding: 0 2px 14px; border-bottom: 1px solid var(--hairline, rgba(127, 127, 127, 0.18)); }
 .hx-wk { padding: 0 11px; }
-.hx-wk-t { display: flex; align-items: center; min-height: 38px; margin: 0 0 4px; padding-right: 48px; color: var(--ink-2); font: 500 13px/1 var(--ui); }
+.hx-wk-t { display: flex; align-items: center; min-height: 38px; margin: 0 0 4px; padding-right: 48px; color: var(--accent-text, var(--ink-2)); font: 500 13px/1 var(--ui); }
 .hx-wk-grid { display: grid; grid-template-columns: repeat(3, auto); justify-content: space-between; gap: 8px; margin: 0; }
 .hx-wk-cell { display: flex; flex-direction: column-reverse; gap: 3px; min-width: 0; margin: 0; }
 .hx-wk-cell > * { margin: 0; }
@@ -133,9 +141,11 @@
 .hx-empty { margin: 4px 11px 8px; color: var(--ink-2); font: 400 14.5px/1.5 var(--ui); }
 
 /* New chat, Search, Campaigns */
-.hx-navs { display: grid; gap: 2px; margin-bottom: 8px; }
+.hx-navs { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; margin-bottom: 8px; }
 .hx-nav {
   display: flex;
+  box-sizing: border-box;
+  min-width: 0;
   align-items: center;
   gap: 13px;
   height: 42px;
@@ -153,7 +163,7 @@
 .hx-nav:active { transform: scale(0.985); }
 .hx-nav:focus-visible, .hx-row-t:focus-visible, .hx-sec-h:focus-visible, .hx-more:focus-visible, .hx-icon:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 .hx-nav > svg { flex: none; color: var(--ink-2); transition: transform 260ms var(--ease-out), color var(--t); }
-.hx-nav:hover > svg { color: var(--ink); }
+.hx-nav:hover > svg { color: var(--accent-text, var(--ink)); }
 .hx-nav--new:hover > svg { transform: rotate(90deg); }
 .hx-nav--search:hover > svg { transform: scale(1.12); }
 .hx-nav--campaigns:hover > svg { transform: translateY(-1px) scale(1.06); }
@@ -174,7 +184,7 @@
 /* Search turns into the field where it stands. */
 .hx-nav--search.is-open { background: var(--hx-wash); cursor: text; box-shadow: inset 0 0 0 1.5px var(--focus); animation: hx-field 200ms var(--ease-out); }
 @keyframes hx-field { from { box-shadow: inset 0 0 0 1.5px transparent; } }
-.hx-nav--search.is-open input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font: 400 16px/1 var(--ui); }
+.hx-nav--search.is-open input { flex: 1; width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font: 400 16px/1 var(--ui); }
 .hx-nav--search.is-open input::placeholder { color: var(--ink-2); }
 .hx-clear { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border: 0; border-radius: 7px; background: transparent; color: var(--ink-2); cursor: pointer; transition: background var(--t), color var(--t); }
 .hx-clear:hover { background: var(--hx-wash-2); color: var(--ink); }
@@ -189,8 +199,8 @@
 @keyframes hx-pulse { 50% { opacity: 0.45; } }
 
 .hx-sec { margin-top: 14px; }
-.hx-sec-h { display: inline-flex; align-items: center; gap: 7px; padding: 6px 11px; border: 0; border-radius: 8px; background: transparent; color: var(--ink-2); font: 500 14px/1 var(--ui); cursor: pointer; transition: color var(--t); }
-.hx-sec-h:hover { color: var(--ink); }
+.hx-sec-h { display: inline-flex; align-items: center; gap: 7px; padding: 6px 11px; border: 0; border-radius: 8px; background: transparent; color: var(--accent-text, var(--ink-2)); font: 500 14px/1 var(--ui); cursor: pointer; transition: color var(--t); }
+.hx-sec-h:hover { color: var(--accent-deep, var(--ink)); }
 .hx-sec-c { transition: transform 240ms var(--ease-out); }
 .hx-sec-h[aria-expanded="false"] .hx-sec-c { transform: rotate(-90deg); }
 .hx-fold { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 260ms var(--ease-out); }
@@ -304,6 +314,23 @@
 .hx-mi-check { color: var(--accent-text, var(--ink)); animation: hx-check 260ms var(--ease-out); }
 @keyframes hx-check { from { opacity: 0; transform: scale(0.4); } }
 .hx-mi--quiet { margin-top: 6px; color: var(--ink-2); }
+/* Delete: set apart by a rule above it and drawn in the warning colour. */
+.hx-mi--danger { margin-top: 4px; position: relative; color: var(--c-rose-text, var(--ink)); }
+.hx-mi--danger::before { content: ""; position: absolute; left: 11px; right: 11px; top: -3px; height: 1px; background: var(--hairline, rgba(127, 127, 127, 0.22)); }
+.hx-mi--danger > svg, .hx-mi--danger .hx-mi-k { color: var(--c-rose-text, var(--ink-2)); }
+.hx-mi--danger:hover:not(:disabled), .hx-mi--danger:focus-visible { background: var(--c-rose-tint, var(--hx-wash)); }
+/* The second question, in the menu's own place. */
+.hx-ask { display: grid; gap: 8px; width: 288px; max-width: calc(100vw - 32px); padding: 16px 16px 14px; animation: hx-sub 160ms var(--ease-out) both; }
+.hx-ask-h { margin: 0; color: var(--ink); font: 600 15.5px/1.25 var(--ui); }
+.hx-ask-p { margin: 0; color: var(--ink-2); font: 400 14px/1.45 var(--ui); overflow-wrap: anywhere; }
+.hx-ask-b { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+.hx-ask-keep, .hx-ask-del { height: 36px; padding: 0 16px; border-radius: 10px; font: 500 14.5px/1 var(--ui); cursor: pointer; transition: background 100ms var(--ease-out), transform 120ms var(--ease-out); }
+.hx-ask-keep { border: 1px solid var(--hairline, rgba(127, 127, 127, 0.3)); background: transparent; color: var(--ink); }
+.hx-ask-keep:hover { background: var(--hx-wash); }
+.hx-ask-del { border: 0; background: var(--c-rose-fill, #c64c60); color: #fff; }
+.hx-ask-del:hover { background: color-mix(in srgb, var(--c-rose-fill, #c64c60) 88%, #000); }
+.hx-ask-keep:active, .hx-ask-del:active { transform: scale(0.96); }
+.hx-ask-keep:focus-visible, .hx-ask-del:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .hx-mi-wrap { position: relative; }
 .hx-sub {
   position: absolute;
@@ -519,3 +546,8 @@
    the full width. */
 .orc.orc--lx .orc-answer > .orc-mark { display: none; }
 .orc.orc--lx .orc-answer { gap: 0; }
+
+/* The Filters chip arrives once there is a brief to refine, rather than being there from the first blank screen. */
+@keyframes orc-slot-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.orc-slots .orc-gslot.is-new { animation: orc-slot-in 200ms var(--ease-out) both; }
+@media (prefers-reduced-motion: reduce) { .orc-slots .orc-gslot.is-new { animation: none; } }

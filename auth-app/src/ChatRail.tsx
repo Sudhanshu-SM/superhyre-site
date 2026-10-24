@@ -1,4 +1,4 @@
-import { Archive, CaretDown, Check, DotsThree, FolderOpen, Folders, MagnifyingGlass, PencilSimple, Plus, PushPin, PushPinSlash, SidebarSimple, X } from "@phosphor-icons/react";
+import { Archive, CaretDown, Check, DotsThree, FolderOpen, Folders, MagnifyingGlass, PencilSimple, Plus, PushPin, PushPinSlash, SidebarSimple, Trash, X } from "@phosphor-icons/react";
 import { forwardRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { NESTED_SHOWN, RECENTS_BATCH, agoLabel, arrangeRail, searchChats, type PinnedCampaign, type RailChat } from "./chatGroups";
@@ -10,7 +10,7 @@ import { useFlip } from "./useFlip";
  * The chat history, laid out like the chat apps people already know: New chat, Search and Campaigns at the top, what
  * they pinned (chats, and campaigns with their own chats under them), then Recents, newest first, a few at a time.
  * Hiding it leaves one button in the corner; resting on that button lets the whole list drift in over the page, and
- * pressing it docks the list again. Every row has the same small menu: pin, rename, put in a campaign, archive.
+ * pressing it docks the list again. Every row has the same small menu: pin, rename, put in a campaign, archive, delete (asked twice, and for good).
  */
 
 type Campaign = { id: string; name: string };
@@ -34,6 +34,8 @@ type Props = {
   onRename: (id: string, title: string) => Promise<void>;
   onMove: (id: string, campaignId: string | null) => Promise<void>;
   onArchive: (id: string) => Promise<void>;
+  /** Removes the chat and its messages for good; the row has asked first. */
+  onDelete: (id: string) => Promise<void>;
   /** Above New chat: what the agent is on, its week and its set-up (drawn by the page). */
   top?: ReactNode;
   /** Each time this goes up the search is opened and focused ("/" asks for it). */
@@ -60,7 +62,7 @@ function readOpen(): Record<string, boolean> {
 
 export function ChatRail({
   chats, state, onRetry, activeId, campaigns, hidden, onToggle, campaignsOpen, onCampaigns, onNew, onNewIn, onOpenCampaign,
-  onOpen, onRename, onMove, onArchive, top, findAsk = 0,
+  onOpen, onRename, onMove, onArchive, onDelete, top, findAsk = 0,
 }: Props) {
   const pins = usePins();
   const [q, setQ] = useState("");
@@ -144,7 +146,7 @@ export function ChatRail({
     setFlash(was ? null : pinKey(kind, id));
   };
   const hold = useCallback((on: boolean) => setMenus((n) => Math.max(0, n + (on ? 1 : -1))), []);
-  const rowProps = { activeId, campaigns, onOpen, onRename, onMove, onArchive, onPin: (id: string) => pin("chat", id), hold };
+  const rowProps = { activeId, campaigns, onOpen, onRename, onMove, onArchive, onDelete, onPin: (id: string) => pin("chat", id), hold };
 
   const closeSearch = () => { setQ(""); setSearching(false); };
   const toggleEnter = () => {
@@ -312,6 +314,7 @@ type RowProps = {
   onRename: Props["onRename"];
   onMove: Props["onMove"];
   onArchive: Props["onArchive"];
+  onDelete: Props["onDelete"];
   onPin: (id: string) => void;
   hold: (on: boolean) => void;
 };
@@ -414,7 +417,7 @@ function Stamp() {
   );
 }
 
-function Row({ chat, activeId, pinned, flash = false, nested = false, sub, campaigns, onOpen, onRename, onMove, onArchive, onPin, hold }: RowProps & {
+function Row({ chat, activeId, pinned, flash = false, nested = false, sub, campaigns, onOpen, onRename, onMove, onArchive, onDelete, onPin, hold }: RowProps & {
   chat: RailChat;
   pinned: boolean;
   flash?: boolean;
@@ -424,6 +427,8 @@ function Row({ chat, activeId, pinned, flash = false, nested = false, sub, campa
   sub: string;
 }) {
   const [menu, setMenu] = useState(false);
+  /* Delete was chosen: the menu asks once more before anything goes. */
+  const [asking, setAsking] = useState(false);
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(chat.title);
   const [leaving, setLeaving] = useState(false);
@@ -445,6 +450,13 @@ function Row({ chat, activeId, pinned, flash = false, nested = false, sub, campa
     setLeaving(true);
     onArchive(chat.id).catch(() => setLeaving(false));
   };
+  const remove = () => {
+    setMenu(false);
+    setAsking(false);
+    setLeaving(true);
+    onDelete(chat.id).catch(() => setLeaving(false));
+  };
+  const closeMenu = () => { setMenu(false); setAsking(false); };
 
   if (editing) {
     return (
@@ -465,16 +477,21 @@ function Row({ chat, activeId, pinned, flash = false, nested = false, sub, campa
         <DotsThree size={18} weight="bold" aria-hidden="true" />
       </button>
       {menu && (
-        <Pop anchor={more} onClose={() => setMenu(false)}>
-          <ChatMenu
-            chat={chat}
-            pinned={pinned}
-            campaigns={campaigns}
-            onPin={() => { setMenu(false); onPin(chat.id); }}
-            onRename={() => { setMenu(false); setTitle(chat.title); setEditing(true); }}
-            onArchive={archive}
-            onPick={(id) => { setMenu(false); void onMove(chat.id, id); }}
-          />
+        <Pop key={asking ? "ask" : "menu"} anchor={more} onClose={closeMenu}>
+          {asking ? (
+            <DeleteAsk chat={chat} pinned={pinned} onKeep={() => setAsking(false)} onDelete={remove} />
+          ) : (
+            <ChatMenu
+              chat={chat}
+              pinned={pinned}
+              campaigns={campaigns}
+              onPin={() => { setMenu(false); onPin(chat.id); }}
+              onRename={() => { setMenu(false); setTitle(chat.title); setEditing(true); }}
+              onArchive={archive}
+              onDelete={() => setAsking(true)}
+              onPick={(id) => { setMenu(false); void onMove(chat.id, id); }}
+            />
+          )}
         </Pop>
       )}
     </div>
@@ -483,13 +500,14 @@ function Row({ chat, activeId, pinned, flash = false, nested = false, sub, campa
 
 /* ── the row menu ── */
 
-function ChatMenu({ chat, pinned, campaigns, onPin, onRename, onArchive, onPick }: {
+function ChatMenu({ chat, pinned, campaigns, onPin, onRename, onArchive, onDelete, onPick }: {
   chat: RailChat;
   pinned: boolean;
   campaigns: readonly Campaign[];
   onPin: () => void;
   onRename: () => void;
   onArchive: () => void;
+  onDelete: () => void;
   onPick: (campaignId: string | null) => void;
 }) {
   const [sub, setSub] = useState(false);
@@ -500,6 +518,7 @@ function ChatMenu({ chat, pinned, campaigns, onPin, onRename, onArchive, onPick 
         if (k === "p") { onPin(); return true; }
         if (k === "r") { onRename(); return true; }
         if (k === "a") { onArchive(); return true; }
+        if (k === "d") { onDelete(); return true; }
         return false;
       }}
       onLeft={() => { if (sub) { setSub(false); trigger.current?.focus(); return true; } return false; }}
@@ -512,7 +531,27 @@ function ChatMenu({ chat, pinned, campaigns, onPin, onRename, onArchive, onPick 
         {sub && <CampaignPick campaigns={campaigns} current={chat.campaignId} onPick={onPick} />}
       </div>
       <Item icon={<Archive size={17} />} label="Archive" kbd="A" onSelect={onArchive} onEnter={() => setSub(false)} />
+      <Item icon={<Trash size={17} />} label="Delete" kbd="D" danger onSelect={onDelete} onEnter={() => setSub(false)} />
     </MenuList>
+  );
+}
+
+/** The second question: it opens on "Keep it", so Enter or a stray press never deletes. */
+export function DeleteAsk({ chat, pinned, onKeep, onDelete }: { chat: RailChat; pinned: boolean; onKeep: () => void; onDelete: () => void }) {
+  const keep = useRef<HTMLButtonElement>(null);
+  useEffect(() => { keep.current?.focus({ preventScroll: true }); }, []);
+  return (
+    <div className="hx-ask" role="alertdialog" aria-labelledby="hx-ask-h" aria-describedby="hx-ask-p">
+      <p className="hx-ask-h" id="hx-ask-h">Delete this chat?</p>
+      <p className="hx-ask-p" id="hx-ask-p">
+        “{chat.title}” and its messages are removed for good.{" "}
+        {pinned ? "It is pinned, so it would otherwise be kept." : "Chats nobody has written in for 60 days are deleted on their own; pin one to keep it."}
+      </p>
+      <div className="hx-ask-b">
+        <button ref={keep} type="button" className="hx-ask-keep" onClick={onKeep}>Keep it</button>
+        <button type="button" className="hx-ask-del" onClick={onDelete}>Delete</button>
+      </div>
+    </div>
   );
 }
 
@@ -556,18 +595,20 @@ type ItemProps = {
   kbd?: string;
   chevron?: boolean;
   expanded?: boolean;
+  /** Takes something away: drawn in the warning colour. */
+  danger?: boolean;
   onSelect: () => void;
   onEnter?: () => void;
 };
 
 /** A menu row. The one that opens a submenu hands its button up so the arrow keys can find it. */
-const Item = forwardRef<HTMLButtonElement, ItemProps>(function Item({ icon, label, kbd, chevron, expanded, onSelect, onEnter }, ref) {
+const Item = forwardRef<HTMLButtonElement, ItemProps>(function Item({ icon, label, kbd, chevron, expanded, danger, onSelect, onEnter }, ref) {
   return (
     <button
       ref={ref}
       type="button"
       role="menuitem"
-      className="hx-mi"
+      className={`hx-mi${danger ? " hx-mi--danger" : ""}`}
       data-main=""
       aria-haspopup={chevron ? "menu" : undefined}
       aria-expanded={chevron ? !!expanded : undefined}
