@@ -409,7 +409,7 @@
   function drawAgents(a) {
     var on = {};
     (a.on || []).forEach(function (r) { on[r.agent] = r; });
-    var p = a.assistant, to = a.talent_ops, so = a.sourcing, me = a.meetings;
+    var p = a.assistant, to = a.talent_ops, me = a.meetings;
     function count(key) { return on[key] ? num(on[key].on) : "0"; }
     S.el("agents").innerHTML = table(
       [{ t: "Agent" }, { t: "On", num: true }, { t: "What it has done" }, { t: "Watch" }],
@@ -421,9 +421,6 @@
         ['<span class="who">Talent operations</span>', count("talent_ops"),
           plu(to.jobs, "job") + " · " + num(to.members) + " joined",
           to.meetings ? sig("ok", plu(to.meetings, "interview") + " booked") : sig("warn", "nothing booked yet")],
-        ['<span class="who">Sourcing</span>', count("sourcing"),
-          num(so.jds) + " JDs · " + plu(so.runs, "run") + (so.per_run ? " · " + num(so.per_run) + " a run" : ""),
-          so.runs_failed ? sig("bad", plu(so.runs_failed, "run") + " failed") : sig("ok", "nothing failing")],
         ['<span class="who">Meeting assistant</span>', num(me.installs),
           plu(me.calls, "call") + " · " + plu(me.cards, "card") + " · " + num(me.hours) + " hours",
           me.problems ? sig("bad", num(me.problems) + " with no card") : sig("ok", "nothing failing")],

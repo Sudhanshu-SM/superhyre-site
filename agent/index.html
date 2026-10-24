@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#ffffff">
-<title>SuperHyre — WhatsApp hiring assistant</title>
+<title>Superhyre — your assistant on WhatsApp</title>
 <link rel="icon" type="image/svg+xml" href="logo.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -193,7 +193,7 @@
 
   <section class="card" id="s-details" hidden>
     <h1 id="title">Get started</h1>
-    <p class="lead" id="lead">Set up your hiring assistant on WhatsApp. Create jobs, share invite links and let it coordinate interviews for you.</p>
+    <p class="lead" id="lead">Set up your own assistant on WhatsApp: reminders, plans, writing and look-ups, and your email, calendar and notes once you connect them.</p>
     <div class="banner" id="invited" hidden></div>
     <div class="error" id="e1" role="alert"></div>
     <form id="f-details" novalidate>
@@ -288,8 +288,6 @@
       <h1 id="d-title"></h1>
     </div>
 
-    <section class="card" id="v-sourcing" hidden></section>
-
     <section class="card" id="team">
       <h2 id="t-title">Your team</h2>
       <div class="error" id="e6" role="alert"></div>
@@ -310,7 +308,7 @@
         </div>
       </div>
       <form id="f-org" hidden novalidate>
-        <p class="lead" style="font-size:16px;margin-bottom:16px">You aren't in a team yet. Set one up to bring your recruiting team onto Superhyre. Everyone gets their own assistant, and as the owner you can ask yours what anyone is working on.</p>
+        <p class="lead" style="font-size:16px;margin-bottom:16px">You aren't in a team yet. Set one up to bring your team onto Superhyre. Everyone gets their own assistant, and as the owner you can ask yours what anyone is working on.</p>
         <div class="field">
           <label for="o-name">Organisation name</label>
           <input id="o-name" type="text" autocapitalize="words" maxlength="120" required>
@@ -487,19 +485,17 @@
       : "Set up an organisation for my team, so colleagues can join with an invite link. I'll be its owner.";
     if (mode === "signup") {
       $("title").textContent = "Get started";
-      $("lead").textContent = personal
-        ? "Set up your assistant on WhatsApp. Connect your email, calendar and notes and it works in them for you, by text or voice note."
-        : "Set up your hiring assistant on WhatsApp. Create jobs, share invite links and let it coordinate interviews for you.";
+      $("lead").textContent = "Set up your own assistant on WhatsApp: reminders, plans, writing and look-ups, and your email, calendar and notes once you connect them.";
       $("switch").innerHTML = 'Already signed up? <button type="button" class="link" data-mode="login">Sign in</button>';
     } else if (mode === "login") {
       $("title").textContent = "Welcome back";
-      $("lead").textContent = "Sign in with your WhatsApp number to see your jobs and invite links.";
+      $("lead").textContent = "Sign in with your WhatsApp number to see your agents, tools and memory.";
       $("switch").innerHTML = orgCode
         ? 'New to Superhyre? <button type="button" class="link" data-mode="team">Join your team</button>'
         : 'New to Superhyre? <button type="button" class="link" data-mode="signup">Create an account</button>';
     } else if (mode === "team") {
       $("title").textContent = "Join your team";
-      $("lead").textContent = "Get your own hiring assistant on WhatsApp. It creates jobs, shares invite links and coordinates interviews for you.";
+      $("lead").textContent = "Get your own assistant on WhatsApp, as part of your team.";
       $("switch").innerHTML = 'Already on Superhyre? <button type="button" class="link" data-mode="login">Sign in</button>';
     } else {
       $("switch").innerHTML = "";
@@ -752,10 +748,9 @@
     agents: ["hub", "v-agents"],
     tools: ["hub", "tools"],
     talent_ops: ["detail", "newjob", "openwrap", "closed-wrap", "team"],
-    sourcing: ["detail", "v-sourcing"],
   };
-  var PANELS = ["hub", "v-agents", "detail", "tools", "newjob", "openwrap", "closed-wrap", "team", "v-sourcing"];
-  var TITLES = { talent_ops: "Talent operations", sourcing: "Sourcing" };
+  var PANELS = ["hub", "v-agents", "detail", "tools", "newjob", "openwrap", "closed-wrap", "team"];
+  var TITLES = { talent_ops: "Talent operations" };
 
   function view(name) {
     state.view = VIEWS[name] ? name : "agents";
@@ -768,9 +763,8 @@
     // Closed jobs are a details block that only appears when there are any.
     if (!$("closed-wrap").hidden) $("closed-wrap").hidden = !state.hasClosed;
     if (TITLES[state.view]) $("d-title").textContent = TITLES[state.view];
-    if (state.view === "sourcing") loadJds();
     // Toggling stays where the eye already is; opening an agent is a new screen, so it starts at the top.
-    if (!VIEWS[state.view] || state.view === "talent_ops" || state.view === "sourcing") window.scrollTo(0, 0);
+    if (!VIEWS[state.view] || state.view === "talent_ops") window.scrollTo(0, 0);
   }
 
   function tile(o) {
@@ -790,7 +784,6 @@
   var ICONS = {
     assistant: '<path d="M12 3v3"/><rect x="4" y="6" width="16" height="12" rx="3"/><path d="M9 11v2M15 11v2"/>',
     talent_ops: '<path d="M16 21v-2a4 4 0 0 0-8 0v2"/><circle cx="12" cy="7" r="4"/>',
-    sourcing: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
   };
 
   function renderAgents() {
@@ -822,38 +815,9 @@
 
   /** Shorter than what the agent's own page says: a tile is a glance, not a description. */
   var BRIEFS = {
-    assistant: "Your email, calendar, documents and notes, worked on from WhatsApp.",
+    assistant: "Reminders, plans, writing and look-ups, plus your email, calendar and notes.",
     talent_ops: "Jobs, invite links, candidates and interviews, booked and reminded.",
-    sourcing: "Send a JD, get candidates in a sheet in your own Drive.",
   };
-
-  function loadJds() {
-    var box = $("v-sourcing");
-    box.innerHTML = '<p class="empty"><span class="spin" aria-hidden="true"></span> Loading…</p>';
-    call({ action: "jds_list", session: state.session }).then(function (r) {
-      box.textContent = "";
-      if (!r.ok) return box.appendChild(el("div", "empty", r.message || "Couldn't load your JDs."));
-      if (!r.jds.length) {
-        return box.appendChild(el("div", "empty", "No JDs yet. Send one to your assistant on WhatsApp and it will appear here with its sheet of candidates."));
-      }
-      r.jds.forEach(function (j) {
-        var row = el("div", "jdrow");
-        row.appendChild(el("div", "nm", [j.role, j.company].filter(Boolean).join(" at ") || "Untitled role"));
-        var links = el("div", "job-meta");
-        if (j.jd_url) links.appendChild(link(j.jd_url, "Open the JD"));
-        if (j.sheet_url) links.appendChild(link(j.sheet_url, "Candidates" + (j.runs ? " (" + j.runs + " run" + (j.runs === 1 ? "" : "s") + ")" : "")));
-        if (!j.jd_url && !j.sheet_url) links.textContent = "No links yet.";
-        row.appendChild(links);
-        box.appendChild(row);
-      });
-    });
-  }
-  function link(href, text) {
-    var a = document.createElement("a");
-    a.href = href; a.target = "_blank"; a.rel = "noopener"; a.textContent = text;
-    a.style.marginRight = "14px";
-    return a;
-  }
 
   $("tab-agents").addEventListener("click", function () { setTab("agents"); view("agents"); });
   $("tab-tools").addEventListener("click", function () { setTab("tools"); view("tools"); });
@@ -886,7 +850,7 @@
   }
 
   // ---------- organisation ----------
-  function teamInvite(o) { return "Join " + o.name + " on Superhyre and get your own hiring assistant on WhatsApp: " + o.link; }
+  function teamInvite(o) { return "Join " + o.name + " on Superhyre and get your own assistant on WhatsApp: " + o.link; }
   function renderTeam() {
     var o = state.me.org;
     $("t-has").hidden = !o;
@@ -898,7 +862,7 @@
       return;
     }
     $("t-title").textContent = o.name;
-    $("t-meta").textContent = (o.is_owner ? "You're the owner. " : "You're a recruiter in this team. ") + plural(o.team.length, "recruiter") +
+    $("t-meta").textContent = (o.is_owner ? "You're the owner. " : "You're a member of this team. ") + plural(o.team.length, "member") +
       ". Send colleagues the link; they fill in their own name and number. You can also ask your assistant for it on WhatsApp.";
     $("t-url").textContent = o.link;
     $("t-rotate").hidden = !o.is_owner;
@@ -924,7 +888,7 @@
         });
         acts.appendChild(rm);
       }
-      acts.appendChild(el("span", "pill role" + (m.owner ? "" : " plain"), m.owner ? "Owner" : "Recruiter"));
+      acts.appendChild(el("span", "pill role" + (m.owner ? "" : " plain"), m.owner ? "Owner" : "Member"));
       row.appendChild(acts);
       list.appendChild(row);
     });
@@ -982,7 +946,7 @@
     google: { id: "g", name: "Google Workspace", what: "Gmail, Calendar, Drive, Docs and Sheets", short: "Gmail, Calendar, Drive, Docs and Sheets",
       pitch: "Gmail, Calendar, Drive, Docs and Sheets: summarise and send emails, schedule Meet calls, find files, update sheets." },
     notion: { id: "nt", name: "Notion", what: "your Notion pages and databases", short: "Pages, trackers and databases",
-      pitch: "Find pages, read and update your hiring trackers and databases, add notes and comments. You choose which pages to share." },
+      pitch: "Find pages, read and update your trackers and databases, add notes and comments. You choose which pages to share." },
     slack: { id: "sl", name: "Slack", what: "your Slack", short: "Channels, threads and messages",
       pitch: "Search and summarise conversations, read channels and threads, and post messages as you after you approve them. The first person in a workspace to connect has to be an owner; after that anyone can." },
     trello: { id: "tr", name: "Trello", what: "your Trello boards", short: "Boards, lists and cards",
@@ -1202,7 +1166,7 @@
       var b = $("invited");
       if (r.ok) {
         $("company").value = r.org;
-        b.textContent = "You've been invited to join " + r.org + " on Superhyre as a recruiter.";
+        b.textContent = "You've been invited to join " + r.org + " on Superhyre.";
       } else {
         b.textContent = r.message || "This team invite link is no longer valid. Please ask your team for a new one.";
         $("b-send").disabled = true;
