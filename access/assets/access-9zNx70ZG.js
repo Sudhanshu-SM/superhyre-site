@@ -1,0 +1,1 @@
+import{r as o}from"./access-DdgGs7Sa.js";import{a5 as p,a6 as f,a7 as g}from"./access-DKxiCfqH.js";const l=8;function m(e,r){const t=p(e),c=f(e),[n,i]=o.useState(0),a=t==null?void 0:t[t.length-1],s=!!t&&(!c||a!==void 0&&Date.parse(a.at)<=r||n>=l);return o.useEffect(()=>{!t||s||(i(u=>u+1),g(e))},[t,s,e]),{items:t,covered:s}}export{m as u};
