@@ -286,6 +286,7 @@
     <div id="detail" hidden>
       <button type="button" class="back" id="d-back">Back</button>
       <h1 id="d-title"></h1>
+      <button type="button" class="link" id="d-off" hidden>Switch off</button>
     </div>
 
     <section class="card" id="team">
@@ -763,6 +764,8 @@
     // Closed jobs are a details block that only appears when there are any.
     if (!$("closed-wrap").hidden) $("closed-wrap").hidden = !state.hasClosed;
     if (TITLES[state.view]) $("d-title").textContent = TITLES[state.view];
+    // The switch-off sits with the agent it belongs to. The assistant has no TITLE here, and cannot be switched off.
+    $("d-off").hidden = !TITLES[state.view];
     // Toggling stays where the eye already is; opening an agent is a new screen, so it starts at the top.
     if (!VIEWS[state.view] || state.view === "talent_ops") window.scrollTo(0, 0);
   }
@@ -823,6 +826,21 @@
   $("tab-tools").addEventListener("click", function () { setTab("tools"); view("tools"); });
   // Back from an agent returns to the tab they came from, which is the one still lit.
   $("d-back").addEventListener("click", function () { view(state.tab === "tools" ? "tools" : "agents"); });
+  $("d-off").addEventListener("click", function () {
+    var agent = state.view, name = TITLES[agent];
+    if (!name) return;
+    if (!confirm("Switch " + name + " off? Nothing it was doing will carry on, and your assistant will say what stops. Everything it has already made is kept.")) return;
+    var b = $("d-off");
+    b.disabled = true;
+    call({ action: "agent_disable", session: state.session, agent: agent }).then(function (r) {
+      b.disabled = false;
+      if (!r.ok) return handleDashErr(r, toast);
+      state.agents = r.agents;
+      state.view = "agents";
+      render();
+      toast(name + " is off");
+    });
+  });
   function setTab(which) {
     state.tab = which;
     $("tab-agents").setAttribute("aria-pressed", which === "agents" ? "true" : "false");
