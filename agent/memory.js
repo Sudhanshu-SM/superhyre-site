@@ -8,7 +8,7 @@
    accident, and no button anywhere on this page that forgets more than the one row it sits on. */
 (function () {
   var S = window.SH, token = "", asking = "";
-  var state = { blocks: null, crawls: [], people: null, places: null };
+  var state = { blocks: null, crawls: [], people: null, places: null, memory: null };
 
   function dots(parts) {
     return parts.filter(function (x) { return !!x; }).join(" · ");
@@ -159,7 +159,33 @@
     S.el("places").innerHTML = html;
   }
 
+  /* What the chat remembers: one row per person or thing, each note with where it came from and its own Forget. The
+     list is the one the assistant reads every message, corrections and what they asked it to keep first. */
+  function drawMemory() {
+    var groups = state.memory || [];
+    var html = "<h2>What I remember from our chats</h2>";
+    if (!groups.length) {
+      S.el("remembered").innerHTML = html + '<p class="muted">Nothing yet. Once we have talked a little, what I keep ' +
+        "from it shows up here: who people are, what you asked me to keep, what your meetings settled.</p>";
+      return;
+    }
+    var count = groups.reduce(function (n, g) { return n + g.claims.length; }, 0);
+    html += '<p class="count">' + plural(count, "note") + " about " + plural(groups.length, "person or thing", "people and things") +
+      ", each with where it came from. What you corrected or asked me to keep comes first: it wins over everything else.</p>";
+    html += groups.map(function (g) {
+      return '<div class="item"><div class="t">' + S.esc(g.subject) + "</div>" + g.claims.map(function (c) {
+        return '<p class="txt">' + S.esc(c.statement) +
+          (c.pinned ? ' <span class="tag">kept</span>' : "") + (c.kind === "now" ? ' <span class="tag">for now</span>' : "") + "</p>" +
+          '<div class="meta">' + S.esc(dots([c.from, c.at ? S.day(c.at) : ""])) + "</div>" +
+          act("mem:" + c.id, "Forget this", "Forget this? I stop using it, along with its earlier versions, and the " +
+            "messages it came from stop turning up when I search. Everything else stays.");
+      }).join("") + "</div>";
+    }).join("");
+    S.el("remembered").innerHTML = html;
+  }
+
   function draw() {
+    if (state.memory) drawMemory();
     if (state.blocks) drawProfile();
     if (state.people) drawPeople();
     if (state.places) drawPlaces();
@@ -172,6 +198,7 @@
     if (kind === "block") body = { action: "brain_forget_block", block: id };
     else if (kind === "ent") body = { action: "brain_forget_entity", entity_id: id };
     else if (kind === "idx") body = { action: "brain_forget_index", index_id: id };
+    else if (kind === "mem") body = { action: "memory_forget", claim_id: id };
     else return;
     S.busy(btn, true, "Yes, forget it");
     S.api(token, body).then(function (r) {
@@ -186,6 +213,7 @@
       if (r.blocks) { state.blocks = r.blocks; state.crawls = r.crawls || state.crawls; }
       if (r.people) state.people = r.people;
       if (r.places) state.places = r.places;
+      if (r.memory) state.memory = r.memory;
       draw();
       S.note("msg", "Gone. The next message I write won't have it.", "ok");
     });
@@ -209,6 +237,7 @@
       S.api(token, { action: "brain_profile" }),
       S.api(token, { action: "brain_people" }),
       S.api(token, { action: "brain_places" }),
+      S.api(token, { action: "memory_list" }),
     ]);
   }).then(function (all) {
     if (!all[0].ok) { S.note("msg", all[0].message || "Please sign in again.", "bad"); return; }
@@ -216,6 +245,7 @@
     state.crawls = all[0].crawls || [];
     state.people = all[1].ok ? (all[1].people || []) : [];
     state.places = all[2].ok ? (all[2].places || []) : [];
+    state.memory = all[3].ok ? (all[3].memory || []) : [];
     draw();
   }).catch(function () {});
 })();
