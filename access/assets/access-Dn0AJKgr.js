@@ -1,0 +1,1 @@
+import{p as e,c1 as a}from"./access-u26qx-bp.js";const i=(t,o)=>t.trim().toLowerCase()===o.trim().toLowerCase();function l(t){const o=t.roleTitle&&!i(e(t.roleTitle),e(t.name))?e(t.roleTitle):"";return a([o,t.client?e(t.client):"",t.department,t.location])}export{l as m};
