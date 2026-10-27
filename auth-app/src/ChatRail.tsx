@@ -34,6 +34,8 @@ type Props = {
   onRename: (id: string, title: string) => Promise<void>;
   onMove: (id: string, campaignId: string | null) => Promise<void>;
   onArchive: (id: string) => Promise<void>;
+  /** The campaign the person has selected: shown with its chats whether or not it is pinned. */
+  selected?: { id: string; name: string } | null;
   /** Removes the chat and its messages for good; the row has asked first. */
   onDelete: (id: string) => Promise<void>;
   /** Above New chat: what the agent is on, its week and its set-up (drawn by the page). */
@@ -62,7 +64,7 @@ function readOpen(): Record<string, boolean> {
 
 export function ChatRail({
   chats, state, onRetry, activeId, campaigns, hidden, onToggle, campaignsOpen, onCampaigns, onNew, onNewIn, onOpenCampaign,
-  onOpen, onRename, onMove, onArchive, onDelete, top, findAsk = 0,
+  onOpen, onRename, onMove, onArchive, onDelete, selected = null, top, findAsk = 0,
 }: Props) {
   const pins = usePins();
   const [q, setQ] = useState("");
@@ -104,14 +106,15 @@ export function ChatRail({
     return () => window.clearTimeout(t);
   }, [flash]);
 
-  const arranged = useMemo(() => arrangeRail(chats ?? [], pins, campaigns), [chats, pins, campaigns]);
+  const arranged = useMemo(() => arrangeRail(chats ?? [], pins, campaigns, selected), [chats, pins, campaigns, selected?.id, selected?.name]);
   const found = useMemo(() => searchChats(chats ?? [], q), [chats, q]);
   const searchMode = q.trim().length > 0;
   const count = fit + more;
   const recents = arranged.recents.slice(0, count);
   const pinnedOpen = open.pinned ?? true;
+  const selectedOpen = open.selected ?? true;
   const recentsOpen = open.recents ?? true;
-  const fold = (key: "pinned" | "recents") => {
+  const fold = (key: "pinned" | "recents" | "selected") => {
     const next = { ...open, [key]: !(open[key] ?? true) };
     setOpen(next);
     try { window.localStorage.setItem(OPEN_KEY, JSON.stringify(next)); } catch { /* not worth failing over */ }
@@ -119,7 +122,7 @@ export function ChatRail({
 
   const signature = searchMode
     ? `s|${found.map((c) => c.id).join(",")}`
-    : `${arranged.pinned.map((p) => (p.kind === "chat" ? p.chat.id : `${p.id}:${p.chats.map((c) => c.id).join(",")}`)).join("|")}~${recents.map((c) => c.id).join(",")}`;
+    : `${arranged.selected ? `sel:${arranged.selected.id}:${arranged.selected.chats.map((c) => c.id).join(",")}|` : ""}${arranged.pinned.map((p) => (p.kind === "chat" ? p.chat.id : `${p.id}:${p.chats.map((c) => c.id).join(",")}`)).join("|")}~${recents.map((c) => c.id).join(",")}`;
   useFlip(body, signature);
 
   /* The list fills the height it has: as many Recents as fit under the Pinned section, no more and no gap. */
@@ -127,7 +130,8 @@ export function ChatRail({
     const box = body.current;
     if (!box) return undefined;
     const measure = () => {
-      const pinnedH = box.querySelector<HTMLElement>('[data-flip="sec:pinned"]')?.offsetHeight ?? 0;
+      const pinnedH = (box.querySelector<HTMLElement>('[data-flip="sec:pinned"]')?.offsetHeight ?? 0)
+        + (box.querySelector<HTMLElement>('[data-flip="sec:selected"]')?.offsetHeight ?? 0);
       const room = box.clientHeight - pinnedH - RECENTS_CHROME;
       setFit(Math.max(MIN_RECENTS, Math.floor(room / ROW_H)));
     };
@@ -135,10 +139,12 @@ export function ChatRail({
     if (typeof ResizeObserver === "undefined") return undefined;
     const watch = new ResizeObserver(measure);
     watch.observe(box);
-    const pinned = box.querySelector('[data-flip="sec:pinned"]');
-    if (pinned) watch.observe(pinned);
+    for (const sec of ["pinned", "selected"]) {
+      const el = box.querySelector(`[data-flip="sec:${sec}"]`);
+      if (el) watch.observe(el);
+    }
     return () => watch.disconnect();
-  }, [arranged.pinned.length, searchMode, pinnedOpen]);
+  }, [arranged.pinned.length, arranged.selected?.id, searchMode, pinnedOpen, selectedOpen]);
 
   const pin = (kind: "chat" | "campaign", id: string) => {
     const was = pins.includes(pinKey(kind, id));
@@ -241,6 +247,29 @@ export function ChatRail({
               ) : <p className="hx-note">No chats match “{q.trim()}”.</p>
             ) : (
               <>
+                {arranged.selected && (
+                  <section className="hx-sec" data-flip="sec:selected">
+                    <SectionHead label="Selected" open={selectedOpen} onToggle={() => fold("selected")} />
+                    <Fold open={selectedOpen}>
+                      <ul className="hx-list">
+                        <li key={arranged.selected.id} data-flip={`selected:${arranged.selected.id}`}>
+                          <CampaignBlock
+                            item={arranged.selected}
+                            current
+                            pinned={false}
+                            flash={flash === pinKey("campaign", arranged.selected.id)}
+                            rowProps={rowProps}
+                            onNewIn={onNewIn}
+                            onOpenCampaign={onOpenCampaign}
+                            onTogglePin={() => pin("campaign", arranged.selected!.id)}
+                            hold={hold}
+                          />
+                        </li>
+                      </ul>
+                    </Fold>
+                  </section>
+                )}
+
                 {arranged.pinned.length > 0 && (
                   <section className="hx-sec" data-flip="sec:pinned">
                     <SectionHead label="Pinned" open={pinnedOpen} onToggle={() => fold("pinned")} />
@@ -255,11 +284,13 @@ export function ChatRail({
                             <li key={p.id} data-flip={pinKey("campaign", p.id)}>
                               <CampaignBlock
                                 item={p}
+                                current={p.id === selected?.id}
+                                pinned
                                 flash={flash === pinKey("campaign", p.id)}
                                 rowProps={rowProps}
                                 onNewIn={onNewIn}
                                 onOpenCampaign={onOpenCampaign}
-                                onUnpin={() => pin("campaign", p.id)}
+                                onTogglePin={() => pin("campaign", p.id)}
                                 hold={hold}
                               />
                             </li>
@@ -328,19 +359,27 @@ function readOpenCampaigns(): Record<string, boolean> {
   }
 }
 
-/** A pinned campaign: its name starts a chat in it, and its chats are folded away until the caret opens them. */
-function CampaignBlock({ item, flash, rowProps, onNewIn, onOpenCampaign, onUnpin, hold }: {
+/**
+ * A campaign with its chats: its name starts a chat in it, and its chats are folded away until the caret opens them, except
+ * for the campaign that is selected, which opens by default (the person said which one they are on, so its chats are what
+ * they want in front of them). A pinned one is in Pinned; the selected one, when it is not pinned, is in Selected and can be
+ * pinned from its menu.
+ */
+function CampaignBlock({ item, current, pinned, flash, rowProps, onNewIn, onOpenCampaign, onTogglePin, hold }: {
   item: PinnedCampaign;
+  /** The campaign the person has selected. */
+  current: boolean;
+  pinned: boolean;
   flash: boolean;
   rowProps: RowProps;
   onNewIn: Props["onNewIn"];
   onOpenCampaign: Props["onOpenCampaign"];
-  onUnpin: () => void;
+  onTogglePin: () => void;
   hold: (on: boolean) => void;
 }) {
   const [menu, setMenu] = useState(false);
   const [all, setAll] = useState(false);
-  const [open, setOpen] = useState(() => readOpenCampaigns()[item.id] ?? false);
+  const [open, setOpen] = useState(() => readOpenCampaigns()[item.id] ?? current);
   const more = useRef<HTMLButtonElement>(null);
   const campaign = { id: item.id, name: item.name };
   useEffect(() => {
@@ -357,7 +396,7 @@ function CampaignBlock({ item, flash, rowProps, onNewIn, onOpenCampaign, onUnpin
   const chats = item.chats.length;
   return (
     <div className="hx-camp">
-      <div className={`hx-row hx-camp-row${menu ? " has-menu" : ""}${flash ? " is-flash" : ""}`}>
+      <div className={`hx-row hx-camp-row${menu ? " has-menu" : ""}${flash ? " is-flash" : ""}${current ? " is-current" : ""}`}>
         <button type="button" className="hx-row-t" onClick={() => onNewIn(campaign)} title={`New chat in ${item.name}`}>
           <FolderOpen size={19} aria-hidden="true" className="hx-row-ico" />
           <span className="hx-row-title">{item.name}</span>
@@ -376,18 +415,19 @@ function CampaignBlock({ item, flash, rowProps, onNewIn, onOpenCampaign, onUnpin
           <Pop anchor={more} onClose={() => setMenu(false)}>
             <MenuList
               onKey={(k) => {
-                if (k === "p") { setMenu(false); onUnpin(); return true; }
+                if (k === "p") { setMenu(false); onTogglePin(); return true; }
                 if (k === "n") { setMenu(false); onNewIn(campaign); return true; }
                 return false;
               }}
             >
               <Item icon={<Plus size={17} />} label="New chat" kbd="N" onSelect={() => { setMenu(false); onNewIn(campaign); }} />
               <Item icon={<FolderOpen size={17} />} label="Open campaign" onSelect={() => { setMenu(false); onOpenCampaign(item.id); }} />
-              <Item icon={<PushPinSlash size={17} />} label="Unpin" kbd="P" onSelect={() => { setMenu(false); onUnpin(); }} />
+              <Item icon={pinned ? <PushPinSlash size={17} /> : <PushPin size={17} />} label={pinned ? "Unpin" : "Pin"} kbd="P" onSelect={() => { setMenu(false); onTogglePin(); }} />
             </MenuList>
           </Pop>
         )}
       </div>
+      {chats === 0 && current && <p className="hx-camp-none">No chats yet. New chat starts one.</p>}
       {chats > 0 && (
         <Fold open={open}>
           <ul className="hx-list hx-nest">
@@ -434,6 +474,8 @@ function Row({ chat, activeId, pinned, flash = false, nested = false, sub, campa
   const [leaving, setLeaving] = useState(false);
   const more = useRef<HTMLButtonElement>(null);
   const active = chat.id === activeId;
+  /* Somebody else's chat about a campaign: read, not written in, so it has no menu, and says whose it is. */
+  const theirs = chat.ownerName ?? null;
   useEffect(() => {
     if (!menu) return undefined;
     hold(true);
@@ -466,17 +508,17 @@ function Row({ chat, activeId, pinned, flash = false, nested = false, sub, campa
     );
   }
   return (
-    <div className={`hx-row${active ? " is-on" : ""}${menu ? " has-menu" : ""}${flash ? " is-flash" : ""}${leaving ? " is-leaving" : ""}${nested ? " is-nested" : ""}`}>
-      <button type="button" className="hx-row-t" onClick={() => onOpen(chat)} title={chat.campaignName && !nested ? `${chat.title} · ${chat.campaignName}` : chat.title} aria-current={active ? "true" : undefined}>
+    <div className={`hx-row${active ? " is-on" : ""}${menu ? " has-menu" : ""}${flash ? " is-flash" : ""}${leaving ? " is-leaving" : ""}${nested ? " is-nested" : ""}${theirs ? " is-theirs" : ""}`}>
+      <button type="button" className="hx-row-t" onClick={() => onOpen(chat)} title={theirs ? `${chat.title} · started by ${theirs}` : chat.campaignName && !nested ? `${chat.title} · ${chat.campaignName}` : chat.title} aria-current={active ? "true" : undefined}>
         <span className="hx-row-title">{chat.title}</span>
         {sub && <span className="hx-row-sub">{sub}</span>}
       </button>
       {flash && <Stamp />}
-      <span className="hx-row-when">{agoLabel(chat.at)}</span>
-      <button ref={more} type="button" className="hx-icon hx-row-more" onClick={() => setMenu((m) => !m)} aria-label={`More for ${chat.title}`} aria-haspopup="menu" aria-expanded={menu}>
+      <span className="hx-row-when">{theirs ? `${theirs.split(" ")[0]} · ${agoLabel(chat.at)}` : agoLabel(chat.at)}</span>
+      {!theirs && <button ref={more} type="button" className="hx-icon hx-row-more" onClick={() => setMenu((m) => !m)} aria-label={`More for ${chat.title}`} aria-haspopup="menu" aria-expanded={menu}>
         <DotsThree size={18} weight="bold" aria-hidden="true" />
-      </button>
-      {menu && (
+      </button>}
+      {menu && !theirs && (
         <Pop key={asking ? "ask" : "menu"} anchor={more} onClose={closeMenu}>
           {asking ? (
             <DeleteAsk chat={chat} pinned={pinned} onKeep={() => setAsking(false)} onDelete={remove} />

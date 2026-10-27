@@ -905,7 +905,7 @@ function SwitcherPopover({
 }) {
   const [query, setQuery] = useState("");
   const [cursor, setCursor] = useState(0);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const [pos, setPos] = useState<{ top: number; left: number; room: number } | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
 
@@ -944,7 +944,11 @@ function SwitcherPopover({
       const panel = el.closest(".nav")?.getBoundingClientRect();
       const anchored = panel ? panel.right - WIDTH * OVERLAP : r.left;
       const left = Math.min(anchored, window.innerWidth - WIDTH - 12);
-      setPos({ top: r.bottom + 8, left: Math.max(12, left) });
+      /* Below the trigger, as far as the window allows: a trigger low in the nav gets the popover pushed up so its list
+         and its footer are on the page, never cut by the window's edge. */
+      const wanted = r.bottom + 8;
+      const top = Math.max(12, Math.min(wanted, window.innerHeight - 12 - MIN_ROOM));
+      setPos({ top, left: Math.max(12, left), room: window.innerHeight - top - 12 });
     };
     measure();
     window.addEventListener("resize", measure);
@@ -982,13 +986,19 @@ function SwitcherPopover({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") { e.stopPropagation(); onClose(); }
     };
+    /* The popover's own list scrolling is not the page moving away from its trigger: it is the list being read. Without
+       this the first turn of the wheel closed the popover, so a long list could never be scrolled. */
+    const onScroll = (e: Event) => {
+      if (popRef.current?.contains(e.target as Node)) return;
+      onClose();
+    };
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
-    window.addEventListener("scroll", onClose, true);
+    window.addEventListener("scroll", onScroll, true);
     return () => {
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("keydown", onKey);
-      window.removeEventListener("scroll", onClose, true);
+      window.removeEventListener("scroll", onScroll, true);
     };
   }, [anchor, onClose]);
 
@@ -1003,7 +1013,7 @@ function SwitcherPopover({
       id={id}
       role="dialog"
       aria-label={placeholder}
-      style={{ top: pos.top, left: pos.left, width: WIDTH }}
+      style={{ top: pos.top, left: pos.left, width: WIDTH, maxHeight: Math.min(448, window.innerHeight * 0.7, pos.room) }}
     >
       <label className="nav-switch-field">
         <BorderGlow />
@@ -1102,5 +1112,7 @@ function SwitcherPopover({
 
 /* Wider than the panel on purpose — that overhang is the point. */
 const WIDTH = 316;
+/** The least height the popover is given: a list of a few rows, its field and its footer. */
+const MIN_ROOM = 240;
 /* How much of it stays over the panel. The rest lies on the content area. */
 const OVERLAP = 0.1;

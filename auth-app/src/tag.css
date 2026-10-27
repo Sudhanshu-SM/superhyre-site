@@ -1,0 +1,12 @@
+/* Tags (Tag.tsx): a word on a soft tint. The text colours are the console's stage text tokens (measured for contrast, and
+   redefined for the dark theme), so a tag reads the same here as a status word on the board. */
+.tag {
+  display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 6px;
+  font: 500 12px/1 var(--ui); letter-spacing: 0; white-space: nowrap; max-width: 100%;
+  background: var(--sub); color: var(--ink-2);
+}
+.tag.is-accent { background: var(--accent-tint); color: var(--accent-text, var(--accent)); }
+.tag.is-good { background: color-mix(in srgb, var(--stage-green-text) 11%, var(--card, #fff)); color: var(--stage-green-text); }
+.tag.is-warn { background: color-mix(in srgb, var(--stage-amber-text) 12%, var(--card, #fff)); color: var(--stage-amber-text); }
+.tag.is-bad { background: color-mix(in srgb, var(--stage-rose-text) 11%, var(--card, #fff)); color: var(--stage-rose-text); }
+.tag.is-info { background: color-mix(in srgb, var(--stage-blue-text) 11%, var(--card, #fff)); color: var(--stage-blue-text); }

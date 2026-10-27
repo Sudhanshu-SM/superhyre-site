@@ -1,0 +1,37 @@
+/* Everyone (TeamsPeople.tsx): the organisation's people as a flat grid on the page, with tags for team and where an
+   invitation stands (tag.css). No box around it and none around a person. Invitations, and the people asking to join, are
+   the same grid under their own headings. */
+
+.pp { display: grid; gap: 28px; min-width: 0; }
+.pp-head { display: flex; align-items: center; justify-content: space-between; gap: 12px 16px; flex-wrap: wrap; }
+.pp-tools { display: flex; align-items: center; gap: 10px; }
+.pp-sum { margin: 0; color: var(--ink-2); }
+/* Each section starts under a hairline, and the rows of a grid are ruled apart, so the page reads as a list with parts. */
+.pp-sec { display: grid; gap: 4px; min-width: 0; padding-top: 20px; border-top: 1px solid var(--hairline); }
+.pp-h { display: flex; align-items: baseline; gap: 8px; margin: 0; color: var(--ink); }
+.pp-h small { color: var(--ink-2); font: var(--type-body-sm); }
+
+/* People as a flat grid, like a team page: a square tile, the name and what they are, a line or two under it. No box
+   around a person, no rule between them; the space is the structure. */
+.pp-grid { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 0; overflow: hidden; }
+/* The rule under a card is a shadow, not a border, so the last row's falls outside the grid and is clipped: no rule under the end. */
+.pp-card { display: flex; align-items: flex-start; gap: 16px; min-width: 0; padding: 20px 24px 20px 0; box-shadow: 0 1px 0 var(--hairline); }
+.pp-body { display: grid; gap: 3px; min-width: 0; flex: 1; }
+.pp-top { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 24px; }
+.pp-top > :first-child { min-width: 0; }
+.pp-more { margin: -3px -6px -3px auto; flex: none; }
+.pp-role { color: var(--ink-2); }
+.pp-sub { color: var(--ink-2); font: var(--type-body-sm); overflow-wrap: anywhere; opacity: 0.9; }
+.pp-tags { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0; }
+.pp-acts { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+
+.pp-empty { margin: 0; padding: 16px 0; color: var(--ink-2); }
+.pp-foot { margin: 0; padding-top: 20px; border-top: 1px solid var(--hairline); color: var(--ink-2); }
+.pp-note { margin: 0; }
+
+/* The invite form: one quiet row above the grids, not a tinted block. */
+.pp-invite { display: grid; gap: 14px; padding: 16px 0 20px; border-bottom: 1px solid var(--hairline); }
+.pp-invite p { margin: 0; color: var(--ink); }
+.pp-copy { display: flex; gap: 8px; }
+.pp-copy .ncx-in { flex: 1; min-width: 0; color: var(--ink-2); }
+

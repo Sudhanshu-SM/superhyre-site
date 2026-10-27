@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.5.0 (2026-10-27)
+
+### Added
+- **Teams page as a grid of cards** under hairline dividers: a square picture (or initials), the name, the role, the email, the teams, and "N campaigns · Joined date". Search appears once there are more than eight people or invitations.
+- **Every invitation shows its state** as a tag: Sent, Delivered, Bounced, Not sent, Expired, Accepted. Accepted fades from the list after three days, expired after two weeks. A bounced, unsent or expired invitation has a "Send again" button; the menu copies a fresh link or cancels the invitation.
+- **Choose where a campaign searches**: "DB only", "DB + external" or "External only", from a compact list on the composer; the docked menu is grouped under "Search in" and "Add in bulk".
+- **Read a teammate's chat about a campaign** from the chat list, read only.
+- The campaign you are in appears first in the chat list ("Selected") with its chats, and Recents lists every chat.
+
+### Changed
+- The Lead and Member labels on a team, and "You", are tags.
+- The bulk-add rows and their hints are shorter.
+
+### Fixed
+- The campaign switcher closed itself when you scrolled its own list.
+
 ## 1.4.1 (2026-10-25)
 
 ### Added

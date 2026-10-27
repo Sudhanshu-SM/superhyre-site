@@ -1,0 +1,7 @@
+/* A person's tile (Tile.tsx): a soft square with the picture, the initials or an envelope. */
+.tile {
+  flex: none; display: grid; place-items: center; overflow: hidden; border-radius: 14px;
+  background: var(--sub); color: var(--ink-2); font-family: var(--ui); font-weight: 600; letter-spacing: 0.01em; user-select: none;
+}
+.tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tile.is-invited { background: transparent; color: var(--ink-2); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--ink) 16%, transparent); }

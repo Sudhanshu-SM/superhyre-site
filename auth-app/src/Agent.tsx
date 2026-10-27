@@ -83,6 +83,10 @@ import { LiveMomentProvider } from "./liveViews/LiveMoment";
 import { PassReasonDialog } from "./PassReason";
 import { useRailConfig } from "./useRailConfig";
 import { loadPins } from "./chatPins";
+import { SharedChat, type SharedView } from "./SharedChat";
+import { SourcesChip, SourcesList } from "./SourcesChip";
+import { SOURCES, sourceModeOf, type SourceMode } from "./sources";
+import { setSources as saveSources } from "./api/campaigns";
 import { RailDialogs } from "./RailDialogs";
 import "./agentHero.css";
 import "./chat.css";
@@ -271,6 +275,10 @@ export function Agent({
   const knownChats = useRef(new Set<string>());
   const [chatsFailed, setChatsFailed] = useState(false);
   const [chatsAsk, setChatsAsk] = useState(0);
+  /* Somebody else's chat about this campaign, open as a read-only transcript instead of the conversation. */
+  const [viewing, setViewing] = useState<SharedView | null>(null);
+  /* The chats other people had about the selected campaign (the server lists only those the person may see), read only. */
+  const [sharedList, setSharedList] = useState<{ campaignId: string; chats: readonly Conversation[] }>({ campaignId: "", chats: [] });
   useEffect(() => {
     if (!LIVE) return;
     let current = true;
@@ -312,6 +320,19 @@ export function Agent({
       at: Date.parse(c.updatedAt) || 0,
       last: c.lastMessage ?? null,
     }));
+    // Chats other people had about the selected campaign come after the person's own, and are read, not written in.
+    for (const c of sharedList.chats) {
+      if (list.some((x) => x.id === c.id)) continue;
+      list.push({
+        id: c.id,
+        title: chatTitle(c.title),
+        campaignId: c.focusCampaignId,
+        campaignName: c.focusCampaignName ?? "",
+        at: Date.parse(c.updatedAt) || 0,
+        last: c.lastMessage ?? null,
+        ...(c.ownerName ? { ownerName: c.ownerName } : {}),
+      });
+    }
     const id = live.conversationId;
     const first = live.turns[0]?.said;
     if (id && first) {
@@ -321,12 +342,23 @@ export function Agent({
       else if (list[at]!.title === UNTITLED) list[at] = { ...list[at]!, title: titleFromMessage(first) };
     }
     return list;
-  }, [convs, campaignRows, live.conversationId, live.turns, campaignIsCurrent, campaign.id, campaign.name]);
+  }, [convs, sharedList, campaignRows, live.conversationId, live.turns, campaignIsCurrent, campaign.id, campaign.name]);
   const openChatRow = railList?.find((c) => c.id === live.conversationId) ?? null;
   /* The campaign this chat is about: its own, once it has one; a chat not started yet is about the campaign the page is on. */
   const chatCampaign = openChatRow
     ? (openChatRow.campaignId ? { id: openChatRow.campaignId, name: openChatRow.campaignName || campaignById(openChatRow.campaignId)?.name || "Campaign" } : null)
     : (campaignIsCurrent && UUID.test(campaign.id) ? { id: campaign.id, name: campaign.name } : null);
+  /* The selected campaign's chats by other people: read again when the campaign changes and whenever the list is. */
+  const sharedFor = LIVE && chatCampaign && UUID.test(chatCampaign.id) ? chatCampaign.id : "";
+  useEffect(() => {
+    if (!sharedFor) { setSharedList((l) => (l.campaignId ? { campaignId: "", chats: [] } : l)); return undefined; }
+    let current = true;
+    agentApi
+      .sharedChats(sharedFor)
+      .then(({ conversations }) => { if (current) setSharedList({ campaignId: sharedFor, chats: conversations }); })
+      .catch(() => { if (current) setSharedList({ campaignId: sharedFor, chats: [] }); });
+    return () => { current = false; };
+  }, [sharedFor, chatsAsk, live.conversationId, settledCount]);
   /* ── THE WEEK, FOR THE TOP OF THE CHAT LIST ──
      Found, replies and interviews over the last 7 days, with what each grew by on the week before (a dip is not news). With a
      campaign in the chat they are that campaign's; with none, the whole workspace's. Numbers read for one scope are never
@@ -468,8 +500,25 @@ export function Agent({
      makes. They show as chips in the composer until sent. */
   const [nextJd, setNextJd] = useState<Jd | null>(null);
   const [nextFilters, setNextFilters] = useState<Values>({});
-  const next = useRef({ jd: nextJd, filters: nextFilters, focused });
-  next.current = { jd: nextJd, filters: nextFilters, focused };
+  /* Where searches look: for the NEXT campaign with no campaign in focus (saved on it once it exists), else the campaign's own. */
+  const [nextSources, setNextSources] = useState<SourceMode>("both");
+  const [savingSources, setSavingSources] = useState<{ id: string; mode: SourceMode } | null>(null);
+  const rowSources = sourceModeOf(liveRow?.setup);
+  const sourcesValue: SourceMode = focused ? (savingSources?.id === liveCampaignId ? savingSources.mode : rowSources) : nextSources;
+  /* A choice stays as shown until the campaign's own row says the same, so the chip does not flick back while it is read. */
+  useEffect(() => {
+    if (savingSources && savingSources.id === liveCampaignId && rowSources === savingSources.mode) setSavingSources(null);
+  }, [savingSources, liveCampaignId, rowSources]);
+  const changeSources = (mode: SourceMode) => {
+    if (!focused) { setNextSources(mode); return; }
+    setSavingSources({ id: liveCampaignId, mode });
+    saveSources(liveCampaignId, mode).then(
+      () => { refreshCampaign(liveCampaignId); toast(`Searches now look in ${SOURCES[mode].says}.`, "done"); },
+      () => { setSavingSources(null); toast("Couldn't change where searches look. Try again.", "error"); },
+    );
+  };
+  const next = useRef({ jd: nextJd, filters: nextFilters, sources: nextSources, focused });
+  next.current = { jd: nextJd, filters: nextFilters, sources: nextSources, focused };
   const [filtersFocus, setFiltersFocus] = useState<{ category: string; n: number } | null>(null);
   const [liveFiltersInit, setLiveFiltersInit] = useState<{ initial: Values; prefilled: readonly string[] }>({ initial: {}, prefilled: [] });
   const onLiveJd = useCallback(() => setJdOpen(true), []);
@@ -514,6 +563,7 @@ export function Agent({
     draftApi.current.set("");
     setNextJd(null);
     setNextFilters({});
+    setNextSources("both");
   }, [live.conversationId]);
   const config = useRailConfig(
     campaign, campaignIsCurrent, inOrg,
@@ -523,7 +573,7 @@ export function Agent({
   /* Filters that were set for the next campaign are saved on it once it exists: the list of campaigns is read
      again while they wait, and the first campaign that was not there when the message went is theirs. */
   const allRows = useCampaignRows();
-  const pendingFilters = useRef<{ values: Values; known: ReadonlySet<string>; at: number } | null>(null);
+  const pendingFilters = useRef<{ values: Values; sources: SourceMode | null; known: ReadonlySet<string>; at: number } | null>(null);
   const allRowsRef = useRef(allRows);
   allRowsRef.current = allRows;
   const [watching, setWatching] = useState(false);
@@ -535,10 +585,19 @@ export function Agent({
     if (!made) return;
     pendingFilters.current = null;
     setWatching(false);
-    filtersApi.save(made.id, p.values).then(
-      () => { refreshCampaign(made.id); toast(`Filters saved on ${made.name}. Its searches use them.`, "done"); },
-      () => toast(`Couldn't save the filters on ${made.name}. Set them from the Filters row.`, "error"),
-    );
+    if (Object.keys(p.values).length > 0) {
+      filtersApi.save(made.id, p.values).then(
+        () => { refreshCampaign(made.id); toast(`Filters saved on ${made.name}. Its searches use them.`, "done"); },
+        () => toast(`Couldn't save the filters on ${made.name}. Set them from the Filters row.`, "error"),
+      );
+    }
+    if (p.sources) {
+      const mode = p.sources;
+      saveSources(made.id, mode).then(
+        () => { refreshCampaign(made.id); toast(`${made.name} searches ${SOURCES[mode].says}.`, "done"); },
+        () => toast(`Couldn't set where ${made.name} searches look. Set it from the chat's source chip.`, "error"),
+      );
+    }
   }, [allRows, toast]);
   useEffect(() => {
     if (!watching) return;
@@ -899,9 +958,10 @@ export function Agent({
       /* What was set for "the next message" went with it. The filters are saved on the campaign it makes. */
       if (!next.current.focused) {
         const set = next.current.filters;
-        if (activeCount(set) > 0) {
+        if (activeCount(set) > 0 || next.current.sources !== "both") {
           pendingFilters.current = {
             values: Object.fromEntries(Object.entries(set).filter(([id, v]) => activeCount({ [id]: v }) > 0)),
+            sources: next.current.sources === "both" ? null : next.current.sources,
             known: new Set(allRowsRef.current.map((r) => r.id)),
             at: Date.now(),
           };
@@ -909,6 +969,7 @@ export function Agent({
         }
         setNextJd(null);
         setNextFilters({});
+        setNextSources("both");
       }
       return;
     }
@@ -1521,6 +1582,7 @@ export function Agent({
   /* Leaves the conversation for a blank one. Resuming is the default, so this is the one way
      back to the landing: it clears the thread, what was decided in it, and the open panels. */
   const startNew = () => {
+    setViewing(null);
     setActiveBrief(null);
     clearThread();
     setTurns([]);
@@ -1529,6 +1591,7 @@ export function Agent({
     draftApi.current.set("");
     setNextJd(null);
     setNextFilters({});
+    setNextSources("both");
     setJdOpen(false);
     setLiveFiltersOpen(false);
     /* A new chat is not about the campaign the last one was: its slots start empty. */
@@ -1551,6 +1614,21 @@ export function Agent({
     startNew();
     if (c) onFocusCampaign?.(c.id, c.name);
     window.setTimeout(() => areaRef.current?.focus(), 80);
+  };
+  /* A chat from the list (or the header's earlier chats): the person's own opens as the conversation; somebody else's about the
+     campaign opens as a read-only transcript. Either way the campaign it is about is selected. */
+  const openRailChat = (c: RailChat) => {
+    setPicking(false);
+    if (c.ownerName) {
+      startNew();
+      setViewing({ id: c.id, title: c.title, ownerName: c.ownerName, campaignId: c.campaignId ?? "", campaignName: c.campaignName || "this campaign" });
+      if (c.campaignId) onFocusCampaign?.(c.campaignId, c.campaignName || campaignById(c.campaignId)?.name || "Campaign");
+      return;
+    }
+    setViewing(null);
+    void openChat(c.id);
+    if (c.campaignId) onFocusCampaign?.(c.campaignId, c.campaignName || campaignById(c.campaignId)?.name || "Campaign");
+    else onNewChat?.();
   };
   /* Deleting a chat is for good (the row asked twice): the server removes it and its pin, the list is read again, and if it
      was the open one the page starts a fresh chat about the same campaign. */
@@ -1593,7 +1671,7 @@ export function Agent({
         so the column changed width and the composer changed position each
         time a turn of another kind followed it. */}
     <div
-      className={`${orcClass(started)}${LIVE ? " orc--lx" : ""}${LIVE && railHidden ? " is-rail-hidden" : ""}${LIVE && picking ? " is-picking" : ""}`}
+      className={`${orcClass(started)}${LIVE ? " orc--lx" : ""}${LIVE && railHidden ? " is-rail-hidden" : ""}${LIVE && picking ? " is-picking" : ""}${LIVE && viewing ? " is-shared" : ""}`}
       ref={rootRef}
       style={configTop !== null ? { ["--config-top" as string]: `${configTop}px` } : undefined}
     >
@@ -1607,8 +1685,9 @@ export function Agent({
           chats={railList}
           state={railList ? "ready" : chatsFailed ? "failed" : "loading"}
           onRetry={() => setChatsAsk((n) => n + 1)}
-          activeId={live.conversationId}
+          activeId={viewing?.id ?? live.conversationId}
           campaigns={activeCampaigns}
+          selected={chatCampaign}
           top={
             <RailContext
               campaign={chatCampaign ? { id: chatCampaign.id, name: chatCampaign.name } : null}
@@ -1626,12 +1705,7 @@ export function Agent({
           onNew={() => startIn(null)}
           onNewIn={startIn}
           onOpenCampaign={(id) => onOpenCampaign?.(id)}
-          onOpen={(c) => {
-            setPicking(false);
-            void openChat(c.id);
-            if (c.campaignId) onFocusCampaign?.(c.campaignId, c.campaignName || campaignById(c.campaignId)?.name || "Campaign");
-            else onNewChat?.();
-          }}
+          onOpen={openRailChat}
           onRename={(id, title) => patchChat(id, { title })}
           onMove={async (id, campaignId) => {
             await patchChat(id, { focusCampaignId: campaignId });
@@ -1648,6 +1722,13 @@ export function Agent({
       {LIVE && config?.dialog && <RailDialogs dialog={config.dialog} />}
       <div className="orc-main">
         {LIVE && picking && <CampaignsPicker campaigns={pickerRows} onStart={startIn} onClose={() => setPicking(false)} />}
+        {LIVE && viewing && !picking && (
+          <SharedChat
+            view={viewing}
+            onStartOwn={() => startIn(viewing.campaignId ? { id: viewing.campaignId, name: viewing.campaignName } : null)}
+            onClose={() => setViewing(null)}
+          />
+        )}
         {LIVE && (
           <ChatHeader
             title={openChatRow && openChatRow.title !== UNTITLED ? openChatRow.title : ""}
@@ -1660,7 +1741,7 @@ export function Agent({
             earlier={(railList ?? []).filter((c) => chatCampaign && c.campaignId === chatCampaign.id && c.id !== live.conversationId).slice(0, 3)}
             agents={<WatchList />}
             onOpenCampaign={(id) => onOpenCampaign?.(id)}
-            onOpenChat={(c) => { void openChat(c.id); if (c.campaignId) onFocusCampaign?.(c.campaignId, c.campaignName || "Campaign"); }}
+            onOpenChat={openRailChat}
           />
         )}
 
@@ -1781,6 +1862,7 @@ export function Agent({
             onOpenJd={() => setJdOpen(true)}
             bulk={bulkChoices}
             onBulk={pickBulk}
+            {...(LIVE && (!focused || mayChange) ? { sources: { value: sourcesValue, onChange: changeSources } } : {})}
             onOpenFilters={LIVE ? openLiveFilters : openFilters}
             onSend={send}
             sendRef={sendRef}
@@ -2223,7 +2305,7 @@ type ComposerHandle = {
 };
 
 function Composer({
-  api, mode, onMode, context, jd, filterCount, onOpenJd, onOpenFilters, bulk, onBulk, onSend,
+  api, mode, onMode, context, jd, filterCount, onOpenJd, onOpenFilters, bulk, onBulk, sources, onSend,
   sendRef, areaRef, rootRef, sending, started, preview, below, campaignName, brief,
 }: {
   /** The campaign in focus, which a job description and the filters act on at once. Absent: they wait for the next message. */
@@ -2250,6 +2332,8 @@ function Composer({
   /** What can be added many at a time from here (roles; a candidate sheet when a campaign is in the chat). Empty: nothing. */
   bulk?: readonly BulkChoice[];
   onBulk?: (choice: BulkChoice) => void;
+  /** Where searches look (database, external or both) and how to change it; absent where the person may not change it. */
+  sources?: { value: SourceMode; onChange: (m: SourceMode) => void };
   /** Opens the filters, pre-filled from what the draft already says; `category` scrolls the dialog to that group. */
   onOpenFilters: (draft: string, category?: string) => void;
   onSend: () => void;
@@ -2464,7 +2548,7 @@ function Composer({
   const sayingSomething = draft.trim().length > 0 || items.some((a) => a.status === "ready");
   /* Which of the job description and filters chips this chat shows: see `composerChips`. */
   const forNext = !LIVE || !campaignName;
-  const chips = composerChips({ live: LIVE, inCampaign: !!campaignName, hasJd: !!jd, filters: filterCount, saying: sayingSomething });
+  const chips = composerChips({ live: LIVE, inCampaign: !!campaignName });
   const showJd = chips.jd;
   const showFilters = chips.filters;
 
@@ -2609,7 +2693,7 @@ function Composer({
               </button>}
               {showFilters && <button
                 type="button"
-                className={`orc-gslot orc-ctx${filterCount ? " is-on" : ""}${LIVE && !jd && !filterCount ? " is-new" : ""}`}
+                className={`orc-gslot orc-ctx${filterCount ? " is-on" : ""}`}
                 data-tour="filters-slot"
                 title={filterCount ? `${filterCount} filters set` : "Set filters"}
                 onClick={() => onOpenFilters(draft)}
@@ -2618,18 +2702,20 @@ function Composer({
                 <span className="orc-chip-l">{filterCount ? "Filters" : LIVE ? "Filters" : "Set filters"}</span>
                 {filterCount > 0 && <b className="orc-ctx-n" key={filterCount}>{filterCount}</b>}
               </button>}
+              {LIVE && sources && <SourcesChip value={sources.value} onChange={sources.onChange} />}
               {LIVE && bulk && onBulk && <BulkChip choices={bulk} onPick={onBulk} />}
             </div>
           )}
 
           {/* Docked, the modes and the two context buttons fold into one
               control, so the bar reads as field → tune → send. */}
-          {started && (showJd || (LIVE && bulk && bulk.length > 0 && onBulk)) && (
+          {started && (showJd || sources || (LIVE && bulk && bulk.length > 0 && onBulk)) && (
             <TuneMenu
               mode={mode}
               onMode={onMode}
               withBrief={showJd}
               withFilters={forNext}
+              {...(LIVE && sources ? { sources } : {})}
               jd={jd}
               filterCount={filterCount}
               onOpenJd={onOpenJd}
@@ -2766,8 +2852,9 @@ function Composer({
 /* ── the docked bar's one control ────────────────────────────────────────── */
 
 function TuneMenu({
-  mode, onMode, withBrief, withFilters, jd, filterCount, onOpenJd, onOpenFilters, bulk, onBulk,
+  mode, onMode, withBrief, withFilters, jd, filterCount, onOpenJd, onOpenFilters, bulk, onBulk, sources,
 }: {
+  sources?: { value: SourceMode; onChange: (m: SourceMode) => void };
   mode: ModeId;
   onMode: (m: ModeId) => void;
   /** Whether the job description and the filters are offered (a chat about no campaign); else it holds only "Add in bulk". */
@@ -2802,7 +2889,7 @@ function TuneMenu({
         className={`orc-tune${open ? " is-open" : ""}${set ? " is-set" : ""}`}
         aria-haspopup="menu"
         aria-expanded={open}
-        title={!withBrief ? "Add in bulk" : LIVE ? "Job description and filters" : "Mode, job description and filters"}
+        title={!withBrief ? (sources ? "Where to search, and add in bulk" : "Add in bulk") : LIVE ? "Job description, filters and where to search" : "Mode, job description and filters"}
         onClick={() => setOpen((o) => !o)}
       >
         {!LIVE && Current && <Current size={14} weight="bold" aria-hidden="true" />}
@@ -2829,7 +2916,18 @@ function TuneMenu({
             <span className="orc-tune-l"><b>Filters</b><small>{filterCount ? `${filterCount} set` : "Location, seniority, company…"}</small></span>
             {filterCount > 0 && <b className="orc-ctx-n">{filterCount}</b>}
           </button>}
-          {bulk && bulk.length > 0 && onBulk && <BulkList choices={bulk} onPick={(c) => { setOpen(false); onBulk(c); }} />}
+          {sources && (
+            <div className="orc-tune-group">
+              <p className="orc-tune-cap">Search in</p>
+              <SourcesList value={sources.value} onPick={(m) => { setOpen(false); if (m !== sources.value) sources.onChange(m); }} />
+            </div>
+          )}
+          {bulk && bulk.length > 0 && onBulk && (
+            <div className="orc-tune-group">
+              <p className="orc-tune-cap">Add in bulk</p>
+              <BulkList choices={bulk} onPick={(c) => { setOpen(false); onBulk(c); }} />
+            </div>
+          )}
         </div>
       )}
     </div>

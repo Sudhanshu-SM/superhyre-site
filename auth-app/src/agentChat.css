@@ -232,12 +232,13 @@
 .hx-row.is-on .hx-row-t { font-weight: 500; }
 .hx-row-title, .hx-row-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hx-row-sub { color: var(--ink-2); font-size: 13.5px; }
-.hx-row-when { flex: none; padding-right: 11px; color: var(--ink-2); font: 400 13.5px/1 var(--ui); }
+.hx-row-when { flex: none; padding-right: 11px; white-space: nowrap; color: var(--ink-2); font: 400 13.5px/1 var(--ui); }
 .hx-icon { flex: none; display: inline-grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 8px; background: transparent; color: var(--ink-2); cursor: pointer; transition: background var(--t), color var(--t), transform 140ms var(--ease-out); }
 .hx-icon:hover { background: var(--hx-wash-2); color: var(--ink); }
 .hx-icon:active { transform: scale(0.9); }
 .hx-row-more { display: none; margin-right: 5px; }
 .hx-row:hover .hx-row-when, .hx-row.has-menu .hx-row-when { display: none; }
+.hx-row.is-theirs:hover .hx-row-when { display: inline; }
 .hx-row:hover .hx-row-more, .hx-row.has-menu .hx-row-more, .hx-row-more:focus-visible { display: inline-grid; }
 /* A row going to the archive steps aside before the list closes up. */
 .hx-row.is-leaving { opacity: 0; transform: translateX(12px); pointer-events: none; }
@@ -248,6 +249,9 @@
 .hx-row.is-nested .hx-row-t { min-height: 36px; font-size: 14.5px; }
 .hx-row.is-nested .hx-row-when { font-size: 12.5px; }
 .hx-camp-fold { flex: none; display: inline-flex; align-items: center; gap: 5px; height: 30px; margin-right: 4px; padding: 0 8px 0 7px; border: 0; border-radius: 8px; background: transparent; color: var(--ink-2); font: 400 13px/1 var(--ui); cursor: pointer; transition: background var(--t), color var(--t); }
+.hx-camp-row.is-current .hx-row-title { color: var(--accent-text, var(--ink)); }
+.hx-camp-row.is-current .hx-row-ico { color: var(--accent-text, var(--ink-2)); }
+.hx-camp-none { margin: 0 0 4px; padding: 4px 11px 6px 41px; color: var(--ink-2); font: 400 13.5px/1.4 var(--ui); }
 .hx-camp-fold:hover { background: var(--hx-wash-2); color: var(--ink); }
 .hx-camp-fold:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 .hx-camp-fold:not(.is-open) .hx-sec-c { transform: rotate(-90deg); }

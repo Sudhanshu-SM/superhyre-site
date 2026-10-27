@@ -9,6 +9,8 @@ export type Conversation = {
   focusCampaignName?: string | null;
   lastMessage?: string | null;
   updatedAt: string;
+  /** Set on a chat somebody else had about a campaign this person can see: whose it is. Read only. */
+  ownerName?: string;
 };
 
 export type ChatMessage = {
@@ -29,6 +31,9 @@ export type ConversationDetail = {
   messages: ChatMessage[];
   runs: Array<{ id: string; skill: string; status: string; campaignId: string | null; createdAt: string }>;
   eventCursor: number;
+  /** Somebody else's chat about a campaign this person can see: their words only, with no run and no stream. */
+  readOnly?: boolean;
+  ownerName?: string | null;
 };
 
 export type Verdict = {
@@ -496,6 +501,9 @@ export type Structured = {
 
 export const agentApi = {
   conversations: () => api<{ conversations: Conversation[] }>("GET", "/v1/conversations"),
+  /** The chats other people had about a campaign this person can see (read only), newest first. */
+  sharedChats: (campaignId: string) =>
+    api<{ conversations: Conversation[] }>("GET", `/v1/conversations?others=true&campaign=${campaignId}`),
   createConversation: (focusCampaignId?: string) =>
     api<Conversation>("POST", "/v1/conversations", focusCampaignId ? { focusCampaignId } : {}),
   conversation: (id: string) => api<ConversationDetail>("GET", `/v1/conversations/${id}`),

@@ -1,5 +1,5 @@
 import type { ApiNotification } from "./api/tasks";
-import type { Member, OrgRole, PersonalImportOffer, Workspace } from "./api/identity";
+import type { Invite, InviteState, Member, OrgRole, PersonalImportOffer, Workspace } from "./api/identity";
 
 /**
  * Words and small reducers for the people side of an organisation: who is in it, in what role, and what the bell
@@ -15,6 +15,52 @@ export const ROLE_LINE: Readonly<Record<OrgRole, string>> = {
   admin: "Sees everything and manages recruiters. Can edit the organisation and its clients.",
   recruiter: "Works on their own and shared campaigns. Can't change who is here.",
 };
+
+/* ── invitations ── */
+
+/** The one word each state wears as a tag. */
+export const INVITE_STATE_LABEL: Readonly<Record<InviteState, string>> = {
+  sent: "Sent",
+  delivered: "Delivered",
+  bounced: "Bounced",
+  not_sent: "Not emailed",
+  accepted: "Accepted",
+  expired: "Expired",
+};
+
+/** What each state means, said once, for the tag's hover and for anyone reading it cold. */
+export const INVITE_STATE_LINE: Readonly<Record<InviteState, string>> = {
+  sent: "The email is on its way. Their mail server hasn't confirmed it yet.",
+  delivered: "The email reached their mail server. They haven't accepted yet.",
+  bounced: "Their address refused the email. Check the address, or share the link yourself.",
+  not_sent: "No email went out. Share the link with them, or send it again.",
+  accepted: "They joined.",
+  expired: "The link ran out before they accepted. Send it again for a new one.",
+};
+
+/** How the tag is tinted: green for good news, red for an address that failed, amber for a link that needs sharing, grey when over. */
+export const INVITE_STATE_TONE: Readonly<Record<InviteState, "good" | "bad" | "warn" | "info" | "plain">> = {
+  sent: "info",
+  delivered: "info",
+  bounced: "bad",
+  not_sent: "warn",
+  accepted: "good",
+  expired: "plain",
+};
+
+/** An invitation that is still waiting for an answer: its link works and it can be cancelled. */
+export const inviteIsOpen = (i: Pick<Invite, "state">): boolean => i.state !== "accepted" && i.state !== "expired";
+
+/** An invitation worth sending again: the email did not arrive, or the link ran out. */
+export const inviteNeedsResend = (i: Pick<Invite, "state">): boolean => i.state === "bounced" || i.state === "not_sent" || i.state === "expired";
+
+/** The date and the reason under an invitation's tag: when it went and when it runs out, or why it did not go. */
+export function inviteDetail(i: Pick<Invite, "state" | "createdAt" | "expiresAt" | "emailedAt" | "acceptedAt" | "emailError">, fmt: (iso: string) => string): string {
+  if (i.state === "accepted") return i.acceptedAt ? `Joined ${fmt(i.acceptedAt)}` : "Joined";
+  if (i.state === "expired") return `Ran out ${fmt(i.expiresAt)}`;
+  const sent = i.state === "not_sent" ? (i.emailError ?? "No email was sent").replace(/\.$/, "") : `Sent ${fmt(i.emailedAt ?? i.createdAt)}`;
+  return `${sent}. Open until ${fmt(i.expiresAt)}`;
+}
 
 const ORDER: readonly OrgRole[] = ["owner", "admin", "recruiter"];
 

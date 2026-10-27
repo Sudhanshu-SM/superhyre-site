@@ -88,26 +88,16 @@ describe("the two chips have one anatomy", () => {
 });
 
 describe("which composer chips show", () => {
-  const base = { live: true, inCampaign: false, hasJd: false, filters: 0, saying: false };
-
-  it("a new chat about no campaign offers the job description, not yet the filters", () => {
-    expect(composerChips(base)).toEqual({ jd: true, filters: false });
+  it("a chat about no campaign offers both the job description and the filters, from the first blank screen", () => {
+    expect(composerChips({ live: true, inCampaign: false })).toEqual({ jd: true, filters: true });
   });
 
-  it("offers the filters once there is a brief to refine: words, a description, or filters already set", () => {
-    expect(composerChips({ ...base, saying: true })).toEqual({ jd: true, filters: true });
-    expect(composerChips({ ...base, hasJd: true })).toEqual({ jd: true, filters: true });
-    expect(composerChips({ ...base, filters: 2 })).toEqual({ jd: true, filters: true });
-  });
-
-  it("shows neither in a campaign's chat, whatever the campaign has set", () => {
-    for (const extra of [{}, { hasJd: true, filters: 3 }, { saying: true }]) {
-      expect(composerChips({ ...base, inCampaign: true, ...extra })).toEqual({ jd: false, filters: false });
-    }
+  it("shows neither in a campaign's chat: the campaign's set-up is in the header and on its cards", () => {
+    expect(composerChips({ live: true, inCampaign: true })).toEqual({ jd: false, filters: false });
   });
 
   it("keeps both in the prototype, which is never connected", () => {
-    expect(composerChips({ ...base, live: false })).toEqual({ jd: true, filters: true });
-    expect(composerChips({ ...base, live: false, inCampaign: true })).toEqual({ jd: true, filters: true });
+    expect(composerChips({ live: false, inCampaign: false })).toEqual({ jd: true, filters: true });
+    expect(composerChips({ live: false, inCampaign: true })).toEqual({ jd: true, filters: true });
   });
 });

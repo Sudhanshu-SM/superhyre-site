@@ -175,7 +175,7 @@ describe("the pinned campaigns", () => {
     expect(css).toMatch(/\.hx-row\.is-nested \.hx-row-t \{[^}]*font-size: 14\.5px/);
     expect(css).toMatch(/\.hx-camp-fold:not\(\.is-open\) \.hx-sec-c \{ transform: rotate\(-90deg\)/);
     const src = readFileSync(join(__dirname, "..", "ChatRail.tsx"), "utf8");
-    expect(src).toContain("readOpenCampaigns()[item.id] ?? false");
+    expect(src).toContain("readOpenCampaigns()[item.id] ?? current");
   });
 
   it("fit the Recents to the height there is, so nothing is left empty at the foot", () => {
@@ -305,5 +305,27 @@ describe("deleting a chat", () => {
     expect(css).toMatch(/\.hx-navs \{[^}]*grid-template-columns: minmax\(0, 1fr\)/);
     expect(css).toMatch(/\.hx-nav \{[^}]*min-width: 0/);
     expect(css).toMatch(/\.hx-nav--search\.is-open input \{[^}]*width: 100%/);
+  });
+});
+
+describe("the selected campaign in the list", () => {
+  const withChats = (n: number) => Array.from({ length: n }, (_, i) => chat(String(i + 1), { campaignId: "A", campaignName: "Data Analyst" }));
+
+  it("shows a Selected section above Pinned, with the campaign's chats, when one is selected and not pinned", () => {
+    const html = render({ chats: withChats(3), selected: { id: "A", name: "Data Analyst" } });
+    expect(html).toContain(">Selected<");
+    expect(html.indexOf(">Selected<")).toBeLessThan(html.indexOf(">Recents<"));
+    expect(html).toContain("Data Analyst");
+    // Its chats are in Recents too.
+    expect((html.match(/Chat 1</g) ?? []).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("says so, kindly, when the selected campaign has no chats of the person's", () => {
+    const html = render({ chats: [chat("1")], selected: { id: "A", name: "Data Analyst" } });
+    expect(html).toContain("No chats yet");
+  });
+
+  it("shows nothing extra when no campaign is selected", () => {
+    expect(render({ chats: withChats(3) })).not.toContain(">Selected<");
   });
 });

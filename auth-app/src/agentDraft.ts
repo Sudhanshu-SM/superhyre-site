@@ -28,13 +28,13 @@ export function slotsFor<J>(s: SlotsInput<J>): { jd: J | null; filters: number }
 }
 
 /**
- * Which of the two composer chips to show. A job description starts a role, and filters refine a brief, so both are for the
- * NEXT message of a chat that is about no campaign: the description from the first blank screen, the filters once there is
- * a brief to refine (a description, words in the field, or filters already set). In a campaign's chat they are the
- * campaign's standing set-up, which is in the header's "What the agent knows" and on every sourcing card, so neither shows:
- * a tick and a count repeated in each chat said something that never changed. Not connected (the prototype), both always do.
+ * Which of the two composer chips to show. A job description starts a role and filters narrow a search, so both are for the
+ * NEXT message of a chat that is about no campaign, and both are there from the first blank screen (a person briefing a role
+ * looks for them there). In a campaign's chat they are the campaign's standing set-up, which is in the header's "What the
+ * agent knows" and on every sourcing card, so neither shows: a tick and a count repeated in each chat said something that
+ * never changed. Not connected (the prototype), both always do.
  */
-export function composerChips(s: { live: boolean; inCampaign: boolean; hasJd: boolean; filters: number; saying: boolean }): { jd: boolean; filters: boolean } {
+export function composerChips(s: { live: boolean; inCampaign: boolean }): { jd: boolean; filters: boolean } {
   const forNext = !s.live || !s.inCampaign;
-  return { jd: forNext, filters: forNext && (!s.live || s.hasJd || s.filters > 0 || s.saying) };
+  return { jd: forNext, filters: forNext };
 }

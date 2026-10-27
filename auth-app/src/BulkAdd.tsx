@@ -16,11 +16,11 @@ export type BulkChoice = "roles" | "candidates";
 export const BULK: Record<BulkChoice, { label: string; hint: string }> = {
   roles: {
     label: "Roles into campaigns",
-    hint: "Job descriptions, a spreadsheet of roles or a Google Sheet. I read each one and make its campaign.",
+    hint: "Job descriptions or a Google Sheet of roles.",
   },
   candidates: {
     label: "Candidates from a sheet",
-    hint: "The people your team already shared, each put on the stage its status says, in this campaign.",
+    hint: "People your team shared, each put on its stage.",
   },
 };
 
@@ -35,7 +35,7 @@ export function BulkList({ choices, onPick }: { choices: readonly BulkChoice[]; 
         return (
           <li key={c}>
             <button type="button" role="menuitem" className="bulk-item" onClick={() => onPick(c)}>
-              <span className="bulk-ico" aria-hidden="true"><Icon size={18} weight="bold" /></span>
+              <span className="bulk-ico" aria-hidden="true"><Icon size={15} weight="bold" /></span>
               <span className="bulk-l"><b>{BULK[c].label}</b><small>{BULK[c].hint}</small></span>
             </button>
           </li>

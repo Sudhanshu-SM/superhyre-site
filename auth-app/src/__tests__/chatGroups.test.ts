@@ -40,7 +40,7 @@ describe("arranging the chat list: pinned, then recents", () => {
     expect(pinned.map((p) => (p.kind === "chat" ? p.chat.id : p.id))).toEqual(["B", "b1", "A"]);
   });
 
-  it("puts a pinned campaign's chats under it, newest first, and not in recents too", () => {
+  it("puts a pinned campaign's chats under it, newest first, and keeps them in recents too", () => {
     const { pinned, recents } = arrangeRail(chats, [pinKey("campaign", "A")], campaigns);
     expect(pinned).toHaveLength(1);
     const block = pinned[0]!;
@@ -49,15 +49,35 @@ describe("arranging the chat list: pinned, then recents", () => {
       expect(block.name).toBe("Senior Data Scientist");
       expect(block.chats.map((c) => c.id)).toEqual(["a1", "a2"]);
     }
-    expect(recents.map((c) => c.id)).toEqual(["b1", "g1", "g2"]);
+    // Recents is the whole history: a campaign folded shut must not hide its chats from it.
+    expect(recents.map((c) => c.id)).toEqual(["b1", "g1", "a1", "a2", "g2"]);
   });
 
-  it("shows a chat once: pinned on its own, it stays out of its pinned campaign", () => {
+  it("keeps a chat pinned on its own out of its pinned campaign and out of recents", () => {
     const { pinned, recents } = arrangeRail(chats, [pinKey("campaign", "A"), pinKey("chat", "a1")], campaigns);
     const camp = pinned.find((p) => p.kind === "campaign");
     expect(camp?.kind === "campaign" && camp.chats.map((c) => c.id)).toEqual(["a2"]);
-    const all = [...pinned.flatMap((p) => (p.kind === "chat" ? [p.chat.id] : p.chats.map((c) => c.id))), ...recents.map((c) => c.id)];
-    expect(all.sort()).toEqual(["a1", "a2", "b1", "g1", "g2"]);
+    expect(pinned.some((p) => p.kind === "chat" && p.chat.id === "a1")).toBe(true);
+    expect(recents.map((c) => c.id)).toEqual(["b1", "g1", "a2", "g2"]);
+  });
+
+  it("shows the selected campaign with its chats, whether or not it has been pinned", () => {
+    const sel = { id: "A", name: "Senior Data Scientist" };
+    const unpinned = arrangeRail(chats, [], campaigns, sel);
+    expect(unpinned.selected?.name).toBe("Senior Data Scientist");
+    expect(unpinned.selected?.chats.map((c) => c.id)).toEqual(["a1", "a2"]);
+    // They are in Recents as well, along with the chats of no campaign.
+    expect(unpinned.recents.map((c) => c.id)).toEqual(["b1", "g1", "a1", "a2", "g2"]);
+    // Pinned, it is in Pinned already and not drawn a second time.
+    expect(arrangeRail(chats, [pinKey("campaign", "A")], campaigns, sel).selected).toBeNull();
+    // A campaign with no chats of the person's is still shown, empty; nothing selected shows nothing.
+    expect(arrangeRail(chats, [], campaigns, { id: "Z", name: "Sales Manager" }).selected).toMatchObject({ name: "Sales Manager", chats: [] });
+    expect(arrangeRail(chats, [], campaigns).selected).toBeNull();
+  });
+
+  it("leaves a chat pinned on its own out of the selected campaign's list", () => {
+    const { selected } = arrangeRail(chats, [pinKey("chat", "a1")], campaigns, { id: "A", name: "Senior Data Scientist" });
+    expect(selected?.chats.map((c) => c.id)).toEqual(["a2"]);
   });
 
   it("leaves out a pin whose chat or campaign has gone", () => {
@@ -72,7 +92,7 @@ describe("arranging the chat list: pinned, then recents", () => {
   });
 
   it("is empty-safe", () => {
-    expect(arrangeRail([], [], [])).toEqual({ pinned: [], recents: [] });
+    expect(arrangeRail([], [], [])).toEqual({ selected: null, pinned: [], recents: [] });
   });
 
   it("states how many show at first and how many more each press brings", () => {

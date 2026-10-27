@@ -165,7 +165,7 @@ describe("members list changes", () => {
       { userId: "u2", email: "ravi@q.dev", fullName: null, role: "recruiter", status: "active", joinedAt: "2026-10-02T00:00:00Z", campaigns: 0 },
     ],
     requests: [mira],
-    invites: [{ id: "i1", email: "x@q.dev", role: "recruiter", createdAt: "2026-10-03T00:00:00Z", expiresAt: "2026-10-10T00:00:00Z" }],
+    invites: [{ id: "i1", email: "x@q.dev", role: "recruiter", createdAt: "2026-10-03T00:00:00Z", expiresAt: "2026-10-10T00:00:00Z", state: "sent" }],
   };
 
   it("changes a role, but never the owner's", () => {

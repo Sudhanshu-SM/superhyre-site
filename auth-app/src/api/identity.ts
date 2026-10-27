@@ -70,13 +70,32 @@ export type Member = {
   /** A recruiter is given only their own: a teammate's address is an owner's and admin's to see (null). */
   email: string | null;
   fullName: string | null;
+  /** Their picture, when they have one on the web. */
+  avatarUrl?: string | null;
   role: OrgRole;
   status: string;
   joinedAt: string;
   campaigns: number;
 };
 export type JoinRequest = { id: string; userId: string; email: string; fullName: string | null; requestedAt: string };
-export type Invite = { id: string; email: string; role: "admin" | "recruiter"; createdAt: string; expiresAt: string };
+/**
+ * Where an invitation stands (the server's invite-state.ts): sent and delivered are the email's progress, bounced is an
+ * address that refused it, not_sent means no email went (the link is how they join), accepted and expired are over.
+ */
+export type InviteState = "accepted" | "expired" | "bounced" | "delivered" | "sent" | "not_sent";
+export type Invite = {
+  id: string;
+  email: string;
+  role: "admin" | "recruiter";
+  createdAt: string;
+  expiresAt: string;
+  state: InviteState;
+  acceptedAt?: string | null;
+  /** When the email was handed over; null when none was. */
+  emailedAt?: string | null;
+  /** Why no email went, when the server knows. */
+  emailError?: string | null;
+};
 /** What an invite link leads to. An unknown token carries only `valid: false`. */
 export type InvitePreview = {
   valid: boolean;
@@ -201,8 +220,9 @@ export const identityApi = {
     api<{ organisationId: string; role: OrgRole }>("POST", `/v1/invitations/${encodeURIComponent(id)}/accept`, fullName ? { fullName } : {}),
   declineInvitation: (id: string) => api<void>("POST", `/v1/invitations/${encodeURIComponent(id)}/decline`, {}),
   members: () => api<Members>("GET", "/v1/members"),
-  invite: (input: { email: string; role: "admin" | "recruiter" }) =>
-    api<{ inviteId: string; email: string; link: string; emailed?: boolean }>("POST", "/v1/members/invites", input),
+  /** `notify: false` makes a fresh link without emailing it (for "Copy link"). */
+  invite: (input: { email: string; role: "admin" | "recruiter"; notify?: boolean }) =>
+    api<{ inviteId: string; email: string; link: string; emailed?: boolean; emailError?: string }>("POST", "/v1/members/invites", input),
   revokeInvite: (id: string) => api<void>("DELETE", `/v1/members/invites/${id}`),
   decide: (id: string, input: { approve: boolean; role: "admin" | "recruiter" }) =>
     api<{ requestId: string; approved: boolean }>("POST", `/v1/members/requests/${id}/decision`, input),

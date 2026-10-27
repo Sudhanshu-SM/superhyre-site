@@ -190,6 +190,9 @@ export type ApiCampaignAgents = {
 export const campaignAgents = (id: string) => api<ApiCampaignAgents>("GET", `/v1/campaigns/${id}/agents`);
 export const setCampaignMembers = (id: string, userIds: string[]) => api<ApiCampaign>("PUT", `/v1/campaigns/${id}/members`, { userIds });
 /** Puts a closed campaign away (closing it first when it is open), or brings it back to the list. */
+/** Where this campaign's searches look for people: our database, external sources, or both. */
+export const setSources = (id: string, sources: "database" | "both" | "external") =>
+  api<{ sources: "database" | "both" | "external" }>("PUT", `/v1/campaigns/${id}/sources`, { sources });
 export const archiveCampaign = (id: string, archived: boolean) =>
   api<ApiCampaign>("PUT", `/v1/campaigns/${id}/archive`, { archived });
 /** Deletes a closed campaign and everything on it, for good. */

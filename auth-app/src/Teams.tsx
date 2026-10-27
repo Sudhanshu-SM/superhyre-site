@@ -1,3 +1,5 @@
+import { Tag } from "./Tag";
+import "./people.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { MagnifyingGlass, Plus } from "@phosphor-icons/react";
@@ -217,7 +219,7 @@ function TeamsBody({ account, role, orgName }: { account: LiveAccount; role: "ow
   const current = teams.find((t) => t.id === picked) ?? found[0] ?? null;
 
   const body = tab === "everyone" ? (
-    <section className="st-panel" aria-label="Everyone">
+    <section className="pp-page" aria-label="Everyone">
       <TeamsPeople me={me} role={role} orgName={orgName} reload={account.reload} {...(account.say ? { say: account.say } : {})} teams={teams} onChanged={() => void refresh()} />
     </section>
   ) : teams.length === 0 ? (
@@ -390,8 +392,8 @@ function MemberLine({ m, team, may, owner, me, canLead, run }: {
   return (
     <li className="st-item">
       <span className="st-who">
-        <span className="t-body-strong sl-ell">{m.name ?? "A teammate"}{self ? " (you)" : ""}</span>
-        <span className="st-mail t-body-sm">{lead ? "Lead" : "Member"}</span>
+        <span className="pp-who"><span><span className="t-body-strong sl-ell">{m.name ?? "A teammate"}</span>{self && <Tag title="This is you">You</Tag>}</span></span>
+        <Tag {...(lead ? { tone: "accent" as const } : {})}>{lead ? "Lead" : "Member"}</Tag>
       </span>
       {may && (
         <span className="st-acts">
@@ -597,15 +599,13 @@ function TeamsGhost() {
 
 function EveryoneGhost() {
   return (
-    <div className="st-panel">
-      <ShimmerRegion label="Loading everyone" className="st-sec">
-        <div className="st-h-row"><Shimmer h={20} lh={28} w={120} /><Shimmer h={32} w={116} r={8} /></div>
-        <ul className="st-list" aria-hidden="true">
-          {[0, 1, 2, 3, 4].map((i) => (
-            <li key={i} className="st-item"><span className="st-who"><Shimmer h={13} lh={20} w={`${120 + ((i * 31) % 70)}px`} /><Shimmer h={11} lh={20} w={`${170 + ((i * 23) % 80)}px`} /></span><Shimmer h={32} w={32} r={8} /></li>
-          ))}
-        </ul>
-      </ShimmerRegion>
-    </div>
+    <ShimmerRegion label="Loading everyone" className="pp">
+      <div className="pp-head"><Shimmer h={14} lh={20} w={160} /><Shimmer h={32} w={116} r={8} /></div>
+      <ul className="st-list" aria-hidden="true">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <li key={i} className="st-item"><span className="st-who"><Shimmer h={13} lh={20} w={`${120 + ((i * 31) % 70)}px`} /><Shimmer h={11} lh={20} w={`${170 + ((i * 23) % 80)}px`} /></span><Shimmer h={22} w={72} r={6} /></li>
+        ))}
+      </ul>
+    </ShimmerRegion>
   );
 }

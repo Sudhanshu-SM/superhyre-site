@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { DotsThree } from "@phosphor-icons/react";
+import { DotsThree, MagnifyingGlass } from "@phosphor-icons/react";
+import type { ReactNode } from "react";
 import {
   approveRequest, changeRole, declineRequest, dropInvite, dropMember, handOwnership, identityApi, nameOf, readable,
   workspaceChanged,
@@ -14,7 +15,13 @@ import { Loader } from "./components/Loader";
 import { Shimmer } from "./components/Shimmer";
 import { StItemsGhost } from "./settingsGhosts";
 import { pollWhileVisible } from "./livePoll";
-import { groupByRole, ownerLeaveLine, ROLE_LABEL, ROLE_LINE, ROLE_PLURAL } from "./membership";
+import {
+  groupByRole, INVITE_STATE_LABEL, INVITE_STATE_LINE, INVITE_STATE_TONE, inviteDetail, inviteIsOpen, inviteNeedsResend,
+  ownerLeaveLine, ROLE_LABEL, ROLE_LINE,
+} from "./membership";
+import { Tag } from "./Tag";
+import { Tile } from "./Tile";
+import "./people.css";
 import { Pager } from "./components/Pager";
 import { clampedOffset } from "./sectionState";
 import { ConfirmDialog } from "./RoleBits";
@@ -71,6 +78,7 @@ export function TeamsPeople({ me, role, orgName, reload, say, teams, onChanged }
   const [leaving, setLeaving] = useState(false);
   const [offering, setOffering] = useState<Member | null>(null);
   const [offset, setOffset] = useState(0);
+  const [q, setQ] = useState("");
   const toast = useToast();
   /* An admin takes someone off a team they lead; the owner's removal is out of the organisation. */
   const led = new Set(teams.filter((t) => t.canManage).map((t) => t.id));
@@ -91,24 +99,20 @@ export function TeamsPeople({ me, role, orgName, reload, say, teams, onChanged }
   useEffect(() => pollWhileVisible(() => { if (changing.current === 0) void fetchMembers(); }, MEMBERS_POLL_MS), [fetchMembers]);
 
   if (load.s === "loading") {
-    /* The page's own heading and its invite button (the person's standing is known before the list is); the rows are ghosts. */
+    /* The page's invite button (the person's standing is known before the list is); the rows are ghosts. */
     return (
-      <div className="st-sec">
-        <div className="st-h-row">
-          <h2 className="st-h t-title-sm">Everyone</h2>
+      <div className="pp">
+        <div className="pp-head">
+          <Shimmer h={14} lh={20} w={160} />
           {peopleRoles(standing, "invite").length > 0 && <button type="button" className="ncx-btn is-sm" disabled>Invite someone</button>}
         </div>
-        <div className="st-group">
-          <h3 className="st-sub t-label"><Shimmer h={11} lh={16} w={72} /></h3>
-          <StItemsGhost n={4} label="Loading everyone" />
-        </div>
+        <StItemsGhost n={4} label="Loading everyone" />
       </div>
     );
   }
   if (load.s === "error") {
     return (
-      <div className="st-sec">
-        <h2 className="st-h t-title-sm">Everyone</h2>
+      <div className="pp">
         <LoadFailed what="The people here" onRetry={() => { setLoad({ s: "loading" }); void fetchMembers(); }} />
       </div>
     );
@@ -143,12 +147,28 @@ export function TeamsPeople({ me, role, orgName, reload, say, teams, onChanged }
     );
   };
 
-  /** A new link for an invitation (the old one can't be read back, so asking again replaces it). */
-  const copyFresh = async (i: Invite) => {
+  /** Sends an invitation again: a new link (the old one can't be read back, so asking again replaces it) and a new email. */
+  const sendAgain = async (i: Invite) => {
     setError(null);
     try {
       const made = await identityApi.invite({ email: i.email, role: i.role });
-      try { await navigator.clipboard.writeText(made.link); toast(made.emailed ? "Link copied, and a new email is on its way. The earlier link no longer works." : "Link copied. The earlier one no longer works."); }
+      if (made.emailed) toast(`Invitation sent again to ${i.email}. The earlier link no longer works.`);
+      else {
+        try { await navigator.clipboard.writeText(made.link); toast(`${made.emailError ?? "The email didn't go."} The new link is copied, so you can share it.`); }
+        catch { toast(`${made.emailError ?? "The email didn't go."} Use Copy link to share it.`); }
+      }
+      await fetchMembers();
+    } catch (err) {
+      setError(readable(err));
+    }
+  };
+
+  /** A new link, copied, with no email (the earlier link stops working). */
+  const copyFresh = async (i: Invite) => {
+    setError(null);
+    try {
+      const made = await identityApi.invite({ email: i.email, role: i.role, notify: false });
+      try { await navigator.clipboard.writeText(made.link); toast("Link copied. The earlier one no longer works."); }
       catch { toast("A new link is ready. Copy it from Invite someone."); }
       await fetchMembers();
     } catch (err) {
@@ -169,19 +189,35 @@ export function TeamsPeople({ me, role, orgName, reload, say, teams, onChanged }
     }
   };
 
-  const ordered = groupByRole(data.members).flatMap((g) => g.people);
-  const at = clampedOffset(offset, ordered.length, PEOPLE_PAGE);
-  const groups = groupByRole(ordered.slice(at, at + PEOPLE_PAGE));
+  const needle = q.trim().toLowerCase();
+  const people = groupByRole(data.members).flatMap((g) => g.people)
+    .filter((m) => !needle || `${nameOf(m)} ${m.email ?? ""}`.toLowerCase().includes(needle));
+  const at = clampedOffset(offset, people.length, PEOPLE_PAGE);
+  const shown = people.slice(at, at + PEOPLE_PAGE);
+  const invites = manages ? data.invites.filter((i) => !needle || i.email.toLowerCase().includes(needle)) : [];
+  const waiting = data.invites.filter(inviteIsOpen).length;
+  const summary = [
+    data.members.length === 1 ? "1 person" : `${data.members.length} people`,
+    manages && waiting > 0 ? `${waiting} invited` : null,
+    manages && data.requests.length > 0 ? `${data.requests.length} asking to join` : null,
+  ].filter(Boolean).join(" · ");
 
   return (
-    <div className="st-sec">
-      <div className="st-h-row">
-        <h2 className="st-h t-title-sm">Everyone</h2>
-        {mayInvite && !inviting && (
-          <button type="button" className="ncx-btn is-sm" onClick={() => setInviting(true)}>Invite someone</button>
-        )}
+    <div className="pp">
+      <div className="pp-head">
+        <p className="pp-sum t-body-sm">{summary}</p>
+        <span className="pp-tools">
+          {data.members.length + data.invites.length > 8 && (
+            <label className="tm-search">
+              <MagnifyingGlass size={14} weight="bold" aria-hidden="true" />
+              <input value={q} onChange={(e) => { setQ(e.target.value); setOffset(0); }} placeholder="Search people" aria-label="Search people" />
+            </label>
+          )}
+          {mayInvite && !inviting && (
+            <button type="button" className="ncx-btn is-sm is-primary" onClick={() => setInviting(true)}>Invite someone</button>
+          )}
+        </span>
       </div>
-      <Pager offset={at} limit={PEOPLE_PAGE} total={ordered.length} unit="people" onChange={setOffset} />
       {error && <p className="st-err t-body-sm" role="alert">{error}</p>}
 
       {inviting && (
@@ -194,21 +230,22 @@ export function TeamsPeople({ me, role, orgName, reload, say, teams, onChanged }
       )}
 
       {manages && data.requests.length > 0 && (
-        <div className="st-group">
-          <h3 className="st-sub t-label">Asking to join</h3>
-          <ul className="st-list">
-            {data.requests.map((r) => <RequestRow key={r.id} r={r} standing={standing} onDecide={decide} />)}
+        <section className="pp-sec" aria-label="Asking to join">
+          <h3 className="pp-h t-title-sm">Asking to join <small>{data.requests.length}</small></h3>
+          <ul className="pp-grid">
+            {data.requests.map((r) => <RequestCard key={r.id} r={r} standing={standing} onDecide={decide} />)}
           </ul>
-        </div>
+        </section>
       )}
 
-      {groups.map((g) => (
-        <div className="st-group" key={g.role} data-pager-list>
-          <h3 className="st-sub t-label">{ROLE_PLURAL[g.role]}</h3>
-          <p className="st-quiet t-body-sm st-roleline">{ROLE_LINE[g.role]}</p>
-          <ul className="st-list">
-            {g.people.map((m) => (
-              <MemberRow
+      <section className="pp-sec" aria-label="People" data-pager-list>
+        <h3 className="pp-h t-title-sm">People <small>{people.length}</small></h3>
+        {shown.length === 0 ? (
+          <p className="pp-empty t-body-sm">No one matches that.</p>
+        ) : (
+          <ul className="pp-grid">
+            {shown.map((m) => (
+              <PersonCard
                 key={m.userId}
                 m={m}
                 self={m.userId === me}
@@ -222,55 +259,39 @@ export function TeamsPeople({ me, role, orgName, reload, say, teams, onChanged }
               />
             ))}
           </ul>
-        </div>
-      ))}
+        )}
+      </section>
 
-      {manages && data.invites.length > 0 && (
-        <div className="st-group">
-          <h3 className="st-sub t-label">Invited</h3>
-          <ul className="st-list">
-            {data.invites.map((i) => {
-              const mine = peopleRoles(standing, "invite").includes(i.role);
-              return (
-                <li key={i.id} className="st-item">
-                  <span className="st-who">
-                    <span className="t-body-strong sl-ell">{i.email}</span>
-                    <span className="st-mail t-body-sm">{ROLE_LABEL[i.role]}. Expires {date(i.expiresAt)}.</span>
-                  </span>
-                  {mine && (
-                    <span className="st-acts">
-                      <button type="button" className="st-link" onClick={() => void copyFresh(i)}>Copy link</button>
-                      <button type="button" className="st-link"
-                        onClick={() => void change(dropInvite(data, i.id), () => identityApi.revokeInvite(i.id), `Invite for ${i.email} cancelled`)}>
-                        Cancel invite
-                      </button>
-                    </span>
-                  )}
-                </li>
-              );
-            })}
+      {invites.length > 0 && (
+        <section className="pp-sec" aria-label="Invitations">
+          <h3 className="pp-h t-title-sm">Invitations <small>{invites.length}</small></h3>
+          <ul className="pp-grid">
+            {invites.map((i) => (
+              <InviteCard
+                key={i.id}
+                i={i}
+                mine={peopleRoles(standing, "invite").includes(i.role)}
+                onSendAgain={() => void sendAgain(i)}
+                onCopy={() => void copyFresh(i)}
+                onCancel={() => void change(dropInvite(data, i.id), () => identityApi.revokeInvite(i.id), `Invite for ${i.email} cancelled`)}
+              />
+            ))}
           </ul>
-        </div>
+        </section>
       )}
 
       {role === "owner" && (
-        <div className="st-group">
-          <p className="st-quiet t-body-sm">{ownerLeaveLine(orgName, data.members.filter((m) => m.userId !== me).length)}</p>
-        </div>
+        <p className="pp-foot t-body-sm">{ownerLeaveLine(orgName, data.members.filter((m) => m.userId !== me).length)}</p>
       )}
 
       {role !== "owner" && (
-        <div className="st-group">
-          <p className="st-quiet t-body-sm">
-            Leaving takes you out of {orgName}. Your campaigns and clients stay with it, with its owner. Your Personal stays as it is.
-          </p>
-          <p className="st-acts">
-            <button type="button" className="st-link" onClick={() => setLeaving(true)}>Leave {orgName}</button>
-          </p>
+        <div className="pp-foot t-body-sm">
+          <p className="pp-note">Leaving takes you out of {orgName}. Your campaigns and clients stay with it, with its owner. Your Personal stays as it is.</p>
+          <p className="st-acts"><button type="button" className="st-link" onClick={() => setLeaving(true)}>Leave {orgName}</button></p>
         </div>
       )}
 
-      <Pager offset={at} limit={PEOPLE_PAGE} total={ordered.length} unit="people" variant="foot" onChange={setOffset} />
+      <Pager offset={at} limit={PEOPLE_PAGE} total={people.length} unit="people" variant="foot" onChange={setOffset} />
 
       <TakeOffDialog
         member={offering}
@@ -333,7 +354,23 @@ export function TeamsPeople({ me, role, orgName, reload, say, teams, onChanged }
 export const addressLine = (m: { fullName: string | null; email: string | null }): string | null =>
   m.fullName?.trim() && m.email ? m.email : null;
 
-function MemberRow({ m, self, standing, offTeams, onRole, onRemove, onOffer, onHand }: {
+/** The ⋯ button and its menu, shared by a person's card and an invitation's. */
+function CardMenu({ label, width = 220, children }: { label: string; width?: number; children: (close: () => void) => ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const anchor = useRef<HTMLButtonElement>(null);
+  return (
+    <>
+      <button ref={anchor} type="button" className="st-more pp-more" aria-label={label} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        <DotsThree size={18} weight="bold" aria-hidden="true" />
+      </button>
+      <Popover anchor={anchor} open={open} onClose={() => setOpen(false)} align="end" width={width}>
+        <div className="ct-menu" role="menu">{children(() => setOpen(false))}</div>
+      </Popover>
+    </>
+  );
+}
+
+function PersonCard({ m, self, standing, offTeams, onRole, onRemove, onOffer, onHand }: {
   m: Member;
   self: boolean;
   standing: Standing;
@@ -344,61 +381,49 @@ function MemberRow({ m, self, standing, offTeams, onRole, onRemove, onOffer, onH
   onOffer: () => void;
   onHand: () => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const anchor = useRef<HTMLButtonElement>(null);
   const may = actionsOn(standing, { role: m.role, self });
   const takeOff = !self && standing === "admin" && m.role !== "owner" && offTeams.length > 0;
   const any = may.roles.length > 0 || may.remove || may.makeOwner || takeOff;
-  const teamNames = teamsOfPerson(m).map((t) => (t.lead ? `${t.name} (lead)` : t.name));
-  const meta = [
-    teamNames.length ? `Teams: ${teamNames.join(", ")}` : null,
-    m.campaigns > 0 ? (m.campaigns === 1 ? "On 1 campaign" : `On ${m.campaigns} campaigns`) : null,
-    `Joined ${date(m.joinedAt)}`,
-  ].filter(Boolean).join(". ");
-  const run = (fn: () => void) => () => { setOpen(false); fn(); };
+  const teams = teamsOfPerson(m);
+  const name = nameOf(m);
+  const item = (close: () => void, fn: () => void, label: string, danger = false) => (
+    <button type="button" role="menuitem" className={`ct-menu-i${danger ? " is-danger" : ""}`} onClick={() => { close(); fn(); }}>
+      <span className="ct-menu-t">{label}</span>
+    </button>
+  );
   return (
-    <li className="st-item">
-      <span className="st-who">
-        <span className="t-body-strong sl-ell">{nameOf(m)}{self ? " (you)" : ""}</span>
+    <li className="pp-card">
+      <Tile name={name} url={m.avatarUrl ?? null} />
+      <div className="pp-body">
+        <span className="pp-top">
+          <span className="t-body-strong sl-ell">{name}</span>
+          {self && <Tag title="This is you">You</Tag>}
+          {any && (
+            <CardMenu label={`Actions for ${name}`}>
+              {(close) => (
+                <>
+                  {may.roles.map((to) => <span key={to}>{item(close, () => onRole(to), `Make ${to === "admin" ? "an admin" : "a recruiter"}`)}</span>)}
+                  {may.makeOwner && item(close, onHand, "Make owner")}
+                  {takeOff && item(close, onOffer, `Take ${first(name)} off ${offTeams.length === 1 ? offTeams[0]?.name : "their teams"}`)}
+                  {may.remove && item(close, onRemove, `Remove ${first(name)} from the organisation`, true)}
+                </>
+              )}
+            </CardMenu>
+          )}
+        </span>
+        <span className="pp-role t-body-sm" title={ROLE_LINE[m.role]}>{ROLE_LABEL[m.role]}</span>
         {/* The address once: under a name, never again under the address that stands in for one, and not at
             all for a recruiter looking at a teammate (those are an owner's and admin's to see). */}
-        {addressLine(m) && <span className="st-mail t-body-sm sl-ell">{addressLine(m)}</span>}
-      </span>
-      <span className="st-acts">
-        <span className="st-meta t-body-sm">{meta}.</span>
-        {any && (
-          <>
-            <button ref={anchor} type="button" className="st-more" aria-label={`Actions for ${nameOf(m)}`}
-              aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-              <DotsThree size={18} weight="bold" aria-hidden="true" />
-            </button>
-            <Popover anchor={anchor} open={open} onClose={() => setOpen(false)} align="end" width={220}>
-              <div className="ct-menu" role="menu">
-                {may.roles.map((to) => (
-                  <button key={to} type="button" role="menuitem" className="ct-menu-i" onClick={run(() => onRole(to))}>
-                    <span className="ct-menu-t">Make {to === "admin" ? "an admin" : "a recruiter"}</span>
-                  </button>
-                ))}
-                {may.makeOwner && (
-                  <button type="button" role="menuitem" className="ct-menu-i" onClick={run(onHand)}>
-                    <span className="ct-menu-t">Make owner</span>
-                  </button>
-                )}
-                {takeOff && (
-                  <button type="button" role="menuitem" className="ct-menu-i" onClick={run(onOffer)}>
-                    <span className="ct-menu-t">Take {first(nameOf(m))} off {offTeams.length === 1 ? offTeams[0]?.name : "their teams"}</span>
-                  </button>
-                )}
-                {may.remove && (
-                  <button type="button" role="menuitem" className="ct-menu-i is-danger" onClick={run(onRemove)}>
-                    <span className="ct-menu-t">Remove {first(nameOf(m))} from the organisation</span>
-                  </button>
-                )}
-              </div>
-            </Popover>
-          </>
+        {addressLine(m) && <span className="pp-sub t-body-sm sl-ell">{addressLine(m)}</span>}
+        {teams.length > 0 && (
+          <span className="pp-tags">
+            {teams.map((t) => <Tag key={t.id} {...(t.lead ? { tone: "accent" as const, title: `Leads ${t.name}` } : {})}>{t.lead ? `${t.name} · Lead` : t.name}</Tag>)}
+          </span>
         )}
-      </span>
+        <span className="pp-sub t-body-sm">
+          {m.campaigns === 1 ? "1 campaign" : `${m.campaigns} campaigns`} · Joined {date(m.joinedAt)}
+        </span>
+      </div>
     </li>
   );
 }
@@ -409,7 +434,7 @@ export function requestLine(r: Pick<JoinRequest, "fullName" | "email" | "request
   return r.fullName?.trim() ? `${r.email}, ${when}` : `${when}. No name on their account yet`;
 }
 
-function RequestRow({ r, standing, onDecide }: {
+function RequestCard({ r, standing, onDecide }: {
   r: JoinRequest;
   standing: Standing;
   onDecide: (r: JoinRequest, approve: boolean, as: Assignable) => void;
@@ -418,22 +443,66 @@ function RequestRow({ r, standing, onDecide }: {
   const [as, setAs] = useState<Assignable>("recruiter");
   const who = r.fullName?.trim() || r.email;
   return (
-    <li className="st-item">
-      <span className="st-who">
+    <li className="pp-card">
+      <Tile name={who} />
+      <div className="pp-body">
         <span className="t-body-strong sl-ell">{who}</span>
-        <span className="st-mail t-body-sm sl-ell">{requestLine(r)}</span>
-      </span>
-      <span className="st-acts">
-        {choices.length > 1 && (
-          <select className="ncx-in st-role" value={as} aria-label={`Role for ${who}`}
-            onChange={(e) => setAs(e.target.value === "admin" ? "admin" : "recruiter")}>
-            <option value="recruiter">As recruiter</option>
-            <option value="admin">As admin</option>
-          </select>
+        <span className="pp-sub t-body-sm">{requestLine(r)}</span>
+        <span className="pp-acts">
+          {choices.length > 1 && (
+            <select className="ncx-in st-role" value={as} aria-label={`Role for ${who}`}
+              onChange={(e) => setAs(e.target.value === "admin" ? "admin" : "recruiter")}>
+              <option value="recruiter">As recruiter</option>
+              <option value="admin">As admin</option>
+            </select>
+          )}
+          <button type="button" className="ncx-btn is-sm is-primary" onClick={() => onDecide(r, true, choices.length > 1 ? as : "recruiter")}>Approve</button>
+          <button type="button" className="ncx-btn is-sm" onClick={() => onDecide(r, false, "recruiter")}>Decline</button>
+        </span>
+      </div>
+    </li>
+  );
+}
+
+/** One invitation, as a person yet to arrive: an envelope for a picture, the address, the role, where it stands and what can be done. */
+function InviteCard({ i, mine, onSendAgain, onCopy, onCancel }: {
+  i: Invite;
+  mine: boolean;
+  onSendAgain: () => void;
+  onCopy: () => void;
+  onCancel: () => void;
+}) {
+  const live = inviteIsOpen(i);
+  const item = (close: () => void, fn: () => void, label: string, danger = false) => (
+    <button type="button" role="menuitem" className={`ct-menu-i${danger ? " is-danger" : ""}`} onClick={() => { close(); fn(); }}>
+      <span className="ct-menu-t">{label}</span>
+    </button>
+  );
+  return (
+    <li className="pp-card">
+      <Tile name={i.email} invited />
+      <div className="pp-body">
+        <span className="pp-top">
+          <span className="t-body-strong sl-ell">{i.email}</span>
+          {mine && live && (
+            <CardMenu label={`Actions for the invitation to ${i.email}`} width={200}>
+              {(close) => (
+                <>
+                  {!inviteNeedsResend(i) && item(close, onSendAgain, "Send again")}
+                  {item(close, onCopy, "Copy link")}
+                  {item(close, onCancel, "Cancel invitation", true)}
+                </>
+              )}
+            </CardMenu>
+          )}
+        </span>
+        <span className="pp-role t-body-sm" title={ROLE_LINE[i.role]}>{ROLE_LABEL[i.role]}</span>
+        <span className="pp-tags"><Tag tone={INVITE_STATE_TONE[i.state]} title={INVITE_STATE_LINE[i.state]}>{INVITE_STATE_LABEL[i.state]}</Tag></span>
+        <span className="pp-sub t-body-sm">{inviteDetail(i, date)}</span>
+        {mine && inviteNeedsResend(i) && (
+          <span className="pp-acts"><button type="button" className="ncx-btn is-sm" onClick={onSendAgain}>Send again</button></span>
         )}
-        <button type="button" className="ncx-btn is-sm is-primary" onClick={() => onDecide(r, true, choices.length > 1 ? as : "recruiter")}>Approve</button>
-        <button type="button" className="ncx-btn is-sm" onClick={() => onDecide(r, false, "recruiter")}>Decline</button>
-      </span>
+      </div>
     </li>
   );
 }
@@ -449,7 +518,7 @@ function InviteForm({ standing, invites, onClose, onSent }: {
   const [as, setAs] = useState<Assignable>("recruiter");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [made, setMade] = useState<{ id: string; email: string; link: string; emailed: boolean } | null>(null);
+  const [made, setMade] = useState<{ id: string; email: string; link: string; emailed: boolean; reason: string | null } | null>(null);
   const [copied, setCopied] = useState(false);
   const linkRef = useRef<HTMLInputElement>(null);
   const until = made ? invites.find((i) => i.id === made.id)?.expiresAt : undefined;
@@ -461,7 +530,7 @@ function InviteForm({ standing, invites, onClose, onSent }: {
     setError(null);
     try {
       const res = await identityApi.invite({ email: address, role: roles.includes(as) ? as : "recruiter" });
-      setMade({ id: res.inviteId, email: res.email, link: res.link, emailed: res.emailed === true });
+      setMade({ id: res.inviteId, email: res.email, link: res.link, emailed: res.emailed === true, reason: res.emailError ?? null });
       setCopied(false);
       onSent();
     } catch (err) {
@@ -483,13 +552,13 @@ function InviteForm({ standing, invites, onClose, onSent }: {
 
   if (made) {
     return (
-      <div className="st-invite">
+      <div className="pp-invite">
         <p className="t-body">
           {made.emailed
-            ? <>We've emailed an invitation to <strong>{made.email}</strong>, and they'll see it in their notifications. You can also share this link{until ? `. It works until ${date(until)}` : ""}.</>
-            : <>Invitation made for <strong>{made.email}</strong>. They'll see it in their notifications. We couldn't email it just now, so you can share this link{until ? `. It works until ${date(until)}` : ""}.</>}
+            ? <>We've emailed an invitation to <strong>{made.email}</strong>, and they'll see it in their notifications. Its status shows under Invitations below. You can also share this link{until ? `. It works until ${date(until)}` : ""}.</>
+            : <>Invitation made for <strong>{made.email}</strong>, and they'll see it in their notifications. {made.reason ?? "We couldn't email it just now."} Share this link with them{until ? `. It works until ${date(until)}` : ""}.</>}
         </p>
-        <div className="st-copy">
+        <div className="pp-copy">
           <input ref={linkRef} className="ncx-in" readOnly value={made.link} aria-label="Invite link" onFocus={(e) => e.target.select()} />
           <button type="button" className="ncx-btn is-primary" onClick={() => void copy()}>{copied ? "Copied" : "Copy link"}</button>
         </div>
@@ -503,7 +572,7 @@ function InviteForm({ standing, invites, onClose, onSent }: {
 
   const chosen: Assignable = roles.includes(as) ? as : "recruiter";
   return (
-    <form className="st-invite" onSubmit={(e) => { e.preventDefault(); void send(); }} noValidate>
+    <form className="pp-invite" onSubmit={(e) => { e.preventDefault(); void send(); }} noValidate>
       <div className="ncx-grid">
         <Fld id="st-inv-email" label="Email" error={error}>
           <input id="st-inv-email" className="ncx-in" type="email" value={email} autoFocus placeholder="name@company.com"

@@ -3,36 +3,34 @@
 .bulk-pop {
   position: fixed;
   z-index: calc(var(--z-dialog, 71) + 5);
-  width: min(360px, calc(100vw - 24px));
-  padding: 6px;
+  width: min(300px, calc(100vw - 24px));
+  padding: 4px;
   border: 1px solid var(--hairline, rgba(127, 127, 127, 0.28));
-  border-radius: 16px;
+  border-radius: 14px;
   background: var(--card, var(--page));
   box-shadow: var(--shadow-pop);
   transform-origin: bottom left;
   animation: bulk-in 160ms var(--ease-out) both;
 }
 @keyframes bulk-in { from { opacity: 0; transform: translateY(6px) scale(0.97); } to { opacity: 1; transform: none; } }
-.bulk-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.bulk-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
 .bulk-item {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
+  align-items: center;
+  gap: 10px;
   width: 100%;
-  padding: 11px 12px;
+  padding: 7px 10px;
   border: 0;
-  border-radius: 11px;
+  border-radius: 9px;
   background: transparent;
   color: var(--ink);
   text-align: left;
   cursor: pointer;
-  transition: background var(--t), transform 140ms var(--ease-out);
+  transition: background var(--t);
 }
 .bulk-item:hover, .bulk-item:focus-visible { background: color-mix(in srgb, var(--ink) 6%, transparent); outline: none; }
-.bulk-item:active { transform: scale(0.99); }
-.bulk-ico { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: var(--accent-tint, color-mix(in srgb, var(--accent) 12%, transparent)); color: var(--accent-text, var(--accent)); transition: transform 240ms var(--ease-out); }
-.bulk-item:hover .bulk-ico { transform: translateY(-1px) scale(1.05); }
-.bulk-l { display: grid; gap: 3px; min-width: 0; }
-.bulk-l b { font: 600 15px/1.25 var(--ui); }
-.bulk-l small { color: var(--ink-2); font: 400 13.5px/1.4 var(--ui); }
-@media (prefers-reduced-motion: reduce) { .bulk-pop, .bulk-ico { animation: none; transition: none; } }
+.bulk-ico { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: var(--accent-tint, color-mix(in srgb, var(--accent) 12%, transparent)); color: var(--accent-text, var(--accent)); }
+.bulk-l { display: grid; gap: 1px; min-width: 0; }
+.bulk-l b { font: 600 13.5px/1.25 var(--ui); }
+.bulk-l small { color: var(--ink-2); font: 400 12.5px/1.35 var(--ui); }
+@media (prefers-reduced-motion: reduce) { .bulk-pop { animation: none; } }

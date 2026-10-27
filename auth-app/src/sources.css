@@ -1,0 +1,22 @@
+/* Where searches look: a chip on the composer, and a small menu above it with the three choices. */
+.src-pop {
+  position: fixed;
+  z-index: calc(var(--z-dialog, 71) + 5);
+  width: min(236px, calc(100vw - 24px));
+  padding: 4px;
+  border: 1px solid var(--hairline, rgba(127, 127, 127, 0.28));
+  border-radius: 14px;
+  background: var(--card, var(--page));
+  box-shadow: var(--shadow-pop);
+  transform-origin: bottom left;
+  animation: src-in 160ms var(--ease-out) both;
+}
+@keyframes src-in { from { opacity: 0; transform: translateY(6px) scale(0.97); } to { opacity: 1; transform: none; } }
+.src-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
+.src-opt { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 34px; padding: 6px 10px; border: 0; border-radius: 9px; background: transparent; color: var(--ink); text-align: left; cursor: pointer; transition: background var(--t); }
+.src-opt:hover, .src-opt:focus-visible { background: color-mix(in srgb, var(--ink) 6%, transparent); outline: none; }
+.src-opt.is-on { background: var(--accent-tint, color-mix(in srgb, var(--accent) 10%, transparent)); }
+.src-l { flex: 1; min-width: 0; font: 500 13.5px/1.25 var(--ui); }
+.src-opt.is-on .src-l { font-weight: 600; }
+.src-tick { flex: none; display: grid; place-items: center; width: 16px; height: 16px; color: var(--accent-text, var(--accent)); }
+@media (prefers-reduced-motion: reduce) { .src-pop { animation: none; } }
