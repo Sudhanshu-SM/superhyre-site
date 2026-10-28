@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.2 (2026-10-28)
+
+### Added
+- **People you saved from LinkedIn are offered to the campaign they fit.** The Chrome extension saves people to Candidates and shortlists them onto a campaign only when one is picked in it. On a campaign's Shortlisted page a line says "N people you saved from LinkedIn fit <campaign> and aren't on its shortlist yet", with one press to add them (as extension captures) and "Not now". It is not drawn for someone who only follows the campaign, or when there is nobody.
+
 ## 1.5.1 (2026-10-28)
 
 Fixes the Pipeline board, the Overview funnel and every stage label that 1.5.0 stretched, and a round of smaller things.

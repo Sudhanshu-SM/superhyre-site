@@ -428,10 +428,17 @@ export class NotAddedError extends Error {
   }
 }
 
+/** Someone saved from LinkedIn with the Chrome extension (or by hand) who is on no campaign, as offered to one that fits. */
+export type Captured = { candidateId: string; name: string; title: string | null; company: string | null; city: string | null; from: string; saved: string };
+
+/** The people saved on no campaign who fit this campaign's role (the caller's own), and how many are saved on none. */
+export const capturesFor = (campaignId: string) =>
+  api<{ campaign: string | null; total: number; fitTheRole: number; people: Captured[] }>("GET", `/v1/campaigns/${campaignId}/captures`);
+
 /** Puts people on a campaign; rejects with NotAddedError naming any that couldn't be added. */
-export async function addToCampaign(campaignId: string, candidateIds: readonly string[]): Promise<{ results: AddResult[] }> {
+export async function addToCampaign(campaignId: string, candidateIds: readonly string[], source: "manual" | "extension" = "manual"): Promise<{ results: AddResult[] }> {
   const res = await api<{ results: AddResult[] }>(
-    "POST", `/v1/campaigns/${campaignId}/candidates`, { candidateIds, source: "manual" },
+    "POST", `/v1/campaigns/${campaignId}/candidates`, { candidateIds, source },
   );
   const failed = res.results.filter((r) => "error" in r).map((r) => r.candidateId);
   if (failed.length) throw new NotAddedError(failed, candidateIds.length);

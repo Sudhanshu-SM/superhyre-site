@@ -1,4 +1,5 @@
 import { TIER_LABEL } from "./chatCards";
+import { CapturesNudge } from "./CapturesNudge";
 import { PassReasonDialog } from "./PassReason";
 import { PersonSheet } from "./PersonSheet";
 import { CampaignComing, MeetingLinesContext, MeetingNote, PersonMeetings, useMeetingLines } from "./campaignMeetings";
@@ -2347,6 +2348,7 @@ export function CampaignShortlisted({ ctx }: { ctx: Ctx }) {
         </Dialog>
       )}
 
+      {!failed && <CapturesNudge campaignId={ctx.campaignId} name={row?.name ?? "this campaign"} />}
       {!failed && (
         <div className="sl-bar">
           <label className="sl-search">
