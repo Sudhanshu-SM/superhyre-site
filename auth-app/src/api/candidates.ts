@@ -429,7 +429,7 @@ export class NotAddedError extends Error {
 }
 
 /** Someone saved from LinkedIn with the Chrome extension (or by hand) who is on no campaign, as offered to one that fits. */
-export type Captured = { candidateId: string; name: string; title: string | null; company: string | null; city: string | null; from: string; saved: string };
+export type Captured = { candidateId: string; name: string; title: string | null; company: string | null; city: string | null; from: string; saved: string; owner?: string | null };
 
 /** The people saved on no campaign who fit this campaign's role (the caller's own), and how many are saved on none. */
 export const capturesFor = (campaignId: string) =>

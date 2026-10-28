@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.3 (2026-10-28)
+
+### Changed
+- **Owners and admins see everyone's saved LinkedIn people.** On a campaign's Shortlisted page the line reads "30 people saved from LinkedIn (Archi 30) fit <campaign> and aren't on its shortlist yet", with "Show who" listing each person and whose they are. "Add all" is drawn only for someone who may change that campaign; an admin who is not on it sees the line, the list and why.
+
 ## 1.5.2 (2026-10-28)
 
 ### Added
