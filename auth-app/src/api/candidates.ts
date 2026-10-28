@@ -48,6 +48,8 @@ export type ListQuery = {
   limit: number;
   /** Rows to skip, for a numbered page (the API answers with the whole `total`). */
   offset?: number;
+  /** Only people at this stage of the campaign; the list leaves out the hired unless this says "hired". */
+  stage?: string;
 };
 
 export function listPath(q: ListQuery): string {
@@ -59,6 +61,7 @@ export function listPath(q: ListQuery): string {
   if (q.hasEmail) p.set("hasEmail", "true");
   if (q.hasPhone) p.set("hasPhone", "true");
   if (q.skills?.length) p.set("skills", q.skills.join(","));
+  if (q.stage) p.set("stage", q.stage);
   p.set("sort", q.sort);
   if (q.cursor) p.set("cursor", q.cursor);
   p.set("limit", String(q.limit));

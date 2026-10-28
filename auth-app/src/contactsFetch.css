@@ -105,3 +105,11 @@
 .ce-in[aria-invalid="true"] { border-color: #a2552f; }
 .ce-problem { font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: #a2552f; }
 :root[data-theme="dark"] .ce-problem { color: #e0a183; }
+
+/* The call to action beside the Email and Phone headings of the Shortlisted table. */
+.cf-th { display: inline-flex; align-items: center; gap: 8px; }
+.cf-head { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 9px; border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); border-radius: 999px; background: transparent; color: var(--accent-text, var(--accent)); font: 500 12px/1 var(--ui); cursor: pointer; white-space: nowrap; transition: background var(--t), border-color var(--t); }
+.cf-head b { padding: 1px 6px; border-radius: 99px; background: color-mix(in srgb, var(--accent) 12%, transparent); font: 600 11px/1.3 var(--ui); font-variant-numeric: tabular-nums; }
+.cf-head:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 8%, transparent); border-color: var(--accent); }
+.cf-head:disabled { opacity: 0.45; cursor: default; }
+.cf-head:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }

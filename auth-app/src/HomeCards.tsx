@@ -1,3 +1,4 @@
+import { TaskTitle } from "./TaskTitle";
 import {
   ArrowRight, ArrowUpRight, CaretDown, CaretLeft, CaretRight, Lightbulb, PencilSimple, Plus, Pulse, Sparkle, Trash,
 } from "@phosphor-icons/react";
@@ -476,8 +477,8 @@ export function TodayCard({ scope, onOpen }: { scope: Scope; onOpen: (prompt: st
                     <li key={t.id} style={{ ["--hue" as string]: t.campaignId ? hueFor(t.campaignId) : undefined }}>
                       <span className="hm-tl-av" aria-hidden="true">{initialsOf(t.assigneeName)}</span>
                       {t.open
-                        ? <a className="hm-tl-t" href={t.open} title={`Open: ${t.title}`}>{t.title}</a>
-                        : <span className="hm-tl-t is-plain" title={t.title}>{t.title}</span>}
+                        ? <TaskTitle task={t} className="hm-tl-t" href={t.open}>{t.title}</TaskTitle>
+                        : <TaskTitle task={t} className="hm-tl-t is-plain" plain>{t.title}</TaskTitle>}
                       <span className="hm-tl-camp">
                         <b className="hm-tl-who">{t.assigneeName ?? "A teammate"}</b>
                         <small className="hm-tl-for">{[t.campaign, admin && t.createdByName && !isMe(t.createdById) ? `by ${t.createdByName}` : null].filter(Boolean).join(" · ")}</small>
@@ -508,8 +509,8 @@ export function TodayCard({ scope, onOpen }: { scope: Scope; onOpen: (prompt: st
                         ? <button type="button" className="hm-check is-on" onClick={() => undo(t.id)} aria-label={`Mark "${t.title}" as not done`}>{CHECK}</button>
                         : <button type="button" className="hm-check" onClick={() => complete(t.id)} aria-label={`Mark "${t.title}" as done`}>{CHECK}{leaving === t.id && <Burst />}</button>}
                       {t.open
-                        ? <a className="hm-tl-t" href={t.open} title={`Open: ${t.title}`}>{t.title}</a>
-                        : <button type="button" className="hm-tl-t" onClick={() => onOpen(t.title)} title={t.title}>{t.title}</button>}
+                        ? <TaskTitle task={t} className="hm-tl-t" href={t.open}>{t.title}</TaskTitle>
+                        : <TaskTitle task={t} className="hm-tl-t" onClick={() => onOpen(t.title)}>{t.title}</TaskTitle>}
                       <span className="hm-tl-camp">
                         {t.campaign && <i aria-hidden="true" />}{t.campaign ?? "No campaign"}
                         {t.assigneeId && !isMe(t.assigneeId) && <small className="hm-tl-for"> · for {memberName(t.assigneeId) ?? "a teammate"}</small>}

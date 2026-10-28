@@ -12,6 +12,7 @@ import { matchFromProfile } from "./liveViews/compareLogic";
 import { PassReasonDialog } from "./PassReason";
 import { ProfileSidebar } from "./ProfileSidebar";
 import { RankedMatches } from "./RankedMatches";
+import { SourcedEmpty } from "./SourcedEmpty";
 import { campaignLink } from "./nav";
 import { similarToReject } from "./sourcedSimilar";
 import { useToast } from "./toast";
@@ -165,12 +166,12 @@ export function SourcedPage({ campaignId, campaignName, onAgent }: {
           <p className="sp-sub t-body-sm">
             {state === "loading" && !set ? "Reading the people found…" : set && counts.all > 0
               ? <>{counts.all} found for {campaignName} · {counts.toReview} to review · {counts.shortlisted} shortlisted</>
-              : <>Nobody found for {campaignName} yet.</>}
+              : null}
           </p>
         </div>
         <div className="sp-acts">
           {may && unscored > 0 && <button type="button" className="cw-btn" disabled={scoring || reading} onClick={scoreRest}>{scoring || reading ? `Reading ${unscored}…` : `Score the ${unscored} not read yet`}</button>}
-          {may && <button type="button" className="cw-btn is-primary" onClick={() => onAgent(`Find more people for ${campaignName}`, { send: true })}>Find more people</button>}
+          {may && counts.all > 0 && <button type="button" className="cw-btn is-primary" onClick={() => onAgent(`Find more people for ${campaignName}`, { send: true })}>Find more people</button>}
         </div>
       </header>
 
@@ -178,10 +179,7 @@ export function SourcedPage({ campaignId, campaignName, onAgent }: {
         <p className="sp-note" role="alert">Couldn't read the people found. <button type="button" className="cn-link" onClick={() => { setState("loading"); setReload((n) => n + 1); }}>Try again</button></p>
       )}
       {set && counts.all === 0 && state === "ready" && (
-        <div className="sp-empty">
-          <p>No one has been found for {campaignName} yet.</p>
-          {may && <button type="button" className="cw-btn is-primary" onClick={() => onAgent(`Find people for ${campaignName}`, { send: true })}>Find people</button>}
-        </div>
+        <SourcedEmpty campaignId={campaignId} name={campaignName} may={may} onAgent={onAgent} />
       )}
       {similar && may && (
         <p className="sp-similar" role="status">

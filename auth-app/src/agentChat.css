@@ -357,26 +357,29 @@
 
 /* ── the slim header ── */
 
-.hx-head { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: var(--page-top, 16px) 24px 8px 46px; position: relative; z-index: 5; }
+.hx-head { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: calc(var(--page-top, 16px) - 4px) 24px 4px 46px; position: relative; z-index: 5; }
+/* Before a chat starts the pill sits on the line of the "Superhyre Agent" heading: that heading starts at the page-top plus 40px
+   (the stream's padding) and is about 35px tall, so the pill's top is page-top + 40 + 17.5 - half its own height (22). */
+.orc.orc--lx:not(.is-chat) .hx-head { padding-top: calc(var(--page-top, 20px) + 35px + var(--head-drop, 0px)); }
 .hx-title { flex: 1; min-width: 0; margin: 0; font: 600 17px/1.2 var(--ui); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hx-ctx { position: relative; flex: none; }
 .hx-chip {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  max-width: 340px;
-  height: 36px;
-  padding: 0 12px 0 14px;
+  gap: 9px;
+  max-width: 440px;
+  height: 44px;
+  padding: 0 16px 0 20px;
   border: 1px solid var(--hairline, rgba(127, 127, 127, 0.28));
   border-radius: 999px;
   background: transparent;
   color: var(--ink);
-  font: 500 14.5px/1 var(--ui);
+  font: 500 17px/1 var(--ui);
   cursor: pointer;
 }
 .hx-chip:hover { background: var(--nav-hover, rgba(127, 127, 127, 0.1)); }
 .hx-chip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.hx-chip-sub { color: var(--ink-2); font-weight: 400; font-size: 13px; white-space: nowrap; }
+.hx-chip-sub { color: var(--ink-2); font-weight: 400; font-size: 15px; white-space: nowrap; }
 .hx-chip.is-general .hx-chip-name { color: var(--ink-2); }
 
 .hx-pop {
@@ -555,3 +558,6 @@
 @keyframes orc-slot-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 .orc-slots .orc-gslot.is-new { animation: orc-slot-in 200ms var(--ease-out) both; }
 @media (prefers-reduced-motion: reduce) { .orc-slots .orc-gslot.is-new { animation: none; } }
+
+/* Where the filters and "where to look" would be, for someone who only follows the campaign: why they are not there. */
+.orc-follow { align-self: center; max-width: 520px; padding: 0 6px; color: var(--ink-2); font: 400 13px/1.4 var(--ui); }

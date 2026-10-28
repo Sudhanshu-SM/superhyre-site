@@ -36,7 +36,8 @@ describe("the board", () => {
   });
 
   it("gives every stage a normal width whatever the number, never stretching one across the page, and scrolls sideways past what fits", () => {
-    expect(css).toMatch(/\.cw-board \.cw-cols \{\s*grid-auto-columns: clamp\(240px, calc\(\(100% - 4 \* 14px\) \/ 5\), 340px\); justify-content: start;/);
+    // Four share the row (the widest a column gets), five share it too (the narrowest, never under 240px), more scroll.
+    expect(css).toMatch(/\.cw-board \.cw-cols \{[^}]*--col-min: max\(240px, calc\(\(100% - 4 \* var\(--gap\)\) \/ 5\)\);[^}]*--col-max: max\(var\(--col-min\), calc\(\(100% - 3 \* var\(--gap\)\) \/ 4\)\);[^}]*grid-auto-columns: minmax\(var\(--col-min\), var\(--col-max\)\);[^}]*justify-content: start;/);
     expect(css).not.toContain("is-many");
     expect(css).toMatch(/scroll-snap-type: none/);
     expect(css).toMatch(/@media \(min-width: 561px\)/);

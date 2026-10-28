@@ -46,7 +46,7 @@ import { composerChips, keepsDraft, slotsFor } from "./agentDraft";
 import { AttachChips } from "./AttachChips";
 import { BriefSignals } from "./BriefSignals";
 import { refreshCampaign, refreshCampaignList, useCampaignRow, useCampaignRows } from "./campaignStore";
-import { useMayChangeCampaign } from "./campaignRights";
+import { useFollowingLine, useMayChangeCampaign } from "./campaignRights";
 import { useCampaignSpec } from "./specDraft";
 import type { Conversation, MatchList } from "./api/agent";
 import { campaignById } from "./formKit";
@@ -83,9 +83,10 @@ import { LiveMomentProvider } from "./liveViews/LiveMoment";
 import { PassReasonDialog } from "./PassReason";
 import { useRailConfig } from "./useRailConfig";
 import { loadPins } from "./chatPins";
+import { useCan } from "./can";
 import { SharedChat, type SharedView } from "./SharedChat";
 import { SourcesChip, SourcesList } from "./SourcesChip";
-import { SOURCES, sourceModeOf, type SourceMode } from "./sources";
+import { DEFAULT_SOURCE_MODE, SOURCES, sourceModeOf, type SourceMode } from "./sources";
 import { setSources as saveSources } from "./api/campaigns";
 import { RailDialogs } from "./RailDialogs";
 import "./agentHero.css";
@@ -279,6 +280,9 @@ export function Agent({
   const [viewing, setViewing] = useState<SharedView | null>(null);
   /* The chats other people had about the selected campaign (the server lists only those the person may see), read only. */
   const [sharedList, setSharedList] = useState<{ campaignId: string; chats: readonly Conversation[] }>({ campaignId: "", chats: [] });
+  /* Every other chat in the organisation, for the owner and admins (read only; an empty list for anyone else, so it is not asked). */
+  const seesAllChats = useCan("chat.seeAll");
+  const [orgList, setOrgList] = useState<readonly Conversation[]>([]);
   useEffect(() => {
     if (!LIVE) return;
     let current = true;
@@ -296,6 +300,15 @@ export function Agent({
       current = false;
     };
   }, [live.conversationId, live.turns.length, sentCount, settledCount, chatsAsk]);
+  useEffect(() => {
+    if (!LIVE || !seesAllChats) { setOrgList((l) => (l.length ? [] : l)); return undefined; }
+    let current = true;
+    agentApi
+      .orgChats()
+      .then(({ conversations }) => { if (current) setOrgList(conversations); })
+      .catch(() => { if (current) setOrgList([]); });
+    return () => { current = false; };
+  }, [seesAllChats, chatsAsk, live.conversationId, settledCount]);
   /* The open chat is named from its first message at once, rather than "New chat" until the server's own
      name is read; that name replaces this one on the next read. */
   const railChats = useMemo<readonly Brief[] | undefined>(() => {
@@ -320,8 +333,9 @@ export function Agent({
       at: Date.parse(c.updatedAt) || 0,
       last: c.lastMessage ?? null,
     }));
-    // Chats other people had about the selected campaign come after the person's own, and are read, not written in.
-    for (const c of sharedList.chats) {
+    // Chats other people had about the selected campaign come after the person's own, and are read, not written in. For the
+    // owner and admins that is every chat in the organisation, whatever it is about.
+    for (const c of [...sharedList.chats, ...orgList]) {
       if (list.some((x) => x.id === c.id)) continue;
       list.push({
         id: c.id,
@@ -342,7 +356,7 @@ export function Agent({
       else if (list[at]!.title === UNTITLED) list[at] = { ...list[at]!, title: titleFromMessage(first) };
     }
     return list;
-  }, [convs, sharedList, campaignRows, live.conversationId, live.turns, campaignIsCurrent, campaign.id, campaign.name]);
+  }, [convs, sharedList, orgList, campaignRows, live.conversationId, live.turns, campaignIsCurrent, campaign.id, campaign.name]);
   const openChatRow = railList?.find((c) => c.id === live.conversationId) ?? null;
   /* The campaign this chat is about: its own, once it has one; a chat not started yet is about the campaign the page is on. */
   const chatCampaign = openChatRow
@@ -492,6 +506,7 @@ export function Agent({
   const liveSpec = useCampaignSpec(liveCampaignId);
   const liveRow = useCampaignRow(liveCampaignId);
   const mayChange = useMayChangeCampaign(liveCampaignId || null);
+  const followingLine = useFollowingLine();
   const toast = useToast();
   const [liveFiltersOpen, setLiveFiltersOpen] = useState(false);
   const focused = liveCampaignId !== "";
@@ -501,7 +516,7 @@ export function Agent({
   const [nextJd, setNextJd] = useState<Jd | null>(null);
   const [nextFilters, setNextFilters] = useState<Values>({});
   /* Where searches look: for the NEXT campaign with no campaign in focus (saved on it once it exists), else the campaign's own. */
-  const [nextSources, setNextSources] = useState<SourceMode>("both");
+  const [nextSources, setNextSources] = useState<SourceMode>(DEFAULT_SOURCE_MODE);
   const [savingSources, setSavingSources] = useState<{ id: string; mode: SourceMode } | null>(null);
   const rowSources = sourceModeOf(liveRow?.setup);
   const sourcesValue: SourceMode = focused ? (savingSources?.id === liveCampaignId ? savingSources.mode : rowSources) : nextSources;
@@ -563,7 +578,7 @@ export function Agent({
     draftApi.current.set("");
     setNextJd(null);
     setNextFilters({});
-    setNextSources("both");
+    setNextSources(DEFAULT_SOURCE_MODE);
   }, [live.conversationId]);
   const config = useRailConfig(
     campaign, campaignIsCurrent, inOrg,
@@ -958,10 +973,10 @@ export function Agent({
       /* What was set for "the next message" went with it. The filters are saved on the campaign it makes. */
       if (!next.current.focused) {
         const set = next.current.filters;
-        if (activeCount(set) > 0 || next.current.sources !== "both") {
+        if (activeCount(set) > 0 || next.current.sources !== DEFAULT_SOURCE_MODE) {
           pendingFilters.current = {
             values: Object.fromEntries(Object.entries(set).filter(([id, v]) => activeCount({ [id]: v }) > 0)),
-            sources: next.current.sources === "both" ? null : next.current.sources,
+            sources: next.current.sources === DEFAULT_SOURCE_MODE ? null : next.current.sources,
             known: new Set(allRowsRef.current.map((r) => r.id)),
             at: Date.now(),
           };
@@ -969,7 +984,7 @@ export function Agent({
         }
         setNextJd(null);
         setNextFilters({});
-        setNextSources("both");
+        setNextSources(DEFAULT_SOURCE_MODE);
       }
       return;
     }
@@ -1591,7 +1606,7 @@ export function Agent({
     draftApi.current.set("");
     setNextJd(null);
     setNextFilters({});
-    setNextSources("both");
+    setNextSources(DEFAULT_SOURCE_MODE);
     setJdOpen(false);
     setLiveFiltersOpen(false);
     /* A new chat is not about the campaign the last one was: its slots start empty. */
@@ -1621,7 +1636,7 @@ export function Agent({
     setPicking(false);
     if (c.ownerName) {
       startNew();
-      setViewing({ id: c.id, title: c.title, ownerName: c.ownerName, campaignId: c.campaignId ?? "", campaignName: c.campaignName || "this campaign" });
+      setViewing({ id: c.id, title: c.title, ownerName: c.ownerName, campaignId: c.campaignId ?? "", campaignName: c.campaignName || (c.campaignId ? "this campaign" : "") });
       if (c.campaignId) onFocusCampaign?.(c.campaignId, c.campaignName || campaignById(c.campaignId)?.name || "Campaign");
       return;
     }
@@ -1863,6 +1878,7 @@ export function Agent({
             bulk={bulkChoices}
             onBulk={pickBulk}
             {...(LIVE && (!focused || mayChange) ? { sources: { value: sourcesValue, onChange: changeSources } } : {})}
+            {...(LIVE && focused && !mayChange ? { following: followingLine } : {})}
             onOpenFilters={LIVE ? openLiveFilters : openFilters}
             onSend={send}
             sendRef={sendRef}
@@ -2305,7 +2321,7 @@ type ComposerHandle = {
 };
 
 function Composer({
-  api, mode, onMode, context, jd, filterCount, onOpenJd, onOpenFilters, bulk, onBulk, sources, onSend,
+  api, mode, onMode, context, jd, filterCount, onOpenJd, onOpenFilters, bulk, onBulk, sources, following, onSend,
   sendRef, areaRef, rootRef, sending, started, preview, below, campaignName, brief,
 }: {
   /** The campaign in focus, which a job description and the filters act on at once. Absent: they wait for the next message. */
@@ -2334,6 +2350,8 @@ function Composer({
   onBulk?: (choice: BulkChoice) => void;
   /** Where searches look (database, external or both) and how to change it; absent where the person may not change it. */
   sources?: { value: SourceMode; onChange: (m: SourceMode) => void };
+  /** Said where the search controls would be when the person only follows this campaign (the filters and where to look are the campaign's own). */
+  following?: string;
   /** Opens the filters, pre-filled from what the draft already says; `category` scrolls the dialog to that group. */
   onOpenFilters: (draft: string, category?: string) => void;
   onSend: () => void;
@@ -2704,6 +2722,7 @@ function Composer({
               </button>}
               {LIVE && sources && <SourcesChip value={sources.value} onChange={sources.onChange} />}
               {LIVE && bulk && onBulk && <BulkChip choices={bulk} onPick={onBulk} />}
+              {LIVE && following && <span className="orc-follow">{following}</span>}
             </div>
           )}
 

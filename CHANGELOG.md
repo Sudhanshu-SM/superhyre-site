@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.5.1 (2026-10-28)
+
+Fixes the Pipeline board, the Overview funnel and every stage label that 1.5.0 stretched, and a round of smaller things.
+
+### Fixed
+- **Stage labels stretched to the height of the screen.** The shared chat's stylesheet in 1.5.0 defined a global `.sc`, which the stage-coloured words (`<span class="sc" data-sc>`) also use. The Pipeline columns showed their cards below the fold, the Overview funnel lost its bars and the Shortlisted table's status cell grew. The shared chat's classes are `shc-*` now, and `cssClassClash.test.ts` fails when two stylesheets define the same plain class.
+- The Pipeline's columns: four share the row, five share it too (never narrower than 240px), fewer than four never grow past the four-wide size, and more than five scroll sideways.
+
+- **A hired person's email and phone showed "On file" instead of the address.** The candidate list leaves out the hired, and the Shortlisted table reads its values from it; it now reads the Hired stage too.
+
+### Added
+- **Select all** beside "Get contact details" picks everyone listed on every page, and the menu's choices say what they get: "Get all emails", "Get all phone numbers", "Get everything (emails and phones)".
+- Where searches look starts on **External only** (the chip lists it first); a campaign that chose something else keeps it.
+- Owners and admins see every chat in the organisation in the chat list; opened, it shows the chat's cards as they were, for reading only.
+- The campaign pill is bigger and sits on the "Superhyre Agent" heading's line, and the campaign list names each campaign's client.
+- Where the filters and "where to look" would be, a person who only follows a campaign reads why they are not there.
+- The Sourced page with nobody found has a proper empty state (no spec, a spec to approve, a search not started, one going, one that found no one).
+- A card opens when someone rests on a task on Home: the whole title read as steps, for whom, added by, when it is due, the campaign and where it stands.
+
 ## 1.5.0 (2026-10-27)
 
 ### Added

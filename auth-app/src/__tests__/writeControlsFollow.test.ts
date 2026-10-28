@@ -53,7 +53,8 @@ describe("the surfaces that change a campaign ask it", () => {
     expect(text).toContain("<SlStatus p={p} may={mayChange}");
     expect(text).toContain("{mayChange && picked.size > 0 ? (");
     expect(text).toContain("{mayChange && <input type=\"checkbox\" checked={on}");
-    expect(text).toContain("{mayChange && <ContactsMenu");
+    expect(text).toContain("{mayChange && <ContactsAllButton");
+    expect(text).toContain("{mayChange && <ContactHeadCta");
     expect(text).toContain("if (!may) return <span {...tone}");
   });
 

@@ -52,6 +52,9 @@ export const CAPABILITIES = {
      personal workspace. A recruiter has no such page: their calls are each campaign's own Calls page (the server
      already sends them only their own). */
   "calls.all": MANAGERS,
+  /* Everyone's chats with the agent, read only, in the chat list: the organisation's owner and admins, who look after the whole
+     workspace. A recruiter reads the chats on a campaign they can see and no others (the server's `orgChats`). */
+  "chat.seeAll": TEAM_MANAGERS,
   /* Tasks: a recruiter hands work to themselves only. */
   "task.assignOthers": TEAM_MANAGERS,
   /* Slack, Notion and where messages go belong to the organisation. */

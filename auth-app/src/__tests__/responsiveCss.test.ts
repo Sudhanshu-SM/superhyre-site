@@ -16,9 +16,10 @@ describe("narrow screens", () => {
     // A tablet scrolls the stages sideways at 240px each; it does not squeeze four of them into 40px (words broke mid-word).
     expect(w).toMatch(/@media \(min-width: 560px\) and \(max-width: 900px\) \{[^}]*\.cw-cols \{ grid-auto-columns: minmax\(240px, 1fr\);/);
     expect(w).not.toMatch(/@media \(min-width: 560px\) and \(max-width: 900px\) \{[^}]*grid-auto-columns: minmax\(0, 1fr\)/);
-    // The board's own rule has the last word, with no width gate: 240px to 340px on a laptop, a tablet and a phone.
+    // The board's own rule has the last word, with no width gate: between the width of five across (never under 240px) and of
+    // four across, on a laptop, a tablet and a phone.
     const b = css("boardStages.css");
-    expect(b).toMatch(/\.cw-board \.cw-cols \{\s*grid-auto-columns: clamp\(240px, calc\(\(100% - 4 \* 14px\) \/ 5\), 340px\);/);
+    expect(b).toMatch(/\.cw-board \.cw-cols \{[^}]*grid-auto-columns: minmax\(var\(--col-min\), var\(--col-max\)\);/);
     expect(b).toMatch(/@media \(max-width: 560px\) \{\s*\.cw-board \.cw-cols \{ grid-auto-columns: max\(240px, 78%\); \}/);
   });
 

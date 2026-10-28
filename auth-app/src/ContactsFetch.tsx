@@ -202,6 +202,12 @@ const MODES: ReadonlyArray<{ mode: ContactMode; label: string }> = [
   { mode: "both", label: "Both" },
 ];
 
+/** What a choice says, plainly: for everyone it is "all emails", "all phone numbers" or everything; for the ones picked, the same without "all". */
+export const modeLabel = (mode: ContactMode, everyone: boolean): string =>
+  mode === "email" ? (everyone ? "Get all emails" : "Get emails")
+    : mode === "phone" ? (everyone ? "Get all phone numbers" : "Get phone numbers")
+      : everyone ? "Get everything (emails and phones)" : "Get emails and phones";
+
 /**
  * "Get contact details": for the people picked, or for everyone who has none. One small menu, and each choice
  * says how many people it asks about, what it costs and how many credits are left before it is pressed.
@@ -262,12 +268,63 @@ export function ContactsMenu({ campaignId, everyone, picked, narrowed = false }:
                 key={m.mode} type="button" role="menuitem" className="sl-menu-i cf-item" disabled={off}
                 title={planLine(plan, v.creditsLeft)} onClick={() => run(m.mode, plan.ids)}
               >
-                <span className="cf-item-t"><span>{m.label}</span><small>{planDetail(plan, v.creditsLeft)}</small></span>
+                <span className="cf-item-t"><span>{modeLabel(m.mode, scope === "all")}</span><small>{planDetail(plan, v.creditsLeft)}</small></span>
               </button>
             );
           })}
         </div>
       </Popover>
     </>
+  );
+}
+
+/**
+ * A call to action beside the Email or Phone heading of the Shortlisted table: "Get all 12" looks that side up for everyone listed who
+ * has none, or "Get for 3" for the ones picked. One press, with what it asks about and what it costs in its title. It is not drawn
+ * for someone who may not spend a lookup, when this side has no provider, or when the campaign is closed.
+ */
+export function ContactHeadCta({ campaignId, mode, everyone, picked }: {
+  campaignId: string;
+  mode: "email" | "phone";
+  everyone: readonly string[];
+  picked: ReadonlySet<string>;
+}) {
+  const v = useContacts(campaignId);
+  const ask = useAsk(campaignId);
+  const may = useMayChangeCampaign(campaignId);
+  if (!may || !v.ready || v.closed || !v.available[mode]) return null;
+  const listed = new Set(everyone);
+  const pool = v.people.filter((p) => (picked.size > 0 ? picked.has(p.campaignCandidateId) : listed.has(p.campaignCandidateId)));
+  const plan = planFor(pool, mode, { creditsLeft: v.creditsLeft, perRequest: v.perRequest, available: v.available });
+  const n = plan.ids.length;
+  return (
+    <button
+      type="button" className="cf-head" disabled={n === 0 || v.anyBusy} title={planLine(plan, v.creditsLeft)}
+      onClick={() => void ask(plan.ids, mode)}
+    >
+      {v.anyBusy ? <Loader size="sm" tone="inherit" /> : null}
+      {picked.size > 0 ? `Get for ${picked.size}` : "Get all"}{n > 0 && <b>{n}</b>}
+    </button>
+  );
+}
+
+/** "Get everything" beside Select all: emails and phone numbers for everyone listed (or the ones picked), in one press and with no menu. */
+export function ContactsAllButton({ campaignId, everyone, picked }: {
+  campaignId: string;
+  everyone: readonly string[];
+  picked: ReadonlySet<string>;
+}) {
+  const v = useContacts(campaignId);
+  const ask = useAsk(campaignId);
+  const may = useMayChangeCampaign(campaignId);
+  if (!may || !v.ready || v.closed || (!v.available.email && !v.available.phone)) return null;
+  const mode: ContactMode = v.available.email && v.available.phone ? "both" : v.available.email ? "email" : "phone";
+  const listed = new Set(everyone);
+  const pool = v.people.filter((p) => (picked.size > 0 ? picked.has(p.campaignCandidateId) : listed.has(p.campaignCandidateId)));
+  const plan = planFor(pool, mode, { creditsLeft: v.creditsLeft, perRequest: v.perRequest, available: v.available });
+  return (
+    <button type="button" className="sl-btn" disabled={plan.ids.length === 0 || v.anyBusy} title={planLine(plan, v.creditsLeft)} onClick={() => void ask(plan.ids, mode)}>
+      {v.anyBusy ? <Loader size="sm" tone="inherit" /> : <AddressBook size={14} />} {picked.size > 0 ? "Get their contact details" : "Get everything"}
+    </button>
   );
 }

@@ -3,20 +3,22 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
-import { SOURCES, SOURCE_MODES, sourceModeOf } from "../sources";
+import { DEFAULT_SOURCE_MODE, SOURCES, SOURCE_MODES, sourceModeOf } from "../sources";
 import { SourcesChip, SourcesList } from "../SourcesChip";
 
 const read = (f: string) => readFileSync(join(__dirname, "..", f), "utf8");
 
 describe("where searches look", () => {
-  it("reads the mode from a campaign's setup, and anything else as both", () => {
+  it("reads the mode from a campaign's setup, and anything else as external, the default", () => {
     expect(sourceModeOf({ sources: "database" })).toBe("database");
     expect(sourceModeOf({ sources: "external" })).toBe("external");
-    for (const odd of [undefined, null, {}, { sources: "crustdata" }, { sources: 3 }, "database"]) expect(sourceModeOf(odd)).toBe("both");
+    expect(sourceModeOf({ sources: "both" })).toBe("both");
+    for (const odd of [undefined, null, {}, { sources: "crustdata" }, { sources: 3 }, "database"]) expect(sourceModeOf(odd)).toBe("external");
   });
 
-  it("offers the three choices, in the order a person thinks of them, and says each as a place", () => {
-    expect(SOURCE_MODES).toEqual(["database", "both", "external"]);
+  it("offers the three choices, the default first, and says each as a place", () => {
+    expect(SOURCE_MODES).toEqual(["external", "both", "database"]);
+    expect(SOURCE_MODES[0]).toBe(DEFAULT_SOURCE_MODE);
     expect(SOURCES.database.label).toBe("DB only");
     expect(SOURCES.both.label).toBe("DB + external");
     expect(SOURCES.external.label).toBe("External only");
@@ -25,6 +27,12 @@ describe("where searches look", () => {
   it("never names the provider: it says external", () => {
     for (const file of ["sources.ts", "SourcesChip.tsx", "sources.css"]) expect(read(file)).not.toMatch(/crust/i);
     expect(JSON.stringify(SOURCES)).not.toMatch(/crust/i);
+  });
+
+  it("shows external only on the chip when nobody has chosen, and starts a new campaign's search on it", () => {
+    const chip = renderToStaticMarkup(createElement(SourcesChip, { value: sourceModeOf(undefined), onChange: () => {} }));
+    expect(chip).toContain("External only");
+    expect(read("Agent.tsx")).toContain("useState<SourceMode>(DEFAULT_SOURCE_MODE)");
   });
 
   it("shows what it is set to on the chip, and ticks that choice in the menu", () => {

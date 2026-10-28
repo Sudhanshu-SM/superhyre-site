@@ -66,15 +66,16 @@ describe("Shortlisted: an Email column and a Phone column", () => {
     const css = src("contactsFetch.css");
     expect(css).toMatch(/\.sl-c-email, \.sl-c-phone \{ width: 200px; \}/);
     const table = src("CampaignWorkspace.tsx");
-    expect(table).toContain('<th className="sl-c-email">Email</th>');
-    expect(table).toContain('<th className="sl-c-phone">Phone</th>');
+    // Each heading carries its own call to action ("Get all 12") for whoever may spend a lookup.
+    expect(table).toContain('<th className="sl-c-email"><span className="cf-th">Email{mayChange && <ContactHeadCta');
+    expect(table).toContain('<th className="sl-c-phone"><span className="cf-th">Phone{mayChange && <ContactHeadCta');
     expect(table).not.toContain("Contact details</th>");
   });
 
   it("takes the values from the workspace's own candidate rows, never from the shared pool", () => {
     const code = src("contactValues.ts");
     expect(code).toContain("listCandidates({ campaignId");
-    expect(code).toContain("next.set(r.id, { email: r.email, phone: r.phone })");
+    expect(code).toContain("into.set(r.id, { email: r.email, phone: r.phone })");
   });
 });
 

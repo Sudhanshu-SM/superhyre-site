@@ -71,6 +71,10 @@ export type DayTask = {
   /** Who made it, by name; null when the agent or a rule did. */
   createdById?: string | null;
   createdByName?: string | null;
+  /** Who made it, as a kind: a person, the agent or a rule (for the card shown when resting on it). */
+  kind?: "manual" | "agent" | "system";
+  /** The candidate it is about, by name, when it is about one. */
+  candidateName?: string | null;
 };
 
 /** The console address a task's action points at, if it has one we can open. */
@@ -111,6 +115,8 @@ export function dayTask(t: ApiTask, now = Date.now()): DayTask {
     assigneeName: t.assigneeName ?? null,
     createdById: t.createdById ?? null,
     createdByName: t.createdByName ?? null,
+    kind: t.kind,
+    candidateName: t.candidate?.fullName ?? null,
   };
 }
 

@@ -20,6 +20,8 @@ const MATRIX: ReadonlyArray<readonly [Capability, boolean, boolean, boolean, boo
   // Everyone's calls on one page: the owner, admins and a personal workspace's person; a recruiter has each campaign's own
   ["calls.all", true, true, true, false],
   // Assign tasks and campaigns to others (to themselves only, for a recruiter; nobody to assign to in Personal)
+  // Everyone else's chats with the agent, read only: the organisation's owner and admins (nobody else in a team; nobody to read in Personal)
+  ["chat.seeAll", false, true, true, false],
   ["task.assignOthers", false, true, true, false],
   ["campaign.assign", false, true, true, false],
   // Invite people, answer requests, change a role; removing a member from the organisation is the owner's alone

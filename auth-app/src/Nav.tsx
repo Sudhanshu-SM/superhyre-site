@@ -206,7 +206,7 @@ export function Nav({
   const switchable = useMemo(() => {
     const ok = new Set(visibleCampaigns(campaignRows, session).map((r) => r.id));
     const known = new Set(CAMPAIGNS.map((c) => c.id));
-    const made = campaignRows.filter((r) => !known.has(r.id) && ok.has(r.id)).map((r) => ({ id: r.id, name: r.name, role: [r.department, r.location].filter(Boolean).join(" · ") }));
+    const made = campaignRows.filter((r) => !known.has(r.id) && ok.has(r.id)).map((r) => ({ id: r.id, name: r.name, role: [r.department, r.location, r.client].filter(Boolean).join(" · ") }));
     return [...made, ...CAMPAIGNS.filter((c) => ok.has(c.id))];
   }, [campaignRows, session]);
 

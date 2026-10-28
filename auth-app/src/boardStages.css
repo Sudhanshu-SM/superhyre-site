@@ -49,15 +49,20 @@
 /* A column's title may be as long as the stage's name: it wraps between words instead of running under the count. */
 .pl-col-t strong { flex-wrap: wrap; row-gap: 2px; overflow-wrap: break-word; }
 
-/* ── the board: a column keeps its width at every screen size, the rest scrolls sideways ──
-   A column is about a fifth of the board, never under 240px and never over 340px, whatever the window: a tablet or
-   a laptop with the sidebar open scrolls the board sideways instead of crushing four columns to 40px (which broke
-   names mid-word). With more than five stages each is a fifth of the width (less the gaps), and the board scrolls
-   smoothly by hand or wheel, with no snapping, while a dragged card near either edge scrolls it
-   (boardAutoScroll.ts). A soft fade at an edge says there is more that way. On a phone a column is 78% of the
-   screen (240px at least) and snaps, so the next one shows at the edge. */
+/* ── the board: how wide a column is follows how many there are, and what does not fit scrolls sideways ──
+   Four columns share the row, five share it too (the narrowest a column gets, never under 240px), fewer than four stay as wide
+   as four (a column never grows past that), and more than five keep the five-wide size and the board scrolls smoothly by
+   hand or wheel, with no snapping, while a dragged card near either edge scrolls it (boardAutoScroll.ts). A soft fade at an
+   edge says there is more that way. A tablet or a laptop with the sidebar open scrolls instead of crushing columns (which
+   broke names mid-word). On a phone a column is 78% of the screen (240px at least) and snaps, so the next one shows at the edge. */
 .cw-board .cw-cols {
-  grid-auto-columns: clamp(240px, calc((100% - 4 * 14px) / 5), 340px); justify-content: start;
+  /* How wide a column is follows how many there are. Four share the row exactly (the widest a column gets: fewer than four
+     never grow past it), five share it exactly too (the narrowest, never below 240px), and more than five keep that width
+     and the board scrolls. A track of minmax(narrowest, widest) grows into free space only up to its widest. */
+  --gap: 14px;
+  --col-min: max(240px, calc((100% - 4 * var(--gap)) / 5));
+  --col-max: max(var(--col-min), calc((100% - 3 * var(--gap)) / 4));
+  grid-auto-columns: minmax(var(--col-min), var(--col-max)); gap: var(--gap); justify-content: start;
   overscroll-behavior-x: contain; scrollbar-width: thin;
 }
 /* A column holds about six cards before it grows: tall enough that an empty stage is a real target to drop on,

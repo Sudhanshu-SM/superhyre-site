@@ -7,7 +7,7 @@ import { useForms, useResponses } from "./formsStore";
 import {
   ArrowRight, Briefcase, Buildings, CalendarBlank, CaretDown, CaretUp, CaretUpDown, GithubLogo, Globe, LinkedinLogo, Prohibit, SortAscending, Star, MapPin, FolderOpen, Check, ClipboardText, Clock, Columns, DotsThree, EnvelopeSimple,
   Fire, FunnelSimple, Kanban, ListChecks, MagnifyingGlass, NotePencil, PaperPlaneTilt, Phone, Plus, Rows,
-  Snowflake, Sparkle, SunDim, X, UsersThree, MinusCircle,
+  Snowflake, Sparkle, SunDim, X, UsersThree, MinusCircle, CheckSquare,
 } from "@phosphor-icons/react";
 import { SheetButton } from "./SheetDialog";
 import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
@@ -73,7 +73,7 @@ import { RoleSpecPanel } from "./RoleSpecPanel";
 import { CampaignEditDialog } from "./CampaignEdit";
 import { CampaignExport } from "./FormResponses";
 import { LiveOutreach } from "./Outreach";
-import { ContactSideLine, ContactsMenu, ContactValueCell } from "./ContactsFetch";
+import { ContactHeadCta, ContactsAllButton, ContactSideLine, ContactValueCell } from "./ContactsFetch";
 import { SlColumnsMenu, useSlColumns } from "./SlColumns";
 import type { SlCol } from "./SlColumns";
 import { toneProps } from "./statusTones";
@@ -2359,7 +2359,12 @@ export function CampaignShortlisted({ ctx }: { ctx: Ctx }) {
           <SlColumnsMenu hidden={cols.hidden} onToggle={cols.toggle} />
           <div className="sl-bar-r">
             {rows.length > size && <Pager offset={offset} limit={size} total={rows.length} unit="people" sizes={picker} onChange={setWanted} />}
-            {mayChange && <ContactsMenu campaignId={ctx.campaignId} everyone={rows.map((p) => p.id)} picked={picked} narrowed={!!needle || filterCount > 0} />}
+            {mayChange && <ContactsAllButton campaignId={ctx.campaignId} everyone={rows.map((p) => p.id)} picked={picked} />}
+            {mayChange && rows.length > 0 && picked.size < rows.length && (
+              <button type="button" className="sl-btn" onClick={() => setPicked(new Set(rows.map((p) => p.id)))} title="Pick everyone listed, on every page">
+                <CheckSquare size={14} /> Select all {rows.length}
+              </button>
+            )}
             {mayChange && picked.size > 0 ? (
               <>
                 <span className="sl-count t-body-sm">{picked.size} selected</span>
@@ -2385,8 +2390,8 @@ export function CampaignShortlisted({ ctx }: { ctx: Ctx }) {
                 <th className="sl-c-check">{mayChange && <input ref={head} type="checkbox" checked={allOn} onChange={() => setPicked((cur) => { const n = new Set(cur); ids.forEach((id) => (allOn ? n.delete(id) : n.add(id))); return n; })} aria-label="Select everyone on this page" />}</th>
                 {th("name", "Full name", "sl-c-name")}
                 {cols.show("prof") && <th className="sl-c-prof">Profiles</th>}
-                {cols.show("email") && <th className="sl-c-email">Email</th>}
-                {cols.show("phone") && <th className="sl-c-phone">Phone</th>}
+                {cols.show("email") && <th className="sl-c-email"><span className="cf-th">Email{mayChange && <ContactHeadCta campaignId={ctx.campaignId} mode="email" everyone={rows.map((p) => p.id)} picked={picked} />}</span></th>}
+                {cols.show("phone") && <th className="sl-c-phone"><span className="cf-th">Phone{mayChange && <ContactHeadCta campaignId={ctx.campaignId} mode="phone" everyone={rows.map((p) => p.id)} picked={picked} />}</span></th>}
                 {cols.show("status") && th("status", "Status", "sl-c-status")}
                 {cols.show("owner") && th("owner", "Owner", "sl-c-owner")}
                 {cols.show("added") && th("added", "Added", "sl-c-added")}

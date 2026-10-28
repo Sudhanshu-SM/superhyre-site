@@ -26,15 +26,25 @@ const emit = () => { for (const l of listeners) l(); };
 const PAGE = 100;
 const MAX_PAGES = 5;
 
-async function read(campaignId: string): Promise<void> {
-  const next = new Map<string, ContactValue>();
+/**
+ * The list leaves out the people hired (they are no longer open candidates: asking for the Hired stage is how they are found),
+ * so a hired person on the Shortlisted table had no value to show and the cell fell back to "On file". The campaign's people are
+ * read for each: those still open, then those hired.
+ */
+async function readStage(campaignId: string, hired: boolean, into: Map<string, ContactValue>): Promise<void> {
   let cursor: string | null = null;
   for (let page = 0; page < MAX_PAGES; page += 1) {
-    const { rows, nextCursor }: Awaited<ReturnType<typeof listCandidates>> = await listCandidates({ campaignId, sort: "recent", cursor, limit: PAGE });
-    for (const r of rows) next.set(r.id, { email: r.email, phone: r.phone });
+    const { rows, nextCursor }: Awaited<ReturnType<typeof listCandidates>> = await listCandidates({ campaignId, sort: "recent", cursor, limit: PAGE, ...(hired ? { stage: "hired" } : {}) });
+    for (const r of rows) into.set(r.id, { email: r.email, phone: r.phone });
     if (!nextCursor) break;
     cursor = nextCursor;
   }
+}
+
+async function read(campaignId: string): Promise<void> {
+  const next = new Map<string, ContactValue>();
+  await readStage(campaignId, false, next);
+  await readStage(campaignId, true, next);
   values.set(campaignId, next);
   ready.add(campaignId);
   emit();

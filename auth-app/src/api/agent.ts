@@ -34,6 +34,8 @@ export type ConversationDetail = {
   /** Somebody else's chat about a campaign this person can see: their words only, with no run and no stream. */
   readOnly?: boolean;
   ownerName?: string | null;
+  /** Somebody else's chat, for an owner or admin: what each run put on the screen, to draw the cards as they were. */
+  events?: Array<Record<string, unknown>>;
 };
 
 export type Verdict = {
@@ -504,6 +506,8 @@ export const agentApi = {
   /** The chats other people had about a campaign this person can see (read only), newest first. */
   sharedChats: (campaignId: string) =>
     api<{ conversations: Conversation[] }>("GET", `/v1/conversations?others=true&campaign=${campaignId}`),
+  /** Every chat anyone else in the organisation has (read only): the owner's and admins' list, empty for anyone else. */
+  orgChats: () => api<{ conversations: Conversation[] }>("GET", "/v1/conversations?others=true"),
   createConversation: (focusCampaignId?: string) =>
     api<Conversation>("POST", "/v1/conversations", focusCampaignId ? { focusCampaignId } : {}),
   conversation: (id: string) => api<ConversationDetail>("GET", `/v1/conversations/${id}`),
