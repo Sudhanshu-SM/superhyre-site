@@ -1,0 +1,1 @@
+import{j as r}from"./access-DdgGs7Sa.js";import"./access-CBuAe9D7.js";function o({client:a,size:t=28}){return r.jsx("span",{className:"clg",style:{width:t,height:t,borderRadius:Math.round(t*.28)},"aria-hidden":"true",children:r.jsx("b",{style:{fontSize:Math.max(12,Math.round(t*.42))},children:a.name.trim().charAt(0).toUpperCase()||"?"})})}export{o as C};
