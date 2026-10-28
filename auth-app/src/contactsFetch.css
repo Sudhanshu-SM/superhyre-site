@@ -113,3 +113,8 @@
 .cf-head:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 8%, transparent); border-color: var(--accent); }
 .cf-head:disabled { opacity: 0.45; cursor: default; }
 .cf-head:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* A cell with nothing fetched is the button that fetches it, drawn as a button and with no words beside it. */
+.sl-ct-btn.cv-get { display: inline-flex; align-items: center; height: 24px; padding: 0 11px; border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); border-radius: 999px; font: 500 12.5px/1 var(--ui); color: var(--accent-text, var(--accent)); text-decoration: none; white-space: nowrap; transition: background var(--t), border-color var(--t); }
+.sl-ct-btn.cv-get:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 8%, transparent); border-color: var(--accent); text-decoration: none; }
+.sl-ct-btn.cv-get:disabled { border-color: var(--hairline, rgba(127, 127, 127, 0.28)); color: var(--ink-3); }

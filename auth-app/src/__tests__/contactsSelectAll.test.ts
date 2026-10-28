@@ -25,4 +25,12 @@ describe("getting everyone's contact details from the Shortlisted table", () => 
     expect(listPath({ campaignId: "c1", sort: "recent", limit: 100 })).not.toContain("stage=");
     expect(read("contactValues.ts")).toContain("readStage(campaignId, true, next)");
   });
+
+  it("draws a cell with nothing fetched as the button alone, with no \"Not fetched\" beside it", () => {
+    const src = read("ContactsFetch.tsx");
+    expect(src).toContain('cell.state === "not_fetched" && cell.get');
+    expect(src).toContain('kind === "email" ? "Get email" : "Get phone"');
+    // The words are no longer drawn for that cell: a dash where it cannot be asked for, "No profile" where there is none.
+    expect(src).not.toMatch(/<span>\{cell\.words\}<\/span>\s*\{cell\.get/);
+  });
 });

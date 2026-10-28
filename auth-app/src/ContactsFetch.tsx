@@ -127,21 +127,20 @@ export function ContactValueCell({ campaignId, id, candidateId, name, kind, reac
   if (cell.state === "blank") return <span className="cv" />;
   if (cell.state === "looking") return <span className="cv cv-muted"><Loader size="sm" /><span>{cell.words}</span></span>;
   if (cell.state === "on_file" || cell.state === "not_found") return <span className="cv cv-muted"><span>{cell.words}</span></span>;
-  return (
-    <span className="cv cv-muted">
-      <span>{cell.words}</span>
-      {cell.get && (
-        <button
-          type="button" className="sl-ct-btn cv-get" disabled={v.anyBusy || blocked !== null}
-          onClick={() => void ask([id], kind)}
-          aria-label={`Get ${kind === "email" ? "email" : "phone number"} for ${name}`}
-          title={blocked ?? (kind === "email" ? "Free" : "Uses a credit when a number is found")}
-        >
-          Get
-        </button>
-      )}
-    </span>
-  );
+  // Nothing fetched yet: the button that fetches it, and no words about it. Where it cannot be asked for, a dash (or "No profile").
+  if (cell.state === "not_fetched" && cell.get) {
+    return (
+      <button
+        type="button" className="sl-ct-btn cv-get" disabled={v.anyBusy || blocked !== null}
+        onClick={() => void ask([id], kind)}
+        aria-label={`Get ${kind === "email" ? "email" : "phone number"} for ${name}`}
+        title={blocked ?? (kind === "email" ? "Free" : "Uses a credit when a number is found")}
+      >
+        {kind === "email" ? "Get email" : "Get phone"}
+      </button>
+    );
+  }
+  return <span className="cv cv-muted"><span>{cell.state === "not_fetched" && cell.words === "No profile" ? "No profile" : "—"}</span></span>;
 }
 
 /* ── one side of one person, in a sheet ──────────────────────────────────── */
