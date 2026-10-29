@@ -153,25 +153,61 @@
 
   // ---------------------------------------------------------------- sign-in
 
-  function gate(text, noButton) {
+  /* The sign-in page. mode: "signin" (signed out), "forbidden" (signed in, not an admin), with an optional error. */
+  var gateMode = "signin";
+  function gate(mode, info) {
+    gateMode = mode || "signin";
+    $("checking").hidden = true;
     $("board").hidden = true;
     $("gate").hidden = false;
-    $("in").hidden = !!noButton;
+    document.body.classList.add("gated");
+    var forbidden = gateMode === "forbidden";
+    $("gateTitle").textContent = forbidden ? "Not an admin account" : "Sign in";
+    $("gateText").textContent = forbidden
+      ? "You're signed in as " + (info || "another account") + ". This page is only for owners and admins of the Superhyre workspace."
+      : "Use your superhyre.com Google account to see how the extension is used.";
+    $("inText").textContent = forbidden ? "Use a different Google account" : "Continue with Google";
     $("in").disabled = false;
-    $("gateText").textContent = text || "For Superhyre owners and admins. Sign in with your superhyre.com Google account.";
+    $("gateOut").hidden = !forbidden;
+    $("gateErr").hidden = true;
   }
+  function gateError(text) { $("gateErr").textContent = text; $("gateErr").hidden = false; }
+  function ungate() { $("checking").hidden = true; $("gate").hidden = true; document.body.classList.remove("gated"); }
+
   async function signIn() {
-    var b = $("in"); b.disabled = true;
+    $("in").disabled = true;
+    $("inText").textContent = "Opening Google…";
+    // A different account starts from no session, so the page never mixes two people's sign-ins.
+    if (gateMode === "forbidden") await sb.auth.signOut();
     var r = await sb.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: location.origin + location.pathname + location.search, queryParams: { prompt: "select_account" } }
     });
-    if (r.error) { b.disabled = false; banner("Couldn't start the sign-in. Try again.", true); }
+    // Success leaves the page for Google; only a failure to start lands here.
+    if (r.error) {
+      console.error("sign-in:", r.error);
+      gate(gateMode);
+      gateError("Couldn't open Google's sign-in. Check your connection and try again.");
+    }
   }
   async function signOut() {
     if (sb) await sb.auth.signOut();
     $("who").hidden = $("out").hidden = true;
-    gate();
+    data = null;
+    gate("signin");
+  }
+  /* Google or Supabase can send the person back with an error instead of a session (they pressed Cancel, or the
+     account was refused at sign-up). Read it once, say it plainly, and take it out of the address bar. */
+  function returnedError() {
+    var q = new URLSearchParams(location.search), h = new URLSearchParams(location.hash.replace(/^#/, ""));
+    var err = q.get("error") || h.get("error");
+    if (!err) return "";
+    var desc = q.get("error_description") || h.get("error_description") || "";
+    ["error", "error_code", "error_description"].forEach(function (k) { q.delete(k); });
+    history.replaceState(null, "", location.pathname + (q.toString() ? "?" + q : ""));
+    console.warn("sign-in returned:", err, desc);
+    if (err === "access_denied" && !/email/i.test(desc)) return "Sign-in was cancelled. Try again when you're ready.";
+    return "That sign-in didn't work. Use your superhyre.com Google account and try again.";
   }
 
   // ---------------------------------------------------------------- data
@@ -200,15 +236,14 @@
         if (d && d.reason === "forbidden") {
           var email = "";
           if (sb) { var s = await sb.auth.getSession(); email = s.data.session && s.data.session.user.email; }
-          gate("You're signed in as " + (email || "someone") + ", which isn't a Superhyre owner or admin account. Sign out and use your superhyre.com account.", true);
-          $("out").hidden = false;
+          gate("forbidden", email);
           return;
         }
         throw new Error((d && d.reason) || "no answer");
       }
       data = d;
       banner("");
-      $("gate").hidden = true;
+      ungate();
       $("board").hidden = false;
       if (d.me) { $("who").textContent = d.me.email; $("who").hidden = false; }
       $("out").hidden = !!fixture;
@@ -216,7 +251,8 @@
     } catch (e) {
       if (mine !== seq) return;
       console.error("admin dashboard:", e);
-      if (e && /JWT|401|not authenticated/i.test(String(e.message || e.code || ""))) { gate(); return; }
+      if (e && /JWT|401|not authenticated/i.test(String(e.message || e.code || ""))) { gate("signin"); return; }
+      ungate();
       banner("Couldn't load the numbers. Check your connection and press Refresh data.", true);
     } finally {
       if (mine === seq) {
@@ -416,7 +452,7 @@
           return "<b>" + esc(r.name) + '</b><span class="sub">' + plural(r.members, "person", "people") + "</span>"; } },
       { k: "active", label: "Active", num: true, html: function (r) { return num(r.active); } },
       { k: "credits", label: "Credits left", num: true, html: function (r) { return r.personal ? '<span class="note">per person</span>' : creditPill(r.credits); } },
-      { k: "apollo_credits", label: "Late-lookup", num: true, html: function (r) { return r.personal ? "" : num(r.apollo_credits); } },
+      { k: "apollo_credits", label: "Apollo credits", num: true, html: function (r) { return r.personal ? "" : num(r.apollo_credits); } },
       { k: "numbers", label: "Numbers found", num: true, html: function (r) { return num(r.numbers); } },
       { k: "emails", label: "Emails", num: true, html: function (r) { return num(r.emails); } },
       { k: "misses", label: "No number", num: true, html: function (r) { return num(r.misses); } },
@@ -489,7 +525,7 @@
       return;
     }
     el.innerHTML = '<thead><tr><th>When</th><th>Account</th><th>Change</th><th>By</th></tr></thead><tbody>' + rows.map(function (r) {
-      var lines = [change(r.lookup_before, r.lookup_after, "Lookup"), change(r.apollo_before, r.apollo_after, "Late-lookup")].filter(Boolean);
+      var lines = [change(r.lookup_before, r.lookup_after, "Lookup"), change(r.apollo_before, r.apollo_after, "Apollo")].filter(Boolean);
       return "<tr><td>" + esc(when(r.at)) + "</td><td><b>" + esc(r.target || "—") + "</b>" + (r.personal ? '<span class="sub">personal</span>' : "") +
         "</td><td>" + (lines.join("<br>") || '<span class="note">no change</span>') +
         (r.note ? '<span class="sub">“' + esc(r.note) + "”</span>" : "") + "</td><td>" + esc((r.admin_email || "").split("@")[0]) +
@@ -578,7 +614,7 @@
   function openCredits(target) {
     cr = target; crMode = "add";
     $("crTitle").textContent = "Credits · " + target.name;
-    $("crNow").textContent = "Now: " + num(target.lookup || 0) + " lookup credits, " + num(target.late || 0) + " late-lookup credits." +
+    $("crNow").textContent = "Now: " + num(target.lookup || 0) + " lookup credits, " + num(target.late || 0) + " Apollo credits." +
       (Number(target.refreshes) ? " Changed " + plural(target.refreshes, "time") + " before." : " Never changed here before.");
     $("crLookup").value = ""; $("crLate").value = ""; $("crNote").value = "";
     $("crErr").hidden = true;
@@ -612,7 +648,7 @@
     var nl = l == null ? null : crMode === "add" ? Number(cr.lookup || 0) + l : l;
     var na = a == null ? null : crMode === "add" ? Number(cr.late || 0) + a : a;
     if (nl != null) lines.push(change(Number(cr.lookup || 0), nl, "Lookup credits"));
-    if (na != null) lines.push(change(Number(cr.late || 0), na, "Late-lookup credits"));
+    if (na != null) lines.push(change(Number(cr.late || 0), na, "Apollo credits"));
     var none = !lines.filter(Boolean).length;
     $("crPreview").innerHTML = none ? "Enter an amount." : lines.filter(Boolean).join("<br>");
     $("crSave").disabled = none;
@@ -688,12 +724,15 @@
     readUrl();
     wire();
     paintFilters();
+    $("gateOut").onclick = signOut;
     if (fixture) { load(); return; }
+    var err = returnedError();
     var s = await sb.auth.getSession();
-    if (s.data.session) load(); else gate();
+    if (s.data.session && !err) load();
+    else { gate("signin"); if (err) gateError(err); }
     sb.auth.onAuthStateChange(function (event, session) {
       if (event === "SIGNED_IN" && session && !data && !loading) load();
-      if (event === "SIGNED_OUT") { data = null; gate(); }
+      if (event === "SIGNED_OUT" && !$("board").hidden) { data = null; gate("signin"); }
     });
   }
 
