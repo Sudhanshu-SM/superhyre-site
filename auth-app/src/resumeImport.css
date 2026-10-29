@@ -1,0 +1,17 @@
+/* Resumes read into people, in the chat. Lines, hairlines and plain muted words, no boxes and no badges; the rest of the card
+   (its heading, buttons, progress bar, the campaign select) is peopleImport.css's. */
+.rsm-lines { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--hairline); }
+.rsm-line { display: grid; gap: 4px; padding: 10px 2px; border-bottom: 1px solid var(--hairline); }
+.rsm-who { min-width: 0; overflow-wrap: anywhere; }
+.rsm-name { font-weight: 600; }
+.rsm-who small { color: var(--ink-2); }
+.rsm-off { cursor: default; color: var(--ink-2); }
+/* Under the name, in line with it (past the tick): how to reach them, whether they are new, and what to look at. */
+.rsm-sub { display: grid; gap: 2px; padding-left: 24px; min-width: 0; }
+.rsm-sub p { margin: 0; color: var(--ink-2); max-width: 66ch; }
+.rsm-sub .rsm-reach { overflow-wrap: anywhere; }
+.rsm-sub .rsm-look { color: var(--accent-text); }
+/* A person with no way to reach them: the field to give one. */
+.rsm-type { display: flex; align-items: center; gap: 8px; margin-top: 4px; max-width: 460px; }
+.rsm-type-in { flex: 1 1 auto; min-width: 0; }
+.rsm-again { margin-top: 8px; }

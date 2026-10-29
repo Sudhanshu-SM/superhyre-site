@@ -3,13 +3,13 @@ import { ArrowRight, ArrowSquareOut, Check, FolderSimplePlus, LinkSimple } from 
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import type { CampaignDraft } from "./campaignDraft";
-import { CHANNEL_LABEL, JD_MAX_CHARS, MOST_OPENINGS, WORK_MODE_LABEL, addTag, blankDraft, canonicalCity, compLabel, draftProblems, num, prefillFromClient, rowFromDraft } from "./campaignDraft";
+import { CHANNEL_LABEL, JD_MAX_CHARS, MOST_OPENINGS, WORK_MODE_LABEL, addTag, blankDraft, canonicalCity, compLabel, draftProblems, num, prefillFromClient, rowFromDraft, withNewClient } from "./campaignDraft";
 import type { WorkMode } from "./campaignsData";
 import { STATUS_LABEL } from "./campaignsData";
 import {
   addCampaignRow, resolveClientId, saveClient, setCampaignClient, useCampaignRows, useClients, useTeam,
 } from "./campaignStore";
-import { clientAnswers, newCampaignAnswers, newClientOf, parseContact } from "./clarify";
+import { clientAnswers, mayAddClient, newCampaignAnswers, newClientOf, parseContact } from "./clarify";
 import type { Client, ClientDraft } from "./clients";
 import { CLIENT_STATUS_LABEL, EMPTY_DRAFT, clientFromDraft, domainOf, primaryContact } from "./clients";
 import { ClientLogo } from "./ClientLogo";
@@ -218,6 +218,9 @@ export function draftFromAnswers(a: Readonly<Record<string, string>>, owner: str
   let d = blankDraft(owner);
   const client = clients.find((c) => c?.id === a.client);
   d = prefillFromClient(d, client);
+  /* A company named instead of picked: the campaign is for it, and it is added with the campaign. */
+  const named = newClientOf(a);
+  if (!client && named) d = withNewClient(d, named);
   const r = parseRange(a.comp ?? "");
   /* Years of experience, when the chat asked (the connected chat does). */
   const exp = parseRange(a.exp ?? "");
@@ -257,7 +260,7 @@ function CampaignCard({ ctx }: { ctx: MomentCtx }) {
   const phases: readonly Phase[] = useMemo(() => [{
     id: "nc-plan", live: "Putting the campaign together", ms: 900, done: "Put the campaign together",
     steps: [
-      client ? `For ${client.name}${client.fee ? `, on ${client.fee}` : ""}` : newClient ? `For ${newClient}, a new client` : "An internal hire, no client",
+      client ? `For ${client.name}${client.fee ? `, on ${client.fee}` : ""}` : newClient ? `For ${newClient}, a new client` : "The client is not chosen yet",
       d.mustHave.length ? `Must-haves: ${d.mustHave.join(", ")}` : "No must-haves yet. The agent will ask as it goes",
     ],
     says: `Here's ${d.name || "the campaign"} as I have it. Create it and the agents get to work.`,
@@ -266,15 +269,15 @@ function CampaignCard({ ctx }: { ctx: MomentCtx }) {
 
   const create = () => {
     if (rowId) return;
-    /* The new client first (a company that is already there is the one used), so the campaign links to it. */
+    /* The new client first (a company that is already there is the one used), so the campaign links to it. Anyone but an
+       admin names it with the campaign instead, and the server adds it. */
     let clientId = d.clientId;
     if (newClient) {
       const there = companyIn(newClient, clients);
-      clientId = there
-        ? there.id
-        : saveClient(clientFromDraft({ ...EMPTY_DRAFT, name: newClient, status: "active", owner: ownerFor(session.name, team) }, `cl-${Date.now().toString(36)}`)).id;
+      if (there) clientId = there.id;
+      else if (mayAddClient()) clientId = saveClient(clientFromDraft({ ...EMPTY_DRAFT, name: newClient, status: "active", owner: ownerFor(session.name, team) }, `cl-${Date.now().toString(36)}`)).id;
     }
-    const r = rowFromDraft({ ...d, clientId }, team);
+    const r = rowFromDraft({ ...d, clientId, newClient: clientId ? "" : d.newClient }, team);
     addCampaignRow(r);
     if (clientId) setCampaignClient(r.id, clientId);
     made.set(key, r.id);
@@ -302,7 +305,7 @@ function CampaignCard({ ctx }: { ctx: MomentCtx }) {
           label={`Campaign: ${d.name}`}
           mark={client ? <ClientLogo client={client} size={40} /> : <span className="mo-client-ico" aria-hidden="true"><FolderSimplePlus size={20} /></span>}
           title={d.name}
-          sub={`${client ? `For ${client.name}` : newClient ? `For ${newClient}, a new client` : "Internal hire"}${d.hiringManager ? `, with ${d.hiringManager} as hiring manager` : ""}`}
+          sub={`${client ? `For ${client.name}` : newClient ? `For ${newClient}, a new client` : "The client is not chosen yet"}${d.hiringManager ? `, with ${d.hiringManager} as hiring manager` : ""}`}
           facts={facts}
           two
           extra={!canStart && !rowId && (

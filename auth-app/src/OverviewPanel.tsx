@@ -404,7 +404,8 @@ export type AgentsView = {
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /** "until 25 people", "until 14 Oct", or both, as a watch was set. */
-function untilLine(stop: { profiles?: number; until?: string }): string {
+function untilLine(stop: { profiles?: number; until?: string } | null | undefined): string {
+  if (!stop) return "";
   const parts: string[] = [];
   if (stop.profiles !== undefined) parts.push(`${stop.profiles} ${plural(stop.profiles, "person", "people")}`);
   const d = stop.until ? new Date(stop.until) : null;
@@ -437,7 +438,7 @@ export function agentsView(a: ApiCampaignAgents): AgentsView {
       action: { label: "Resume", id: "resume" },
     };
   } else if (!a.approvedSpec) {
-    sourcing = { line: "Waiting for an approved role spec", action: { label: "Review the role spec", id: "spec" } };
+    sourcing = { line: "Waiting for approved requirements", action: { label: "Review the requirements", id: "spec" } };
   } else sourcing = { line: "Idle", action: { label: "Find people", id: "find" } };
 
   const o = a.outreach;
@@ -484,7 +485,7 @@ export function AgentsPanel({ agents, onAction, canChange = true }: {
   return (
     <section className="cag" aria-label="Agents">
       <h2 className="cag-h t-label">Agents</h2>
-      {!canChange && <p className="cag-line t-body-sm">{FOLLOWING_LINE}</p>}
+      {!canChange && FOLLOWING_LINE && <p className="cag-line t-body-sm">{FOLLOWING_LINE}</p>}
       <ul className="cag-list">
         {rows.map((r) => (
           <li key={r.key} className="cag-row">

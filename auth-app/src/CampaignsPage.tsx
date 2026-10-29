@@ -6,14 +6,15 @@ import { interviewWord } from "./boardStages";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CampaignRow, CampaignStatus } from "./campaignsData";
 import { STATUS_LABEL } from "./campaignsData";
-import { archiveCampaign, deleteCampaign, duplicateCampaign, refreshCampaignList, resolveCampaignId, retryCampaigns, setCampaignStatus, useArchivedRows, useCampaignRows, useCampaignsFailed, useCampaignsReady } from "./campaignStore";
+import { archiveCampaign, clientById, deleteCampaign, duplicateCampaign, refreshCampaignList, resolveCampaignId, retryCampaigns, setCampaignClient, setCampaignClientByName, setCampaignStatus, useArchivedRows, useCampaignRows, useCampaignsFailed, useCampaignsReady, useClients } from "./campaignStore";
 import { campaignsEmpty } from "./campaignsEmpty";
 import type { CampaignsFilter } from "./campaignsEmpty";
 import { DeleteCampaignDialog } from "./DeleteCampaignDialog";
 import { plainText } from "./displayText";
-import { metaParts } from "./campaignMeta";
+import { metaParts, withClientName } from "./campaignMeta";
 import { AssignDialog, ReopenDialog } from "./RoleBits";
-import { mayChangeCampaign, mayCloseCampaign } from "./campaignRights";
+import { mayChangeCampaign, mayChangeCampaignClient, mayCloseCampaign } from "./campaignRights";
+import { ClientPicker } from "./ClientPicker";
 import { can, standingOf, useCan } from "./can";
 import { useSession, visibleCampaigns } from "./roleStore";
 import { Num, Popover, useToast } from "./Contacts";
@@ -28,6 +29,7 @@ import { Shimmer, ShimmerRegion } from "./components/Shimmer";
 import { LoadFailed } from "./ui";
 import { LIVE } from "./api/client";
 import { NewCampaignIntake } from "./NewCampaignIntake";
+import { DailySearchButton } from "./DailySearchButton";
 import "./campaigns-page.css";
 
 export { metaParts };
@@ -102,14 +104,15 @@ export function CampaignsPage({ onOpen }: { onOpen: (c: CampaignRow) => void }) 
   /* Live rows from the store, narrowed to the campaigns this session may see:
      all of them for an admin, only the assigned ones for a recruiter. */
   const allRows = useCampaignRows();
+  const { clients, clientOf } = useClients();
   const ready = useCampaignsReady();
   /* A list that failed to load is not an empty one: say so, with a way to ask again. */
   const failed = useCampaignsFailed();
   const session = useSession();
-  const rows = useMemo(() => visibleCampaigns(allRows, session), [allRows, session]);
+  const rows = useMemo(() => visibleCampaigns(allRows, session).map((r) => withClientName(r, clients, clientOf)), [allRows, session, clients, clientOf]);
   /* Put away: not in the list the rest of the console reads, so the Archived tab asks for them. */
   const archived = useArchivedRows();
-  const archivedRows = useMemo(() => visibleCampaigns(archived.rows, session), [archived.rows, session]);
+  const archivedRows = useMemo(() => visibleCampaigns(archived.rows, session).map((r) => withClientName(r, clients, clientOf)), [archived.rows, session, clients, clientOf]);
   /* Anyone who works here opens a campaign; copying one is a manager's (the server's requireAdmin). */
   const mayCreate = can(standingOf(session), "campaign.create");
   const manages = can(standingOf(session), "campaign.manage");
@@ -195,12 +198,15 @@ export function CampaignsPage({ onOpen }: { onOpen: (c: CampaignRow) => void }) 
             </button>
           )}
         </div>
-        {mayCreate && (
-          <button type="button" className="cg-new" onClick={() => setCreating(true)}>
-            <span className="cg-new-ico" aria-hidden="true"><Plus size={14} weight="bold" /></span>
-            New campaign
-          </button>
-        )}
+        <div className="cg-head-acts">
+          {mayCreate && <DailySearchButton />}
+          {mayCreate && (
+            <button type="button" className="cg-new" onClick={() => setCreating(true)}>
+              <span className="cg-new-ico" aria-hidden="true"><Plus size={14} weight="bold" /></span>
+              New campaign
+            </button>
+          )}
+        </div>
       </header>
 
       <div className="cg-bar">
@@ -250,6 +256,7 @@ export function CampaignsPage({ onOpen }: { onOpen: (c: CampaignRow) => void }) 
               onUnarchive={() => archive(r, false)}
               onDelete={() => setDeleting(r.id)}
               mayAssign={mayChangeCampaign(session, r)}
+              mayClient={mayChangeCampaignClient(session, r, !!r.client)}
               onAssign={() => setAssigning(r.id)}
               onClose={() => setConfirm(r.id)}
               /* Reopening asks first, like closing; then it says what happened and offers the way out. */
@@ -335,7 +342,7 @@ export function CampaignsPage({ onOpen }: { onOpen: (c: CampaignRow) => void }) 
 
 /* ── a campaign ── */
 
-function Row({ r, fresh, onOpen, admin, mayClose, mayAssign, onAssign, onClose, onReopen, onDuplicate, onArchive, onUnarchive, onDelete }: {
+export function Row({ r, fresh, onOpen, admin, mayClose, mayAssign, mayClient, onAssign, onClose, onReopen, onDuplicate, onArchive, onUnarchive, onDelete }: {
   r: CampaignRow;
   fresh: boolean;
   onOpen: () => void;
@@ -346,6 +353,8 @@ function Row({ r, fresh, onOpen, admin, mayClose, mayAssign, onAssign, onClose, 
   /** The campaign's owner or an admin: the people the server lets close and reopen it. */
   mayClose: boolean;
   mayAssign: boolean;
+  /** Whether the person may set this campaign's client (it has none, so: anyone who may change the campaign). */
+  mayClient: boolean;
   onAssign: () => void;
   onClose: () => void;
   onReopen: () => void;
@@ -387,6 +396,10 @@ function Row({ r, fresh, onOpen, admin, mayClose, mayAssign, onAssign, onClose, 
             <span className="cg-name-t">{plainText(r.name)}</span>
             <ArrowRight size={13} weight="bold" className="cg-name-go" aria-hidden="true" />
           </button>
+          {/* The client it is hiring for sits beside the name, quietly: the first thing asked of a list of roles is whose each one is. */}
+          {r.client && <span className="cg-client" title={`Client: ${plainText(r.client)}`}>{plainText(r.client)}</span>}
+          {/* Every campaign has a client: one without says so in the one place its name would be, and the people who may set it can. An archived one is not offered: it is not among the campaigns the store edits, so bring it back first. */}
+          {!r.client && mayClient && !r.loading && !r.archived && <AddClient campaignId={r.id} name={plainText(r.name)} />}
           {/* Active is the normal state, so it carries no label; a closed campaign says so. */}
           {r.archived ? (
             <span className="cg-status is-archived">Archived</span>
@@ -396,7 +409,7 @@ function Row({ r, fresh, onOpen, admin, mayClose, mayAssign, onAssign, onClose, 
           {fresh && <span className="cg-newtag">New</span>}
         </div>
         <p className="cg-meta">
-          {/* The campaign's name is the title; under it, the role it hires for (when that is not the same words) and the company it is for. */}{metaParts(r)}{metaParts(r) && " · "}<span title={r.team.map(plainText).join(", ")}>{plainText(r.owner)}{r.team.length > 1 && ` +${r.team.length - 1}`}</span>
+          {/* The campaign's name is the title, with its client beside it; under it, the role it hires for (when that is not the same words), the department and the place. */}{metaParts(r, { client: false })}{metaParts(r, { client: false }) && " · "}<span title={r.team.map(plainText).join(", ")}><span className="cg-owner">{plainText(r.owner)}</span>{r.team.length > 1 && ` +${r.team.length - 1}`}</span>
           {r.teamName && r.teamName.length <= 24 && <span className="cg-team"> · {r.teamName}</span>}
           {need && <span className="cg-need"> · {need}</span>}
         </p>
@@ -415,6 +428,46 @@ function Row({ r, fresh, onOpen, admin, mayClose, mayAssign, onAssign, onClose, 
 
       <RowMenu status={r.status} archived={r.archived === true} admin={admin} mayClose={mayClose} mayAssign={mayAssign} onOpen={onOpen} onAssign={onAssign} onClose={onClose} onReopen={onReopen} onDuplicate={onDuplicate} onArchive={onArchive} onUnarchive={onUnarchive} onDelete={onDelete} />
     </article>
+  );
+}
+
+/**
+ * A campaign with no client yet: a quiet "Add client" where its name would be. It opens the client picker in a small
+ * popover; once a client is picked or named the row shows its name and this is gone. Said once the server has answered.
+ */
+export function AddClient({ campaignId, name }: { campaignId: string; name: string }): JSX.Element {
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const ref = useRef<HTMLButtonElement>(null);
+  const close = useCallback(() => setOpen(false), []);
+  const toast = useToast();
+  const save = (work: Promise<boolean>, client: string) => {
+    setSaving(true);
+    void work.then((ok) => {
+      setSaving(false);
+      if (ok) { setOpen(false); toast(`${client} is now the client`); }
+    });
+  };
+  return (
+    <>
+      <button ref={ref} type="button" className="cg-client-add" onClick={() => setOpen((o) => !o)} aria-haspopup="dialog" aria-expanded={open} aria-label={`Add the client for ${name}`}>
+        Add client
+      </button>
+      <Popover anchor={ref} open={open} onClose={close} width={280}>
+        {/* The popover belongs to the row in the tree, so a click in it must not open the campaign. */}
+        <div className="cg-client-pop" onClick={(e) => e.stopPropagation()}>
+          <p className="cg-client-pop-t">Who is this for?</p>
+          <ClientPicker
+            value=""
+            busy={saving}
+            autoFocus
+            label={`Client for ${name}`}
+            onPick={(id) => save(setCampaignClient(campaignId, id), clientById(id)?.name ?? "That company")}
+            onAddByName={(company) => save(setCampaignClientByName(campaignId, company), company)}
+          />
+        </div>
+      </Popover>
+    </>
   );
 }
 

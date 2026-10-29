@@ -2,9 +2,11 @@ import { useId, useState } from "react";
 import { specApi } from "./api/agent";
 import type { RoleSpec } from "./api/agent";
 import { messageOf } from "./api/client";
-import { useFollowingLine, useMayChangeCampaign } from "./campaignRights";
-import { refreshCampaign, refreshCampaignAgents } from "./campaignStore";
+import { useFollowingLine, useMayChangeCampaign, useMayChangeCampaignClient } from "./campaignRights";
+import { clientById, refreshCampaign, refreshCampaignAgents, setCampaignClient, setCampaignClientByName, useCampaignClient } from "./campaignStore";
+import { ClientPicker } from "./ClientPicker";
 import { useCampaignSpec } from "./specDraft";
+import { useToast } from "./toast";
 import "./sourcing.css";
 import "./roleSpec.css";
 import { Loader } from "./components/Loader";
@@ -27,9 +29,9 @@ const GHOST_GROUPS = ["Must have", "Nice to have"];
 /** The spec while it loads: its own head, group titles and requirement rows, so the page keeps its shape when the spec lands. */
 function SpecGhost(): JSX.Element {
   return (
-    <ShimmerRegion as="section" label="Loading the role spec" className="rs">
+    <ShimmerRegion as="section" label="Loading the requirements" className="rs">
       <header className="rs-head" aria-hidden="true">
-        <h2 className="rs-title">Role spec</h2>
+        <h2 className="rs-title">Requirements</h2>
         <p className="rs-meta"><Shimmer h={12} lh={20} w="64%" /></p>
       </header>
       {GHOST_GROUPS.map((label, g) => (
@@ -47,6 +49,49 @@ function SpecGhost(): JSX.Element {
 }
 
 const FILE_TYPES = ".pdf,.docx,.txt,.png,.jpg,.jpeg";
+
+/** Said beside the approval while the campaign has no client: the search is for someone, so it waits for who. */
+export const CLIENT_FIRST = "Pick the client this role is for first.";
+
+/**
+ * Who the role is for, above the requirements. A campaign always has a client, so a person who may set it picks or adds it
+ * here and it is saved when they press Save (the name shows as soon as it is); anyone else reads the name. `onSaving` tells the panel
+ * while that is going on, so nothing is approved over a client that may still be turned down.
+ */
+export function SpecClient({ campaignId, onSaving }: { campaignId: string; onSaving: (saving: boolean) => void }): JSX.Element {
+  const client = useCampaignClient(campaignId);
+  const may = useMayChangeCampaignClient(campaignId, client !== null);
+  const toast = useToast();
+  const [saving, setSaving] = useState(false);
+  /* Said once the server has answered; a refusal puts the client back and says why. */
+  const save = (work: Promise<boolean>, name: string) => {
+    setSaving(true);
+    onSaving(true);
+    void work.then((ok) => {
+      setSaving(false);
+      onSaving(false);
+      if (ok) toast(`${name} is now the client`);
+    });
+  };
+  return (
+    <div className="rs-client">
+      <span className="rs-label">Client</span>
+      {may ? (
+        <ClientPicker
+          value={client?.id ?? ""}
+          valueName={client?.name ?? ""}
+          busy={saving}
+          invalid={client === null}
+          hint="Choose one, or add a new client."
+          onPick={(id) => save(setCampaignClient(campaignId, id), clientById(id)?.name ?? "That company")}
+          onAddByName={(name) => save(setCampaignClientByName(campaignId, name), name)}
+        />
+      ) : (
+        <p className="rs-copy">{client ? client.name : "Not added yet"}</p>
+      )}
+    </div>
+  );
+}
 
 export function RoleSpecPanel({ campaignId, onClose }: { campaignId: string; onClose?: () => void }): JSX.Element {
   /* One shared read of the spec and of the draft on its way: while Mind drafts, it asks again by
@@ -69,6 +114,9 @@ export function RoleSpecPanel({ campaignId, onClose }: { campaignId: string; onC
   const [running, setRunning] = useState<string | null>(null);
   /* How it ended, once the run has: the calm last word, with a way to close. */
   const [done, setDone] = useState<string | null>(null);
+  /* A campaign is for a client before anything is searched for it. */
+  const client = useCampaignClient(campaignId);
+  const [clientSaving, setClientSaving] = useState(false);
   const jdId = useId();
 
   async function run(label: string, work: () => Promise<unknown>) {
@@ -98,12 +146,13 @@ export function RoleSpecPanel({ campaignId, onClose }: { campaignId: string; onC
   /* Nothing to paste into while Mind is already at it: the same words, then the spec. */
   if (spec.drafting && !latest) {
     return (
-      <section className="rs" aria-label="Role spec" aria-busy="true">
-        <h2 className="rs-title">Role spec</h2>
+      <section className="rs" aria-label="Requirements" aria-busy="true">
+        <h2 className="rs-title">Requirements</h2>
+        <SpecClient campaignId={campaignId} onSaving={setClientSaving} />
         <div className="rs-wait" role="status">
-          <p className="rs-wait-t">SuperHyre is drafting the role</p>
+          <p className="rs-wait-t">SuperHyre is drafting the requirements</p>
           <p className="rs-copy">
-            It shows here as soon as it is ready. Nothing is searched until you approve it.
+            They show here as soon as they are ready. Nothing is searched until you approve them.
           </p>
           <ShimmerText lines={3} />
         </div>
@@ -114,15 +163,17 @@ export function RoleSpecPanel({ campaignId, onClose }: { campaignId: string; onC
   if (!latest || !edit) {
     if (!may) {
       return (
-        <section className="rs" aria-label="Role spec">
-          <h2 className="rs-title">Role spec</h2>
-          <p className="rs-copy">There is no role spec yet. {FOLLOWING_LINE}</p>
+        <section className="rs" aria-label="Requirements">
+          <h2 className="rs-title">Requirements</h2>
+          <SpecClient campaignId={campaignId} onSaving={setClientSaving} />
+          <p className="rs-copy">There are no requirements yet.{FOLLOWING_LINE && ` ${FOLLOWING_LINE}`}</p>
         </section>
       );
     }
     return (
-      <section className="rs" aria-label="Role spec">
-        <h2 className="rs-title">Role spec</h2>
+      <section className="rs" aria-label="Requirements">
+        <h2 className="rs-title">Requirements</h2>
+        <SpecClient campaignId={campaignId} onSaving={setClientSaving} />
         {spec.failed && !problem && (
           <>
             {/* The description was given already: trying again reads what is saved, nothing is pasted twice. */}
@@ -152,7 +203,7 @@ export function RoleSpecPanel({ campaignId, onClose }: { campaignId: string; onC
             disabled={busy !== null || jd.trim().length < 80}
             onClick={() => void run("draft", () => specApi.draft(campaignId, jd.trim()))}
           >
-            {busy === "draft" ? "Reading the JD" : "Draft the spec"}
+            {busy === "draft" ? "Reading the JD" : "Draft the requirements"}
           </button>
           <label className="src-btn is-quiet rs-file">
             {busy === "file" ? "Reading the file" : "Upload the JD"}
@@ -193,9 +244,9 @@ export function RoleSpecPanel({ campaignId, onClose }: { campaignId: string; onC
   };
 
   return (
-    <section className="rs" aria-label="Role spec">
+    <section className="rs" aria-label="Requirements">
       <header className="rs-head">
-        <h2 className="rs-title">Role spec</h2>
+        <h2 className="rs-title">Requirements</h2>
         {spec.drafting && <p className="rs-note" role="status">SuperHyre is drafting a newer version. It shows here when it is ready.</p>}
         <p className="rs-meta">
           {isApproved
@@ -206,16 +257,19 @@ export function RoleSpecPanel({ campaignId, onClose }: { campaignId: string; onC
         </p>
       </header>
 
+      <SpecClient campaignId={campaignId} onSaving={setClientSaving} />
+
       {/* The whole spec at once, edited where it stands: one Save for all of it, one Approve. */}
       <SpecEditor spec={edit} readOnly={!may} onChange={setEdit} />
 
-      {!may && <p className="rs-note">{FOLLOWING_LINE}</p>}
+      {!may && FOLLOWING_LINE && <p className="rs-note">{FOLLOWING_LINE}</p>}
       {/* The decision stays in view while the spec scrolls: one Save, one Approve, and how it went. */}
       <footer className="rs-foot">
       {started && !problem && !done && <p className="rs-note" role="status">{started}</p>}
       {running && !problem && !done && <RunNarration runId={running} onFinish={(how) => void finished(how)} />}
       {done && !problem && <p className="rs-note is-done" role="status">{done}</p>}
       {problem && <p className="rs-note">{problem}</p>}
+      {may && !changed && !isApproved && client === null && <p className="rs-note">{CLIENT_FIRST}</p>}
       {may && <div className="rs-actions">
         {changed && (
           <button
@@ -232,7 +286,7 @@ export function RoleSpecPanel({ campaignId, onClose }: { campaignId: string; onC
           <button
             type="button"
             className="src-btn is-primary"
-            disabled={busy !== null}
+            disabled={busy !== null || client === null || clientSaving}
             onClick={() => void run("approve", async () => {
               const done = await specApi.approve(campaignId, latest.id, { match: true });
               const m = done.matching;

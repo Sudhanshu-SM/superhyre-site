@@ -1503,6 +1503,10 @@ type Ledger = {
 - **Concurrency:** two "find more" clicks, or a click while a watch runs, must not fetch the same page twice. Each request takes a per-campaign advisory lock (`pg_advisory_xact_lock(hash(campaign_id))`), reads the ledger, plans the batch, and commits the new cursor + seen list atomically with the results. A second request waits for the first, then plans from the updated ledger. Idempotency key: `campaign:specVersion:n`.
 - **Three layers** (from §10.7): exclude list before the call → `freshOnly` after → identifier match in `ingest_person`. People who reach the campaign any other way (extension, manual add, our own pool) are added to `seen` too.
 - **Exhausted:** an empty page or no next cursor marks the ledger exhausted; the UI says so in plain words and offers to widen filters (a new search inherits `seen`).
+- **Strays (29 Oct).** The source matches near spellings, so a search can send people from outside the campaign's
+  cities. They are not taken in, and their keys are kept in `sourcing_ledgers.strays` (the newest 300), which the next
+  search of the same query leaves out, so they are not paid for every morning; a changed spec or filter starts the list
+  again. People erased from the workspace are kept out the same way: `crustdata.md`.
 
 ### 16.3 The keep-sourcing watch (long-running)
 
@@ -1526,6 +1530,19 @@ type WatchState = { status: "running" | "paused" | "done"; reason: string | null
 - **Ways to start one:** a chat message ("keep looking for a week", "find me 30 more over the next few days"), the "Keep sourcing" action on the results, or the Agents rail. The orchestrator turns all three into the same `startWatch` command; whichever stop is missing, the chat asks for it (16.4).
 - **Runs in the worker** as a scheduled job (`watch_runs` table, claimed with `SKIP LOCKED` like any run); each tick is a normal run with events, so the Agents rail and the chat update live, and the memory layer learns from it.
 - **Controls:** pause, resume, change count / date / cadence, stop. Admin or the campaign's recruiters only.
+- **As built (29 Oct 2026): what a tick checks, and what happens when it fails.** After the campaign checks, a tick that
+  cannot go on pauses the watch with its reason and rings the bell once: the person who started it lost access, the
+  campaign is closed, the requirements are not approved, or the role is not remote and has no city. A search that fails
+  is tried again in 30 minutes (`FAILED_RETRY_MS`) and is not an empty run (three empty runs pause a watch as "no new
+  people"); after `MAX_FAILED_RUNS` = 3 in a row the watch stops in state `error` ("The last 3 searches didn't work, so
+  this has stopped. Resume it to try again."), and the bell rings on the first failure and again when it stops, so at
+  most two rows for a streak. An unexpected exception is caught and recorded the same way (before, it was picked up
+  again every 5 minutes with nothing shown). A source that does not answer is tried again in 30 minutes with the
+  counters as they were, and a search that bought people the model could not read sets `scoreFirst`, so the next tick
+  reads them before it buys more. The counters gain `failures` and `scoreFirst` (jsonb, no DDL); resume and reopen clear
+  `failures`; a person's pause or edit during a tick wins the state, and what the tick did (`found`, `lastRunAt`,
+  `sinceNotified`) is still added to the counters. The daily search is this watch's standing mode: "29 Oct 2026: the
+  daily search" below.
 
 ### 16.4 What the agent asks, and the copy
 
@@ -2058,6 +2075,9 @@ item closed: `agent-memory-research.md`, "What changed 12 Oct".
   starts the same flow a pasted one does (set_job_description: read, role spec, approve, search, narrated under the turn).
   A resume is passed to the agent as the attached text: there is no add-candidate-from-text capability yet. Old .doc
   files are refused (the reader takes .docx).
+  (Superseded 29 Oct: the paperclip asks what is being added first, sheets and resumes have their own cards, and a job
+  description chosen from it goes by its own route; see "29 Oct 2026: add by choice" below. The text still goes in the
+  message for "Something to read" and for pasted text.)
 - **Campaign filters.** `PUT /v1/campaigns/:id/filters` saves the dialog's values in `campaign.setup.filters`, in the
   console's own filter vocabulary, and mirrors cities, years, must and nice into the brief's own fields. A search reads
   the approved role spec and puts `setup.filters` over it (`withRecruiterFilters`, sourcing/crustdata.ts, in
@@ -2081,3 +2101,283 @@ item closed: `agent-memory-research.md`, "What changed 12 Oct".
   brief is written or a file attached, a line says what was understood (Location, Job Title, Years of Experience,
   Industry, Skills; `briefSignals.ts`), and pressing one opens the filters at that group; otherwise three full-sentence
   suggestions and "Search past chats" (`recs.ts ideaRows`).
+
+## 29 Oct 2026: add by choice, sheets in a standard shape, resumes (local, not deployed)
+
+Plan, and what differs from it: `plans/attach-menu-and-sheet-standard.md` ("Build status"). The agent's rules for it
+(the `adding` door, the read-only turn, the direct job description route) are in `agent-framework.md` section 19; this
+is the reference for the routes, the readers and the files. It replaces the paperclip of 13 Oct above.
+
+- **The choice is data.** The paperclip opens "What are you adding?" before the picker: Candidates; Job description
+  (replaces the open campaign's, when the person may change it); More roles (each job description or sheet row becomes a
+  campaign; "Job descriptions" when no campaign is open); Something to read. The pick is the chip's scope, and the
+  message carries it as `SendMessage.adding` `{ id, defaulted, groups: [{ scope, files: [{ name, kind, detail? }] }] }`;
+  nothing is guessed from the words or from a file. A dropped or pasted file is only suggested a scope, with one click
+  to change it, and a suggestion never writes. Limits (`ADDING_LIMITS`): 10 files a message, 5 sheets, 5 to read, 3
+  groups. Console: `adding.ts` (pure: menu rows, scopes, mismatch lines, how chips become messages), `AddMenu.tsx`,
+  `AttachChips.tsx`. Server: `modules/agent/adding.ts`. A console asks `GET /v1/agent/capabilities` (`{ adding: true }`,
+  `addingFlag.ts`) and uses the choice only when the server says it takes it; otherwise it falls back to the old
+  paperclip (the plan's "Build status", gap A).
+- **One definition, two copies.** `packages/shared/src/attach-contract.ts` holds what the console and the server must
+  agree on: the roles a column may be, the where fields and operators, the plan's limits (10 tabs, 24 changes, 5 rules,
+  8 unused), the stage and step words a status can place on, the scopes, kinds and limits of an add, and the stop words
+  of "add these". `sheet-plan-schema.ts` builds `SheetPlan` (the model's answer) and `ClientPlan` (what the card keeps
+  and sends back) from those lists. The console is its own repository and cannot import the package, so
+  `auth-app/src/attachContract.ts` is the same file byte for byte, and `attachContract.test.ts` fails when they differ:
+  change the shared file, then copy it over the other. `auth-app/src/samePerson.ts` is the same kind of copy of
+  `server/src/modules/candidates/same-person.ts` (checked by `joinPeople.test.ts`). `VIEW_KINDS` and the response types
+  (`PeopleSheet`, `Assist` and the rest) are still mirrored by hand, and the console's `phone.ts` is a separate port
+  checked against the same `PHONE_CASES`, not a byte copy.
+- **Cards and seeds.** A message whose groups are all `candidates` or `roles` is answered in code (`saidAdding`: the
+  code-only branch of `start()`, no run slot, no day's message, no place in the chat's queue): one `view` card for each
+  group, roles first, with key `view:<view>:<campaign|->:<id>` and query `adding:<id>` (`people-import`,
+  `campaign-import`). The files stay in the console under the add's id (`peopleSeed.ts`: `stashFor`, `peekFor`,
+  `finishFor`; `importFiles.ts`: `stashImportFor`, `peekImportFor`, `finishImportFor`), are peeked and not taken, and
+  expire after 10 minutes, so two sends keep their own files, a card opened again within that time still has its files,
+  and an unknown id shows "This sheet isn't here any more". `stashPeople`, `takePeople`, `stashImport` and `takeImport`
+  stay, for a server without the door and for cards opened by typed words.
+- **One card for candidates.** The sheets and resumes of one Send are one card with one Add: the resumes first, then the
+  sheets in the order they were attached, each person once (`joinPeople.ts` on `samePerson.ts`; the first file wins what
+  two rows say differently), with a line saying how many rows were joined. Ticks are one for each sheet file; a resume
+  keeps one tick for each person line (one for each file in the usual case). The words typed beside a sheet are read
+  once, by that card, with the sheet's shapes (the plan route below). The agent is asked only for a part the card tags
+  `next_step` ("start outreach to the ones who replied"), as one turn after Add (`nextStepsOf`, `followUpAfter`), and a
+  bare add makes no turn. A part nothing answers (no column says it, or it was unclear, or it asked for people by who
+  they are) is said on the card and not passed on. With no sheet in the Send (resumes, roles) no card reads the words,
+  and the agent answers them as it always did.
+- **Reading a sheet.** `POST /v1/candidates/sheet/read` takes the file (10 MB) or JSON `{ url }` of a Google Sheet;
+  query `campaignId`, `columns` (the person's own column choices), `tab`, `tabs` (a JSON list of the tabs to add) and
+  `hidden=include`; header `x-sheet-plan` (below). Without `tabs`, only the main tab is read when several hold people
+  (the biggest, unless its name says archive, old, rejected, template and the like), and a tab with people that was not
+  read is in `tabs[]` with `used: false`. Rows and columns the workbook hides are left out and counted
+  (`hidden: { rows, columns, included }`) until `hidden=include`. The answer is a `PeopleSheet`
+  (`candidates/sheet-import.ts`): kind, tabs, columns, counts, what was left out and why, and the `rows` to send to
+  `POST /v1/candidates/import` in batches. With a status column each row has `status` (the cell, one line, 120
+  characters at most) and `alsoSaid` (what the same person's later rows say), and the sheet has `statusWords` (below).
+  Every row is accounted for: `people = filtered + toAdd + alreadyHere + invalid` (plus any repeats the import itself
+  finds) and `rows = (left - invalid - filtered) + repeats + people`; `counts.filtered` and `leftOutBy.filtered` appear
+  only when a rule was applied. A sheet worth a second look carries `assist.gate` (`check`, `other` or `tabs`), and the
+  card then calls the plan route.
+- **Asking for help with a sheet.** `POST /v1/candidates/sheet/plan` takes the same body and query plus header
+  `x-intake-say`, the words typed beside the sheet (URL-encoded, 300 characters; a header so that request logs never
+  hold them). The model is asked only when the reading is `other`, needs a check, has tabs that are not all people, or
+  the words say more than "add these" (`hasInstruction`: two content words, one for a turn that only answers); otherwise
+  the answer is the plain reading, with no model, no quota and no run slot. The call (`candidates/sheet-plan.ts`, task
+  `sheet_plan@1`, a run of kind `spec` with `input.task`) is shown a profile the server builds from masked shapes and
+  rates (`sheet-profile.ts`: no name, contact or cell of an identity column; the status column's words only with
+  `SHEET_PLAN_SEES_WORDS`) and answers a plan of changes that code vetoes outrank (`vetoPlan`: a column the reader was
+  sure of is never changed, an identity role needs content support, protected headers are ignored, a quoted part must be
+  the person's own words). Quota `sheetplan:user`; one plan at a time for each person (`onePlanAtATime` counts their
+  open `sheet_plan@1` runs inside the organisation's slot lock, so it holds across processes and nothing needs
+  releasing). Every failure (quota, capacity, a plan already running, bad JSON, vetoed to nothing, `SHEET_PLAN` off)
+  answers with the plain reading and `assist.why`, and the card says so in words. `assist` carries the gate, whether the
+  plan was used and from where, the columns it changed, the lines of the rules the words made, what was not used, the
+  vetoes and the plan to send back; there is no separate tabs list (`assist.plan.tabs` carries it), and no model prose
+  reaches the card. Header `x-sheet-plan` on the read route is that plan sent back by the card (base64url JSON of
+  `ClientPlan`, 4,000 characters at most): a column set, a tab ticked or a rule unticked re-reads the sheet with no
+  model, re-validated and re-vetoed against the sheet every time, and the server keeps nothing between requests.
+- **Measuring it.** Every read leaves one content-free log line (`sheet read`) and every plan call another
+  (`sheet plan`: gate, source, ms, profile bytes, layout signature; no token count, the gateway returns none), so "how
+  often was the reader sure of a sheet" is one query; the fields and the eval script are in the plan's "Build status",
+  gap A.
+- **Placing by status.** A sheet's status words are placed by rules first (`explainStatus` in `campaigns/sheet-sync.ts`,
+  with a negation guard: "Not hired", "Offer not accepted", "Joined another company" and "not replied" never place as
+  hired, offer, interview or replied; hired also waits for words like "pending" or "possibly"), then by the person's
+  select on the card; they never go to a model. `statusWords` is `[{ text, n, want: { stage, step? } | null, word }]`,
+  at most 40, most said first, grouped on the lowercased, whitespace-collapsed text (`statusKey`: the same function in
+  `sheet-sync.ts` and in the console's `peopleSheet.ts`, each pinned by a test); the card lists them in funnel order,
+  the ones no rule can place last. Placing is a tick, off by default, and needs a campaign and a status column. After
+  the people are added the card calls `POST /v1/campaigns/:id/place` with
+  `{ moves: [{ candidateId, stage, step?, word }], hire: [ids], reject: [ids] }` (1 to 100 moves a request; the card
+  sends more in parts) and gets
+  `{ moved: { stage: n }, kept, waiting: [{ candidateId, campaigns: [{ id, name }] }], refused: [{ candidateId, why }] }`.
+  A move to Hired needs the id in `hire` and a move to Rejected the id in `reject` (each a default-off tick on the
+  card); the caller must be on an open campaign and the actor is the user; moves go forward only, so asking twice moves
+  nobody twice; a hire that would take someone off another campaign comes back as `waiting`. After a rejection or a hire
+  the route winds down what was tied to the person (`windDown`: an interview on the calendar, queued emails). The route
+  is in `NOT_FOR_THE_AGENT`, not a tool (`campaigns/sheet-place.ts`; `placeCards` is shared with `syncSheet`).
+- **Resumes.** `POST /v1/candidates/resumes/read` takes up to ten files `{ id, name, text, picture?, kept?, read? }`,
+  `typed: [{ key, contact }]` and `campaignId`, and answers a `PeopleSheet`-shaped `sheet` (tab = file name, so the
+  card's counts, button and result lines are a sheet's) with `files[]` (state `read`, `job-description`, `failed` or
+  `empty`) and `lines[]` (one for each person: `ready`, `check`, `no-contact`, `no-name`, `invalid` or `same`, with the
+  sentence under it). The text is read in the console by `POST /v1/attachments/read`; text read off a picture says so on
+  the line. Contacts are taken in code from the raw text with the sheet readers (`sheet-cells.ts`), from the person's
+  own part of the file (a resume's header, up to 25 lines; a list's own line; an address with their name in it wherever
+  it stands) and never from what follows a References heading; one found elsewhere in the file is used, and its line says
+  to check it (`check`). The model sees the text with every contact taken out and returns `{ list, people[] }` for each
+  file (task `resume_facts@1`, one batch, one run slot): a resume is one person, a list or table up to 30. A name it
+  gives has to be in the text. A person with no email, phone or LinkedIn link is unticked with a field to type one
+  (`typed`; `read` echoes the model's reading, so a typed contact re-reads with no model call). Nothing is kept, not the
+  file and not its text; an added person carries the note "From resume: <file>."
+- **Job descriptions.** A job description chosen for the campaign in the chat goes from the console to
+  `POST /campaigns/:id/spec/draft-from-file` (the original is kept and versioned and the requirements are drafted from
+  it), then the message "Show the requirements" shows the Requirements card with Approve: one spec draft and no chat
+  model turn (that message is answered in code; `agent-framework.md` section 19). The server needs no new field for it:
+  `adding.job_description` is only recorded and drawn as a chip. With no campaign, or for More roles, the roles card
+  opens with the texts already read (`ImportSeed.texts`). `[Attached: ...]` frames and the product's lead line are
+  stripped before a description is saved or read (`campaigns/jd-frames.ts`: `descriptionOf`, `withoutFrames`; used by
+  `pastedJobDescription`, `create_campaign`'s `jdText`, the "offered" comparison in `chat.ts` and the saved text). The
+  composer's Job description dialog still sends a framed chat message, which is a model turn.
+- **Links.** A Google Sheet link becomes a chip (the rule for when is in the plan's "Build status", Phase 6), read as a
+  dropped file is but for one tab (the CSV export: the tab the link names, else the first), with the same scope menu; a
+  sheet that needs a sign-in says so on its chip, in the server's words. The footer "Connect a Google Sheet" and its
+  dialog stay, for the saved link, "read again" and placing by status. `connect_sheet` and the dialog read through the
+  file reader: `readSheetLink` runs `readPeople` (`candidates/sheet-people.ts`) and `trackerOf` (`campaigns/sheet-sync.ts`)
+  turns the reading into the rows `syncSheet` adds and places, so a link and the same sheet as a file give the same
+  people. `describeSheet().read` and `.left` come from the file reader's own columns, imported notes read "Status: ..."
+  and unknown columns are kept as a note. The old heading mapper (`readSheet`, `HEADINGS`) is only the fallback for a
+  sheet the file reader finds no people in. `connect_sheet` still takes the link the first time and none after (it syncs
+  the connected one): the link chips changed neither its input nor the product map.
+- **Reading only.** Files attached as "Something to read" travel with the scope `read`, and that turn writes nothing:
+  the rules and the pinned list of tools it may use are in `agent-framework.md` section 19. A sheet or resume added as
+  Candidates has no road to a campaign, a job description or a hire, and static tests keep it so (the plan's "Build
+  status", gap A).
+
+Settings of this build (all in `server/src/config.ts`; none is in `server/.env.example`):
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| `LIMIT_SHEET_PLANS_PER_HOUR` | `30` | Sheets whose layout, or the words typed beside them, the model reads in an hour (one call each, whatever the rows). |
+| `SHEET_PLAN` | `true` | Off: a sheet is read by code alone, whatever is typed beside it. A switch for the model step, not for adding sheets. |
+| `SHEET_PLAN_SEES_WORDS` | `false` | Whether the words in a sheet's status column may be shown to the model. On, the profile carries that column's cells (contacts hidden); nothing else reads them. |
+| `LIMIT_RESUME_READS_PER_HOUR` | `60` | Resumes the model reads in an hour, one for each file it reads (a file that failed gives its share back), beside the 40 non-text reads an hour. |
+
+No migration, no change to the chat tool list or its size pin, and one added rule in the chat prompt (`chat@54`,
+unreleased, so not bumped; a process that already warmed it needs a restart to see the rule). `/v1/campaigns/jd/sheet`
+joins the 11 MB list and `LONG_ROUTES` in `platform/http.ts`, as `/v1/candidates/sheet/read` and `/sheet/plan` do for a
+file; `/v1/candidates/resumes/read`, `/sheet/plan` and `/v1/campaigns/:id/place` are in `LONG_ROUTES` and
+`NOT_FOR_THE_AGENT`. Deploy the server before the console: a console deployed first still works (it uses the old
+paperclip until the server says `adding: true`), but an older server drops `adding` from a message and a send becomes
+plain words with no card, which is what the flag guards against. Resumes need both together: the server now answers a
+Candidates group with documents in code, and only the new console keeps a resume's text for its card.
+
+## 29 Oct 2026: the daily search (local, dark behind DAILY_SEARCH)
+
+Plan, and what differs from it: `plans/daily-search.md` ("Build status"). Rights: `workspaces-and-orgs.md` (Campaigns).
+The source's side (strays, the lane and cache of the title lookup): `crustdata.md`. The daily search is a person's own
+standing morning search for the campaigns they pick. It is not a second engine: it is the keep-sourcing watch (16.3) in
+a standing mode, one watch for each campaign and one row for each person. No agent tool, tool description or prompt text
+changed.
+
+Settings (both in `server/src/config.ts` and `server/.env.example`):
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| `DAILY_SEARCH` | `false` | Switches the daily search on. Off: the chat says it is not switched on, "keep looking daily" stays the watch it was, standing ticks rest an hour at a time, the sweep jobs are not registered, and `GET /v1/daily-search` answers `on: false` (the console draws nothing). |
+| `DAILY_SEARCH_SUGGESTIONS` | `shadow` | The learning loop, once the search is on. `shadow`: it writes the changes it would suggest and shows nobody anything, applies nothing; `on`: it shows them; `off`: it reads nothing. |
+
+Its numbers and times are one constant, `DAILY_SEARCH` in `packages/shared/src/sourcing.ts` (07:00 in Asia/Kolkata every
+day, 5 people a campaign a morning, a reserve of 100 of the 400 profiles a day, a campaign rests at 20 people waiting
+and carries on at 10, at most 60 campaigns, 3,000 profiles a month); the loop's are `LEARNING` in
+`packages/shared/src/sweep-rules.ts` (see the plan's "Build status"). There is no new limit setting: the 400-profile
+allowance stays the one budget.
+
+- **Shape.** Each campaign in a search has an ordinary watch (an `agents` row, kind `watch`) whose config carries
+  `standing: { sweepId, perDay }` (`StandingWatchConfig`; `stop` is empty on purpose, the console reads it), and each
+  person has one `sourcing_sweeps` row (migration 208): which campaigns (`scope`: `{ all, except }` or
+  `{ campaignIds }`), the morning (`run_at`, `timezone`, `repeat`), the batch, the reserve, the waiting cap,
+  `max_campaigns` (the ceiling they said yes to), the last briefing and the day's circuit-breaker record. `runWatch`
+  hands a standing watch to `runStanding` (`sourcing/standing-run.ts`); the supervisor, the `agents.watch-tick` job and
+  the classic path are unchanged. A tick buys once a local day: the day is claimed under a row lock before the source is
+  asked (counters `day`, `phase`, `claimedAt`, by the database's clock), a claim old enough to be a tick that died
+  counts as a purchase when one was made since, and the finish moves the state only if no person touched the watch
+  meanwhile. The preflight is `standingTick` and `afterStandingRun` in `packages/shared/src/sourcing.ts`: pure, first
+  hit wins, one rest or buy for each case, every rest with its plain reason on the campaign's row and in the morning's
+  message. The tick searches on the background lane with a 7-day cache for the title lookup, makes no memory episode and
+  asks for no enrichment (`quiet: { memory, enrich }`).
+- **The morning.** `sweeps.supervise` (cron every 10 minutes, `sourcing/sweep-jobs.ts`) sends each search whose message
+  is due a `sweeps.brief` job, 20 seconds apart; the ticks themselves are the watch's. A campaign's turn is the slot
+  plus an offset hashed from the campaign and the day, inside a window that grows with the campaigns (10 minutes to 2
+  hours); one that rested for want of room goes first the next morning. A scheduled tick starts only inside the
+  morning's window, from the slot until 21:00 and never less than 3 hours (`windowMs`: the quiet window comes from the
+  slot, so a 06:00 or a 20:00 search still runs). The briefing (`sourcing/brief.ts`; code, no model) is one assistant
+  message with artifact kind `reminder` in a chat titled "Daily search" (`agent/speaks-first.ts`, shared with
+  `schedules/handlers.ts`) and one bell row that opens the Campaigns page with `?daily-search=open`. It waits for the
+  campaigns' turns and goes by `briefByHour` (09:00 local on the slot's day), or the last due turn plus 10 minutes for a
+  slot late in the day (`briefDeadline` in `sweep-clock.ts`; there is no `quietTo`). Counts come from `core.runs` (skill
+  `watch`, `input.sweepId`) and a person counts once in the headline. A campaign whose turn never came (`missedDay`) or
+  whose day was stopped (`stoppedDay`) is said as "did not run", never as a quiet morning; admins get one task for a
+  missed morning and one for each campaign a day on which every try failed. After 3 mornings with nothing bought the
+  message is one line a week and rings no bell.
+- **Starting it.** In the chat, in code and before the model (`agent/sweep-flow.ts`, in `respond()` after the
+  requirements ask and before `contactsTurn`): a standing marker (daily, every day, every morning, ongoing) with no
+  count and no span starts the daily search, a count or a span stays the watch with an end, and "keep looking for X"
+  with neither stays the 30-person card. The question "Which campaigns should I search every morning?" is a `question`
+  of kind `watch_setup`, multiple (1 to 60: the cap of `AnswerInput` was lifted from 20), with a tile for each campaign
+  that can be searched, "All open campaigns" and "Not now". Its choices start "Search every morning for", so typed
+  equivalents parse back, and the picked ids are read from the answer artifact stored on the user message, never from
+  names (two campaigns can share one). A campaign named in the words skips the question. The answer is one approval card
+  for all the campaigns on `sourcing.keep_sourcing` (tool `propose_watch`, autonomy `ask`): its stored approval is now a
+  union of the watch's `WatchApproval` and
+  `{ sweep: { scope, mode, runAt, timezone, repeat, perCampaign, reserve, waitingCap, ceiling } }`, made by code and
+  never by the model, so the model's input and descriptions are what they were. The preview and the run re-check every
+  id (eligible, then `campaignsOnTeam`), because the generic write guard reads one campaign id. The card prints the most
+  it can buy a day and a month, and says a campaign that becomes ready later needs one more yes. A yes upserts the sweep
+  row and creates or adopts one standing watch for each campaign (a classic watch the person started moves in and keeps
+  its `found`), and the first batches run at once, 60 seconds apart. Controls by words (pause, resume, stop, take one
+  out, add one, run it now, change the time, weekdays only, how did it go) run directly, as they only reduce spend.
+  `propose_watch`'s handler hands a model-routed daily phrase to the same question (`handOver`), but `sweepTurn` takes
+  nearly every phrasing first.
+- **Search history (Phase 0).** Every change to a campaign's filters or sources is one activity line written in the same
+  transaction as the change: verb `updated`,
+  `data: { fields: [lever], before, after, setupBefore, setupAfter, read, via, undoes }`. `setupBefore` and `setupAfter`
+  are the brief fields a save of the filters also writes (cities, must and nice words, years), so Undo restores them
+  exactly; `read` is the filters as the search read them, for the list; `via` is `details` or `chat` when the change was
+  not made in the filters dialog; `undoes` is the earlier line an Undo put back. `GET /v1/campaigns/:id/search-history`
+  lists the 50 newest (anyone who can see the campaign); `POST /v1/campaigns/:id/search-history/:changeId/undo` puts one
+  back (`campaigns/search-history.ts`), in its own transaction and as a compare-and-set against that line's `after`: it
+  refuses ("This has been changed since...") when anything touched the same thing later, and a change that came with a
+  save of the campaign's details (`via: "details"`) has no Undo. Putting cities back runs `applyPlaceChange`, as any
+  edit of the cities does, and marks the suggestion that made the change `undone`. The undo route is declared on the
+  `set_filters` capability's `routes` (tool `set_search_filters`), so the route-coverage test passes with no tool
+  change. Console: the Sourced page's header button "Search history" (`SearchHistory.tsx`, `searchHistory.ts`,
+  `searchHistory.css`; `searchHistory` and `undoSearchChange` in `api/campaigns.ts`). The line holds the recruiter's own
+  filter values (cities, skills, company names they typed) and no person ids.
+- **The dialog (Phase 2).** "Daily search" in the Campaigns page header (`DailySearchButton.tsx`) and "Manage" on the
+  one rail row for the search (`WatchList.tsx`) open `DailySearchDialog.tsx` (`dailySearchView.ts` holds the pure
+  states, `dailySearchSave.ts` Save, `api/dailySearch.ts` the calls, `dailySearch.css` the look). Its data is
+  `GET /v1/daily-search?detail=true`, built in `sourcing/sweep-detail.ts`: a row for every campaign the person may
+  change (merged from `eligibleCampaigns`, the person's watches and `matchCounts`), the last mornings, the room left in
+  today's allowance, the drafted-campaigns line with its room maths, and `defaults` (`SEARCH_DEFAULTS`, read from
+  `DAILY_SEARCH`, so the console holds no numbers of its own: the cap of 60 is `detail.defaults.maxCampaigns`). Save is
+  the person's yes, one `PUT /v1/daily-search`. For an owner or admin the dialog also lists the other people's searches
+  with Pause and Resume. What it does when Save leaves campaigns out, and its suggestions section, are in the plan's
+  "Build status" (Phases 2 and 3b).
+- **Showing a suggestion.** The learning loop's nightly pass (`sourcing/learn-jobs.ts`; how it starts, its rules and its
+  numbers are in the plan's "Build status", Phase 3) writes `search_suggestions` rows (migration 209) and, in `shadow`,
+  stops there: judge a week of them by eye with `server/scripts/shadow-suggestions.ts` (read-only: the rule, campaign,
+  change and reason in counts) before setting `DAILY_SEARCH_SUGGESTIONS` to `on`. With it
+  on, the morning's message, a nudge on the Sourced page and the dialog's list mention them, and "Show me the changes you
+  suggest" (for a campaign, or for all) puts up to 3 ordinary cards in the chat in code (`agent/suggest-flow.ts`, `suggestTurn`, in `respond()` right after
+  `sweepTurn`). Each card is the change's own capability, `set_filters`, `set_sources` or `edit_spec`, whose stored
+  approval carries an optional `suggestion` id (and `set_filters` a `titles` list) that the model's tool input does not;
+  each run ends with `settleApplied`, which marks the row applied, keeps the history line Undo works from and puts
+  "Undo" on the outcome ("Undo the suggested change for X (suggestion 1a2b3c4d)", read back by `suggestTurn`). A
+  requirements suggestion is a draft that changes nothing until approved, so it has no Undo.
+
+Routes (`sourcing/routes.ts`, `sourcing/suggestion-routes.ts`):
+
+| Route | What it does |
+| --- | --- |
+| `GET /v1/daily-search` | The person's search, `{ on, search }`; with `?detail=true` (and the setting on) also `detail`, the dialog's data. |
+| `PUT /v1/daily-search` | Starts it or changes what it holds: `scope`, `mode` (`replace` or `add`), `runAt`, `timezone`, `repeat`, `perCampaign`, `reserve`, `waitingCap`, `ceiling`, `keepPaused`. 10 an hour for each person. |
+| `PATCH /v1/daily-search` | `action`: `pause` (`until`), `resume`, `off`, `run_now`, `take_out` (`campaignId`), `set_clock` (`runAt`, `repeat`) or `set_room` (`reserve`, `waitingCap`). |
+| `GET /v1/daily-search/all` | Owner and admin only: the other people's searches (counts, never campaign names). |
+| `PATCH /v1/daily-search/:id` | Owner and admin only: pause or resume another person's search; its owner is told, with the admin's name. In `NOT_FOR_THE_AGENT`: the agent works only with the search of the person it is talking to. |
+| `GET /v1/daily-search/suggestions` | The changes waiting on the person's campaigns and the scoreboard (`on: false` unless suggestions are on). |
+| `GET /v1/campaigns/:id/suggestions` | The changes waiting on one campaign (the caller on it); the Sourced page's nudge reads it. |
+| `GET /v1/campaigns/:id/search-history` and `POST .../search-history/:changeId/undo` | As above. |
+
+Agent parity is declared on the existing capabilities' `routes`: `keep_sourcing` has `PUT /daily-search`, `stop_watch`
+has `PATCH /daily-search` (it also pauses, resumes and stops the standing watches; stopping adds the campaign to
+`scope.except`), `set_filters` has the undo route. `list_schedules` shows a search as one line ("Daily search: 8
+campaigns, every morning at 7:00 am"), not one for each campaign.
+
+**A chat for each campaign (30 Oct 2026).** Each campaign of a search has a chat of the person (`conversations.kind` `daily_search`, titled "Daily search", focused on the campaign; migration 210) where the agent speaks first, in code and with no model: its first words, who a morning took in, why a campaign rests, a lost campaign, a morning that did not run. `sourcing/daily-chat.ts`: `giveChats` (`startSweep` waits for it at most 5 seconds; `doSweepJob` at the morning pass; running watches only), `tellChat` (after `runStanding`'s day is written, from the row it left, even when the person paused the search meanwhile), `tellMissed` (`doSweepJob`, only into a chat that exists). Counters `chatMade` and `saidReason` on the watch (every writer of a standing watch's counters merges; none writes back what it read); each message is keyed in its artifact `daily {campaignId, runId?, day, what}` so a run, a reason and a missed morning are said once, and a telling is tried again after a deadlock or timeout. `listConversations` never cuts a daily chat off at 100; the organisation's list, a campaign's shared list and a chat opened by its id leave other people's daily chats out; `chatTitled` and the agent's earlier-chats context skip chats with a kind; retention keeps them; the console's `openChatFor` never opens into one; the in-chat controls count a chat with the kind as the Daily search chat whatever its title; a message written in one from another campaign's page does not move it; `organize_chats` names each by its campaign and does not pin or move it. The people told are in the chat's text; erasing a candidate replaces their line (`people/erasure.ts`). The 50-campaign test caught two ticks deadlocking inside the pool's `ingest_person` when they took the same people in different orders: `fetchNew` now takes them in profile-key order (`lockOrder`).
+
+Migrations 208 (`sourcing_sweeps`; `sourcing_ledgers.strays`; `erased_profiles`), 209 (`search_suggestions`;
+`match_feedback.reason_class`, `reason_polarity` and `reason_term`; `sourcing_sweeps.learned_on`) are applied to the
+local database only, and so is 210 (`conversations.kind`, its check, the unique index `conversations_daily_chat`, the trigger `daily_chat_moved`). Apply 208 and 210 on the live database before the server that has this feature is deployed, even with
+`DAILY_SEARCH` off, because every search now reads `sourcing_ledgers.strays` and `erased_profiles`; 209 goes before it
+too (the nightly pass and the Sourced page read its columns); 210 is read by the morning's message and the reminders chat (`chatTitled` looks for a chat with no kind), so it goes before the server whatever the setting. The checksum rows are regenerated at apply time like 193
+to 207, and `db/live/09` (which holds 101 to 175) is not rebuilt: `db/LIVE-APPLY-PLAN.md` has the rows.

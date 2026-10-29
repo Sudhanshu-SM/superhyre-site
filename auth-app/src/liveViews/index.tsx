@@ -28,6 +28,7 @@ const VIEWS: Record<ViewKind, React.LazyExoticComponent<ComponentType<LiveViewPr
   client: lazy(() => import("./Client")),
   "campaign-new": lazy(() => import("./NewCampaign")),
   "campaign-import": lazy(() => import("./Import")),
+  "people-import": lazy(() => import("./PeopleImport")),
   "coming-up": lazy(() => import("./ComingUp")),
   "memory-doubts": lazy(() => import("./MemoryDoubts")),
 };

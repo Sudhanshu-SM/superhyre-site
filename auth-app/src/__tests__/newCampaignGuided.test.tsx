@@ -40,6 +40,8 @@ const DATA: LiveData = {
 };
 const ask = liveCampaignAsk(() => DATA);
 const bare = liveCampaignAsk(() => ({ clients: [], rows: [] }));
+/** An answer to "Who is it for?" for the tests that are about what comes after it: a client nobody knows, so no city comes with it. */
+const WHO = "cl-someone";
 
 type Asked = { id: string; auto: boolean; q: Question };
 
@@ -114,7 +116,7 @@ describe("a city said in any of its spellings is one city", () => {
   });
 
   it("puts the console's name on the draft however the city came", () => {
-    const d = draftFromAnswers({ role: "SRE", client: "none", dept: "Engineering", mode: "onsite", location: "Bangalore", openings: "1" }, "Me", []);
+    const d = draftFromAnswers({ role: "SRE", client: WHO, dept: "Engineering", mode: "onsite", location: "Bangalore", openings: "1" }, "Me", []);
     expect(d.locations).toEqual(["Bengaluru"]);
   });
 });
@@ -123,7 +125,7 @@ describe("a city the message names is an answer, shown and never asked", () => {
   const said = "Create a new campaign for DevOps Engineer from Bangalore";
 
   it("is the location question's preset, not an empty 'Which city?'", () => {
-    const q = ask("campaign-new", said, ctx({ role: "DevOps Engineer", client: "none", dept: "Engineering", mode: "hybrid" }, said))!;
+    const q = ask("campaign-new", said, ctx({ role: "DevOps Engineer", client: WHO, dept: "Engineering", mode: "hybrid" }, said))!;
     expect(q.id).toBe("nc-location");
     expect(q.preset).toBe("Bengaluru");
     // Taken as it is: the log gets "Location: Bengaluru" with Change beside it.
@@ -138,7 +140,7 @@ describe("a city the message names is an answer, shown and never asked", () => {
     expect(run.asked).not.toContain("nc-location");
     expect(run.answers.location).toBe("Bengaluru");
     expect(run.answers.role).toBeUndefined();
-    const a = liveCampaignAnswers(said, run.answers, DATA.clients);
+    const a = liveCampaignAnswers(said, run.answers);
     expect(a).toMatchObject({ role: "DevOps Engineer", location: "Bengaluru" });
     expect(campaignDraftFor(a, "Me", DATA.clients).locations).toEqual(["Bengaluru"]);
   });
@@ -164,7 +166,7 @@ describe("a city the message names is an answer, shown and never asked", () => {
     expect(run.asked).toContain("nc-location");
     // One row for the city, with the final value: never a row for "Other" and then another for the text.
     expect(run.answers.location).toBe("Bengaluru");
-    const q = ask("campaign-new", "x", ctx({ role: "SRE", client: "none", dept: "Data", mode: "onsite" }, "x"))!;
+    const q = ask("campaign-new", "x", ctx({ role: "SRE", client: WHO, dept: "Data", mode: "onsite" }, "x"))!;
     expect(q.apply(["bangalore"]).answers).toEqual({ location: "Bengaluru" });
   });
 });
@@ -185,11 +187,11 @@ describe("how they work is read from the message", () => {
 
   it("is a preset on the work-mode question, so it is shown with 'from your message' and can be changed", () => {
     const said = "Create a new campaign for DevOps Engineer from Pune, hybrid";
-    const q = newCampaignQuestion(said, ctx({ client: "none", dept: "Engineering" }, said))!;
+    const q = newCampaignQuestion(said, ctx({ client: WHO, dept: "Engineering" }, said))!;
     expect(q).toMatchObject({ id: "nc-mode", preset: "hybrid", presetNote: "from your message" });
     expect(autoAnswer(q, {}, new Set())).toMatchObject({ id: "hybrid", label: "Hybrid", how: "preset" });
     // Not said: asked, with no preset.
-    expect(newCampaignQuestion("Create a campaign for SRE", ctx({ client: "none", dept: "Engineering" }))?.preset).toBeUndefined();
+    expect(newCampaignQuestion("Create a campaign for SRE", ctx({ client: WHO, dept: "Engineering" }))?.preset).toBeUndefined();
   });
 
   it("keeps the city optional when it is remote", () => {
@@ -243,16 +245,16 @@ describe("how many hires", () => {
     expect(run.answers.openings).toBe("3");
     expect(run.rows.find((r) => r.id === "nc-openings")).toMatchObject({ auto: true });
     expect(run.asked).not.toContain("nc-openings");
-    const d = campaignDraftFor(liveCampaignAnswers(said, run.answers, DATA.clients), "Me", DATA.clients);
+    const d = campaignDraftFor(liveCampaignAnswers(said, run.answers), "Me", DATA.clients);
     expect(d.openings).toBe(3);
     // A number that is not a tile is added as one, so it can be taken.
-    const four = newCampaignQuestion("Create a campaign to hire 4 SREs", ctx({ client: "none", dept: "Data", mode: "onsite", location: "Pune" }))!;
+    const four = newCampaignQuestion("Create a campaign to hire 4 SREs", ctx({ client: WHO, dept: "Data", mode: "onsite", location: "Pune" }))!;
     expect(four.options.map((o) => o.id)).toEqual(["1", "2", "3", "4", "5"]);
     expect(autoAnswer(four, {}, new Set())).toMatchObject({ id: "4", label: "Four", how: "preset" });
   });
 
   it("offers Other under the numbers, and takes 1 to 99 in words or digits, in the same question", () => {
-    const base = { role: "SRE", client: "none", dept: "Data", mode: "onsite", location: "Pune" };
+    const base = { role: "SRE", client: WHO, dept: "Data", mode: "onsite", location: "Pune" };
     const q = ask("campaign-new", "x", ctx(base))!;
     expect(q.id).toBe("nc-openings");
     // Other is not a tile of the question: no placeholder to answer, and no second question for the number.
@@ -287,7 +289,7 @@ describe("how many hires", () => {
 });
 
 describe("the job description", () => {
-  const base = { role: "SRE", client: "none", dept: "Data", mode: "onsite", location: "Pune", openings: "2" };
+  const base = { role: "SRE", client: WHO, dept: "Data", mode: "onsite", location: "Pune", openings: "2" };
 
   it("is asked once the hires are known, with three ways to answer", () => {
     const q = ask("campaign-new", "Create a campaign for SRE", ctx(base))!;
@@ -348,7 +350,7 @@ describe("the job description", () => {
     const run = drive(ask, said);
     expect(run.ids).not.toContain("nc-jd");
     expect(run.answers.jd).toBeUndefined();
-    const a = liveCampaignAnswers(said, run.answers, DATA.clients);
+    const a = liveCampaignAnswers(said, run.answers);
     expect(a.jd).toBe(parts.jd);
     expect(campaignDraftFor(a, "Me", DATA.clients).jd).toBe(parts.jd);
   });
@@ -377,7 +379,7 @@ describe("the job description", () => {
     expect(d.jd).toBe(jd);
     const body = JSON.parse(JSON.stringify(createBodyFrom(rowFromDraft(d, ["Me"], 1), () => "u-me"))) as ReturnType<typeof createBodyFrom>;
     expect(body.setup).toMatchObject({ jd });
-    expect(campaignFacts(d).find(([k]) => k === "Job description")?.[1]).toMatch(/^8 words, the role spec is drafted from it$/);
+    expect(campaignFacts(d).find(([k]) => k === "Job description")?.[1]).toMatch(/^8 words, the requirements are drafted from it$/);
     // Nothing is sent for none, and the card has no such line.
     const none = campaignDraftFor({ ...base, jd: "" }, "Me", []);
     const bodyNone = JSON.parse(JSON.stringify(createBodyFrom(rowFromDraft(none, ["Me"], 1), () => "u-me"))) as ReturnType<typeof createBodyFrom>;
@@ -390,13 +392,13 @@ describe("the job description", () => {
     expect(d.jd.length).toBeLessThanOrEqual(30_000);
   });
 
-  it("says where the role spec stands on the done card", () => {
-    expect(draftingLine("SRE")).toBe("SRE created. I'm drafting its role spec from your job description.");
-    expect(draftingLine("SRE", "drafted")).toMatch(/role spec is drafted from your job description/);
+  it("says where the requirements stand on the done card", () => {
+    expect(draftingLine("SRE")).toBe("SRE created. I'm drafting its requirements from your job description.");
+    expect(draftingLine("SRE", "drafted")).toMatch(/requirements are drafted from your job description/);
     const failed = draftingLine("SRE", "failed", "That's a lot of drafts in an hour.");
-    expect(failed).toMatch(/isn't drafted yet: That's a lot of drafts in an hour\./);
-    expect(failed).toMatch(/Ask me to draft it/);
-    expect(draftingLine("SRE", "failed")).toBe("SRE created, but its role spec isn't drafted yet. Ask me to draft it from your job description.");
+    expect(failed).toMatch(/aren't drafted yet: That's a lot of drafts in an hour\./);
+    expect(failed).toMatch(/Ask me to draft them/);
+    expect(draftingLine("SRE", "failed")).toBe("SRE created, but its requirements aren't drafted yet. Ask me to draft them from your job description.");
   });
 });
 
@@ -414,10 +416,20 @@ describe("the order, and how few questions it takes", () => {
     expect(run.answers).toMatchObject({ mode: "remote", location: "Bengaluru", openings: "3", dept: "Engineering" });
   });
 
-  it("asks no client when there is none to pick", () => {
-    const run = drive(bare, "Create a new campaign for DevOps Engineer from Bangalore");
-    expect(run.ids).not.toContain("nc-client");
-    expect(run.ids[0]).toBe("nc-dept");
+  it("asks who it is for with the clients to tap and a field for any other company, and never offers no client", () => {
+    const q = ask("campaign-new", "Create a new campaign for DevOps Engineer from Bangalore", ctx({ role: "DevOps Engineer" }))!;
+    expect(q.id).toBe("nc-client");
+    expect(q.options.map((o) => o.id)).not.toContain("none");
+    expect(q.options.map((o) => o.label).join(" ")).not.toMatch(/no client|internal hire/i);
+    expect(q.other).toMatchObject({ label: "A new client", placeholder: "Company name" });
+    expect(q.other?.check?.("a")).toBe("Add the company's name.");
+    expect(q.other?.check?.("Orbit Labs")).toBeNull();
+    // A tile is a client; a typed company that is one of them is that client; any other is a company to add.
+    expect(q.apply([q.options[0]!.id]).answers).toEqual({ client: q.options[0]!.id });
+    expect(q.apply(["razorpay"]).answers).toEqual({ client: "cl-razorpay" });
+    expect(q.apply(["Orbit Labs"]).answers).toEqual({ client: "new", newClient: "Orbit Labs" });
+    // An answer from before every campaign had a client is not an answer: the question stays open.
+    expect(q.apply(["none"]).answers).toEqual({});
   });
 
   it("answers for a message with more than one thing said, in the demo's own question", () => {
@@ -442,7 +454,7 @@ describe("the log, as the card shows it", () => {
 
   it("does not log what the message said (the card that follows shows it once), and goes on to the description", () => {
     const html = render([
-      { qid: "nc-client", ids: ["none"], auto: false },
+      { qid: "nc-client", ids: [WHO], auto: false },
       { qid: "nc-dept", ids: ["Engineering"], auto: false },
       { qid: "nc-mode", ids: ["hybrid"], auto: false },
       { qid: "nc-location", ids: ["Bengaluru"], auto: "preset" },
@@ -462,7 +474,7 @@ describe("the log, as the card shows it", () => {
   it("does not repeat a mode and a number the message gave", () => {
     const text = "Create a campaign to hire 3 DevOps engineers from Pune, remote";
     const html = render([
-      { qid: "nc-client", ids: ["none"], auto: false },
+      { qid: "nc-client", ids: [WHO], auto: false },
       { qid: "nc-dept", ids: ["Engineering"], auto: false },
       { qid: "nc-mode", ids: ["remote"], auto: "preset" },
       { qid: "nc-location", ids: ["Pune"], auto: "preset" },
@@ -476,7 +488,7 @@ describe("the log, as the card shows it", () => {
 
   it("shows the description's answer as one line", () => {
     const html = render([
-      { qid: "nc-client", ids: ["none"], auto: false },
+      { qid: "nc-client", ids: [WHO], auto: false },
       { qid: "nc-dept", ids: ["Engineering"], auto: false },
       { qid: "nc-mode", ids: ["hybrid"], auto: false },
       { qid: "nc-location", ids: ["Bengaluru"], auto: "preset" },
@@ -493,7 +505,7 @@ describe("the log, as the card shows it", () => {
 });
 
 describe("a short list of answers, and 'Other'", () => {
-  const openings = (): Question => ask("campaign-new", "x", ctx({ role: "SRE", client: "none", dept: "Data", mode: "onsite", location: "Pune" }))!;
+  const openings = (): Question => ask("campaign-new", "x", ctx({ role: "SRE", client: WHO, dept: "Data", mode: "onsite", location: "Pune" }))!;
   const draw = (q: Question) => renderToStaticMarkup(<TileCard q={q} hint="" keysHint onAnswer={() => {}} />);
 
   it("is one row of equal chips, Other last, with no second line to wrap in a narrow cell", () => {
@@ -520,7 +532,7 @@ describe("a short list of answers, and 'Other'", () => {
   it("is one row in the log, with the final value, never the placeholder and then the text", () => {
     const turn = { id: "turn-other", restored: true };
     saveTrail(turn.id, [
-      { qid: "nc-client", ids: ["none"], auto: false },
+      { qid: "nc-client", ids: [WHO], auto: false },
       { qid: "nc-dept", ids: ["Engineering"], auto: false },
       { qid: "nc-mode", ids: ["onsite"], auto: false },
       { qid: "nc-location", ids: ["Kochi"], auto: false },
@@ -549,7 +561,7 @@ describe("a brief that says it all", () => {
     const run = drive(liveCampaignAsk(() => withCobalt), FULL, (q) => (q.id === "nc-jd" ? ["later"] : undefined));
     expect(run.asked).toEqual(["nc-jd"]);
     expect(run.answers).toMatchObject({ mode: "hybrid", location: "Pune", openings: "2", dept: "Engineering" });
-    const a = liveCampaignAnswers(FULL, run.answers, withCobalt.clients);
+    const a = liveCampaignAnswers(FULL, run.answers);
     expect(a).toMatchObject({ role: "Senior Backend Engineer", client: cobalt.id, exp: "5 to 8", comp: "30 to 45", skills: "Go and Kafka" });
     const d = campaignDraftFor(a, "Me", withCobalt.clients);
     expect(d).toMatchObject({ name: "Senior Backend Engineer", clientId: cobalt.id, openings: 2, expMin: "5", expMax: "8", compMin: "30", compMax: "45" });

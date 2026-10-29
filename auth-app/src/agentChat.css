@@ -4,21 +4,23 @@
    column of figures and set-up is gone; the set-up is one press away in the header's "What the agent knows". */
 
 .orc.orc--lx {
-  --hx-w: 320px;
+  --hx-w: 288px;
   /* One shared top inset: the header's chip, the list's first line and the hide button all start on it. */
   --page-top: 20px;
   grid-template-columns: minmax(0, 1fr) var(--hx-w);
   column-gap: 0;
   padding-right: 0;
-  --orc-inset-l: clamp(20px, 3vw, 56px);
-  --orc-inset-r: clamp(20px, 3vw, 56px);
+  --orc-inset-l: clamp(16px, 2vw, 36px);
+  --orc-inset-r: clamp(16px, 2vw, 36px);
   /* The list slides away and back: the track it sits in eases between its width and nothing. */
   transition: grid-template-columns 280ms var(--ease-out);
 }
 .orc.orc--lx.is-rail-hidden { grid-template-columns: minmax(0, 1fr) 0px; }
 .orc.orc--lx > .hx-rail { grid-column: 2; grid-row: 1 / -1; }
-/* The conversation takes the room the page has: wide enough for a long answer or a table to read, not so wide a line is hard to follow. */
-.orc.orc--lx > .orc-main { grid-column: 1; grid-row: 1 / -1; width: 100%; max-width: 1240px; margin-inline: auto; min-width: 0; }
+/* The conversation takes the room the page has: wide enough for a long answer or a table to read, not so wide a line is hard to follow
+   (a paragraph keeps its own measure). It is 1300px at most, up from 1240 (it was 1480 for a while, which read too wide), with smaller insets and a
+   slimmer list beside it: on a window of 1300px that is about 70px more for the transcript, on a large one about 60px. */
+.orc.orc--lx > .orc-main { grid-column: 1; grid-row: 1 / -1; width: 100%; max-width: 1300px; margin-inline: auto; min-width: 0; }
 .orc.orc--lx.is-rail-hidden > .orc-main { grid-column: 1; }
 /* Anything that sat to the right of the conversation is not drawn. */
 .orc.orc--lx > .orc-rail { display: none; }
@@ -232,6 +234,19 @@
 .hx-row.is-on .hx-row-t { font-weight: 500; }
 .hx-row-title, .hx-row-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hx-row-sub { color: var(--ink-2); font-size: 13.5px; }
+/* A campaign's daily search chat: first among that campaign's chats, in a faint wash of the brand's orange with its title in the orange text and
+   a pin before it, so it reads as kept there. The wash stays low so the open chat's own peach does not read the same, and the pointer and the
+   open chat deepen it a step rather than swap it for the grey. On the dark theme it is made of the lighter orange the text uses: the accent
+   itself over near-black is brown. */
+.hx-row.is-daily { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.hx-row.is-daily:hover, .hx-row.is-daily.has-menu { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.hx-row.is-daily.is-on { background: color-mix(in srgb, var(--accent) 13%, transparent); }
+:root[data-theme="dark"] .hx-row.is-daily { background: color-mix(in srgb, var(--accent-text) 9%, transparent); }
+:root[data-theme="dark"] .hx-row.is-daily:hover, :root[data-theme="dark"] .hx-row.is-daily.has-menu { background: color-mix(in srgb, var(--accent-text) 13%, transparent); }
+:root[data-theme="dark"] .hx-row.is-daily.is-on { background: color-mix(in srgb, var(--accent-text) 16%, transparent); }
+.hx-row.is-daily .hx-row-title { color: var(--accent-text, var(--ink)); }
+.hx-row-pin { display: inline-block; margin-right: 6px; vertical-align: -2px; }
+.hx-row-camp { font-weight: 400; color: var(--ink-2); }
 .hx-row-when { flex: none; padding-right: 11px; white-space: nowrap; color: var(--ink-2); font: 400 13.5px/1 var(--ui); }
 .hx-icon { flex: none; display: inline-grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 8px; background: transparent; color: var(--ink-2); cursor: pointer; transition: background var(--t), color var(--t), transform 140ms var(--ease-out); }
 .hx-icon:hover { background: var(--hx-wash-2); color: var(--ink); }
@@ -560,4 +575,4 @@
 @media (prefers-reduced-motion: reduce) { .orc-slots .orc-gslot.is-new { animation: none; } }
 
 /* Where the filters and "where to look" would be, for someone who only follows the campaign: why they are not there. */
-.orc-follow { align-self: center; max-width: 520px; padding: 0 6px; color: var(--ink-2); font: 400 13px/1.4 var(--ui); }
+.orc-follow { align-self: center; max-width: 520px; padding: 0 6px; color: var(--ink-2); font: 400 14.5px/1.4 var(--ui); }

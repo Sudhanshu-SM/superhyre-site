@@ -39,7 +39,7 @@ const WHAT: Record<string, string> = {
   chat: "Answered a question",
   sourcing: "Searched for people",
   watch: "Kept sourcing",
-  spec: "Drafted a role spec",
+  spec: "Drafted requirements",
 };
 
 /** What a run that failed or was stopped says in place of what it was for: it did not do the thing. */
@@ -47,7 +47,7 @@ const NOT_DONE: Record<string, string> = {
   chat: "Couldn't answer a question",
   sourcing: "Couldn't search for people",
   watch: "Couldn't keep sourcing",
-  spec: "Couldn't draft a role spec",
+  spec: "Couldn't draft requirements",
 };
 
 /**

@@ -19,7 +19,8 @@ import { pipelineFor } from "./campaign";
 import type { CampaignRow, CampaignStatus } from "./campaignsData";
 import { CAMPAIGN_ROWS, TEAM } from "./campaignsData";
 import type { Client, ClientContact, ClientEvent, ClientStatus } from "./clients";
-import { CLIENT_SEED, CLIENT_STATUS_LABEL, SEED_CLIENT_OF, makePrimary, normaliseClient } from "./clients";
+import { CLIENT_SEED, CLIENT_STATUS_LABEL, EMPTY_DRAFT, SEED_CLIENT_OF, clientFromDraft, makePrimary, normaliseClient } from "./clients";
+import { companyIn } from "./campaignAsk";
 import { reportProblem } from "./problems";
 
 /**
@@ -239,7 +240,7 @@ let clientSnap: ClientState = { clients, clientOf };
 const bump = () => { clientSnap = { clients, clientOf }; emit(); };
 
 export function useClients(): ClientState {
-  return useSyncExternalStore(subscribe(ensureClientsAndCampaigns), () => clientSnap);
+  return useSyncExternalStore(subscribe(ensureClientsAndCampaigns), () => clientSnap, () => clientSnap);
 }
 
 /** Whether the clients (and the campaigns their figures come from) have arrived. Always true on fixtures. */
@@ -249,6 +250,14 @@ export function useClientsReady(): boolean {
 }
 
 export function getClients(): ClientState { return clientSnap; }
+
+/** The client a campaign is for, if it has one yet: its id, and its name from the clients or, until they arrive, from the campaign itself. */
+export function useCampaignClient(campaignId: string): { id: string; name: string } | null {
+  const { clients: all, clientOf: of } = useClients();
+  const row = useCampaignRow(campaignId);
+  const id = of[resolveCampaignId(campaignId)] ?? of[campaignId];
+  return id ? { id, name: all.find((c) => c.id === id)?.name ?? row?.client ?? "" } : null;
+}
 export function clientById(id: string): Client | undefined { return clients.find((c) => c.id === resolveClientId(id)); }
 
 const event = (text: string): ClientEvent => ({ id: `ev-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, at: Date.now(), text });
@@ -284,17 +293,32 @@ export function saveClient(c: Omit<Client, "id"> & { id?: string }): Client {
   return next;
 }
 
-/** Resolves true once the client is set (at once on fixtures), false when the API refused and it was put back. */
-export function setCampaignClient(campaignId: string, clientId: string | null): Promise<boolean> {
+/**
+ * Sets the client a campaign is for. A campaign always has one, so this only ever picks or changes it: nothing takes it away.
+ * Resolves true once the client is set (at once on fixtures), false when the API refused and it was put back.
+ */
+export function setCampaignClient(campaignId: string, clientId: string): Promise<boolean> {
   if (LIVE) return linkClientLive(resolveCampaignId(campaignId), clientId);
   const prev = clientOf[campaignId];
-  const { [campaignId]: _, ...rest } = clientOf;
-  clientOf = clientId ? { ...rest, [campaignId]: clientId } : rest;
+  clientOf = { ...clientOf, [campaignId]: clientId };
   const name = campaignRow(campaignId)?.name ?? "A campaign";
   if (prev && prev !== clientId) clients = clients.map((c) => (c.id === prev ? { ...c, history: [event(`${name} moved to another client`), ...(c.history ?? [])] } : c));
-  if (clientId && prev !== clientId) clients = clients.map((c) => (c.id === clientId ? { ...c, history: [event(`${name} linked`), ...(c.history ?? [])] } : c));
+  if (prev !== clientId) clients = clients.map((c) => (c.id === clientId ? { ...c, history: [event(`${name} linked`), ...(c.history ?? [])] } : c));
   bump();
   return Promise.resolve(true);
+}
+
+/**
+ * Sets the client from a company's name, for a company that is not in the list: the server adds it, or uses the client
+ * of that name (anyone on the campaign may; the Clients page stays an admin's). Shown at once under that name; put back,
+ * with the reason said, if the server refuses. Resolves true once it is set, false otherwise.
+ */
+export function setCampaignClientByName(campaignId: string, name: string): Promise<boolean> {
+  const company = name.trim();
+  if (!company) return Promise.resolve(false);
+  if (LIVE) return linkClientByNameLive(resolveCampaignId(campaignId), company);
+  const made = companyIn(company, clients) ?? saveClient(clientFromDraft({ ...EMPTY_DRAFT, name: company }, `cl-${Date.now().toString(36)}`));
+  return setCampaignClient(campaignId, made.id);
 }
 
 export function setClientStatus(id: string, status: ClientStatus) {
@@ -519,6 +543,8 @@ export function addCampaignRow(row: CampaignRow): Promise<boolean> {
   if (LIVE) return createCampaignLive(row);
   rows = [row, ...rows];
   emit();
+  /* A company named with it (not a client yet) is added, or the client of that name used, and the campaign is for it. */
+  if (row.setup?.newClient && !row.setup.clientId) void setCampaignClientByName(row.id, row.setup.newClient);
   return Promise.resolve(true);
 }
 
@@ -529,9 +555,14 @@ export function duplicateCampaign(id: string): CampaignRow | undefined {
   const copy: CampaignRow = {
     ...r, id: `${r.id}-copy-${Date.now().toString(36)}`, name: `${r.name} (copy)`, status: "active",
     funnel: { sourced: 0, shortlisted: 0, contacted: 0, replied: 0, interviews: 0, hired: 0 },
-    trend: r.trend.map(() => 0), agents: [], needs: "Role spec not approved", updatedAgo: "Just now", createdAgo: "Just now",
+    trend: r.trend.map(() => 0), agents: [], needs: "Requirements not approved", updatedAgo: "Just now", createdAgo: "Just now",
   };
-  if (!LIVE) { rows = [copy, ...rows]; emit(); return copy; }
+  if (!LIVE) {
+    rows = [copy, ...rows];
+    /* The copy is for the same client. */
+    if (clientOf[r.id]) { clientOf = { ...clientOf, [copy.id]: clientOf[r.id]! }; bump(); } else emit();
+    return copy;
+  }
   const { needs: _, ...shown } = copy;
   void track(shown, campaignsApi.duplicateCampaign(r.id), `${r.name} wasn't duplicated.`);
   return shown;
@@ -644,6 +675,11 @@ let me: string | null = null;
 export function resolveCampaignId(id: string): string { return aliases.get(id) ?? id; }
 export function resolveClientId(id: string): string { return clientAliases.get(id) ?? id; }
 
+/* A company named for a campaign stands in under this id until the server answers with the client's own: it is shown
+   by name on the campaign, and is never offered in the list as a client to pick. */
+const NAMED_ID = "named:";
+const onlyNamed = (id: string) => id.startsWith(NAMED_ID);
+
 const nameOfUser = (id: string | null): string => (id ? people.get(id) ?? "Unassigned" : "Unassigned");
 
 /** A member's name by user id, once the member list or a campaign has named them. */
@@ -666,7 +702,7 @@ function rebuildClients() {
   /* A client the list did not bring (it failed or was refused) is still named by the campaigns that have it. */
   const named = new Map<string, Client>();
   for (const c of apiCampaigns) {
-    if (c.client && !known.has(c.client.id)) {
+    if (c.client && !known.has(c.client.id) && !onlyNamed(c.client.id)) {
       named.set(c.client.id, normaliseClient({ id: c.client.id, name: c.client.name ?? "Client", manager: "", email: "", phone: "", notes: "" }));
     }
   }
@@ -815,6 +851,7 @@ function createCampaignLive(row: CampaignRow): Promise<boolean> {
   const body = campaignsApi.createBodyFrom(row, memberIdOf);
   /* A client still being created is linked once it has its id. */
   const made = (clientId ? clientReady(clientId) : Promise.resolve(null))
+    /* A company named instead of picked goes as its name (in `body`); the server adds it, or uses the client of that name. */
     .then((real) => campaignsApi.createCampaign({ ...body, clientId: real }))
     /* A campaign opening for a client that was a prospect makes it an active one, on the server: read again. */
     .then((c) => { if (c.client) refreshClients(); return c; });
@@ -854,18 +891,34 @@ function setTeamLive(id: string, names: readonly string[]) {
   });
 }
 
-function linkClientLive(campaignId: string, clientId: string | null): Promise<boolean> {
+function linkClientLive(campaignId: string, clientId: string): Promise<boolean> {
   if (pendingRows.some((r) => r.id === campaignId)) {
-    if (clientId) pendingClientOf.set(campaignId, clientId); else pendingClientOf.delete(campaignId);
+    pendingClientOf.set(campaignId, clientId);
     rebuild();
     return Promise.resolve(true);
   }
-  const real = clientId ? resolveClientId(clientId) : null;
-  const name = real ? clientById(real)?.name ?? null : null;
-  const was = editCampaign(campaignId, (c) => ({ ...c, client: real ? { id: real, name } : null }));
+  const real = resolveClientId(clientId);
+  const name = clientById(real)?.name ?? null;
+  const was = editCampaign(campaignId, (c) => ({ ...c, client: { id: real, name } }));
   if (!was) return Promise.resolve(false);
   rebuild();
-  return (clientId ? clientReady(clientId) : Promise.resolve(null)).then((id) => campaignsApi.patchCampaign(campaignId, { clientId: id })).then((c) => { replaceCampaign(c); rebuild(); if (c.client) refreshClients(); return true; }, (err: unknown) => {
+  return clientReady(clientId).then((id) => campaignsApi.patchCampaign(campaignId, { clientId: id })).then((c) => { replaceCampaign(c); rebuild(); if (c.client) refreshClients(); return true; }, (err: unknown) => {
+    editCampaign(campaignId, () => was);
+    rebuild();
+    reportProblem(`The client on ${was.name} wasn't changed. ${messageOf(err)}`);
+    return false;
+  });
+}
+
+function linkClientByNameLive(campaignId: string, name: string): Promise<boolean> {
+  if (pendingRows.some((r) => r.id === campaignId)) {
+    reportProblem("This campaign is still being made. Add its client in a moment.");
+    return Promise.resolve(false);
+  }
+  const was = editCampaign(campaignId, (c) => ({ ...c, client: { id: `${NAMED_ID}${name}`, name } }));
+  if (!was) return Promise.resolve(false);
+  rebuild();
+  return campaignsApi.patchCampaign(campaignId, { newClient: name }).then((c) => { replaceCampaign(c); rebuild(); refreshClients(); return true; }, (err: unknown) => {
     editCampaign(campaignId, () => was);
     rebuild();
     reportProblem(`The client on ${was.name} wasn't changed. ${messageOf(err)}`);

@@ -30,8 +30,8 @@ export function SourcedEmpty({ campaignId, name, may, onAgent }: {
 
   const words = sourcedEmptyWords(factsFrom(spec.ready ? spec : null, LIVE ? sourcing : null), Boolean(sourcing?.lastRun), may);
   const go: Record<SourcedGo, () => void> = {
-    draftSpec: () => onAgent(`Draft the role spec for ${name}`, { send: true }),
-    approveSpec: () => onAgent(`Show me the role spec for ${name}`, { send: true }),
+    draftSpec: () => onAgent(`Draft the requirements for ${name}`, { send: true }),
+    approveSpec: () => onAgent(`Show me the requirements for ${name}`, { send: true }),
     find: () => onAgent(`Find people for ${name}`, { send: true }),
     broaden: () => onAgent(`Find more people for ${name} with broader filters`),
   };
@@ -41,7 +41,7 @@ export function SourcedEmpty({ campaignId, name, may, onAgent }: {
       <h2>{words.title}</h2>
       <p>{words.body}</p>
       {words.cta && <button type="button" className="cw-btn is-primary" onClick={go[words.cta.go]}>{words.cta.label}</button>}
-      {!may && <p className="sp-follow">{following}</p>}
+      {!may && following && <p className="sp-follow">{following}</p>}
     </div>
   );
 }

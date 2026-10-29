@@ -9,10 +9,14 @@ import { candidateFromDetail, candidateFromMatch, setFromMatches } from "./liveC
 import { candidateById, getSet, putSet, setOfCandidate, updateCandidate, useCandidateSets } from "./liveCandidates";
 import { mergeSet } from "./liveSourcing";
 import { matchFromProfile } from "./liveViews/compareLogic";
+import { PageLoader } from "./components/PageLoader";
 import { PassReasonDialog } from "./PassReason";
 import { ProfileSidebar } from "./ProfileSidebar";
 import { RankedMatches } from "./RankedMatches";
+import { SearchHistoryButton } from "./SearchHistory";
 import { SourcedEmpty } from "./SourcedEmpty";
+import { SuggestNudge } from "./SuggestNudge";
+import { asksAfter } from "./suggestNudge";
 import { campaignLink } from "./nav";
 import { similarToReject } from "./sourcedSimilar";
 import { useToast } from "./toast";
@@ -43,6 +47,8 @@ export function SourcedPage({ campaignId, campaignName, onAgent }: {
   /* The most years the role asks for, when it says; a rejection for experience past it can take the rest who are past it too. */
   const [yearsMax, setYearsMax] = useState<number | null>(null);
   const [similar, setSimilar] = useState<{ ids: readonly string[]; max: number; reason: string } | null>(null);
+  /* How many times someone was rejected with a reason on this page: each is a moment to say a change the daily search suggests. */
+  const [asked, setAsked] = useState(0);
 
   useEffect(() => {
     if (!LIVE) return undefined;
@@ -93,7 +99,8 @@ export function SourcedPage({ campaignId, campaignName, onAgent }: {
     const decided = { ...(getSet(campaignId)?.decisions ?? {}), ...verdicts, [id]: "rejected" as const };
     const ids = similarToReject(getSet(campaignId)?.candidates ?? [], decided, yearsMax, candidateById(id), reason);
     setSimilar(ids.length && yearsMax !== null && reason ? { ids, max: yearsMax, reason } : null);
-  }, [passing, campaignId, setVerdict, yearsMax, verdicts]);
+    if (asksAfter(reason, may)) setAsked((n) => n + 1);
+  }, [passing, campaignId, setVerdict, yearsMax, verdicts, may]);
   const rejectSimilar = () => {
     const now = similar;
     setSimilar(null);
@@ -158,6 +165,10 @@ export function SourcedPage({ campaignId, campaignName, onAgent }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watchUntil, unscored]);
 
+  /* The first read of the people found: the SuperHyre loader, in the middle of the page where the fallback's was (a page's file
+     arriving and its data arriving are one wait, not two). A list already on hand is shown at once and read again quietly. */
+  if (LIVE && state === "loading" && !set) return <PageLoader label="Reading the people found" />;
+
   return (
     <div className={`sp cw${profile ? " has-profile" : ""}`}>
       <header className="sp-head">
@@ -170,6 +181,7 @@ export function SourcedPage({ campaignId, campaignName, onAgent }: {
           </p>
         </div>
         <div className="sp-acts">
+          {LIVE && <SearchHistoryButton campaignId={campaignId} />}
           {may && unscored > 0 && <button type="button" className="cw-btn" disabled={scoring || reading} onClick={scoreRest}>{scoring || reading ? `Reading ${unscored}…` : `Score the ${unscored} not read yet`}</button>}
           {may && counts.all > 0 && <button type="button" className="cw-btn is-primary" onClick={() => onAgent(`Find more people for ${campaignName}`, { send: true })}>Find more people</button>}
         </div>
@@ -188,6 +200,7 @@ export function SourcedPage({ campaignId, campaignName, onAgent }: {
           <button type="button" className="cw-btn" onClick={() => setSimilar(null)}>Not now</button>
         </p>
       )}
+      {may && <SuggestNudge campaignId={campaignId} campaignName={campaignName} asked={asked} hidden={similar !== null} onAgent={onAgent} />}
       {set && counts.all > 0 && (
         <RankedMatches
           inline

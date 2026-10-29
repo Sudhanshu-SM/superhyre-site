@@ -47,7 +47,7 @@ describe("choosing 'Add <name> as a new client' in the chat (Y3-1)", () => {
 
   it("still names it at the end of every question, and the draft has no client of its own yet", () => {
     const final = answerAll({ client: NEW_CLIENT });
-    const a = liveCampaignAnswers(said, final, getClients().clients);
+    const a = liveCampaignAnswers(said, final);
     expect(newClientOf(a)).toBe("Zorblax Studios");
     const d = campaignDraftFor(a, "Punith S", getClients().clients);
     expect(d.name).toBe("Data Analyst");
@@ -56,7 +56,7 @@ describe("choosing 'Add <name> as a new client' in the chat (Y3-1)", () => {
   });
 
   it("is nothing when another answer was chosen", () => {
-    expect(newClientOf(newCampaignAnswers(said, { client: "none" }))).toBe("");
+    expect(newClientOf(newCampaignAnswers(said, { client: "cl-razorpay" }))).toBe("");
     expect(newClientOf(newCampaignAnswers(said, {}))).toBe("Zorblax Studios");
   });
 });
@@ -89,7 +89,7 @@ describe("a client added inside the New campaign dialog is the one picked (Y3-2)
     // What the dialog held when "Add client" was pressed.
     const drawn = [...getClients().clients];
     const made = saveClient(clientFromDraft({ ...EMPTY_DRAFT, name: "Orchid Y3b Bank" }, "cl-y3b"));
-    // The old lookup, in the list it had drawn: nothing, so the select fell back to "No client, an internal hire".
+    // The old lookup, in the list it had drawn: nothing, so the select fell back to asking for a client.
     expect(prefillFromClient(blankDraft("Riya"), drawn.find((c) => c.id === made.id)).clientId).toBe("");
     // The picker reads the store as it is now.
     const picked = pickClient(blankDraft("Riya"), made.id);
@@ -98,7 +98,7 @@ describe("a client added inside the New campaign dialog is the one picked (Y3-2)
     expect(pickClient({ ...blankDraft("Riya"), name: "Platform Engineer Y3b" }, made.id).name).toBe("Platform Engineer Y3b");
   });
 
-  it("clears the client for 'No client', and leaves the draft alone for an id nobody knows", () => {
+  it("clears the client for an empty pick, and leaves the draft alone for an id nobody knows", () => {
     const base = { ...blankDraft("Riya"), clientId: "cl-y3b", hiringManager: "Someone", fee: "18%" };
     expect(pickClient(base, "")).toMatchObject({ clientId: "", hiringManager: "", fee: "" });
     expect(pickClient(base, "cl-not-there")).toEqual(base);

@@ -9,7 +9,7 @@ import {
   addCampaignRow, resolveCampaignId, saveClient, setCampaignClient, useCampaignRows, useClients, useClientsFailed, useClientsReady, useTeam,
 } from "../campaignStore";
 import { companyIn } from "../campaignAsk";
-import { newClientOf } from "../clarify";
+import { mayAddClient, newClientOf } from "../clarify";
 import { reloadSpec, useCampaignSpec } from "../specDraft";
 import { EMPTY_DRAFT, clientFromDraft } from "../clients";
 import { ClientLogo } from "../ClientLogo";
@@ -69,7 +69,7 @@ function CampaignCard({ ctx, onRestart }: { ctx: MomentCtx; onRestart: () => voi
   const { clients } = useClients();
   const rows = useCampaignRows();
   const problem = useProblem();
-  const a = liveCampaignAnswers(ctx.said, ctx.answers, clients);
+  const a = liveCampaignAnswers(ctx.said, ctx.answers);
   const sig = JSON.stringify(a);
   const d = useMemo(() => campaignDraftFor(a, owner, clients), [sig, owner, clients]);
   const client = clients.find((c) => c.id === d.clientId);
@@ -108,15 +108,15 @@ function CampaignCard({ ctx, onRestart }: { ctx: MomentCtx; onRestart: () => voi
     pressed.current = true;
     setRefused(false);
     setReason(null);
-    /* The new client first (a company that is already there is the one used), so the campaign links to it once it has its id. */
+    /* The new client first (a company that is already there is the one used), so the campaign links to it once it has its id.
+       Anyone but an admin names it with the campaign instead, and the server adds it. */
     let clientId = d.clientId;
     if (newClient) {
       const there = companyIn(newClient, clients);
-      clientId = there
-        ? there.id
-        : saveClient(clientFromDraft({ ...EMPTY_DRAFT, name: newClient, status: "active", owner }, `cl-${Date.now().toString(36)}`)).id;
+      if (there) clientId = there.id;
+      else if (mayAddClient()) clientId = saveClient(clientFromDraft({ ...EMPTY_DRAFT, name: newClient, status: "active", owner }, `cl-${Date.now().toString(36)}`)).id;
     }
-    const row = rowFromDraft({ ...d, clientId }, team);
+    const row = rowFromDraft({ ...d, clientId, newClient: clientId ? "" : d.newClient }, team);
     setSent({ rowId: row.id });
     const saved = addCampaignRow(row);
     if (clientId) setCampaignClient(row.id, clientId);
@@ -158,7 +158,7 @@ function CampaignCard({ ctx, onRestart }: { ctx: MomentCtx; onRestart: () => voi
   /* The role spec card is there once a draft is on its way, drafted, or did not come through. */
   const showSpec = !!madeId && (hasJd || flow.going || flow.failed);
   const reading = flow.going || (hasJd && draft === "drafting");
-  const trouble = flow.failed ? flow.why || "The role spec didn't come through this time." : hasJd && draft === "failed" ? kickWhy || "The role spec didn't come through this time." : null;
+  const trouble = flow.failed ? flow.why || "The requirements didn't come through this time." : hasJd && draft === "failed" ? kickWhy || "The requirements didn't come through this time." : null;
   /* The server's own words, or a plain line when it gave none. */
   const failure = phase === "ready" && refused ? reason ?? `${d.name} wasn't created.` : null;
 
@@ -169,7 +169,7 @@ function CampaignCard({ ctx, onRestart }: { ctx: MomentCtx; onRestart: () => voi
         label={`Campaign: ${d.name}`}
         mark={client ? <ClientLogo client={client} size={40} /> : <span className="mo-client-ico" aria-hidden="true"><FolderSimplePlus size={20} /></span>}
         title={d.name}
-        sub={`${client ? `For ${client.name}` : newClient ? `For ${newClient}, a new client` : "Internal hire"}${d.hiringManager ? `, with ${d.hiringManager} as hiring manager` : ""}`}
+        sub={`${client ? `For ${client.name}` : newClient ? `For ${newClient}, a new client` : "The client is not chosen yet"}${d.hiringManager ? `, with ${d.hiringManager} as hiring manager` : ""}`}
         facts={campaignFacts(d)}
         two
         extra={[...notes, ...(failure ? [failure] : [])].map((t) => (
@@ -193,7 +193,7 @@ function CampaignCard({ ctx, onRestart }: { ctx: MomentCtx; onRestart: () => voi
             <div className="mo-acts">
               <button type="button" className="src-btn is-primary mo-small" onClick={() => ctx.openCampaign?.(madeId)}>Open campaign<ArrowRight size={13} weight="bold" aria-hidden="true" /></button>
               {!showSpec && !flow.asking && (
-                <button type="button" className="src-btn is-quiet mo-small" onClick={flow.press}>Draft the role spec</button>
+                <button type="button" className="src-btn is-quiet mo-small" onClick={flow.press}>Draft the requirements</button>
               )}
               <button type="button" className="src-btn is-quiet mo-small" onClick={() => sendAction(`Create a screening form for ${d.name}`, "Create a screening form", madeId)}>Create a screening form</button>
             </div>

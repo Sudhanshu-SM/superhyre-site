@@ -3,7 +3,9 @@ import {
 } from "@phosphor-icons/react";
 import type { Icon } from "@phosphor-icons/react";
 import { useId, useMemo, useState } from "react";
+import { type AddedFile, SCOPE_WORD } from "./adding";
 import { isLongMessage, splitMessage } from "./attachments";
+import { ChatTime } from "./ChatTime";
 import "./chat.css";
 import { Prose } from "./ReplyProse";
 import type { Hue, ReplyArtefact, ReplyBlock } from "./orchestrator";
@@ -87,7 +89,7 @@ const tok = (hue: Hue, variant: "tint" | "line" | "text") => `var(--c-${hue}-${v
  * a human wrote, and the agent's own output is UI. Setting it in Inter would
  * have flattened that distinction into a size change.
  */
-export function Prompt({ text }: { text: string }): JSX.Element {
+export function Prompt({ text, at, files }: { text: string; at?: number | undefined; files?: readonly AddedFile[] | undefined }): JSX.Element {
   /* ── THE INTENT HIGHLIGHT IS GONE, AND THIS IS THE SECOND TIME ────────────
      It used to wash a "leading clause" in warm tint, taken by string split:
      up to the first comma, or the end of the sixth word, whichever came
@@ -116,13 +118,26 @@ export function Prompt({ text }: { text: string }): JSX.Element {
   const long = isLongMessage(said);
   const shown = long && !open ? folded(said) : said;
   return (
+    <>
     <div className="rep-prompt">
       {said && <p className="rep-prompt-text">{shown}</p>}
-      {parts?.files.map((f, i) => (
-        <span className="rep-prompt-file" key={`${f.name}-${i}`}>
+      {parts?.files.map((f, i) => {
+        const chosen = files?.find((a) => a.name === f.name);
+        return (
+          <span className="rep-prompt-file" key={`${f.name}-${i}`}>
+            <FileText size={13} aria-hidden="true" />
+            <b>{f.name}</b>
+            <small>{[`${f.words.toLocaleString("en-IN")} words`, chosen && SCOPE_WORD[chosen.scope]].filter(Boolean).join(", ")}</small>
+          </span>
+        );
+      })}
+      {/* Files the paperclip added, by name and what each was chosen as: no file's text is shown, or kept here. A file whose text
+          rode in the message is the chip above, with what it was chosen as beside its words. */}
+      {files?.filter((a) => !parts?.files.some((f) => f.name === a.name)).map((f, i) => (
+        <span className="rep-prompt-file" key={`${f.name}-${i}-chosen`}>
           <FileText size={13} aria-hidden="true" />
           <b>{f.name}</b>
-          <small>{f.words.toLocaleString("en-IN")} words</small>
+          <small>{[SCOPE_WORD[f.scope], f.detail].filter(Boolean).join(", ")}</small>
         </span>
       ))}
       {long && (
@@ -131,6 +146,8 @@ export function Prompt({ text }: { text: string }): JSX.Element {
         </button>
       )}
     </div>
+    <ChatTime at={at} className="rep-time-user" />
+    </>
   );
 }
 

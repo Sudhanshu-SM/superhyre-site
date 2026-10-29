@@ -6,25 +6,35 @@
  * attached, in their message (the server reads the file: POST /v1/attachments/read).
  */
 
+import { ADDING_LIMITS, type AddingScope } from "./attachContract";
+import { sheetLinksAlone } from "./importFiles";
+import type { PeopleSheet } from "./peopleSheet";
+
 /** What the file picker offers, and what the server's reader takes. A legacy .doc is not among them. */
 export const ATTACH_ACCEPT = ".pdf,.docx,.txt,.md,.png,.jpg,.jpeg,.webp";
+/** Spreadsheets: a sheet of people goes to the people card, a sheet of roles to the roles import. Read on the server, by what is in them. */
+export const SHEET_ACCEPT = ".xlsx,.xls,.csv,.tsv";
 export const MAX_FILE_BYTES = 10 * 1024 * 1024;
 /** More than this and a paste becomes a chip instead of filling the field. */
 export const LONG_TEXT_CHARS = 1500;
 export const LONG_TEXT_LINES = 25;
-/** The most files in one message. */
-export const MAX_ATTACHMENTS = 5;
+/** The most files in one message, counted over every chip (adding.ts holds the kinds that are capped inside it). */
+export const MAX_ATTACHMENTS = ADDING_LIMITS.files;
 /** What the server takes in one message (liveChat.CHAT_LIMIT), kept here so this module needs nothing else. */
 export const MESSAGE_LIMIT = 8000;
 
 export type DocKind = "job_description" | "resume" | "document";
 
+/** What a file was chosen to be (the paperclip menu), or suggested to be for one that was dropped. */
+export type AddScope = AddingScope;
+
 export type Attachment = {
   id: string;
   /** The file's name, or "Pasted text". */
   name: string;
-  origin: "file" | "pasted";
-  /** Bytes for a file, characters for pasted text. */
+  /** A file, pasted text, or a Google Sheet's link (a sheet read by its address: the same chip as a sheet file, with no file). */
+  origin: "file" | "pasted" | "link";
+  /** Bytes for a file, characters for pasted text, none for a link. */
   size: number;
   status: "reading" | "ready" | "failed";
   text: string;
@@ -33,6 +43,33 @@ export type Attachment = {
   note?: string;
   /** What the chip says in place of the name ("Job description: jd.pdf"). */
   label?: string;
+  /**
+   * What the person chose the file to be, or what a dropped one was suggested to be. Absent for pasted text and the next
+   * campaign's job description, which travel as they always did.
+   */
+  scope?: AddScope;
+  /** `scope` is a suggestion for a dropped file, not a choice. */
+  suggested?: boolean;
+  kind?: "sheet" | "document";
+  /**
+   * The file itself, kept for a spreadsheet (read by its card; it never rides in the message) and for a document that may be
+   * chosen as the campaign's job description, which goes up as the file by its own route.
+   */
+  file?: File;
+  /** The Google Sheet's address, for a sheet that came as a link; its card reads it again by this when it has to. */
+  link?: string;
+  /** What reading the sheet found when it was attached, handed to its card so it is not read twice. */
+  sheet?: PeopleSheet;
+  /** The sheet has more people than can be added at once (how many): it has no reading, and its card reads it with the words typed beside it. */
+  tooMany?: number;
+  /** The campaign the sheet was read for. */
+  readFor?: string | null;
+  /** The campaign a job description was chosen for: its file goes to that one and no other, so a chat that moves on to another campaign asks first. */
+  onCampaign?: { id: string; name: string };
+  /** The person kept the file as it was chosen, against a line that said it looks like something else. */
+  kept?: boolean;
+  /** The text was read off a picture (a photo, a scan): its letters and digits are the reader's best guess. */
+  picture?: boolean;
 };
 
 const TEXT_EXT = /\.(txt|md|markdown)$/i;
@@ -114,6 +151,8 @@ export type PasteOutcome =
   | { kind: "files"; files: File[] }
   /** Only the file's place came through: say so, and do not put it in the box. */
   | { kind: "path"; path: string; name: string }
+  /** Google Sheets links and nothing else, one to a line: each becomes a chip, read like a sheet that was attached. */
+  | { kind: "links"; urls: string[] }
   /** A long block of text: it becomes a chip, not the field's content. */
   | { kind: "long"; text: string }
   /** Anything else: the browser pastes it as it would. */
@@ -144,6 +183,8 @@ export function readClipboard(dt: TransferLike | null | undefined): PasteOutcome
 
   const text = dt.getData("text/plain") || "";
   if (looksLikePath(text)) return { kind: "path", path: text.trim(), name: nameOfPath(text) };
+  const links = sheetLinksAlone(text);
+  if (links) return { kind: "links", urls: links };
   if (isLongText(text)) return { kind: "long", text };
   return { kind: "text" };
 }
@@ -160,6 +201,13 @@ const CLOSE = "[End of attachment]";
 const clean = (name: string) => name.replace(/[\[\]\r\n]+/g, " ").trim().slice(0, 120) || "file";
 
 /**
+ * A file's own words cannot end the file early or open another: a "[" that would start one of the two markers is set as the full-width
+ * bracket, one character for one, so the length does not change. What is between the markers is then all the file's, and the
+ * server (modules/agent/capabilities/shared.ts, ownWords) can tell it from what the recruiter wrote.
+ */
+export const unmarked = (text: string): string => text.replace(/\[(?=\s*(?:End of attachment\]|Attached:))/gi, "\uFF3B");
+
+/**
  * The one message: what was typed, then each attachment's text under its name. A pasted block with nothing
  * typed goes as it is (the same message a pasted job description has always been). With no typed words a
  * job description or resume gets one plain sentence saying what it is, so the agent starts from it.
@@ -174,6 +222,8 @@ export function composeMessage(
     newCampaign?: boolean | undefined;
     /** A short line carried at the end (the filters set for the next campaign). */
     tail?: string | null | undefined;
+    /** The opening sentence when nothing was typed, in place of the one the kind of file would give. */
+    lead?: string | undefined;
     limit?: number;
   } = {},
 ): { text: string; cut: ReadonlySet<string> } {
@@ -195,17 +245,19 @@ export function composeMessage(
   const first = ready.find((a) => a.docKind === "job_description") ?? ready.find((a) => a.docKind === "resume");
   const lead = said
     ? said
-    : first?.docKind === "job_description"
-      ? opts.campaignName
-        ? `Here is the job description for ${opts.campaignName}.`
-        : opts.newCampaign
-          ? "Here is a job description. Please start a new campaign from it."
-          : "Here is the job description."
-      : first?.docKind === "resume"
-        ? "Here is a candidate's resume."
-        : ready.length > 1
-          ? "Here are the files I attached."
-          : "Here is the file I attached.";
+    : opts.lead
+      ? opts.lead
+      : first?.docKind === "job_description"
+        ? opts.campaignName
+          ? `Here is the job description for ${opts.campaignName}.`
+          : opts.newCampaign
+            ? "Here is a job description. Please start a new campaign from it."
+            : "Here is the job description."
+        : first?.docKind === "resume"
+          ? "Here is a candidate's resume."
+          : ready.length > 1
+            ? "Here are the files I attached."
+            : "Here is the file I attached.";
 
   const frame = (a: Attachment) => `${OPEN(clean(a.name))}\n`.length + `\n${CLOSE}`.length + 2;
   const fixed = lead.length + (tail ? tail.length + 2 : 0) + ready.reduce((n, a) => n + frame(a), 0);
@@ -213,7 +265,7 @@ export function composeMessage(
   const parts = [lead];
   ready.forEach((a, i) => {
     const share = Math.floor(room / (ready.length - i));
-    const body = a.text.trim();
+    const body = a.origin === "file" ? unmarked(a.text.trim()) : a.text.trim();
     const used = body.length > share ? body.slice(0, share) : body;
     if (used.length < body.length) cut.add(a.id);
     room -= used.length;

@@ -296,8 +296,10 @@ const WONT: Readonly<Record<string, string>> = {
   disconnect_app: "It only disconnects. Nothing already sent or posted is taken back.",
 };
 
-export function wontDo(a: Pick<Approval, "action" | "wontDo">): string[] {
+export function wontDo(a: Pick<Approval, "action" | "wontDo"> & { detail?: Approval["detail"] }): string[] {
   if (a.wontDo.length) return a.wontDo;
+  // The daily search has no limit to stop at, and says what it will not do in its own notes.
+  if (a.action === "start_watch" && a.detail && "sweep" in a.detail) return [];
   const line = WONT[a.action];
   return line ? [line] : [];
 }

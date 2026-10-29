@@ -1,0 +1,19 @@
+/* ═════════ the search history popup (SearchHistory.tsx) ═════════
+   The Search history button in the Sourced page's header opens it, built on the Requirements dialog's own anatomy (.rl-dlg in
+   roles.css): a title, the lines of the history scrolling in the middle, newest first, and Close in the foot. Each line says who
+   and when in small muted type, then what changed as the filter's name, its value before, an arrow and its value after. Nothing is
+   drawn as a badge or a dot: a line put back later says so in muted words. The middle keeps a floor of height, so the loading
+   lines and the list are about the same size and the popup does not jump when one replaces the other. */
+
+.shy-body {
+  flex: 1 1 auto; min-height: min(11rem, 36dvh); overflow-y: auto; scrollbar-width: thin; padding: 0 24px 20px;
+}
+.shy-none { margin: 0; color: var(--ink-2); }
+.shy-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 18px; }
+.shy-row { display: grid; gap: 4px; justify-items: start; min-width: 0; }
+.shy-head { margin: 0; display: flex; flex-wrap: wrap; gap: 2px 12px; color: var(--ink-2); }
+.shy-change { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; color: var(--ink); overflow-wrap: anywhere; }
+.shy-change > svg { align-self: center; color: var(--ink-3); flex: none; }
+.shy-label { color: var(--ink-2); }
+.shy-note { color: var(--ink-2); }
+.shy-undo:disabled { cursor: default; opacity: 0.6; }

@@ -54,6 +54,27 @@ describe("the add-roles card", () => {
   });
 });
 
+describe("the client question in it", () => {
+  const intake = src("JdIntake.tsx");
+
+  it("cannot be skipped, not by Skip this and not by making the rest without asking", () => {
+    expect(intake).toContain("{!ask.required && <button type=\"button\" className=\"cn-link\" onClick={() => skip(ask)}>Skip this</button>}");
+    expect(intake).toContain(".filter((a) => a.required || !skipRest)");
+  });
+
+  it("takes a company that is typed the way the picker does, whoever the person is: a client already listed is picked, any other is a name", () => {
+    expect(intake).toContain("const made = addedAs(t, clients);");
+    expect(intake).toContain("else give({ newClient: made.name });");
+    expect(intake).not.toContain("None of your clients is called that.");
+  });
+
+  it("is made by an admin as before (the client is saved now, by its name alone) and by anyone else as a name sent with the campaign", () => {
+    expect(intake).toContain("else if (mayAddClient) clientId = saveClient(");
+    expect(intake).toContain("else newClient = a.newClient;");
+    expect(intake).toContain("draftFromIntake({ facts, jd: item.cleaned ?? item.jd, answers: item.answers, defaults, owner, clientId, newClient });");
+  });
+});
+
 describe("a Google Sheet's link in the words", () => {
   it("is found among other words, and only when it is a Sheets address", () => {
     const id = "1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789";
@@ -81,9 +102,17 @@ describe("where it is hosted", () => {
     expect(hasSeed(takeImport())).toBe(false);
   });
 
-  it("is where a spreadsheet dropped in the composer goes, instead of being refused", () => {
+  it("is where a sheet of roles chosen from the paperclip goes: its own add's files, by id, opened under the line that says so", () => {
     const agent = src("Agent.tsx");
-    expect(agent).toContain("stashImport({ files: sheets })");
-    expect(agent).toContain('sendMessage("Add these roles in bulk"');
+    expect(agent).toContain("stashImportFor(m.adding.id, rolesSeedOf(m.keep.roles));");
+    expect(src("liveViews/Import.tsx")).toContain("(adding ? peekImportFor(adding) : takeImport())");
+    expect(src("liveViews/Import.tsx")).toContain("Making campaigns from these roles only.");
+    expect(src("liveViews/Import.tsx")).toContain('<Gone what="These roles" plural last=');
+    // It lets its roles go when a campaign is made from them or it ends (rolesCardRun.test.tsx runs it), so it hears how many there are.
+    expect(src("liveViews/Import.tsx")).toContain("onFinish={(made, left) => { if (adding) finishImportFor(adding, made, left); }}");
+    expect(src("JdIntake.tsx")).toContain("if (doneCount > 0 || ended) onFinish?.(doneCount, toMake);");
+    // A sheet is no longer sent to the roles import because of what is in it: the person chose it.
+    expect(agent).not.toContain("stashImport({ files: sheets })");
+    expect(agent).not.toContain('sendMessage("Add these roles in bulk"');
   });
 });

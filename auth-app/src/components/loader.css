@@ -95,3 +95,20 @@
 .ldr-block.is-sm { padding: 10px 0; }
 .ldr-block.is-md { padding: 36px 0; }
 .ldr-block.is-lg { min-height: 50vh; padding: 48px 0; }
+
+/* A whole page waiting (PageLoader.tsx): in the middle of the window, laid over the page's own place so it takes no room, with the
+   same centre as the loader the app starts with (.boot). It fades in after a beat, so a page that arrives at once shows nothing. */
+.ldr-page {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  /* Over the page it stands in for; menus, dialogs and toasts are all above it. */
+  z-index: 1;
+  pointer-events: none;
+  /* Out of sight for the first beat (the keyframe's `from`, held back by the delay), in sight whenever animation is off. */
+  animation: ldr-page-in 180ms ease-out 200ms both;
+}
+/* One loader handed to another (a page's file arrived, now its data is read): no beat, so it never blinks. */
+.ldr-page.is-now { animation: none; }
+@keyframes ldr-page-in { from { opacity: 0; } to { opacity: 1; } }

@@ -73,8 +73,8 @@ describe("the transcript", () => {
     expect(rule).toMatch(/margin: 0 0 10px auto/);
     expect(rule).toMatch(/background: var\(--sub\)/);
     expect(rule).toMatch(/border: 0/);
-    expect(rule).toMatch(/max-width: min\(70%/);
-    expect(rule).toMatch(/font: 400 15px\/1\.65/);
+    expect(rule).toMatch(/max-width: min\(72%, 760px\)/);
+    expect(rule).toMatch(/font: 400 16px\/1\.65/);
     expect(css).toMatch(/@media \(max-width: 640px\) \{ \.orc-turn \.rep-prompt \{ max-width: 85%; \} \}/);
   });
 

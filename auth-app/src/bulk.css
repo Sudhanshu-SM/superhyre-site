@@ -1,4 +1,4 @@
-/* "Add in bulk" on the composer: a chip, and a small menu above it with what can be added many at a time. */
+/* The composer's small menus above their button: the rows of the paperclip's "What are you adding?" (AddMenu.tsx). */
 
 .bulk-pop {
   position: fixed;

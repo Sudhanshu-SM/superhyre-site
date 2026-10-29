@@ -22,7 +22,7 @@ export const pressId = (): string => (typeof crypto !== "undefined" && "randomUU
 
 export async function approveAndFind(campaignId: string, specId: string | null, edited?: RoleSpec): Promise<{ runId: string | null }> {
   const id = edited ? (await saveSpec(campaignId, edited)).id : specId;
-  if (!id) throw new Error("There's no role spec to approve yet.");
+  if (!id) throw new Error("There are no requirements to approve yet.");
   const done = await specApi.approve(campaignId, id, { match: true, actionId: pressId() });
   const runId = done.matching?.runId ?? null;
   /* Nothing to start is fine for a new version over people already found; with nobody found it is a search that did not begin. */

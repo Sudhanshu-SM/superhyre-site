@@ -323,13 +323,13 @@ describe("how a tile says it", () => {
     const row = byId("fin-controller");
     const whole = bentoPlan(1, 3).tiles[0]!;
     const out = html(row, whole, 0);
-    expect(out).toContain("Needs a role spec");
+    expect(out).toContain("Needs requirements");
     expect(out).not.toContain("hm-cl-bar");
     expect(out).not.toContain("hm-cl-pp");
     expect(out).toContain("data-empty");
     expect(out).toContain("sd is-lg");
     // The one line is not said twice (the status that says it is the spec).
-    expect(out.match(/>[^<]*role spec[^<]*</gi)?.length).toBe(1);
+    expect(out.match(/>[^<]*requirements[^<]*</gi)?.length).toBe(1);
     // A small ring shows the 0.
     expect(html(row, PLAN5[2]!, 1)).toMatch(/<b class="sd-n is-zero"[^>]*>0<\/b>/);
   });

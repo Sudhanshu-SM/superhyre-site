@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { createBodyFrom } from "../api/campaigns";
+import { deleteClient, getClients, resetClients } from "../campaignStore";
+import { NEW_CLIENT } from "../clarify";
 import { clientBody, contactBody } from "../api/clients";
 import { ownCampaign, rowFromDraft } from "../campaignDraft";
 import type { CampaignRow } from "../campaignsData";
@@ -203,15 +205,25 @@ describe("the new-campaign questions", () => {
     expect(ask("campaign-new", "set up a hiring campaign called Staff Data Engineer", ctx())?.id).toBe("nc-client");
   });
 
-  it("offers real clients, and the client the message names counts as answered", () => {
+  it("offers real clients and a field for a company that is not one of them, never no client, and the client the message names counts as answered", () => {
     const q = ask("campaign-new", "new campaign called Staff Data Engineer", ctx())!;
-    expect(q.options.map((o) => o.label)).toContain("No client");
+    expect(q.options.map((o) => o.label)).not.toContain("No client");
+    expect(q.other).toMatchObject({ label: "A new client" });
     expect(ask("campaign-new", "new campaign called Staff Data Engineer for Razorpay", ctx())?.id).toBe("nc-dept");
   });
 
-  it("asks nothing about the client when there is none to pick", () => {
-    const none = liveCampaignAsk(() => ({ clients: [client({ id: "c-old", name: "Old Co", status: "inactive" })], rows: [] }));
-    expect(none("campaign-new", "new campaign called Staff Data Engineer", ctx())?.id).toBe("nc-dept");
+  describe("with no client open to pick", () => {
+    afterEach(() => { resetClients(); });
+    it("is asked all the same, as the company's name, and what is typed is a company to add", () => {
+      for (const c of getClients().clients) void deleteClient(c.id);
+      const none = liveCampaignAsk(() => ({ clients: [client({ id: "c-old", name: "Old Co", status: "inactive" })], rows: [] }));
+      const q = none("campaign-new", "new campaign called Staff Data Engineer", ctx())!;
+      expect(q.id).toBe("nc-client");
+      expect(q.options).toEqual([]);
+      expect(q.input).toMatchObject({ placeholder: "Company name", verb: "Continue" });
+      expect(q.input?.check?.("a")).toBe("Add the company's name.");
+      expect(q.apply(["Orbit Labs"]).answers).toEqual({ client: NEW_CLIENT, newClient: "Orbit Labs" });
+    });
   });
 
   it("offers the workspace's teams, and Other as a field under them for another, in the same question", () => {
@@ -241,7 +253,7 @@ describe("the new-campaign questions", () => {
   });
 
   it("asks for the city in words when none is known, and takes a typed city as a tile's id would be", () => {
-    const base = { role: "Staff Data Engineer", client: "none", dept: "Data", mode: "onsite" };
+    const base = { role: "Staff Data Engineer", client: "cl-someone", dept: "Data", mode: "onsite" };
     const bare = liveCampaignAsk(() => ({ clients: [], rows: [] }));
     expect(bare("campaign-new", "x", ctx(base))?.input).toBeTruthy();
     const q = ask("campaign-new", "x", ctx(base))!;
@@ -281,16 +293,18 @@ describe("a campaign, from the answers to what the API is sent", () => {
     expect(body.setup).not.toHaveProperty("jd");
   });
 
-  it("sends no client for none, and a role with no level gets none", () => {
-    const d = campaignDraftFor({ ...answers, role: "Backend Engineer", client: "none" }, owner, []);
+  it("sends the company's name for a client that is only named, and a role with no level gets none", () => {
+    const d = campaignDraftFor({ ...answers, role: "Backend Engineer", client: NEW_CLIENT, newClient: "Orbit Labs" }, owner, []);
     const body = sent(createBodyFrom(rowFromDraft(d, team, 1), idOf));
     expect(body.clientId).toBeNull();
+    expect(body.newClient).toBe("Orbit Labs");
+    expect(body.setup).not.toHaveProperty("newClient");
     expect(body.setup).not.toHaveProperty("seniority");
     expect(body.setup).not.toHaveProperty("hiringManager");
   });
 
   it("leaves a remote role without a place, and an unanswered field out", () => {
-    const d = campaignDraftFor({ role: "Support Lead", client: "none", dept: "Operations", mode: "remote", location: "", openings: "1", exp: "", comp: "", skills: "" }, owner, []);
+    const d = campaignDraftFor({ role: "Support Lead", client: NEW_CLIENT, newClient: "Orbit Labs", dept: "Operations", mode: "remote", location: "", openings: "1", exp: "", comp: "", skills: "" }, owner, []);
     const body = sent(createBodyFrom(rowFromDraft(d, team, 1), idOf));
     expect(body).toMatchObject({ location: "Remote", target: 1 });
     expect(body.setup).toMatchObject({ workMode: "remote", locations: [], mustHave: [], seniority: "Lead" });
@@ -327,20 +341,23 @@ describe("a campaign, from the answers to what the API is sent", () => {
     expect(campaignFacts(bare).some(([k]) => k === "Level")).toBe(false);
   });
 
-  it("answers \"no client\" for itself when there is nobody to pick", () => {
-    expect(liveCampaignAnswers("new campaign", {}, [])).toMatchObject({ client: "none" });
-    expect(liveCampaignAnswers("new campaign", {}, [client({ id: "i", name: "Old", status: "inactive" })])).toMatchObject({ client: "none" });
-    expect(liveCampaignAnswers("new campaign", {}, [client({ id: "a", name: "Acme", status: "active" })]).client).toBeUndefined();
-    expect(liveCampaignAnswers("new campaign", { client: "a" }, []).client).toBe("a");
+  it("never answers \"no client\" for itself: who it is for is left to be asked, and an answer already given stands", () => {
+    expect(liveCampaignAnswers("new campaign", {}).client).toBeUndefined();
+    expect(liveCampaignAnswers("new campaign", { client: "a" }).client).toBe("a");
   });
 });
 
 describe("what stops a campaign before the server has to", () => {
   const owner = "me";
-  const ok = { role: "Backend Engineer", client: "none", dept: "Engineering", mode: "hybrid", location: "Pune", openings: "1" };
+  const ok = { role: "Backend Engineer", client: NEW_CLIENT, newClient: "Orbit Labs", dept: "Engineering", mode: "hybrid", location: "Pune", openings: "1" };
 
   it("lets a complete one through", () => {
     expect(campaignChecks(campaignDraftFor(ok, owner, []))).toEqual({ blocking: null });
+  });
+
+  it("stops one with no client, in the server's own words: a client picked or a company named is needed", () => {
+    expect(campaignChecks(campaignDraftFor({ ...ok, client: "", newClient: "" }, owner, [])).blocking).toBe("Pick the client this campaign is for, or add one.");
+    expect(campaignChecks(campaignDraftFor({ ...ok, client: "c-acme", newClient: "" }, owner, [client({ id: "c-acme", name: "Acme Robotics" })]))).toEqual({ blocking: null });
   });
 
   it("stops it for a name too short or a pay range the wrong way round", () => {
@@ -350,7 +367,7 @@ describe("what stops a campaign before the server has to", () => {
     expect(campaignChecks(campaignDraftFor({ ...ok, exp: "50" }, owner, [])).blocking).toBe("Years, between 0 and 40.");
   });
 
-  it("doesn't need a place to create a campaign: the role spec decides where to search", () => {
+  it("doesn't need a place to create a campaign: the requirements decide where to search", () => {
     const noPlace = campaignDraftFor({ ...ok, mode: "onsite", location: "" }, owner, []);
     expect(campaignChecks(noPlace)).toEqual({ blocking: null });
     expect(campaignChecks(campaignDraftFor({ ...ok, mode: "remote", location: "" }, owner, []))).toEqual({ blocking: null });
@@ -367,35 +384,29 @@ describe("a recruiter's campaign", () => {
   afterEach(() => setSession({ role: "admin", name: "Punith S" }));
   const said = "create a campaign called Backend Engineer at Zorblax Studios";
 
-  it("is offered no new client for a company the message names, and says no client when there are none to pick", () => {
-    // An admin: the company is offered as one to add, by its name alone.
-    expect(liveCampaignAnswers(said, {}, [])).toMatchObject({ newClient: "Zorblax Studios", role: "Backend Engineer" });
+  it("names a company the message names as the client to add, as an admin's does: the server adds it with the campaign", () => {
+    const admin = liveCampaignAnswers(said, {});
+    expect(admin).toMatchObject({ newClient: "Zorblax Studios", role: "Backend Engineer", client: NEW_CLIENT });
     setSession({ role: "recruiter", name: "Riya K" });
-    const a = liveCampaignAnswers(said, {}, []);
-    // The company stays in the role's words; nothing offers to add it, and who it is for is not asked.
-    expect(a).toMatchObject({ role: "Backend Engineer at Zorblax Studios", client: "none" });
-    expect(a.newClient).toBeUndefined();
+    expect(liveCampaignAnswers(said, {})).toEqual(admin);
   });
 
-  it("is asked about the clients they have, and about nothing to add", () => {
+  it("is asked about the clients they have and offered a field for a company that is not one of them, never no client", () => {
     setSession({ role: "recruiter", name: "Riya K" });
     const ask = liveCampaignAsk(() => ({ clients: [client({ id: "c-acme", name: "Acme Robotics", status: "active" })], rows: [] }));
-    const w = walk(ask, said, { "nc-location": "", "nc-comp": "", "nc-skills": "" });
+    const w = walk(ask, "create a campaign called Backend Engineer", { "nc-location": "", "nc-comp": "", "nc-skills": "" });
     const who = w.asked.find((q) => q.id === "nc-client");
-    // The clients the store has (a recruiter's list is the ones they can see), and "No client"; never one to add.
-    expect(who?.options.map((o) => o.label)).toContain("No client");
-    expect(who?.options.map((o) => o.id)).not.toContain("new");
-    for (const q of w.asked) expect(q.options.map((o) => `${o.id} ${o.label}`).join(" ")).not.toMatch(/new client/i);
-
-    const none = liveCampaignAsk(() => ({ clients: [], rows: [] }));
-    expect(walk(none, said).ids).not.toContain("nc-client");
+    // The clients the store has (a recruiter's list is the ones they can see), and a field for a company to add.
+    expect(who?.options.map((o) => o.id)).not.toContain("none");
+    expect(who?.options.map((o) => o.label).join(" ")).not.toMatch(/no client|internal/i);
+    expect(who?.other).toMatchObject({ label: "A new client" });
   });
 
   it("goes over the wire as theirs: they are the owner, and nobody else is named", () => {
     const team = ["Riya K", "Asha Admin"];
     const idOf = (n: string) => ({ "Riya K": "u-riya", "Asha Admin": "u-asha" })[n];
     // A draft kept from a workspace where the person was an admin carried an owner and a team.
-    const kept = { ...campaignDraftFor({ role: "Backend Engineer", client: "none", dept: "Engineering", mode: "hybrid", location: "Pune" }, "Asha Admin", []), recruiters: ["Riya K"] };
+    const kept = { ...campaignDraftFor({ role: "Backend Engineer", client: NEW_CLIENT, newClient: "Orbit Labs", dept: "Engineering", mode: "hybrid", location: "Pune" }, "Asha Admin", []), recruiters: ["Riya K"] };
     const body = JSON.parse(JSON.stringify(createBodyFrom(rowFromDraft(ownCampaign(kept, "Riya K"), team, 1), idOf))) as ReturnType<typeof createBodyFrom>;
     expect(body).toMatchObject({ name: "Backend Engineer", ownerId: "u-riya", memberIds: [], visibility: "team" });
   });

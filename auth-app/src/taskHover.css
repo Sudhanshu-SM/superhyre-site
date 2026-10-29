@@ -1,11 +1,11 @@
-/* The card shown when someone rests on a task (TaskTitle.tsx): for reading only, so it takes no pointer. */
+/* The card shown when someone rests on a task (TaskHover.tsx): for reading only, so it takes no pointer. It sits above a dialog too
+   (a task list opens in one), on the scale's own tier. */
 .th-card {
-  position: fixed; z-index: 60; pointer-events: none; padding: 14px 16px 12px;
+  position: fixed; z-index: calc(var(--z-dialog) + 1); pointer-events: none; padding: 14px 16px 12px;
   border: 1px solid var(--hairline, rgba(127, 127, 127, 0.28)); border-radius: 12px;
   background: var(--card, var(--page)); color: var(--ink); box-shadow: 0 14px 40px rgba(0, 0, 0, 0.18);
   animation: th-in 120ms var(--ease-out, ease-out);
 }
-.th-card.is-above { transform: translateY(-100%); }
 .th-head { margin: 0; font: 600 14.5px/1.4 var(--ui); overflow-wrap: anywhere; }
 .th-steps { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 4px; font: 400 13.5px/1.45 var(--ui); color: var(--ink); }
 .th-steps li { overflow-wrap: anywhere; }

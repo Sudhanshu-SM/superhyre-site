@@ -39,7 +39,7 @@ export type Assignable = {
   ownerId?: string | null;
   teamIds?: readonly string[];
   visibility?: "team" | "org";
-  /** Live rows: the server's own answer to "may this viewer change it" (an admin only on their teams' campaigns and their own). */
+  /** Live rows: the server's own answer to "may this viewer change it" (true for an admin on every campaign, as for the owner; a recruiter's on the ones they own, are on, or that sit on their team). */
   canManage?: boolean;
 };
 

@@ -433,16 +433,36 @@ export type Captured = { candidateId: string; name: string; title: string | null
 
 /** The people saved on no campaign who fit this campaign's role (the caller's own), and how many are saved on none. */
 export const capturesFor = (campaignId: string) =>
-  api<{ campaign: string | null; total: number; fitTheRole: number; people: Captured[] }>("GET", `/v1/campaigns/${campaignId}/captures`);
+  api<{ campaign: string | null; total: number; fitTheRole: number; owners?: Array<{ name: string; n: number }>; people: Captured[] }>("GET", `/v1/campaigns/${campaignId}/captures`);
 
-/** Puts people on a campaign; rejects with NotAddedError naming any that couldn't be added. */
+/** What putting the saved people on a campaign's shortlist did: who went on, and how many who fit are still waiting. */
+export type Attached = { added: number; people: Array<{ name: string; title: string | null; company: string | null; owner: string | null }>; remaining: number };
+
+/**
+ * The people saved from LinkedIn who fit this campaign go onto its shortlist, with no question asked (what its page does when someone
+ * who may change it opens it). Adds nobody for someone who may not change it, or for a closed campaign; adding twice adds nobody twice.
+ */
+export const attachCaptures = (campaignId: string) =>
+  api<Attached>("POST", `/v1/campaigns/${campaignId}/captures/attach`);
+
+/** The most people the server takes on a campaign in one request. */
+export const ADD_BATCH = 100;
+
+/**
+ * Puts people on a campaign, a hundred to a request; rejects with NotAddedError naming any that couldn't be added (the rest are on).
+ * A request that fails outright stops the run: the ones before it stay added, and adding the same people again is harmless.
+ */
 export async function addToCampaign(campaignId: string, candidateIds: readonly string[], source: "manual" | "extension" = "manual"): Promise<{ results: AddResult[] }> {
-  const res = await api<{ results: AddResult[] }>(
-    "POST", `/v1/campaigns/${campaignId}/candidates`, { candidateIds, source },
-  );
-  const failed = res.results.filter((r) => "error" in r).map((r) => r.candidateId);
+  const results: AddResult[] = [];
+  for (let i = 0; i < candidateIds.length; i += ADD_BATCH) {
+    const res = await api<{ results: AddResult[] }>(
+      "POST", `/v1/campaigns/${campaignId}/candidates`, { candidateIds: candidateIds.slice(i, i + ADD_BATCH), source },
+    );
+    results.push(...res.results);
+  }
+  const failed = results.filter((r) => "error" in r).map((r) => r.candidateId);
   if (failed.length) throw new NotAddedError(failed, candidateIds.length);
-  return res;
+  return { results };
 }
 
 /** Someone who was passed on a campaign, back on its shortlist (adding them again would leave them passed). */

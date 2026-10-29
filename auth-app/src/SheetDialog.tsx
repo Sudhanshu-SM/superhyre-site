@@ -6,6 +6,7 @@ import { sheetApi } from "./api/campaigns";
 import { Loader } from "./components/Loader";
 import { invalidate } from "./invalidate";
 import "./roles.css";
+import { doneLines, placedLines, skippedLine, tabLine, tally } from "./sheetWords";
 import { Dialog } from "./ui";
 
 /**
@@ -18,9 +19,6 @@ import { Dialog } from "./ui";
  * it will do before it does it.
  */
 
-const STAGE_WORDS: Record<string, string> = { shortlisted: "shared", outreach: "contacted", interviewing: "interviewing", hired: "joined", passed: "rejected" };
-const tally = (m: Record<string, number>) => Object.entries(m).filter(([, n]) => n > 0).map(([k, n]) => `${n} ${STAGE_WORDS[k] ?? k}`).join(", ");
-
 const when = (iso: string): string => {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? "" : d.toLocaleString(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
@@ -31,13 +29,14 @@ export function SheetDialog({ open, onClose, campaignId, name }: { open: boolean
   const [url, setUrl] = useState("");
   const [look, setLook] = useState<SheetPreview | null>(null);
   const [done, setDone] = useState<SheetSync | null>(null);
+  const [place, setPlace] = useState(true);
   const [busy, setBusy] = useState<"" | "look" | "sync">("");
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (!open) return undefined;
     let live = true;
-    setLook(null); setDone(null); setError(""); setUrl("");
+    setLook(null); setDone(null); setError(""); setUrl(""); setPlace(true);
     sheetApi.saved(campaignId).then((s) => { if (live) setSaved(s); }, () => { if (live) setSaved(null); });
     return () => { live = false; };
   }, [open, campaignId]);
@@ -50,8 +49,8 @@ export function SheetDialog({ open, onClose, campaignId, name }: { open: boolean
   };
   const bring = () => {
     setBusy("sync"); setError("");
-    sheetApi.sync(campaignId, link).then((r) => {
-      setDone(r); setLook(null); setUrl(""); setBusy("");
+    sheetApi.sync(campaignId, link, place ? {} : { place: false }).then((r) => {
+      setDone(r); setLook(null); setPlace(true); setUrl(""); setBusy("");
       sheetApi.saved(campaignId).then(setSaved, () => {});
       invalidate(["pipeline", "candidates", "campaign"], { campaignId });
     }, fail);
@@ -67,41 +66,54 @@ export function SheetDialog({ open, onClose, campaignId, name }: { open: boolean
             For a role you are already running. Connect the Google Sheet your team tracks {name} in, and its numbers start from where you really are.
           </p>
         </header>
-        <ul className="t-body sd-does">
-          <li>Adds each person in the sheet to {name}, and skips anyone already here.</li>
-          <li>Puts each on the stage their Status column says: shared, contacted, interviewing, offered, joined or rejected.</li>
-          <li>Sync again any time: new rows come in and people move forward. Nobody is moved back or deleted.</li>
-        </ul>
-        <p className="t-body sd-needs">Needs a Name column and a Phone, Email or LinkedIn column, and sharing set to “Anyone with the link”.</p>
+        <div className="sd-body">
+          <ul className="t-body sd-does">
+            <li>Adds each person in the sheet to {name}, and skips anyone already here.</li>
+            <li>Puts each on the stage their Status column says: shared, contacted, interviewing, offered, joined or rejected.</li>
+            <li>Sync again any time: new rows come in and people move forward. Nobody is moved back or deleted.</li>
+          </ul>
+          <p className="t-body sd-needs">Needs a Name column and a Phone, Email or LinkedIn column, and sharing set to “Anyone with the link”.</p>
 
-        {saved === undefined ? <p className="t-body sd-p"><Loader size="sm" /> Looking…</p> : (
-          <>
-            {saved && (
-              <p className="t-body sd-p" role="status">
-                <Table size={14} aria-hidden="true" /> Connected · {saved.people} {saved.people === 1 ? "person" : "people"} · read {when(saved.syncedAt)}
-              </p>
-            )}
-            <label className="pr-note">
-              <span className="t-label">{saved ? "Use a different sheet" : "Google Sheets link"}</span>
-              <input value={url} onChange={(e) => { setUrl(e.target.value); setLook(null); }} maxLength={500} placeholder="https://docs.google.com/spreadsheets/d/…" aria-label="Google Sheets link" />
-            </label>
+          {saved === undefined ? <p className="t-body sd-p"><Loader size="sm" /> Looking…</p> : (
+            <>
+              {saved && (
+                <p className="t-body sd-p" role="status">
+                  <Table size={14} aria-hidden="true" /> Connected · {saved.people} {saved.people === 1 ? "person" : "people"} · read {when(saved.syncedAt)}
+                </p>
+              )}
+              <label className="pr-note">
+                <span className="t-label">{saved ? "Use a different sheet" : "Google Sheets link"}</span>
+                <input value={url} onChange={(e) => { setUrl(e.target.value); setLook(null); setPlace(true); }} maxLength={500} placeholder="https://docs.google.com/spreadsheets/d/…" aria-label="Google Sheets link" />
+              </label>
 
-            {look && (
-              <div className="t-body sd-p" role="status">
-                <p><b>{look.people} {look.people === 1 ? "person" : "people"}</b>{tally(look.stages) ? `: ${tally(look.stages)}` : ""}{look.noStatus ? `; ${look.noStatus} with no status I can place start as shared` : ""}.</p>
-                <p>Reading: {look.read.map((r) => r.heading).join(", ")}.{look.left.length ? ` Left alone: ${look.left.join(", ")}.` : ""}</p>
-                {look.unreadable > 0 && <p>{look.unreadable} {look.unreadable === 1 ? "row has" : "rows have"} no name, or no phone, email or LinkedIn, and can't be added.</p>}
-              </div>
-            )}
-            {done && (
-              <p className="t-body sd-p" role="status">
-                Done: {done.added} new, {done.alreadyHere} already here{tally(done.moved) ? `, ${tally(done.moved)}` : ""}.
-                {done.notMoved > 0 ? ` ${done.notMoved} need your yes (a hire that takes someone off another campaign).` : ""}
-              </p>
-            )}
-            {error && <p className="t-body sd-p" role="alert">{error}</p>}
-          </>
-        )}
+              {look && (
+                <div className="t-body sd-p" role="status">
+                  <p><b>{look.people} {look.people === 1 ? "person" : "people"}</b>{place ? (tally(look.stages) ? `: ${tally(look.stages)}` : "") : ": everyone starts as shared and no one is moved"}{place && look.noStatus ? `; ${look.noStatus} with no status I can place start as shared` : ""}.</p>
+                </div>
+              )}
+              {look && look.read.some((r) => r.field === "status") && (
+                <label className="sd-place t-body">
+                  <input type="checkbox" checked={place} onChange={(e) => setPlace(e.target.checked)} />
+                  <span>Put each person on the stage their status says</span>
+                </label>
+              )}
+              {look && (
+                <div className="t-body sd-p">
+                  <p>{tabLine(look)}</p>
+                  <p>Reading: {look.read.map((r) => r.heading).join(", ")}.{look.left.length ? ` Left alone: ${look.left.join(", ")}.` : ""}</p>
+                  {place && placedLines(look).map((line) => <p key={line}>{line}</p>)}
+                  {skippedLine(look) && <p>{skippedLine(look)}</p>}
+                </div>
+              )}
+              {done && (
+                <div className="t-body sd-p" role="status">
+                  {doneLines(done).map((line) => <p key={line}>{line}</p>)}
+                </div>
+              )}
+              {error && <p className="t-body sd-p" role="alert">{error}</p>}
+            </>
+          )}
+        </div>
 
         <footer className="rl-dlg-f">
           <span />

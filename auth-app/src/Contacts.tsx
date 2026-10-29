@@ -1,3 +1,4 @@
+import { CapturesNudge } from "./CapturesNudge";
 import { ContactEditable } from "./ContactEditable";
 import { MatchSection } from "./MatchSection";
 import {
@@ -590,6 +591,10 @@ export function ContactsPage() {
       </div>
 
       {nFilters > 0 && <ActiveChips filters={filters} onChange={setFilters} />}
+
+      {/* With one campaign chosen: the people saved from LinkedIn who fit it and are on its shortlist nowhere (the extension and the campaign agree).
+          Keyed by the campaign, so a new choice starts a banner of its own; flush, as this page's grid already puts a gap around it. */}
+      {camp !== "all" && <CapturesNudge key={camp} campaignId={camp} name={campName(camp)} flush />}
 
       <div className="ct-table-wrap" data-pager-list>
         <table className="ct-table">

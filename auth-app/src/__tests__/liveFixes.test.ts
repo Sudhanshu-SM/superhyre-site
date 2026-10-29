@@ -83,18 +83,18 @@ describe("agent activity", () => {
   it("never says a failed or stopped run did the thing (R4 D17)", () => {
     const capacity = { code: "capacity", message: "The agent is at capacity right now." };
     expect(describeRun(run({ skill: "spec", campaignName: "Product Designer", status: "failed", error: capacity })))
-      .toEqual({ what: "Couldn't draft a role spec for Product Designer yet", how: "The agent is at capacity right now." });
-    expect(describeRun(run({ skill: "spec", campaignName: null, status: "failed", error: capacity })).what).toBe("Couldn't draft a role spec yet");
+      .toEqual({ what: "Couldn't draft requirements for Product Designer yet", how: "The agent is at capacity right now." });
+    expect(describeRun(run({ skill: "spec", campaignName: null, status: "failed", error: capacity })).what).toBe("Couldn't draft requirements yet");
     expect(describeRun(run({ skill: "sourcing", campaignName: null, status: "failed" })))
       .toEqual({ what: "Couldn't search for people yet", how: "Didn't finish" });
     expect(describeRun(run({ skill: "watch", campaignName: null, status: "cancelled" })))
       .toEqual({ what: "Couldn't keep sourcing yet", how: "Stopped" });
     expect(describeRun(run({ skill: "chat", campaignName: null, status: "failed", mine: false })).what).toBe("Couldn't answer a question yet (a teammate)");
     // Finished runs read as before.
-    expect(describeRun(run({ skill: "spec", status: "done" })).what).toBe("Drafted a role spec for Data Engineer");
+    expect(describeRun(run({ skill: "spec", status: "done" })).what).toBe("Drafted requirements for Data Engineer");
     // The row says the same, and shows the reason beneath.
     const row = rowOf(run({ skill: "spec", campaignName: "Product Designer", status: "failed", error: capacity }));
-    expect(row.title).toBe("Couldn't draft a role spec for Product Designer yet");
+    expect(row.title).toBe("Couldn't draft requirements for Product Designer yet");
     expect(row.title).not.toMatch(/drafted/i);
     expect(row.how).toBe("The agent is at capacity right now.");
   });

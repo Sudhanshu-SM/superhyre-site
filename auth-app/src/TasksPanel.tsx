@@ -16,6 +16,7 @@ import { OvCard } from "./OverviewPanel";
 import { TASKS, campaignName } from "./orchestrator";
 import { isMe, useSession } from "./roleStore";
 import { useToast } from "./toast";
+import { TaskHover } from "./TaskHover";
 import { Dialog, LoadFailed, initialsOf } from "./ui";
 
 /**
@@ -59,7 +60,7 @@ function Who({ t }: { t: DayTask }) {
   const name = t.assigneeName ?? "A teammate";
   return (
     <span className="tp-who">
-      <span className="tp-av t-caption" title={name} role="img" aria-label={`For ${name}`}>{initialsOf(name)}</span>
+      <span className="tp-av t-caption" role="img" aria-label={`For ${name}`}>{initialsOf(name)}</span>
     </span>
   );
 }
@@ -84,7 +85,7 @@ export function TasksGhost({ n = 3, label }: { n?: number; label?: string }) {
 function TaskRow({ t, done, allowed, onToggle }: { t: DayTask; done: boolean; allowed: boolean; onToggle: (t: DayTask) => void }) {
   const due = dueText(t);
   return (
-    <li className={`tp-row${done ? " is-done" : ""}`}>
+    <TaskHover task={t} className={`tp-row${done ? " is-done" : ""}`}>
       <button
         type="button" className={`tp-check${done ? " is-on" : ""}`} disabled={!allowed} onClick={() => onToggle(t)}
         aria-label={done ? `Mark "${t.title}" as not done` : `Mark "${t.title}" as done`}
@@ -93,13 +94,13 @@ function TaskRow({ t, done, allowed, onToggle }: { t: DayTask; done: boolean; al
         {CHECK}
       </button>
       {t.open && !done
-        ? <a className="tp-t t-body" href={t.open} title={t.title}>{t.title}</a>
-        : <span className="tp-t t-body" title={t.title}>{t.title}</span>}
+        ? <a className="tp-t t-body" href={t.open}>{t.title}</a>
+        : <span className="tp-t t-body">{t.title}</span>}
       <Who t={t} />
-      <span className={`tp-due t-body-sm${due.tone && !done ? ` is-${due.tone}` : ""}`} title={done ? undefined : due.title}>
+      <span className={`tp-due t-body-sm${due.tone && !done ? ` is-${due.tone}` : ""}`}>
         {done ? "" : due.text}
       </span>
-    </li>
+    </TaskHover>
   );
 }
 

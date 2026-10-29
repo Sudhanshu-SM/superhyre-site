@@ -206,7 +206,7 @@ function ForCampaign({ card, ctx }: { card: LiveViewProps["card"]; ctx: MomentCt
   if (spec === "loading" && !started) {
     return (
       <Checked
-        phase={{ id: "a-spec", live: `Checking ${name}'s role spec`, done: `Checked ${name}'s role spec` }}
+        phase={{ id: "a-spec", live: `Checking ${name}'s requirements`, done: `Checked ${name}'s requirements` }}
         ready={false}
         steps={[]}
       />
@@ -225,16 +225,16 @@ function NeedsSpec({ id, name, ctx }: { id: string; name: string; ctx: MomentCtx
     <section className="mo-dispatch is-na" aria-live="polite">
       <Fork go={false} />
       <div className="mo-dispatch-body">
-        <p className="mo-dispatch-h">{name} has no approved role spec yet</p>
+        <p className="mo-dispatch-h">{name} has no approved requirements yet</p>
         <p className="mo-dispatch-sub">
-          The agent needs it to know who fits. Once a spec is approved, it can start looking.
+          The agent needs them to know who fits. Once the requirements are approved, it can start looking.
         </p>
         {(flow.going || flow.failed) && <DraftingSpec campaignId={id} name={name} drafting={flow.going} trouble={flow.failed ? flow.why : null} />}
         {flow.asking && <JdStep name={name} onAnswer={flow.give} onGrow={() => ctx.onGrow()} />}
         {!flow.going && !flow.failed && !flow.asking && (
           <div className="lv-acts">
             <button type="button" className="src-btn is-primary mo-small" onClick={flow.press}>
-              Write the role spec
+              Write the requirements
             </button>
           </div>
         )}
@@ -411,7 +411,7 @@ function Dispatch({
                     className="cn-link"
                     onClick={specFlow.press}
                   >
-                    Write the role spec
+                    Write the requirements
                   </button>
                 </>
               )}

@@ -132,7 +132,7 @@ export function CampaignEditDialog({
       <form className="ce" onSubmit={(e) => { e.preventDefault(); save(); }} noValidate>
         <header className="ce-h">
           <h2>Campaign details</h2>
-          <p>The brief, spec and team have their own places; this is the rest.</p>
+          <p>The brief, requirements and team have their own places; this is the rest.</p>
         </header>
         {!f ? (
           error ? <p className="ce-note" role="alert">{error}</p> : <ShimmerRegion label="Loading the details" className="ce-shm">

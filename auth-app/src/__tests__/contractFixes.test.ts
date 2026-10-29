@@ -46,7 +46,7 @@ describe("landing ideas from real campaigns", () => {
 
 describe("starting a campaign without agents to pick", () => {
   it("doesn't ask for agents or channels where they aren't offered", () => {
-    const d = { ...blankDraft("Asha"), name: "QA Lead", workMode: "remote" as const, agents: [], channels: [] };
+    const d = { ...blankDraft("Asha"), name: "QA Lead", clientId: "cl1", workMode: "remote" as const, agents: [], channels: [] };
     expect(draftProblems(d).agents).toBeDefined();
     expect(draftProblems(d, undefined, { agents: false })).toEqual({});
   });

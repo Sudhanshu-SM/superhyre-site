@@ -134,8 +134,8 @@ export function funnel(stages: ReadonlyArray<{ stage: string; people: number }>)
 
 /** What the campaign card says about the role spec and the search, in words a recruiter would use. */
 export function specLine(card: Extract<ChatCard, { kind: "campaign" }>): string {
-  if (card.spec) return `Role spec ${card.spec.version ? `v${card.spec.version} ` : ""}approved: ${card.spec.title}`;
-  return card.draftWaiting ? "A role spec draft is waiting for your approval" : "No role spec yet, so nothing can be searched";
+  if (card.spec) return `Requirements ${card.spec.version ? `v${card.spec.version} ` : ""}approved: ${card.spec.title}`;
+  return card.draftWaiting ? "A requirements draft is waiting for your approval" : "No requirements yet, so nothing can be searched";
 }
 
 export function searchLine(s: NonNullable<Extract<ChatCard, { kind: "campaign" }>["sourcing"]>): string {

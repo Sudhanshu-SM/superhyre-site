@@ -134,7 +134,7 @@ export function whenLine(iso: string | null, now = new Date()): string | null {
 
 /** How the fit was made, for the footer: "Role spec v3 · scored 12 Oct, 14:20 · scoring v2". */
 export function provenanceLine(r: Pick<MatchResultView, "rubricVersion" | "evaluatedAt" | "policyVersion">): string {
-  return [r.rubricVersion ? `Role spec v${r.rubricVersion}` : null, whenLine(r.evaluatedAt) ? `scored ${whenLine(r.evaluatedAt)}` : null, `scoring ${r.policyVersion}`]
+  return [r.rubricVersion ? `Requirements v${r.rubricVersion}` : null, whenLine(r.evaluatedAt) ? `scored ${whenLine(r.evaluatedAt)}` : null, `scoring ${r.policyVersion}`]
     .filter(Boolean)
     .join(" · ");
 }

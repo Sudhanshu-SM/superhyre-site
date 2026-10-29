@@ -22,19 +22,36 @@
    again, not more and not less. `agentLayout.ts` holds the same number (TRANSCRIPT_TAIL) for the follower. */
 .orc.is-agent .orc-stream.is-live .orc-log { --log-tail: 28px; padding-bottom: var(--log-tail); scroll-padding-bottom: var(--log-tail); padding-right: 12px; }
 
+/* ── ONE SIZE UP ─────────────────────────────────────────────────────────────
+   The transcript reads one px larger than the rest of the console: the column is wider than it was and there is room for
+   it. Two parts. The rules that set px by hand (.rep-*, .qa-*, .src-*, .stg-*, .shc-*, .cta, the prompt below) are each
+   1px bigger where they are written. The cards that use the type scale read it through these tokens, which are
+   declared again for everything inside the log, one px up, with their line heights; a token is a computed value, so
+   changing --fs-14 here would not reach --type-body, which was settled on :root. Nothing outside the log changes. */
+.orc.is-agent .orc-log {
+  --type-caption:     400 .8125rem/1.0625rem var(--ui);
+  --type-label:       500 .875rem/1.0625rem var(--ui);
+  --type-body-sm:     400 .875rem/1.3125rem var(--ui);
+  --type-body:        400 .9375rem/1.3125rem var(--ui);
+  --type-body-strong: 500 .9375rem/1.3125rem var(--ui);
+  --type-body-lg:     400 1.0625rem/1.5625rem var(--ui);
+  --type-title-sm:    600 1.0625rem/1.5625rem var(--word);
+  --type-num-sm:      500 .9375rem/1.3125rem var(--ui);
+}
+
 .orc-turn .rep-prompt {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 6px;
   width: fit-content;
-  max-width: min(70%, 640px);
+  max-width: min(72%, 760px);
   margin: 0 0 10px auto;
   padding: 10px 16px;
   border: 0;
   border-radius: 20px;
   background: var(--sub);
-  font: 400 15px/1.65 var(--ui);
+  font: 400 16px/1.65 var(--ui);
   letter-spacing: -0.011em;
   color: var(--ink);
   text-align: left;
@@ -42,13 +59,13 @@
 .rep-prompt-text { margin: 0; font: inherit; letter-spacing: inherit; white-space: pre-wrap; overflow-wrap: anywhere; }
 .rep-prompt-file {
   display: inline-flex; align-items: center; gap: 6px; max-width: 100%;
-  font: 500 13px/1.4 var(--ui); color: var(--ink-2);
+  font: 500 14px/1.4 var(--ui); color: var(--ink-2);
 }
 .rep-prompt-file b { font-weight: 500; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rep-prompt-file small { font: 400 12px/1.4 var(--ui); color: var(--ink-2); white-space: nowrap; }
+.rep-prompt-file small { font: 400 13px/1.4 var(--ui); color: var(--ink-2); white-space: nowrap; }
 .rep-prompt-more {
   padding: 0; border: 0; background: none; cursor: pointer;
-  font: 500 12.5px/1.4 var(--ui); color: var(--ink-2);
+  font: 500 13.5px/1.4 var(--ui); color: var(--ink-2);
 }
 .rep-prompt-more:hover { color: var(--ink); }
 .rep-prompt-more:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
@@ -232,22 +249,23 @@ button.orc-file-open { cursor: pointer; }
 
 
 /* ── THE TWO CONTEXT CHIPS: one anatomy ───────────────────────────────────────
-   Job description and Filters are the same chip: 32px tall, a 20px neutral circle with a 12px glyph in it, a
-   13px/500 label on the same line, and (Filters) the count as an 18px round badge, 8px apart, everything centred
+   Job description and Filters are the same chip: 38px tall, a 24px neutral circle with a 14px glyph in it, a
+   15px/500 label on the same line, and (Filters) the count as a 21px round badge, 9px apart, everything centred
    on one line. Selected is the accent border and its tint, nothing else: the circle, the weight and the shadow
    do not change. */
 .orc.is-agent .orc-composer .orc-slots .orc-gslot.orc-ctx {
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  height: 32px;
-  padding: 0 12px 0 10px;
+  gap: 9px;
+  flex: none;
+  height: 38px;
+  padding: 0 15px 0 12px;
   border: 1px solid var(--hairline);
   border-radius: var(--r-pill);
   background: transparent;
   box-shadow: none;
-  font: 500 13px/1 var(--ui);
+  font: 500 15px/1 var(--ui);
   letter-spacing: -0.006em;
   color: var(--ink);
 }
@@ -269,8 +287,8 @@ button.orc-file-open { cursor: pointer; }
   display: inline-grid;
   place-items: center;
   flex: none;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background: var(--sub);
   color: var(--ink-2);
@@ -278,32 +296,59 @@ button.orc-file-open { cursor: pointer; }
   transform: none;
   animation: none;
 }
-.orc.is-agent .orc-composer .orc-slots .orc-gslot.orc-ctx .orc-ctx-ico svg { width: 12px; height: 12px; }
+.orc.is-agent .orc-composer .orc-slots .orc-gslot.orc-ctx .orc-ctx-ico svg { width: 14px; height: 14px; }
 .orc.is-agent .orc-composer .orc-slots .orc-gslot.orc-ctx .orc-chip-l {
   display: inline-flex;
   align-items: center;
   line-height: 1;
 }
+/* A chip does not shrink (flex: none, above) except the job description's. Its label is the one text here that is
+   anything the person chose, a file's name, so when the row is a few pixels short it is the name that is cut, with an
+   ellipsis, and not Send that is pushed out of the box. A block, so the ellipsis can draw (a flex container does not
+   draw one), and a taller line because the box clips: a 15px line took the foot off the p. `:where` keeps the weight
+   of the chip's own rule, so the circles below override it. */
+.orc.is-agent .orc-composer .orc-slots .orc-gslot.orc-ctx:where(:has(> .orc-chip-name)) { flex: 0 1 auto; min-width: 0; }
+.orc.is-agent .orc-composer .orc-slots .orc-gslot.orc-ctx .orc-chip-name { display: block; min-width: 0; line-height: 1.3; }
 .orc.is-agent .orc-composer .orc-slots .orc-gslot.orc-ctx .orc-ctx-n {
   position: static;
   display: inline-grid;
   place-items: center;
   flex: none;
-  width: 18px;
-  min-width: 18px;
-  height: 18px;
+  width: 21px;
+  min-width: 21px;
+  height: 21px;
   padding: 0;
   border-radius: 50%;
   background: var(--accent-fill);
   color: #fff;
-  font: 600 11px/1 var(--ui);
+  font: 600 12.5px/1 var(--ui);
   font-variant-numeric: tabular-nums;
   box-shadow: none;
   animation: none;
 }
-/* Narrow: the chips are their circles, the count a badge on its corner (the label stays as the tooltip). */
+
+/* ── THE ROW KEEPS ITS ONE LINE: LABELS GIVE WAY, THE LEAST NEEDED FIRST ───────────────────────────────────────────
+   The row is the paperclip and Send (38 each) and the chips, 8px between them and 6px between chips. A chip is 62px
+   (border, 12 + 15 of padding, the 24px circle, the 9px gap) and its label at 15px/500: Job description 111,
+   Filters 45 (and 30 more for a count), External only 92. All three labelled that is
+   38 + 8 + 434 + 12 + 8 + 38 = 538px, 568 with a count, 612 with a count and a job description named to its 16ch
+   (155px) cap. Against the field's width (composer.css makes it the container) each step is where the state above
+   it stops fitting:
+     over 612       every label, in any state
+     481 to 612     External only is its circle (116 less: 496 at the most)
+     480 and under  all three are circles (218)
+   The job description's name is the one label cut instead, so a state this counts a few pixels short of (DB + external
+   is 4 wider; the message's length shows near its limit) takes the room from the name and never from the row: Send
+   stays in the box. */
+@container (max-width: 612px) {
+  .orc.is-agent .orc-composer .orc-slots .orc-gslot.orc-ctx.src-chip { width: 38px; padding: 0; justify-content: center; border-radius: 50%; }
+  .orc.is-agent .orc-composer .orc-slots .orc-gslot.orc-ctx.src-chip .orc-chip-l { display: none; }
+}
+/* Narrow: the chips are their circles, the count a badge on its corner (the label stays as the tooltip). The label is
+   hidden by a rule as heavy as the one that shows it: composer.css's `display: none` was a class lighter and lost. */
 @container (max-width: 480px) {
-  .orc.is-agent .orc-composer .orc-slots .orc-gslot.orc-ctx { width: 32px; padding: 0; justify-content: center; border-radius: 50%; }
+  .orc.is-agent .orc-composer .orc-slots .orc-gslot.orc-ctx { flex: none; width: 38px; padding: 0; justify-content: center; border-radius: 50%; }
+  .orc.is-agent .orc-composer .orc-slots .orc-gslot.orc-ctx .orc-chip-l { display: none; }
   .orc.is-agent .orc-composer .orc-slots .orc-gslot.orc-ctx .orc-ctx-n {
     position: absolute; top: -6px; right: -6px; box-shadow: 0 0 0 2px var(--page);
   }
@@ -393,5 +438,5 @@ button.orc-file-open { cursor: pointer; }
 
 /* The line a chat the app opened begins with (the set-up's first campaign): quiet, the app's own voice, no bubble. */
 .orc-opening { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin: 0 0 14px; }
-.orc-opening-t { margin: 0; font: 500 13px/1.4 var(--ui); color: var(--ink-2); }
+.orc-opening-t { margin: 0; font: 500 14px/1.4 var(--ui); color: var(--ink-2); }
 .orc-opening-file { padding: 3px 10px; border: 1px solid var(--hairline); border-radius: 10px; background: var(--sub); }

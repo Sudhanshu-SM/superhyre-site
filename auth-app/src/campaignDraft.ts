@@ -27,6 +27,8 @@ export type AgentName = (typeof AGENTS)[number];
 export type CampaignDraft = {
   name: string;
   clientId: string;
+  /** A company that is not a client yet, named instead of picking one: the server adds it with the campaign. Empty when `clientId` is set. */
+  newClient: string;
   department: string;
   hiringManager: string;
   seniority: string;
@@ -64,7 +66,7 @@ export type CampaignDraft = {
 
 export function blankDraft(owner: string): CampaignDraft {
   return {
-    name: "", clientId: "", department: "Engineering", hiringManager: "",
+    name: "", clientId: "", newClient: "", department: "Engineering", hiringManager: "",
     seniority: "Senior", employment: "full-time", workMode: "hybrid", officeDays: 3, locations: [], openings: 1,
     targetDate: "", dateKind: "start",
     currency: "INR", compMin: "", compMax: "", variable: "", compShown: false,
@@ -91,16 +93,28 @@ export function ownCampaign(d: CampaignDraft, me: string): CampaignDraft {
  * hiring manager and fee, which belong to the client that was picked.
  */
 export function prefillFromClient(d: CampaignDraft, c: Client | undefined): CampaignDraft {
-  if (!c) return { ...d, clientId: "", hiringManager: "", fee: "" };
+  if (!c) return { ...d, clientId: "", newClient: "", hiringManager: "", fee: "" };
   const p = primaryContact(c);
   return {
     ...d,
     clientId: c.id,
+    newClient: "",
     hiringManager: p?.name ?? "",
     fee: c.fee && c.fee !== "To be agreed" ? c.fee : d.fee,
     locations: d.locations.length ? d.locations : c.location ? [c.location] : d.locations,
   };
 }
+
+/**
+ * A company named instead of a client picked: the campaign is for it, and the server adds it (or uses the client of that
+ * name) when the campaign is made. What the last client owned (its hiring manager and fee terms) goes with it.
+ */
+export function withNewClient(d: CampaignDraft, name: string): CampaignDraft {
+  return { ...d, clientId: "", newClient: name.trim(), hiringManager: "", fee: "" };
+}
+
+/** What the draft says when no client has been picked or named: the server's own sentence for it. */
+export const CLIENT_NEEDED = "Pick the client this campaign is for, or add one.";
 
 /* ── cities, said many ways ── */
 
@@ -185,7 +199,7 @@ export type DraftProblems = Partial<Record<keyof CampaignDraft, string>>;
 
 /**
  * What stops the campaign being created. A campaign is on from the moment it exists, so there is
- * one set of rules: a name, and whatever was typed has to make sense.
+ * one set of rules: a name, the client it is for, and whatever was typed has to make sense.
  *
  * `agents: false` where agents and channels aren't offered (real data: nothing starts them
  * yet), so a rule about a field the person can't see never blocks them.
@@ -197,6 +211,8 @@ export function draftProblems(
 ): DraftProblems {
   const out: DraftProblems = {};
   if (d.name.trim().length < 2) out.name = "Name the role you're hiring for.";
+  /* A campaign is always for a client: one picked, or a company named to be added with it. */
+  if (!d.clientId && !d.newClient.trim()) out.clientId = CLIENT_NEEDED;
   if (!Number.isInteger(d.openings) || d.openings < 1) out.openings = "At least one opening.";
   if (d.workMode === "hybrid" && (d.officeDays < 1 || d.officeDays > 5)) out.officeDays = "Between 1 and 5 days.";
 
@@ -242,6 +258,7 @@ export function rowFromDraft(d: CampaignDraft, members: readonly string[], now =
   const lo = num(d.compMin), hi = num(d.compMax), e0 = num(d.expMin), e1 = num(d.expMax);
   const setup: CampaignSetup = {
     clientId: d.clientId || undefined,
+    newClient: !d.clientId && d.newClient.trim() ? d.newClient.trim() : undefined,
     hiringManager: d.hiringManager || undefined,
     seniority: d.seniority || undefined,
     employment: d.employment,

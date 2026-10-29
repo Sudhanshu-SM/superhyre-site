@@ -173,7 +173,7 @@ function UsageBody({ data }: { data: UsageAnalytics }) {
                 <th scope="col">Person</th>
                 <th scope="col">Agent messages</th>
                 <th scope="col">Searches</th>
-                <th scope="col">Specs</th>
+                <th scope="col">Requirements</th>
                 <th scope="col">Exports</th>
               </tr>
             </thead>

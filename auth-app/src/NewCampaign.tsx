@@ -5,7 +5,7 @@ import { FACET_LABEL, read } from "./brief";
 import type { AgentName, CampaignDraft, DraftProblems } from "./campaignDraft";
 import {
   AGENTS, CHANNEL_LABEL, EMPLOYMENT_LABEL, NOTICE_OPTIONS, PRIORITY_LABEL, SENIORITIES, VISIBILITY_HELP, VISIBILITY_LABEL, WORK_MODE_LABEL,
-  addTag, blankDraft, draftProblems, ownCampaign, prefillFromClient, rowFromDraft,
+  addTag, blankDraft, draftProblems, ownCampaign, prefillFromClient, rowFromDraft, withNewClient,
 } from "./campaignDraft";
 import type { CampaignRow, Channel, Employment, Priority, Visibility, WorkMode } from "./campaignsData";
 import { DEPARTMENTS } from "./campaignsData";
@@ -24,6 +24,7 @@ import { reportProblem } from "./problems";
 import { useSession } from "./roleStore";
 import { Avatar } from "./CandidateBits";
 import { ClientLogo } from "./ClientLogo";
+import { ClientNameAdd } from "./ClientPicker";
 import { Dialog, useBackCloses } from "./ui";
 import { ConfirmDialog } from "./RoleBits";
 import "./newcampaign.css";
@@ -36,8 +37,9 @@ import "./newcampaign.css";
  * One scrolling form with a section index on the left, rather than a wizard:
  * an admin often has half the answers and wants to see the rest at a glance.
  * Only the role's name is needed to save a draft; starting a search also
- * needs a location (or remote) and at least one agent. Picking a client
- * fills its hiring manager, fee and city.
+ * needs a location (or remote) and at least one agent. A campaign is always
+ * for a client, picked or added here. Picking a client fills its hiring
+ * manager, fee and city.
  */
 
 const SECTIONS = [
@@ -53,7 +55,7 @@ const SECTIONS = [
 type SectionId = (typeof SECTIONS)[number]["id"];
 
 const SECTION_OF: Partial<Record<keyof CampaignDraft, SectionId>> = {
-  name: "basics", openings: "role", officeDays: "role", locations: "role", targetDate: "role",
+  name: "basics", clientId: "basics", openings: "role", officeDays: "role", locations: "role", targetDate: "role",
   compMin: "comp", compMax: "comp", expMin: "req", expMax: "req", agents: "team", channels: "team",
 };
 
@@ -62,13 +64,13 @@ const SECTION_OF: Partial<Record<keyof CampaignDraft, SectionId>> = {
  * so the search waits for one; saying "sourcing has started" would be untrue.
  */
 export function createdMessage(row: Pick<CampaignRow, "name">): string {
-  return `${row.name} created. Approve its role spec and the search starts.`;
+  return `${row.name} created. Approve its requirements and the search starts.`;
 }
 
 /**
  * The draft with a client picked (none for ""), the client read from the store as it is now. The dialog's own
  * list of clients is the one it drew last: a client added a moment ago (the inline "Add client") is not in it
- * yet, so looking it up there picked nothing and the select went back to "No client, an internal hire".
+ * yet, so looking it up there picked nothing and the select went back to asking for a client.
  * An id nobody knows leaves the draft as it was.
  */
 export function pickClient(cur: CampaignDraft, id: string): CampaignDraft {
@@ -101,7 +103,10 @@ export function keepDraft(d: CampaignDraft | null): void {
 export function keptDraft(): CampaignDraft | null {
   try {
     const raw = window.sessionStorage.getItem(KEPT);
-    return raw ? ({ ...(JSON.parse(raw) as CampaignDraft), clientId: "" }) : null;
+    if (!raw) return null;
+    const kept = JSON.parse(raw) as Partial<CampaignDraft>;
+    /* A draft kept before a company could be named for the campaign has no such field. */
+    return { ...(kept as CampaignDraft), newClient: kept.newClient ?? "", clientId: "" };
   } catch {
     return null;
   }
@@ -263,8 +268,8 @@ export function NewCampaignDialog({ open, onClose: close, onCreated, clientId }:
 
   const where = d.workMode === "remote" ? "remote" : d.locations[0];
   const summary = d.name.trim()
-    ? <><strong>{d.name.trim()}</strong>{client ? <> for {client.name}</> : null}{where ? <>, {where}</> : null}, {d.openings} {d.openings === 1 ? "opening" : "openings"}</>
-    : "Name the role to create it.";
+    ? <><strong>{d.name.trim()}</strong>{client ? <> for {client.name}</> : d.newClient.trim() ? <> for {d.newClient.trim()}</> : null}{where ? <>, {where}</> : null}, {d.openings} {d.openings === 1 ? "opening" : "openings"}</>
+    : "Name the role and its client to create it.";
   const errCount = Object.keys(problems).length;
 
   return (
@@ -280,7 +285,7 @@ export function NewCampaignDialog({ open, onClose: close, onCreated, clientId }:
           <p className="t-body-sm">
             {restored
               ? "Here's the campaign you were writing when you switched organisation."
-              : "Only the role is needed. The more you add here, the less the agent has to ask later."}
+              : "The role and its client are needed. The more you add here, the less the agent has to ask later."}
           </p>
         </header>
 
@@ -302,7 +307,7 @@ export function NewCampaignDialog({ open, onClose: close, onCreated, clientId }:
               <Field label="Role" error={problems.name} wide>
                 <input ref={nameRef} className="ncx-in is-big" value={d.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Senior Backend Engineer" autoComplete="off" spellCheck={false} />
               </Field>
-              <ClientField d={d} onPick={(id) => setD((cur) => pickClient(cur, id))} mayAdd={mayAddClient} />
+              <ClientField d={d} onPick={(id) => setD((cur) => pickClient(cur, id))} onName={(name) => setD((cur) => withNewClient(cur, name))} mayAdd={mayAddClient} error={problems.clientId} />
               <Field label="Department">
                 <select className="ncx-in" value={d.department} onChange={(e) => set("department", e.target.value)}>
                   {DEPARTMENTS.map((x) => <option key={x}>{x}</option>)}
@@ -512,7 +517,19 @@ export function NewCampaignDialog({ open, onClose: close, onCreated, clientId }:
 
 /* ── the client, with an inline add ── */
 
-function ClientField({ d, onPick, mayAdd }: { d: CampaignDraft; onPick: (id: string) => void; /** Adding a client is an admin's: a recruiter picks from the clients they can see, or none. */ mayAdd: boolean }) {
+/** The select's value for a company named for this campaign that is not a client yet. */
+const NAMED = "named";
+
+export function ClientField({ d, onPick, onName, mayAdd, error }: {
+  d: CampaignDraft;
+  onPick: (id: string) => void;
+  /** A company that is not a client yet was named: the server adds it with the campaign. */
+  onName: (name: string) => void;
+  /** An admin adds a client with its details; anyone else names the company and the server adds it. */
+  mayAdd: boolean;
+  /** A campaign is always for a client: said under the field until one is picked or named. */
+  error?: string | undefined;
+}) {
   const { clients } = useClients();
   const [adding, setAdding] = useState(false);
   const [v, setV] = useState({ ...EMPTY_DRAFT });
@@ -531,20 +548,32 @@ function ClientField({ d, onPick, mayAdd }: { d: CampaignDraft; onPick: (id: str
     setTried(false);
   };
   const picked = clients.find((c) => c.id === resolveClientId(d.clientId));
-  /* Nobody to choose from and no way to add one: the only answer is "no client", so it is not asked. */
-  if (!mayAdd && !shown.length) return null;
+  const named = d.newClient.trim();
   return (
-    <div className="ncx-f">
+    <div className={`ncx-f${error ? " is-bad" : ""}`}>
       <span className="ncx-l">Client</span>
       {!adding ? (
         <div className="ncx-inline">
           {picked && <ClientLogo client={picked} size={28} />}
-          <select className="ncx-in is-grow" value={resolveClientId(d.clientId)} onChange={(e) => (e.target.value === "+" ? setAdding(true) : onPick(e.target.value))} aria-label="Client">
-            <option value="">No client, an internal hire</option>
+          <select
+            className="ncx-in is-grow"
+            value={named ? NAMED : picked ? resolveClientId(d.clientId) : ""}
+            onChange={(e) => (e.target.value === "+" ? setAdding(true) : onPick(e.target.value))}
+            aria-label="Client"
+            aria-invalid={error ? true : undefined}
+          >
+            {!picked && !named && <option value="" disabled>Choose a client</option>}
             {shown.map((c) => <option key={c.id} value={c.id}>{c.name}{c.status === "prospect" ? " (prospect)" : ""}</option>)}
-            {mayAdd && <option value="+">Add a new client…</option>}
+            {named && <option value={NAMED}>{named} (new)</option>}
+            <option value="+">Add a new client…</option>
           </select>
         </div>
+      ) : !mayAdd ? (
+        <ClientNameAdd
+          clients={clients}
+          onCancel={() => setAdding(false)}
+          onDone={(made) => { if (made.kind === "pick") onPick(made.id); else onName(made.name); setAdding(false); }}
+        />
       ) : (
         <div className="ncx-add">
           <div className="ncx-add-g">
@@ -563,6 +592,7 @@ function ClientField({ d, onPick, mayAdd }: { d: CampaignDraft; onPick: (id: str
           </div>
         </div>
       )}
+      {error && <small className="ncx-err">{error}</small>}
     </div>
   );
 }

@@ -15,7 +15,7 @@ describe("what the card on a task says", () => {
   });
 
   it("keeps an ordinary title whole, and a title with one dash is not a list", () => {
-    expect(stepsOf("Approve the role spec")).toEqual({ heading: "Approve the role spec", steps: [] });
+    expect(stepsOf("Approve the requirements")).toEqual({ heading: "Approve the requirements", steps: [] });
     expect(stepsOf("Contact Aman - before Friday")).toEqual({ heading: "Contact Aman - before Friday", steps: [] });
   });
 
@@ -29,7 +29,7 @@ describe("what the card on a task says", () => {
 
   it("gives the facts a person asks of a task, and leaves out what is not known", () => {
     const you = { id: "u1", name: "Punith Reddy" };
-    const card = taskCardOf({ ...base, title: "Approve the role spec", campaign: "Sales Manager", assigneeName: "Archi Hayaran", createdByName: "Punith Reddy", createdById: "u1", dueInDays: 0 }, you);
+    const card = taskCardOf({ ...base, title: "Approve the requirements", campaign: "Sales Manager", assigneeName: "Archi Hayaran", createdByName: "Punith Reddy", createdById: "u1", dueInDays: 0 }, you);
     expect(card.rows).toEqual([["For", "Archi Hayaran"], ["Due", "Today"], ["Campaign", "Sales Manager"], ["Status", "To do"]]);
     expect(card.opens).toBeNull();
     const agent = taskCardOf({ ...base, title: "Review matches", kind: "agent", assigneeName: "Punith Reddy", open: "#/campaign/sourced", progress: { done: 3, total: 72, what: "reviewed" } }, you);

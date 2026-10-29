@@ -39,6 +39,25 @@ describe("the colour of a stage", () => {
     expect(stageHue({ kind: "hired", color: "rose" })).toBe("green");
   });
 
+  it("falls back to the kind's colour for every kind when the key is one it does not know: a colour from a newer server, a hex, a near miss, an empty string", () => {
+    const KIND_COLOUR = { shortlisted: "violet", outreach: "blue", interviewing: "amber", hired: "green", passed: "rose" } as const;
+    for (const kind of ["shortlisted", "outreach", "interviewing", "hired", "passed"] as const) {
+      for (const color of ["chartreuse", "#ff0000", "skyblue", "sky blue", "indigo2", "magenta", "", "  "]) {
+        // Position 1: not the first stage, whose violet is a rule of its own.
+        expect(stageHue({ kind, color }, 1), `${kind} ${JSON.stringify(color)}`).toBe(KIND_COLOUR[kind]);
+      }
+    }
+    // The nine colours added to the picker are known: they are drawn as they are, in any case and with a space either side.
+    for (const color of ["sky", "indigo", "plum", "pink", "red", "yellow", "lime", "mint", "brown"] as const) {
+      expect(stageHue({ kind: "outreach", color }, 1)).toBe(color);
+      expect(stageHue({ kind: "interviewing", color: ` ${color.toUpperCase()} ` }, 2)).toBe(color);
+      // The rules about the first stage, Hired and Rejected hold for them too.
+      expect(stageHue({ kind: "outreach", color }, 0)).toBe("violet");
+      expect(stageHue({ kind: "hired", color })).toBe("green");
+      expect(stageHue({ kind: "passed", color })).toBe("rose");
+    }
+  });
+
   it("makes the first stage of a campaign always violet, and Hired green and Passed rose whatever they were given", () => {
     for (const color of [null, "teal", "amber", "slate", "rose"]) {
       expect(stageHue({ kind: "outreach", color }, 0), String(color)).toBe("violet");
@@ -53,7 +72,8 @@ describe("the colour of a stage", () => {
   it("never draws grey: an old slate is blue, and slate is not on offer", () => {
     expect(stageHue({ kind: "outreach", color: "slate" }, 1)).toBe("blue");
     expect(stageHue({ kind: "shortlisted", color: "slate" })).toBe("blue");
-    expect(PICKABLE_HUES).toEqual(["blue", "teal", "green", "amber", "orange", "rose", "violet"]);
+    expect(PICKABLE_HUES).toEqual(["blue", "sky", "indigo", "violet", "plum", "pink", "rose", "red", "orange", "amber", "yellow", "lime", "green", "mint", "teal", "brown"]);
+    expect(PICKABLE_HUES).not.toContain("slate");
     for (const kind of ["shortlisted", "outreach", "interviewing", "hired", "passed"] as const) expect(stageHue({ kind, color: null }, 3)).not.toBe("slate");
     expect(src("stageDonut.css")).not.toMatch(/\.sd-name\[data-muted\][^}]*ink-3/);
   });
@@ -62,7 +82,7 @@ describe("the colour of a stage", () => {
     const light = src("access.css");
     const dark = src("theme/theme.css");
     const css = src("stageDonut.css");
-    expect(STAGE_HUES).toEqual(["slate", "blue", "teal", "green", "amber", "orange", "rose", "violet"]);
+    expect(STAGE_HUES).toEqual(["slate", ...PICKABLE_HUES]);
     for (const hue of STAGE_HUES) {
       expect(css).toContain(`.sd-arc[data-hue="${hue}"], .sd-name[data-hue="${hue}"] { --sd-mark: var(--stage-${hue}); --sd-text: var(--stage-${hue}-text); }`);
       for (const part of ["", "-text", "-soft", "-line"]) {
@@ -229,6 +249,14 @@ describe("the ring", () => {
     expect(html).toContain('<svg viewBox="0 0 40 40" aria-hidden="true"');
   });
 
+  it("draws a stage coloured with one of the nine newer colours in that colour in the ring, and the card has a rule for its name in the same colour", () => {
+    const stages = [st("s", "shortlisted", 2, null, "Shortlisted"), st("a", "outreach", 2, "sky", "Screen"), st("b", "interviewing", 1, "mint", "Panel"), st("c", "interviewing", 1, "brown", "Final"), st("h", "hired", 1, null, "Hired"), st("p", "passed", 1, null, "Rejected")];
+    const html = renderToStaticMarkup(<StageDonut stages={stages} size={104} />);
+    for (const hue of ["violet", "sky", "mint", "brown", "green"]) expect(html, hue).toContain(`class="sd-arc" data-hue="${hue}"`);
+    expect(arcsOf(stages).map((a) => a.hue)).toEqual(["violet", "sky", "mint", "brown", "green"]);
+    expect(src("stageDonut.css")).toContain('.sd-arc[data-hue="mint"], .sd-name[data-hue="mint"] { --sd-mark: var(--stage-mint); --sd-text: var(--stage-mint-text); }');
+  });
+
   it("is a dotted ring with the brand's spark in it when nobody is in the campaign yet, and a gentle 0 when it is small", () => {
     const html = renderToStaticMarkup(<StageDonut stages={defaultStages(CAMPAIGN_ROWS.find((r) => r.id === "fin-controller")!.funnel)} size={104} />);
     expect(html).toContain('aria-label="No one yet"');
@@ -244,10 +272,10 @@ describe("the ring", () => {
     expect(src("stageDonut.css")).toContain(".sd.is-lg[data-empty] .sd-track { stroke-dasharray: 0.1 2.4;");
   });
 
-  it("says how far an empty pipeline has got: needs a role spec, N found but none shortlisted, finding people, ready to start", () => {
+  it("says how far an empty pipeline has got: needs requirements, N found but none shortlisted, finding people, ready to start", () => {
     const none = { sourced: 0, shortlisted: 0, contacted: 0, replied: 0, interviews: 0, hired: 0 };
-    expect(startLine({ needs: "Role spec not approved", agents: [], funnel: none })).toBe("Needs a role spec");
-    expect(startLine({ needs: "Brief not finished", agents: ["Agent"], funnel: { ...none, sourced: 5 } })).toBe("Needs a role spec");
+    expect(startLine({ needs: "Requirements not approved", agents: [], funnel: none })).toBe("Needs requirements");
+    expect(startLine({ needs: "Brief not finished", agents: ["Agent"], funnel: { ...none, sourced: 5 } })).toBe("Needs requirements");
     // An approved spec with people found: say how many, whether or not a search is still running.
     expect(startLine({ needs: undefined, agents: [], funnel: { ...none, sourced: 30 } })).toBe("30 found, none shortlisted");
     expect(startLine({ needs: "2 open tasks", agents: ["Agent"], funnel: { ...none, sourced: 30 } })).toBe("30 found, none shortlisted");

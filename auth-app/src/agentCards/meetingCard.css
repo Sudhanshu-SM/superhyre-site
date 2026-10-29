@@ -27,7 +27,7 @@
 /* The free times inside the card. */
 .mt-slots { display: grid; gap: 6px; }
 .mt-slot-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
-.mt-slot { display: inline-flex; align-items: baseline; gap: 6px; height: 32px; padding: 0 14px; align-items: center; border: 1px solid var(--hairline); border-radius: var(--r-pill); background: var(--nav-surface); color: var(--ink); font: 500 13px/1 var(--ui); cursor: pointer; transition: background var(--t), border-color var(--t); }
+.mt-slot { display: inline-flex; align-items: baseline; gap: 6px; height: 32px; padding: 0 14px; align-items: center; border: 1px solid var(--hairline); border-radius: var(--r-pill); background: var(--nav-surface); color: var(--ink); font: 500 14px/1 var(--ui); cursor: pointer; transition: background var(--t), border-color var(--t); }
 .mt-slot:hover:not(:disabled) { background: var(--sub); }
 .mt-slot:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .mt-slot.is-picked { border-color: var(--btn-fill); }

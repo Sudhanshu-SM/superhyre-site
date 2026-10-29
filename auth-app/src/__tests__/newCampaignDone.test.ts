@@ -15,7 +15,7 @@ const said = "Set up a new campaign for a Data Analyst at Orchid Bank";
 describe("the card after Create, for a campaign made with a new client", () => {
   it("names the client that Create added, by its own id, where it said nobody", () => {
     // Before Create: the company is offered as a new client, named by the message.
-    const before = liveCampaignAnswers(said, { client: NEW_CLIENT }, getClients().clients);
+    const before = liveCampaignAnswers(said, { client: NEW_CLIENT });
     expect(newClientOf(before)).toBe("Orchid Bank");
     expect(campaignDraftFor(before, "Punith S", getClients().clients).clientId).toBe("");
 
@@ -23,7 +23,7 @@ describe("the card after Create, for a campaign made with a new client", () => {
     const made = saveClient(clientFromDraft({ ...EMPTY_DRAFT, name: "Orchid Bank", status: "prospect", owner: "Punith S" }, "cl-done"));
 
     // The same answers, now: the client is that one. (Before the fix newClientOf was "" and clientId "": "Internal hire".)
-    const after = liveCampaignAnswers(said, { client: NEW_CLIENT }, getClients().clients);
+    const after = liveCampaignAnswers(said, { client: NEW_CLIENT });
     expect(after.client).toBe(made.id);
     const d = campaignDraftFor(after, "Punith S", getClients().clients);
     expect(d.clientId).toBe(made.id);
@@ -31,7 +31,7 @@ describe("the card after Create, for a campaign made with a new client", () => {
   });
 
   it("is not changed for another answer, or for a company that is not in Clients", () => {
-    expect(newCampaignAnswers(said, { client: "none" }).client).toBe("none");
+    expect(newCampaignAnswers(said, { client: "cl-razorpay" }).client).toBe("cl-razorpay");
     expect(newCampaignAnswers("Set up a campaign for a Data Analyst at Quartz Mills", { client: NEW_CLIENT }).client).toBe(NEW_CLIENT);
   });
 });

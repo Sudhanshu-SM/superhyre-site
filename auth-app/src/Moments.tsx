@@ -737,7 +737,7 @@ const roleLine = (f: RoleFacts, source: "spec" | "setup" | "none") => {
     f.yearsMin ? `${f.yearsMin}+ years` : "",
     f.maxNoticeDays !== undefined ? (f.maxNoticeDays === 0 ? "Immediate joiners" : `Notice up to ${f.maxNoticeDays} days`) : "",
   ].filter(Boolean);
-  return `${source === "spec" ? "Role spec" : "Campaign"}: ${bits.join(", ") || "no must-haves yet"}`;
+  return `${source === "spec" ? "Requirements" : "Campaign"}: ${bits.join(", ") || "no must-haves yet"}`;
 };
 
 /** "Yes", or the first accepted choice and how many more. `range`: a run of three or more neighbouring choices reads "Immediate to 60 days". */
@@ -806,7 +806,7 @@ export function FormDraft({ ctx, live: given }: { ctx: MomentCtx; live?: LiveDra
   const clash = familyConflict(live.campaign, (a.family as Family) ?? "other");
   const phases: readonly Phase[] = useMemo(() => [
     {
-      id: "f-read", live: "Thinking…", done: given?.source === "spec" ? "Read the role spec" : "Read the campaign brief", ms: 900,
+      id: "f-read", live: "Thinking…", done: given?.source === "spec" ? "Read the requirements" : "Read the campaign brief", ms: 900,
       steps: [
         camp ? `${campName}: ${camp.department}, ${camp.location}` : "A new campaign, so I started from the role",
         ...(given?.facts ? [roleLine(given.facts, given.source)] : []),
@@ -824,7 +824,7 @@ export function FormDraft({ ctx, live: given }: { ctx: MomentCtx; live?: LiveDra
       /* Say back what the line became, so the recruiter sees it was used. */
       done: fromLine.length
         ? `Turned your line into ${fromLine.length} must-have${fromLine.length === 1 ? "" : "s"}: ${joinAnd(fromLine.map((m) => m.label))}`
-        : given?.source && given.source !== "none" ? `Marked ${m0} must-haves from the ${given.source === "spec" ? "role spec" : "campaign"}` : `Marked ${m0} must-haves`,
+        : given?.source && given.source !== "none" ? `Marked ${m0} must-haves from the ${given.source === "spec" ? "requirements" : "campaign"}` : `Marked ${m0} must-haves`,
       ms: 700,
       steps: mustHaves(made.form).map((q) => q.title),
       says: `Here's a first draft for ${campName}: ${n0} questions, about ${min0} minutes for a candidate. Must-haves flag a response for you to look at. Nobody is rejected automatically.${

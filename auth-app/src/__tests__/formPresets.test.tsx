@@ -136,7 +136,7 @@ describe("the form questions for a campaign that says what it is", () => {
     expect(stack).toMatchObject({ id: "form-sub", preset: "fullstack", presetNote: "from the role" });
     const ideal = ask("form", said, ctx({ family: "engineering", sub: "fullstack" }))!;
     expect(ideal).toMatchObject({ id: "form-ideal", preset: "" });
-    expect(ideal.input?.skipped).toBe("Using the role spec's must-haves");
+    expect(ideal.input?.skipped).toBe("Using the requirements' must-haves");
     expect(ideal.why).toContain("Go and Postgres");
     expect(ask("form", said, ctx({ family: "engineering", sub: "fullstack", ideal: "" }))).toBeNull();
   });
@@ -257,7 +257,7 @@ describe("a card that comes back after the form was answered", () => {
     expect(html).toContain("Engineering");
     expect(html).toContain("from the campaign");
     expect(html).toContain("Full-stack");
-    expect(html).toContain("Using the role spec&#x27;s must-haves");
+    expect(html).toContain("Using the requirements&#x27; must-haves");
     expect(html).toContain("THE FORM");
     expect(html).not.toContain("What kind of role is it?");
     expect(html).not.toContain("Which part of the stack?");

@@ -1,3 +1,4 @@
+import type { Adding, AddingGroup } from "../attachContract";
 import { api } from "./client";
 
 /** Shapes from the API's agent, matching and sourcing modules (server/src/modules/{agent,matching,sourcing}). */
@@ -7,6 +8,8 @@ export type Conversation = {
   title: string | null;
   focusCampaignId: string | null;
   focusCampaignName?: string | null;
+  /** What the chat is for besides being a chat: "daily_search" for the one the daily search keeps for a campaign; null for every other. */
+  kind?: "daily_search" | null;
   lastMessage?: string | null;
   updatedAt: string;
   /** Set on a chat somebody else had about a campaign this person can see: whose it is. Read only. */
@@ -488,11 +491,16 @@ export function onDecision(fn: (campaignId: string) => void): () => void {
 }
 const told = (campaignId: string) => { for (const fn of decided) fn(campaignId); };
 
+/** What the person chose to add from the paperclip: the choice itself, never worked out from the words. `id` keys the cards' files. One definition, shared with the server (attachContract.ts). */
+export type { Adding, AddingGroup };
+
 /**
  * What a button asks for in code, beside its words: the invitation for one person at a time picked on the free-times
  * card (`book`), or free times for one person (`times`). The server does it without reading the words as a question.
  */
 export type Structured = {
+  /** The paperclip's choice, file by file. Sheets of people and of roles are answered with their cards, in code. */
+  adding?: Adding;
   book?: { campaignCandidateId: string; startsAt: string; endsAt: string };
   times?: { campaignCandidateId: string };
   /** The card that gets this person's email, asked for in code. */
@@ -503,6 +511,10 @@ export type Structured = {
 
 export const agentApi = {
   conversations: () => api<{ conversations: Conversation[] }>("GET", "/v1/conversations"),
+  /** Whether the daily search is switched on for this server (it is shown, and asked about, only then). */
+  dailySearch: () => api<{ on: boolean }>("GET", "/v1/daily-search"),
+  /** What this server does that the composer leans on. `adding`: a message may carry the paperclip's choice; an older server drops it and answers a fixed phrase with a bare picker. */
+  capabilities: () => api<{ adding?: boolean }>("GET", "/v1/agent/capabilities"),
   /** The chats other people had about a campaign this person can see (read only), newest first. */
   sharedChats: (campaignId: string) =>
     api<{ conversations: Conversation[] }>("GET", `/v1/conversations?others=true&campaign=${campaignId}`),
@@ -602,7 +614,7 @@ export const specApi = {
   draft: (campaignId: string, jdText?: string) =>
     api<SpecRow>("POST", `/v1/campaigns/${campaignId}/spec/draft`, jdText ? { jdText } : {}),
   draftFromFile: (campaignId: string, file: File) =>
-    api<SpecRow>("POST", `/v1/campaigns/${campaignId}/spec/draft-from-file`, file, {
+    api<SpecRow>("POST", `/v1/campaigns/${campaignId}/spec/draft-from-file?name=${encodeURIComponent(file.name)}`, file, {
       headers: { "content-type": file.type || "application/octet-stream" },
     }),
   save: (campaignId: string, spec: RoleSpec) => api<SpecRow>("PUT", `/v1/campaigns/${campaignId}/spec`, { spec }),
@@ -623,6 +635,8 @@ export type ReadFile = {
   pages: number;
   kind: "job_description" | "resume" | "document";
   truncated: boolean;
+  /** Read off a picture (a photo, a scan). Absent from an older server. */
+  picture?: boolean;
 };
 
 export const attachmentApi = {

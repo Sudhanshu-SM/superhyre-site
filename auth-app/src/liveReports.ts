@@ -572,7 +572,7 @@ const LINES: readonly { kind: EventKind; group: ReceiptGroup["id"]; label: strin
   { kind: "search", group: "search", label: "Searches run" },
   { kind: "found", group: "search", label: "People found" },
   { kind: "shortlisted", group: "search", label: "Added to the shortlist" },
-  { kind: "spec", group: "search", label: "Role specs written" },
+  { kind: "spec", group: "search", label: "Requirements written" },
   { kind: "drafted", group: "messages", label: "Emails drafted", mark: "gmail" },
   { kind: "sent", group: "messages", label: "Emails sent", mark: "gmail" },
   { kind: "contacted", group: "messages", label: "Moved to outreach" },

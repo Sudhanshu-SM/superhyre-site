@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { NESTED_SHOWN, RECENTS_BATCH, agoLabel, arrangeRail, searchChats, type RailChat } from "../chatGroups";
+import { NESTED_SHOWN, RECENTS_BATCH, agoLabel, arrangeRail, railChatOf, searchChats, type RailChat } from "../chatGroups";
 import { pinKey } from "../chatPins";
 
 const chat = (id: string, over: Partial<RailChat> = {}): RailChat => ({
@@ -101,10 +101,87 @@ describe("arranging the chat list: pinned, then recents", () => {
   });
 });
 
+describe("a campaign's daily search chat in the list", () => {
+  const A = { campaignId: "A", campaignName: "Senior Data Scientist" };
+  const chats = [
+    chat("a-new", { ...A, at: 500 }),
+    chat("a-daily", { ...A, at: 100, daily: true, title: "Daily search" }),
+    chat("a-mid", { ...A, at: 300 }),
+    chat("b-new", { campaignId: "B", campaignName: "Frontend Engineer", at: 400 }),
+    chat("b-daily", { campaignId: "B", campaignName: "Frontend Engineer", at: 50, daily: true, title: "Daily search" }),
+    chat("b-old", { campaignId: "B", campaignName: "Frontend Engineer", at: 20 }),
+  ];
+
+  it("is the first of the selected campaign's chats whatever the times, and the others stay newest first", () => {
+    const { selected } = arrangeRail(chats, [], campaigns, { id: "A", name: "Senior Data Scientist" });
+    expect(selected?.chats.map((c) => c.id)).toEqual(["a-daily", "a-new", "a-mid"]);
+  });
+
+  it("is the first of a pinned campaign's chats whatever the times, and the others stay newest first", () => {
+    const { pinned } = arrangeRail(chats, [pinKey("campaign", "B")], campaigns);
+    const block = pinned[0]!;
+    expect(block.kind === "campaign" && block.chats.map((c) => c.id)).toEqual(["b-daily", "b-new", "b-old"]);
+  });
+
+  it("is still first, and counted among them, when the campaign has more chats than are shown under it (the rail shows the first NESTED_SHOWN)", () => {
+    const many = Array.from({ length: NESTED_SHOWN + 3 }, (_, i) => chat(`n${i}`, { ...A, at: 1000 + i }));
+    const { selected } = arrangeRail([...many, chats[1]!], [], campaigns, { id: "A", name: "Senior Data Scientist" });
+    expect(selected?.chats[0]?.id).toBe("a-daily");
+    expect(selected?.chats).toHaveLength(NESTED_SHOWN + 4);
+    // The newest of the others follow it, so the rail's cut falls on the oldest, as it does without a daily chat.
+    expect(selected?.chats.slice(1, NESTED_SHOWN).map((c) => c.id)).toEqual([...many].reverse().slice(0, NESTED_SHOWN - 1).map((c) => c.id));
+  });
+
+  it("is shown where it was pinned when it is pinned on its own, and not repeated under its campaign or in Recents", () => {
+    const { selected, pinned, recents } = arrangeRail(chats, [pinKey("chat", "a-daily")], campaigns, { id: "A", name: "Senior Data Scientist" });
+    expect(pinned.map((p) => (p.kind === "chat" ? p.chat.id : p.id))).toEqual(["a-daily"]);
+    expect(selected?.chats.map((c) => c.id)).toEqual(["a-new", "a-mid"]);
+    expect(recents.map((c) => c.id)).not.toContain("a-daily");
+  });
+
+  it("does not lift its campaign among the pinned ones: the agent writes in it every morning, and that is not the person's attention", () => {
+    const morning = [
+      chat("a1", { ...A, at: 100 }),
+      chat("a-daily", { ...A, at: 900, daily: true, title: "Daily search" }),
+      chat("b1", { campaignId: "B", campaignName: "Frontend Engineer", at: 500 }),
+    ];
+    const { pinned } = arrangeRail(morning, [pinKey("campaign", "A"), pinKey("campaign", "B")], campaigns);
+    expect(pinned.map((p) => (p.kind === "chat" ? p.chat.id : p.id))).toEqual(["B", "A"]);
+    // (without its daily chat the order is the same: it is the person's own chats that order them)
+    const { pinned: without } = arrangeRail(morning.filter((c) => !c.daily), [pinKey("campaign", "A"), pinKey("campaign", "B")], campaigns);
+    expect(without.map((p) => (p.kind === "chat" ? p.chat.id : p.id))).toEqual(["B", "A"]);
+  });
+
+  it("leaves a campaign that has only a daily chat last among the pinned, in the order it was pinned", () => {
+    const only = [chat("a-daily", { ...A, at: 900, daily: true, title: "Daily search" }), chat("b1", { campaignId: "B", campaignName: "Frontend Engineer", at: 5 })];
+    const { pinned } = arrangeRail(only, [pinKey("campaign", "A"), pinKey("campaign", "B")], campaigns);
+    expect(pinned.map((p) => (p.kind === "chat" ? p.chat.id : p.id))).toEqual(["B", "A"]);
+  });
+
+  it("stays in Recents, where every chat is, in its place by time, and a search finds it by its campaign", () => {
+    const { recents } = arrangeRail(chats, [], campaigns, { id: "A", name: "Senior Data Scientist" });
+    expect(recents.map((c) => c.id)).toEqual(["a-new", "b-new", "a-mid", "a-daily", "b-daily", "b-old"]);
+    expect(searchChats(chats, "frontend").map((c) => c.id)).toContain("b-daily");
+  });
+
+  it("is a chat of the person's own that the server calls daily_search, and nobody else's, from the row the server sends", () => {
+    const row = { id: "c1", title: "Daily search", focusCampaignId: "A", focusCampaignName: "Senior Data Scientist", updatedAt: "2026-10-30T07:00:00.000Z", lastMessage: "5 new people" };
+    expect(railChatOf({ ...row, kind: "daily_search" }, "Daily search")).toMatchObject({
+      id: "c1", title: "Daily search", campaignId: "A", campaignName: "Senior Data Scientist", at: Date.parse(row.updatedAt), last: "5 new people", daily: true,
+    });
+    // An ordinary chat, a server that sends no kind, and a colleague's daily chat (read like any chat of theirs) are not drawn as one.
+    expect(railChatOf({ ...row, kind: null }, "A chat")).not.toHaveProperty("daily");
+    expect(railChatOf(row, "A chat")).not.toHaveProperty("daily");
+    const theirs = railChatOf({ ...row, kind: "daily_search", ownerName: "Ravi Iyer" }, "Daily search");
+    expect(theirs).not.toHaveProperty("daily");
+    expect(theirs.ownerName).toBe("Ravi Iyer");
+  });
+});
+
 describe("searching the history", () => {
   const chats = [
     chat("1", { title: "Find people in Pune", campaignName: "Technical Consultant", at: 2 }),
-    chat("2", { title: "Role spec", campaignName: "Frontend Engineer", last: "make it remote", at: 1 }),
+    chat("2", { title: "Requirements", campaignName: "Frontend Engineer", last: "make it remote", at: 1 }),
   ];
   it("matches a title, a campaign name or what was last said, newest first", () => {
     expect(searchChats(chats, "pune").map((c) => c.id)).toEqual(["1"]);

@@ -1,7 +1,9 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { ConversationDetail } from "../api/agent";
 import type { RunEvent } from "../api/events";
-import { applyEvent, claim, fromDetail, newTurn, openingOf } from "../liveChat";
+import { applyEvent, chatToOpenFor, claim, fromDetail, newTurn, openingOf } from "../liveChat";
 import type { ChatState } from "../liveChat";
 
 let nextId = 0;
@@ -169,5 +171,51 @@ describe("the thought line", () => {
     expect(thoughtLabel(48_200)).toBe("Thought for 48s");
     expect(thoughtLabel(125_000)).toBe("Thought for 2m 5s");
     expect(thoughtLabel(-5)).toBe("Thought for 0.0s");
+  });
+});
+
+describe("the files a message added", () => {
+  const detail = (artifact: Record<string, unknown> | null): ConversationDetail => ({
+    conversation: { id: "c1", title: null, updatedAt: "2026-10-29T12:00:00Z", focusCampaignId: null } as never,
+    messages: [{ id: "m1", seq: 1, role: "user", text: "Add the people in leads.xlsx", clientId: "k1", runId: "r1", campaignIds: [], createdAt: "2026-10-29T12:00:00Z", artifact }],
+    runs: [],
+    eventCursor: 1,
+  });
+
+  it("come back with the chat after a reload: by name, what each was chosen as, and what it held", () => {
+    const [turn] = fromDetail(detail({ kind: "adding", files: [{ name: "leads.xlsx", scope: "candidates", detail: "61 people" }] })).turns;
+    expect(turn?.said).toBe("Add the people in leads.xlsx");
+    expect(turn?.added).toEqual([{ name: "leads.xlsx", scope: "candidates", detail: "61 people" }]);
+  });
+
+  it("are none for an ordinary message, a button's words or a file kind this page does not know", () => {
+    expect(fromDetail(detail(null)).turns[0]?.added).toBeUndefined();
+    expect(fromDetail(detail({ kind: "action", label: "Find more people" })).turns[0]?.added).toBeUndefined();
+    expect(fromDetail(detail({ kind: "adding", files: [{ name: "x", scope: "everything" }] })).turns[0]?.added).toBeUndefined();
+  });
+
+  it("go out one message after another from one Send, the chat started by the first", () => {
+    const chat = readFileSync(resolve(__dirname, "../liveChat.ts"), "utf8");
+    expect(chat).toContain("for (const [i, p] of parts.entries()) await deliver(keys[i]!, p.text, p.campaignId, false, p.quiet, p.structured);");
+    expect(chat).toContain("export function sendMessages(");
+  });
+});
+
+describe("the chat a campaign's task opens into", () => {
+  const row = (id: string, over: Partial<Parameters<typeof chatToOpenFor>[0][number]> = {}) => ({
+    id, focusCampaignId: "A", kind: null, updatedAt: "2026-10-29T10:00:00.000Z", ...over,
+  });
+
+  it("is the latest of the person's chats about the campaign", () => {
+    const list = [row("old", { updatedAt: "2026-10-27T10:00:00.000Z" }), row("new"), row("other", { focusCampaignId: "B", updatedAt: "2026-10-30T10:00:00.000Z" })];
+    expect(chatToOpenFor(list, "A")?.id).toBe("new");
+    expect(chatToOpenFor(list, "C")).toBeUndefined();
+  });
+
+  it("is never the campaign's daily search chat, though the agent's morning post made it the newest: what the person asks would land among the findings", () => {
+    const list = [row("worked-in", { updatedAt: "2026-10-29T10:00:00.000Z" }), row("daily", { kind: "daily_search", updatedAt: "2026-10-30T07:00:00.000Z" })];
+    expect(chatToOpenFor(list, "A")?.id).toBe("worked-in");
+    // With nothing else about the campaign there is nothing to open into: the page starts a new chat for it.
+    expect(chatToOpenFor([list[1]!], "A")).toBeUndefined();
   });
 });

@@ -15,6 +15,15 @@
 .cw-board .cw-col[data-sc="orange"] { --stage: var(--stage-orange); --stage-soft: var(--stage-orange-soft); --stage-mid: var(--stage-orange-line); --stage-ink: var(--stage-orange-text); }
 .cw-board .cw-col[data-sc="rose"] { --stage: var(--stage-rose); --stage-soft: var(--stage-rose-soft); --stage-mid: var(--stage-rose-line); --stage-ink: var(--stage-rose-text); }
 .cw-board .cw-col[data-sc="violet"] { --stage: var(--stage-violet); --stage-soft: var(--stage-violet-soft); --stage-mid: var(--stage-violet-line); --stage-ink: var(--stage-violet-text); }
+.cw-board .cw-col[data-sc="sky"] { --stage: var(--stage-sky); --stage-soft: var(--stage-sky-soft); --stage-mid: var(--stage-sky-line); --stage-ink: var(--stage-sky-text); }
+.cw-board .cw-col[data-sc="indigo"] { --stage: var(--stage-indigo); --stage-soft: var(--stage-indigo-soft); --stage-mid: var(--stage-indigo-line); --stage-ink: var(--stage-indigo-text); }
+.cw-board .cw-col[data-sc="plum"] { --stage: var(--stage-plum); --stage-soft: var(--stage-plum-soft); --stage-mid: var(--stage-plum-line); --stage-ink: var(--stage-plum-text); }
+.cw-board .cw-col[data-sc="pink"] { --stage: var(--stage-pink); --stage-soft: var(--stage-pink-soft); --stage-mid: var(--stage-pink-line); --stage-ink: var(--stage-pink-text); }
+.cw-board .cw-col[data-sc="red"] { --stage: var(--stage-red); --stage-soft: var(--stage-red-soft); --stage-mid: var(--stage-red-line); --stage-ink: var(--stage-red-text); }
+.cw-board .cw-col[data-sc="yellow"] { --stage: var(--stage-yellow); --stage-soft: var(--stage-yellow-soft); --stage-mid: var(--stage-yellow-line); --stage-ink: var(--stage-yellow-text); }
+.cw-board .cw-col[data-sc="lime"] { --stage: var(--stage-lime); --stage-soft: var(--stage-lime-soft); --stage-mid: var(--stage-lime-line); --stage-ink: var(--stage-lime-text); }
+.cw-board .cw-col[data-sc="mint"] { --stage: var(--stage-mint); --stage-soft: var(--stage-mint-soft); --stage-mid: var(--stage-mint-line); --stage-ink: var(--stage-mint-text); }
+.cw-board .cw-col[data-sc="brown"] { --stage: var(--stage-brown); --stage-soft: var(--stage-brown-soft); --stage-mid: var(--stage-brown-line); --stage-ink: var(--stage-brown-text); }
 
 /* The strip over the board: one segment per stage. */
 .pl-jseg[data-sc="blue"] { background: var(--stage-blue); }
@@ -24,6 +33,15 @@
 .pl-jseg[data-sc="orange"] { background: var(--stage-orange); }
 .pl-jseg[data-sc="rose"] { background: var(--stage-rose); }
 .pl-jseg[data-sc="violet"] { background: var(--stage-violet); }
+.pl-jseg[data-sc="sky"] { background: var(--stage-sky); }
+.pl-jseg[data-sc="indigo"] { background: var(--stage-indigo); }
+.pl-jseg[data-sc="plum"] { background: var(--stage-plum); }
+.pl-jseg[data-sc="pink"] { background: var(--stage-pink); }
+.pl-jseg[data-sc="red"] { background: var(--stage-red); }
+.pl-jseg[data-sc="yellow"] { background: var(--stage-yellow); }
+.pl-jseg[data-sc="lime"] { background: var(--stage-lime); }
+.pl-jseg[data-sc="mint"] { background: var(--stage-mint); }
+.pl-jseg[data-sc="brown"] { background: var(--stage-brown); }
 
 /* The strip over the board: one slim bar, a segment per stage in its colour sized by who is in it, and one quiet line
    under it. A stage's name and count show on hover or focus. An empty pipeline is a faint bar. */
@@ -109,6 +127,15 @@ html .ov2-bar[data-sc="amber"] .ov2-bar-col i { background: var(--stage-amber); 
 html .ov2-bar[data-sc="orange"] .ov2-bar-col i { background: var(--stage-orange); box-shadow: none; }
 html .ov2-bar[data-sc="rose"] .ov2-bar-col i { background: var(--stage-rose); box-shadow: none; }
 html .ov2-bar[data-sc="violet"] .ov2-bar-col i { background: var(--stage-violet); box-shadow: none; }
+html .ov2-bar[data-sc="sky"] .ov2-bar-col i { background: var(--stage-sky); box-shadow: none; }
+html .ov2-bar[data-sc="indigo"] .ov2-bar-col i { background: var(--stage-indigo); box-shadow: none; }
+html .ov2-bar[data-sc="plum"] .ov2-bar-col i { background: var(--stage-plum); box-shadow: none; }
+html .ov2-bar[data-sc="pink"] .ov2-bar-col i { background: var(--stage-pink); box-shadow: none; }
+html .ov2-bar[data-sc="red"] .ov2-bar-col i { background: var(--stage-red); box-shadow: none; }
+html .ov2-bar[data-sc="yellow"] .ov2-bar-col i { background: var(--stage-yellow); box-shadow: none; }
+html .ov2-bar[data-sc="lime"] .ov2-bar-col i { background: var(--stage-lime); box-shadow: none; }
+html .ov2-bar[data-sc="mint"] .ov2-bar-col i { background: var(--stage-mint); box-shadow: none; }
+html .ov2-bar[data-sc="brown"] .ov2-bar-col i { background: var(--stage-brown); box-shadow: none; }
 .ov2-bar[data-sc] .ov2-bar-l { white-space: normal; overflow-wrap: break-word; text-align: center; max-width: 100%; }
 /* A bar's caption stays inside its own column (an ellipsis, not a run over the next bar's), and the card never grows
    past its grid cell, so the funnel scrolls inside the card instead of pushing under the chart beside or below it. */

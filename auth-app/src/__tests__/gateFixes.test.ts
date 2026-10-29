@@ -7,9 +7,9 @@ import { unreachedLine } from "../Outreach";
 import { loadFailedText } from "../ui";
 
 describe("what a new campaign says once saved", () => {
-  it("never claims a search started before there is a role spec", () => {
+  it("never claims a search started before there are requirements", () => {
     expect(createdMessage({ name: "Data Lead" })).toBe(
-      "Data Lead created. Approve its role spec and the search starts.",
+      "Data Lead created. Approve its requirements and the search starts.",
     );
   });
 });

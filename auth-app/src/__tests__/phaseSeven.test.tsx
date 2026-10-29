@@ -66,7 +66,7 @@ describe("what cannot be changed, in one look", () => {
     expect(block).toMatch(/color: var\(--ink-3\); background: transparent; border-color: var\(--hairline\);/);
   });
 
-  it("is on a read-only role spec and on a person's stage buttons when they cannot be used, with aria-disabled", async () => {
+  it("is on read-only requirements and on a person's stage buttons when they cannot be used, with aria-disabled", async () => {
     const { SpecEditor } = await import("../agentCards/SpecEditor");
     const spec = { title: "Backend Engineer", seniority: null, yearsMin: 4, locations: ["Pune"], remoteOk: true, avoid: [], requirements: [{ id: "r1", kind: "skill", text: "Go", importance: "must", weight: 0.8 }] } as never;
     const html = renderToStaticMarkup(<SpecEditor spec={spec} onChange={() => undefined} readOnly />);

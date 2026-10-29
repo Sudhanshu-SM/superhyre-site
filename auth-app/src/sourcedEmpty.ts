@@ -22,16 +22,16 @@ export function sourcedEmptyWords(facts: SearchFacts | null, searched: boolean, 
   }
   if (facts.spec === "none") {
     return {
-      title: "No role spec yet",
-      body: "The role spec says who fits. Draft it first, and then the agent can look for people.",
-      cta: offer("Draft the role spec", "draftSpec"),
+      title: "No requirements yet",
+      body: "The requirements say who fits. Draft them first, and then the agent can look for people.",
+      cta: offer("Draft the requirements", "draftSpec"),
     };
   }
   if (facts.spec === "draft") {
     return {
-      title: "The role spec is waiting for approval",
-      body: "Approve it and the agent starts looking for people.",
-      cta: offer("Review the role spec", "approveSpec"),
+      title: "The requirements are waiting for approval",
+      body: "Approve them and the agent starts looking for people.",
+      cta: offer("Review the requirements", "approveSpec"),
     };
   }
   if (facts.running) {
@@ -44,7 +44,7 @@ export function sourcedEmptyWords(facts: SearchFacts | null, searched: boolean, 
   if (!searched) {
     return {
       title: "Ready to look for people",
-      body: "The role spec is approved. Start a search and the people found land here, best fit first, for you to review.",
+      body: "The requirements are approved. Start a search and the people found land here, best fit first, for you to review.",
       cta: offer("Find people", "find"),
     };
   }

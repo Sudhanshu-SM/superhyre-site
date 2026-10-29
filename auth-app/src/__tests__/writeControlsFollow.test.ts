@@ -98,7 +98,9 @@ describe("the surfaces that change a campaign ask it", () => {
     expect(sheet).toContain("const may = useMayChangeCampaign(row.campaignId ?? null);");
     expect(sheet).toContain("const canFollowUp = may && Boolean(onAgent)");
     expect(sheet).toContain("const canLog = may && Boolean(onLogCall)");
-    expect(source("CampaignWorkspace.tsx")).toContain("&& mayChangeCampaign(session, row);");
+    // Change client: anyone on the campaign sets a client while it has none; changing one it has is the owner's or an admin's.
+    expect(source("CampaignWorkspace.tsx")).toContain("const canClient = mayChangeCampaignClient(session, row, !!client);");
+    expect(source("CampaignWorkspace.tsx")).toContain("const mayChange = mayChangeCampaign(session, row);");
   });
 
   it("a stage that cannot be changed looks it: aria-disabled, muted, no hover", () => {

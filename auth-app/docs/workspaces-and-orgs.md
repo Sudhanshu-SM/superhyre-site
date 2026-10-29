@@ -92,14 +92,16 @@ How it is held together:
 - **Clients.** The Clients area is the owner's and admins'. A recruiter reads (never changes) the clients of the campaigns they
   can see, without the agency's fee, notes or activity. Quick find still leaves clients out for them. A recruiter who owns a
   campaign may set its client only to one they can see (a client of a campaign they own, are on, or that is shared with the
-  organisation); any other id answers like a client that is not there.
+  organisation); any other id answers like a client that is not there. Every campaign has a client (29 Oct): a recruiter who has none to
+  pick names the company (`newClient`, with the campaign or later while the campaign has none), which is the workspace's client of that name
+  (even one they could not see) or a new active one owned by them. Adding and editing clients on the Clients page stays an admin's.
 - **Campaigns.** Seeing a campaign shared with the organisation is not being on it (decided 13 Oct 2026, option B: narrow).
   A recruiter who can see one and is not on it (not its owner, not on its team, not an owner or admin) **keeps the board's
   collaborative work** and **may not write the brief or spend the workspace's credits**:
 
   | Open to anyone who can see the campaign | Needs being on it (its owner, a member, or an owner or admin) |
   |---|---|
-  | add people, move them, pass, shortlist, save to Candidates, notes, outreach drafts and the emails that follow (including the free email lookup that sending one needs), tasks, forms, exports, reading everything | writing, drafting, uploading or approving the role spec; starting a search ("Find people", "Find N more"), approving the spec with matching, ranking again; starting, pausing, resuming or stopping a keep-sourcing watch; **getting contact details** (a campaign's, a named campaign's, or "all campaigns", which then means the ones they are on); the campaign's settings and brief (`PATCH /campaigns/:id`, the pasted job description) |
+  | add people, move them, pass, shortlist, save to Candidates, notes, outreach drafts and the emails that follow (including the free email lookup that sending one needs), tasks, forms, exports, reading everything (the search history too) | writing, drafting, uploading or approving the role spec; starting a search ("Find people", "Find N more"), approving the spec with matching, ranking again; starting, pausing, resuming or stopping a keep-sourcing watch (a daily search's watches too); putting a search change back (Undo in the Search history); putting people on the stages a sheet's status words say (`POST /campaigns/:id/place`, which also needs the campaign open); **getting contact details** (a campaign's, a named campaign's, or "all campaigns", which then means the ones they are on); the campaign's settings and brief (`PATCH /campaigns/:id`, the pasted job description) |
 
   Otherwise 403 "Only the people on this campaign can change it. Ask its owner or an admin to add you." Closing and reopening, the
   team, the owner, the client and visibility keep their own rules ("Only an admin or the campaign's owner can close or reopen
@@ -107,10 +109,11 @@ How it is held together:
   the recruiter can open.
   - **One guard.** `requireOnCampaign` (`server/src/modules/pipeline/service.ts`, with `isOnCampaign` and
     `campaignsOnTeam`) is asked by each service that does one of those things (`matching` draft, edit and approve of a spec,
-    `sourcing` start, rank again and the watch, `contacts` fetch, `campaigns` update and the pasted job description), so
-    every HTTP route, every agent capability (card preview and run), the chat's own commands ("find more", "score them
-    again", "keep looking", "stop the watch": one calm line, no model turn, no card) and a stale approval all meet it. Not
-    seeing the campaign at all still answers as before (404, or "You're not on this campaign." for a private one).
+    `sourcing` start, rank again and the watch, `contacts` fetch, `campaigns` update, the pasted job description, the search
+    history's Undo and the sheet place route), so every HTTP route, every agent capability (card preview and run), the
+    chat's own commands ("find more", "score them again", "keep looking", "stop the watch": one calm line, no model turn,
+    no card) and a stale approval all meet it. Not seeing the campaign at all still answers as before (404, or "You're not
+    on this campaign." for a private one).
   - **The console draws no such control for them** and says why once: "You can follow this campaign. Ask its owner to add you
     to change the role spec or start a search." (`FOLLOWING_LINE`, `src/campaignRights.ts`, the same rule as `isAssigned`):
     the role spec is read-only, the agents panel offers no search or watch, the search card and "Find N more" are not drawn,
@@ -118,7 +121,16 @@ How it is held together:
   - **Proved:** `server/test/off-team-guard.test.ts` lists every write route of `matching`, `sourcing` and `contacts` (a new
     one fails it until it is decided) and every agent capability of the family, and puts a recruiter who follows a campaign,
     one who is on its team, its owner, an admin and the organisation's owner through each; the console's side is
-    `src/__tests__/followingCampaign.test.tsx`.
+    `src/__tests__/followingCampaign.test.tsx`. The Search history's Undo and the sheet place route are in
+    `server/test/campaign-write-matrix.test.ts`, and `server/test/search-history.test.ts` shows a follower the history while
+    only the people on the campaign can put a change back.
+  - **The daily search** (`plans/daily-search.md`) holds only campaigns its owner may change (`campaignsOnTeam`: an owner or
+    admin every open campaign, a recruiter the ones they own, are a member of or whose team they are on), checked in the
+    question's list, the card, its yes, every reconcile and every tick; seeing a followed campaign is not enough, and a
+    campaign's name never reaches a person who may not change it. There is one search for each person and a campaign belongs
+    to at most one. An owner or admin sees the other people's searches (`GET /v1/daily-search/all`: counts, never campaign
+    names) and can pause or resume one (`PATCH /v1/daily-search/:id`; its owner is told, with the admin's name); they cannot
+    start one for another person.
 - **Calls.** One helper decides (`server/src/modules/calls/scope.ts`, `callsVisible`): an owner or admin sees every call in the
   organisation, a recruiter the calls they placed, a Personal workspace its person's own; a call that is not yours answers
   the 404 of an id that is not there. A recruiter's own call about a candidate they can no longer see stays theirs (its

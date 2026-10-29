@@ -9,7 +9,7 @@ import { jdQuestion } from "../clarify";
  * card (paste, upload, or later) and the draft starts from what is given. Nothing is sent to the agent.
  */
 
-describe("Draft the role spec", () => {
+describe("Draft the requirements", () => {
   it("drafts at once from the job description the campaign has, and asks for one on the card when it has none", () => {
     expect(onDraftPress(true, "idle")).toBe("draft");
     expect(onDraftPress(false, "idle")).toBe("ask");
@@ -31,7 +31,7 @@ describe("Draft the role spec", () => {
     expect(jdQuestion("x").document).toMatchObject({ min: 40 });
   });
 
-  it("stands the role spec card in place, reading the job description, and says how it stopped", () => {
+  it("stands the requirements card in place, reading the job description, and says how it stopped", () => {
     expect(specCardFor("c1", "Senior Backend Engineer", true)).toMatchObject({ key: "role_spec:c1", status: "drafting", spec: null, trouble: null });
     expect(specCardFor("c1", "Senior Backend Engineer", false, "That job description was too short.")).toMatchObject({
       status: "ready", trouble: "That job description was too short.",

@@ -1,0 +1,14 @@
+/* The time under a message in a chat (ChatTime.tsx): small, quiet, and never in the way. Under the person's own message it
+   sits at the right, where the bubble ends; under the agent's answer, at the left, after everything the answer holds. */
+.rep-time {
+  display: block;
+  font: 400 12px/1 var(--ui);
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--ink-3);
+}
+.rep-time:hover { color: var(--ink-2); }
+.rep-time-user { margin: -4px 6px 10px 0; text-align: right; }
+.rep-time-reply { margin-top: -2px; }
+.shc-time { margin: 4px 4px 0 0; text-align: right; }

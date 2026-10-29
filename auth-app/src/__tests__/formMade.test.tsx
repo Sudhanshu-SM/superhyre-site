@@ -205,7 +205,7 @@ describe("the card, left and come back to", () => {
     );
     expect(html).toContain("Opening the form");
     expect(html).not.toContain("What kind of role is it?");
-    expect(html).not.toContain("Reading the role spec");
+    expect(html).not.toContain("Reading the requirements");
   });
 
   it("opens on a form the agent made itself (create_form names it in the card), never asking for one to be drafted", async () => {
@@ -224,7 +224,7 @@ describe("the card, left and come back to", () => {
     );
     expect(html).toContain("Opening the form");
     expect(html).not.toContain("What kind of role is it?");
-    expect(html).not.toContain("Reading the role spec");
+    expect(html).not.toContain("Reading the requirements");
   });
 
   it("waits for the campaign's role before replaying a half-answered card, so the answers are found as they were", async () => {
@@ -237,7 +237,7 @@ describe("the card, left and come back to", () => {
         <FormView card={{ kind: "view", key: "view:form:k-wait:", view: "form", campaignId: "k-wait", campaignName: "Software Engineer", candidateIds: [], personIds: [], query: null }} ctx={ctx} />
       </TurnContext.Provider>,
     );
-    expect(html).toContain("Reading the role spec");
+    expect(html).toContain("Reading the requirements");
     expect(html).not.toContain("What kind of role is it?");
   });
 });

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { agentApi, type ChatMessage, type ConversationDetail } from "./api/agent";
 import type { RunEvent } from "./api/events";
 import { applyEvent, fromDetail, type LiveTurn } from "./liveChat";
+import { ChatTime } from "./ChatTime";
 import { LiveTurnBody } from "./LiveTurn";
 import { Prose } from "./ReplyProse";
 import "./shared-chat.css";
@@ -22,6 +23,17 @@ type State =
 /** What an admin is sent of the chat (its runs' events) folded into turns, as the person who had it saw them: cards and all. */
 const turnsOf = (d: ConversationDetail): readonly LiveTurn[] =>
   d.events?.length ? (d.events as unknown as RunEvent[]).reduce(applyEvent, fromDetail(d)).turns : [];
+
+/**
+ * One message of somebody else's chat as the words-only view draws it (what everyone but an admin is sent): the person's own
+ * words in their bubble, the agent's answer as text, a card as a line saying so, and when it was said, as in the person's own chat.
+ */
+export function SharedMessage({ message: m, who }: { message: ChatMessage; who: string }) {
+  const at = Date.parse(m.createdAt);
+  if (m.role === "user") return <><p className="shc-said">{m.text}</p><ChatTime at={at} className="shc-time" /></>;
+  if (m.text) return <><div className="shc-reply"><Prose text={m.text} /></div><ChatTime at={at} className="rep-time-reply" /></>;
+  return <p className="shc-card">The agent answered with a card. {who.split(" ")[0]} can show it to you in the campaign.</p>;
+}
 
 export function SharedChat({ view, onStartOwn, onClose }: { view: SharedView; onStartOwn: () => void; onClose: () => void }) {
   const [state, setState] = useState<State>({ status: "loading" });
@@ -55,21 +67,16 @@ export function SharedChat({ view, onStartOwn, onClose }: { view: SharedView; on
         {state.status === "ready" && state.turns.length > 0 && state.turns.map((t, i) => (
           <div key={t.key} className="shc-turn">
             {t.said && <p className="shc-said">{t.said}</p>}
+            {t.said && <ChatTime at={t.startedAt} className="shc-time" />}
             {/* Drawn as the person saw it, for reading only: nothing in it can be pressed or answered here. */}
             <div className="shc-cards" {...({ inert: "" } as object)}>
-              <LiveTurnBody turn={t} onAnswer={() => {}} later={state.turns.slice(i + 1)} />
+              <LiveTurnBody turn={t} onAnswer={() => {}} later={state.turns.slice(i + 1)} readOnly />
             </div>
           </div>
         ))}
-        {state.status === "ready" && state.turns.length === 0 && state.messages.map((m) =>
-          m.role === "user" ? (
-            <p key={m.id} className="shc-said">{m.text}</p>
-          ) : m.text ? (
-            <div key={m.id} className="shc-reply"><Prose text={m.text} /></div>
-          ) : (
-            <p key={m.id} className="shc-card">The agent answered with a card. {who.split(" ")[0]} can show it to you in the campaign.</p>
-          ),
-        )}
+        {state.status === "ready" && state.turns.length === 0 && state.messages.map((m) => (
+          <div key={m.id} className="shc-turn"><SharedMessage message={m} who={who} /></div>
+        ))}
       </div>
 
       <footer className="shc-foot">

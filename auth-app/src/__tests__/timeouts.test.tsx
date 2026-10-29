@@ -84,7 +84,8 @@ describe("a request that gets no answer", () => {
     expect(client.timeoutFor("/v1/campaigns")).toBe(client.REQUEST_TIMEOUT_MS);
     expect(client.timeoutFor("/v1/campaigns", false)).toBeNull();
     expect(client.timeoutFor("/v1/campaigns/x/draft-from-file")).toBe(client.LONG_REQUEST_TIMEOUT_MS);
-    for (const slowByNature of ["/v1/runs/r1/approvals/3", "/v1/campaigns/c1/spec/draft", "/v1/contacts/fetch", "/v1/campaigns/c1/export/sheets"]) {
+    // Putting a sheet's people on their stages is a transaction a person, so a hundred of them take far more than 30 seconds.
+    for (const slowByNature of ["/v1/runs/r1/approvals/3", "/v1/campaigns/c1/spec/draft", "/v1/contacts/fetch", "/v1/campaigns/c1/export/sheets", "/v1/campaigns/c1/place"]) {
       expect(client.timeoutFor(slowByNature)).toBe(client.LONG_REQUEST_TIMEOUT_MS);
     }
   });
@@ -157,8 +158,8 @@ describe("a wait that has gone on too long", () => {
     const slow = renderToStaticMarkup(<SlowNote level="slow" onCancel={() => {}} onRetry={() => {}} />);
     expect(text(slow)).toBe("Taking longer than usual. Try again Cancel");
     expect(slow).toContain('role="status"');
-    const stuck = renderToStaticMarkup(<SlowNote level="stuck" what="Your role spec" onRetry={() => {}} />);
-    expect(text(stuck)).toBe("Your role spec didn't finish. Nothing was changed. Try again");
+    const stuck = renderToStaticMarkup(<SlowNote level="stuck" what="Your requirements" onRetry={() => {}} />);
+    expect(text(stuck)).toBe("Your requirements didn't finish. Nothing was changed. Try again");
     expect(stuck).toContain('role="alert"');
     // Never red, never an exclamation mark.
     expect(slow + stuck).not.toContain("!");

@@ -31,6 +31,15 @@
 .sd-arc[data-hue="orange"], .sd-name[data-hue="orange"] { --sd-mark: var(--stage-orange); --sd-text: var(--stage-orange-text); }
 .sd-arc[data-hue="rose"], .sd-name[data-hue="rose"] { --sd-mark: var(--stage-rose); --sd-text: var(--stage-rose-text); }
 .sd-arc[data-hue="violet"], .sd-name[data-hue="violet"] { --sd-mark: var(--stage-violet); --sd-text: var(--stage-violet-text); }
+.sd-arc[data-hue="sky"], .sd-name[data-hue="sky"] { --sd-mark: var(--stage-sky); --sd-text: var(--stage-sky-text); }
+.sd-arc[data-hue="indigo"], .sd-name[data-hue="indigo"] { --sd-mark: var(--stage-indigo); --sd-text: var(--stage-indigo-text); }
+.sd-arc[data-hue="plum"], .sd-name[data-hue="plum"] { --sd-mark: var(--stage-plum); --sd-text: var(--stage-plum-text); }
+.sd-arc[data-hue="pink"], .sd-name[data-hue="pink"] { --sd-mark: var(--stage-pink); --sd-text: var(--stage-pink-text); }
+.sd-arc[data-hue="red"], .sd-name[data-hue="red"] { --sd-mark: var(--stage-red); --sd-text: var(--stage-red-text); }
+.sd-arc[data-hue="yellow"], .sd-name[data-hue="yellow"] { --sd-mark: var(--stage-yellow); --sd-text: var(--stage-yellow-text); }
+.sd-arc[data-hue="lime"], .sd-name[data-hue="lime"] { --sd-mark: var(--stage-lime); --sd-text: var(--stage-lime-text); }
+.sd-arc[data-hue="mint"], .sd-name[data-hue="mint"] { --sd-mark: var(--stage-mint); --sd-text: var(--stage-mint-text); }
+.sd-arc[data-hue="brown"], .sd-name[data-hue="brown"] { --sd-mark: var(--stage-brown); --sd-text: var(--stage-brown-text); }
 .sd-name { color: var(--sd-text); }
 
 /* the card that says it in words: fixed beside the ring (the component sets top and left), above everything but dialogs */

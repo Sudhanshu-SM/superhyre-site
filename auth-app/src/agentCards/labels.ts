@@ -76,5 +76,5 @@ export const ACTION_LABEL: Record<string, string> = {
   retry_failed_emails: "Send the failed emails again",
   add_candidate: "Add to Candidates",
   disconnect_app: "Disconnect",
-  edit_spec: "Edit the role spec",
+  edit_spec: "Edit the requirements",
 };

@@ -98,7 +98,7 @@ describe("the words for a result", () => {
   });
 
   it("gives the provenance of a result in one line", () => {
-    expect(provenanceLine(fit())).toMatch(/^Role spec v3 · scored .* · scoring v2$/);
+    expect(provenanceLine(fit())).toMatch(/^Requirements v3 · scored .* · scoring v2$/);
   });
 });
 
@@ -164,7 +164,7 @@ describe("the result in the profile sheet", () => {
     expect(html).toContain("not checked yet");
     // No jargon about how the figure was added up.
     expect(html).not.toMatch(/counted|contribution|left out of the score/i);
-    expect(html).toContain("Role spec v3");
+    expect(html).toContain("Requirements v3");
     expect(html).toContain("Change this result");
   });
 

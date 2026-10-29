@@ -19,8 +19,8 @@
 .qa.is-answered { border-color: var(--hairline); }
 
 .qa-head { display: grid; gap: 4px; }
-.qa-ask { margin: 0; font: 600 15.5px/1.35 var(--ui); letter-spacing: -0.014em; color: var(--ink); text-wrap: balance; }
-.qa-why { margin: 0; font: 400 13px/1.5 var(--ui); color: var(--ink-2); }
+.qa-ask { margin: 0; font: 600 16.5px/1.35 var(--ui); letter-spacing: -0.014em; color: var(--ink); text-wrap: balance; }
+.qa-why { margin: 0; font: 400 14px/1.5 var(--ui); color: var(--ink-2); }
 
 .qa-opts { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .qa-opts.is-many { grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); }
@@ -67,14 +67,14 @@
   border-bottom-width: 2px;
   border-radius: 6px;
   background: #fff;
-  font: 600 12px/1 var(--ui);
+  font: 600 13px/1 var(--ui);
   color: var(--ink-2);
   transition: background-color var(--t), color var(--t), border-color var(--t);
 }
 .qa-opts > li.is-on .qa-key { background: var(--accent-fill); border-color: var(--accent-fill); color: #fff; }
 
 .qa-opt-copy { display: grid; gap: 2px; min-width: 0; flex: 1 1 auto; }
-.qa-opt-l { font: 500 13.5px/1.3 var(--ui); color: var(--ink); }
+.qa-opt-l { font: 500 14.5px/1.3 var(--ui); color: var(--ink); }
 /* Two lines before it gives up, so a description is read, not guessed at. */
 .qa-opt-m { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font: var(--type-caption); color: var(--ink-2); }
 
@@ -92,9 +92,9 @@
 .qa-opts > li.is-on .qa-tick { background: var(--accent-fill); border-color: var(--accent-fill); color: #fff; animation: cb-pop 260ms var(--ease-out); }
 
 .qa-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; }
-.qa-remember { display: inline-flex; align-items: center; gap: 8px; font: 400 12.5px/1.3 var(--ui); color: var(--ink-2); cursor: pointer; }
+.qa-remember { display: inline-flex; align-items: center; gap: 8px; font: 400 13.5px/1.3 var(--ui); color: var(--ink-2); cursor: pointer; }
 .qa-remember input { accent-color: var(--accent-fill); margin: 0; }
-.qa-hint { font: 400 12px/1.3 var(--ui); color: var(--ink-2); }
+.qa-hint { font: 400 13px/1.3 var(--ui); color: var(--ink-2); }
 
 /* ── answered ── */
 
@@ -106,7 +106,7 @@
   gap: 8px;
   min-height: 24px;
   margin: 0;
-  font: 500 14px/1.3 var(--ui);
+  font: 500 15px/1.3 var(--ui);
   color: var(--ink-2);
 }
 /* The icon sits in the same 20px slot as a phase line's, so answered
@@ -119,7 +119,7 @@
   align-items: center;
   gap: 6px;
   margin: 0 0 0 8px;
-  font: 400 13px/1.3 var(--ui);
+  font: 400 14px/1.3 var(--ui);
   color: var(--ink-2);
 }
 .qa-done > svg { color: var(--rule-strong); }
@@ -127,18 +127,18 @@
   padding: 4px 10px;
   border-radius: var(--r-pill);
   background: var(--accent-tint);
-  font: 500 12.5px/1.2 var(--ui);
+  font: 500 13.5px/1.2 var(--ui);
   color: var(--accent-text);
   animation: cb-pop 300ms var(--ease-out);
 }
-.qa-auto { font-size: 12.5px; }
+.qa-auto { font-size: 13.5px; }
 .qa-change {
   margin-left: 4px;
   padding: 2px 4px;
   border: 0;
   border-radius: 4px;
   background: transparent;
-  font: 500 12.5px/1.3 var(--ui);
+  font: 500 13.5px/1.3 var(--ui);
   color: var(--ink-2);
   cursor: pointer;
 }
@@ -159,7 +159,7 @@ label.qa-ask { display: block; cursor: text; }
   border: 1px solid #ddd6cf;
   border-radius: var(--r-field);
   background: #fff;
-  font: 400 15px/24px var(--ui);
+  font: 400 16px/24px var(--ui);
   color: var(--ink);
   transition: border-color var(--t), box-shadow var(--t);
 }
@@ -194,7 +194,7 @@ textarea.qa-input.is-doc { overflow: auto; min-height: 132px; max-height: 280px;
   white-space: nowrap;
   padding-left: 8px;
   border-left: 1px solid var(--rule);
-  font: 400 13px/1.4 var(--ui);
+  font: 400 14px/1.4 var(--ui);
   color: var(--ink-2);
   quotes: "“" "”";
 }
@@ -206,7 +206,7 @@ textarea.qa-input.is-doc { overflow: auto; min-height: 132px; max-height: 280px;
 .qa-opts.is-dense .qa-opt { min-height: 52px; padding: 8px 12px; }
 .qa-opts.is-dense .qa-opt-m { font: var(--type-body-sm); color: var(--ink-3); }
 .qa-opts.is-scroll { max-height: 336px; overflow: auto; padding: 2px; margin: -2px; }
-.qa-empty { padding: 10px 2px; font: 400 13px/1.4 var(--ui); color: var(--ink-3); }
+.qa-empty { padding: 10px 2px; font: 400 14px/1.4 var(--ui); color: var(--ink-3); }
 .qa-filter { height: 40px; }
 
 /* The key hint shows when the card is hovered or focused, not before. */

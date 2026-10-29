@@ -37,24 +37,24 @@ const ev = (type: RunEvent["type"], payload: Record<string, unknown> = {}): RunE
 function approvalFor(action: Record<string, unknown>) {
   const turn = { ...newTurn("t1", "Approve the spec", 0), runId: "r1", status: "working" as const };
   const s: ChatState = { conversationId: "c1", turns: [turn], owners: { r1: "t1" }, orphans: {}, applied: {}, loading: false, error: null };
-  return applyEvent(s, ev("approval", { summary: "Approve the role spec for Data Analyst", action, campaignName: "Data Analyst", people: [] })).turns[0]!.approvals[0]!;
+  return applyEvent(s, ev("approval", { summary: "Approve the requirements for Data Analyst", action, campaignName: "Data Analyst", people: [] })).turns[0]!.approvals[0]!;
 }
 
-describe("a role spec waiting for a yes can be read first", () => {
+describe("requirements waiting for a yes can be read first", () => {
   it("offers the spec panel on the approval that asks for it, with the version it asks about", () => {
     const a = approvalFor({ action: "approve_spec", campaignId: "c1", specId: "s1" });
     const html = renderToStaticMarkup(<ApprovalCard turnKey="t1" approval={a} turnSaid="Approve the spec" />);
     // A button that opens the spec in a popup, not a written link; the decision stays on the approval's own Approve.
-    expect(html).toContain("View the role spec");
+    expect(html).toContain("View the requirements");
     expect(html).not.toContain("lt-link");
     expect(html).toContain(">Approve</button>");
   });
 
   it("offers nothing to read when no draft exists yet (it is drafted when approved), and nothing on other approvals", () => {
     const none = approvalFor({ action: "approve_spec", campaignId: "c1" });
-    expect(renderToStaticMarkup(<ApprovalCard turnKey="t1" approval={none} turnSaid="x" />)).not.toContain("View the role spec");
+    expect(renderToStaticMarkup(<ApprovalCard turnKey="t1" approval={none} turnSaid="x" />)).not.toContain("View the requirements");
     const other = approvalFor({ action: "shortlist", campaignId: "c1" });
-    expect(renderToStaticMarkup(<ApprovalCard turnKey="t1" approval={other} turnSaid="x" />)).not.toContain("View the role spec");
+    expect(renderToStaticMarkup(<ApprovalCard turnKey="t1" approval={other} turnSaid="x" />)).not.toContain("View the requirements");
   });
 });
 
@@ -78,7 +78,7 @@ describe("the campaign's charts and its lookup card are not both counting", () =
     const withCharts = renderToStaticMarkup(<Cards cards={[lookup]} charted={chartedCampaigns([lookup, charts])} />);
     expect(withCharts).not.toContain("lk-funnel");
     // The rest of the card (what the role spec says, the links) stays.
-    expect(withCharts).toContain("Role spec v1 approved");
+    expect(withCharts).toContain("Requirements v1 approved");
   });
 });
 
@@ -204,7 +204,7 @@ describe("a campaign's real calls feed the Overview's cards", () => {
 describe("what is coming up is answered in the chat with the list Home shows", () => {
   it("is one of the views the chat draws, and the server's list says so too", () => {
     expect(isViewKind("coming-up")).toBe(true);
-    expect(VIEW_KINDS).toHaveLength(19);
+    expect(VIEW_KINDS).toHaveLength(20);
   });
 
   it("draws Home's own rows (the same List, the same feed) narrowed to the campaign the request named", () => {

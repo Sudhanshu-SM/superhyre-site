@@ -133,7 +133,7 @@ describe("a chat folds a search's feed and the searches it did not ask for", () 
     expect(search.feed?.map((l) => l.text)).toEqual(["Matching must-haves: Python, Airflow", "Scoring batch 1 of 3"]);
   });
 
-  it("follows the search an approved role spec started, not only 'find people'", () => {
+  it("follows the search that approved requirements started, not only 'find people'", () => {
     const own = (e: RunEvent): RunEvent => ({ ...e, runId: "r1" });
     const s = applyEvent(state(), own(ev("result", { approvalSeq: 3, decision: "approve", action: "approve_spec", campaignId: "camp", searchRunId: "r9", size: 20 })));
     expect(s.turns[0]?.searches.map((x) => x.runId)).toEqual(["r9"]);

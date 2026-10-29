@@ -2,8 +2,8 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { workspaceChangedHere } from "../api/identity";
-import { blankDraft } from "../campaignDraft";
-import { draftToOffer, keepDraft, markDraftSwitched } from "../NewCampaign";
+import { blankDraft, withNewClient } from "../campaignDraft";
+import { draftToOffer, keepDraft, keptDraft, markDraftSwitched } from "../NewCampaign";
 
 /**
  * A half-written campaign comes back only after a real switch of workspace, once. A dialog that was merely left
@@ -35,6 +35,15 @@ describe("offering a kept draft", () => {
     markDraftSwitched();
     expect(draftToOffer()).toMatchObject({ name: "Platform Lead", clientId: "" });
     expect(draftToOffer()).toBeNull();
+  });
+
+  it("brings back a company that was only named for the campaign, and a draft kept before one could be named has none", () => {
+    keepDraft(withNewClient(draft, "Zorblax Studios"));
+    expect(keptDraft()).toMatchObject({ name: "Platform Lead", clientId: "", newClient: "Zorblax Studios" });
+    // As kept by an older console: no such field at all.
+    const { newClient: _gone, ...older } = draft;
+    window.sessionStorage.setItem("superhyre:new-campaign-draft", JSON.stringify(older));
+    expect(keptDraft()).toMatchObject({ name: "Platform Lead", clientId: "", newClient: "" });
   });
 
   it("hears about the switch from the console's own signal", () => {

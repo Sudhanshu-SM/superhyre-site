@@ -138,7 +138,7 @@ export function ChoiceCard({
           {sending ? "Continuing" : solo ? solo.name : "Continue"}
         </button>
         {outs.map((c) => (
-          <button key={c.id} type="button" className="ch-skip" disabled={sending} onClick={() => go([c.id], "")}>{c.name}</button>
+          <button key={c.id} type="button" className={c.lead ? "ch-lead" : "ch-skip"} disabled={sending} onClick={() => go([c.id], "")}>{c.name}</button>
         ))}
       </div>
       {question.error && <p className="kc-problem" role="alert">{question.error}</p>}

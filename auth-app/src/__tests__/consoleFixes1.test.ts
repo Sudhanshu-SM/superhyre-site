@@ -108,9 +108,9 @@ describe("the campaign's agents panel", () => {
     expect(agentsView(agents({}, { state: "paused", watch: watch(null) })).sourcing.line).toBe("Keep-sourcing paused by you");
   });
 
-  it("is idle with Find people once a role spec is approved, and asks for the spec before that", () => {
+  it("is idle with Find people once requirements are approved, and asks for them before that", () => {
     expect(agentsView(agents()).sourcing).toEqual({ line: "Idle", action: { label: "Find people", id: "find" } });
-    expect(agentsView(agents({ approvedSpec: false })).sourcing).toEqual({ line: "Waiting for an approved role spec", action: { label: "Review the role spec", id: "spec" } });
+    expect(agentsView(agents({ approvedSpec: false })).sourcing).toEqual({ line: "Waiting for approved requirements", action: { label: "Review the requirements", id: "spec" } });
   });
 
   it("says what outreach is waiting for, sending, or idle, each with Review where there is something to do", () => {

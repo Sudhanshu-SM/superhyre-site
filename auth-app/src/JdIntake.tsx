@@ -9,10 +9,11 @@ import { ownCampaign, rowFromDraft } from "./campaignDraft";
 import { campaignHref } from "./chatCards";
 import { addCampaignRow, memberName, resolveCampaignId, saveClient, setCampaignClient, useClients, useTeam } from "./campaignStore";
 import { can, standingOf } from "./can";
+import { addedAs } from "./ClientPicker";
 import { EMPTY_DRAFT, clientFromDraft } from "./clients";
 import { Loader } from "./components/Loader";
 import {
-  type Answers, type Ask, EXPERIENCE_OPTIONS, type JdFacts, NO_CLIENT, asksFor, clientSaid, draftFromIntake, factLine,
+  type Answers, type Ask, EXPERIENCE_OPTIONS, type JdFacts, asksFor, clientSaid, draftFromIntake, factLine,
   isSheetFile, parseCities, parseComp, parseExperience, problemsOf,
 } from "./jdIntake";
 import { BatchReview } from "./BatchReview";
@@ -78,6 +79,7 @@ const WHY: Record<LeftOut["why"], string> = {
   "too-little": "has too little to go on",
   repeat: "repeats an earlier row",
   "over-limit": "is past the first fifty",
+  hidden: "is hidden in the sheet",
 };
 
 /** What was left out of each sheet and why, by row: "roles.csv: row 3 repeats an earlier row; row 5 has too little to go on." */
@@ -105,7 +107,7 @@ function LeftOutNote({ rows }: { rows: ReadonlyArray<LeftOut & { from: string }>
 type Tab = "upload" | "paste" | "sheet";
 const TABS: ReadonlyArray<readonly [Tab, string]> = [["upload", "Upload files"], ["paste", "Paste text"], ["sheet", "Google Sheet"]];
 
-export function JdIntake({ seed, embedded, onManual, onClose }: {
+export function JdIntake({ seed, embedded, onManual, onClose, onFinish }: {
   /**
    * What the chat handed over (files, job descriptions already read, a Google Sheet's link): they are read at once and
    * the questions start, with nothing more to press. Without it the person adds them here.
@@ -116,6 +118,11 @@ export function JdIntake({ seed, embedded, onManual, onClose }: {
   /** "Fill in the details yourself": the long form, for a role that has no description. */
   onManual?: () => void;
   onClose?: () => void;
+  /**
+   * Told how many campaigns the roles have become and how many roles are still to be made, as soon as the first is made (a card drawn
+   * again would make it twice) and as more are, and when the card comes to its end: so what the chat handed over is let go, and not read again.
+   */
+  onFinish?: ((made: number, left: number) => void) | undefined;
 }): JSX.Element {
   const session = useSession();
   const { clients } = useClients();
@@ -259,8 +266,9 @@ export function JdIntake({ seed, embedded, onManual, onClose }: {
     () => [...new Set(items.flatMap((i) => i.answers.locations ?? i.facts?.locations ?? []))].slice(0, 4),
     [items],
   );
-  const asks: Ask[] = current?.phase === "ready" && current.facts && !skipRest
-    ? asksFor(current.facts, current.answers, { clients: lite, mayAddClient, defaults, cities })
+  /* "Make the rest without asking" leaves the client, which every campaign has, still to be asked. */
+  const asks: Ask[] = current?.phase === "ready" && current.facts
+    ? asksFor(current.facts, current.answers, { clients: lite, defaults, cities }).filter((a) => a.required || !skipRest)
     : [];
   const ask = asks[0];
 
@@ -275,12 +283,16 @@ export function JdIntake({ seed, embedded, onManual, onClose }: {
     const a: Answers = { ...defaults, ...item.answers };
     const said = clientSaid(facts.client, lite);
     let clientId = "";
+    /* A company that is not a client yet: an admin adds it now, with its name alone; anyone else names it with the campaign and the server adds it. */
+    let newClient = "";
     if (a.newClient) {
       const there = companyIn(a.newClient, clients);
-      clientId = there ? there.id : saveClient(clientFromDraft({ ...EMPTY_DRAFT, name: a.newClient, status: "active", owner }, `cl-${Date.now().toString(36)}`)).id;
-    } else if (a.clientId !== undefined) clientId = a.clientId === NO_CLIENT ? "" : a.clientId;
+      if (there) clientId = there.id;
+      else if (mayAddClient) clientId = saveClient(clientFromDraft({ ...EMPTY_DRAFT, name: a.newClient, status: "active", owner }, `cl-${Date.now().toString(36)}`)).id;
+      else newClient = a.newClient;
+    } else if (a.clientId !== undefined) clientId = a.clientId;
     else if (said.kind === "match") clientId = said.id;
-    const draft = draftFromIntake({ facts, jd: item.cleaned ?? item.jd, answers: item.answers, defaults, owner, clientId });
+    const draft = draftFromIntake({ facts, jd: item.cleaned ?? item.jd, answers: item.answers, defaults, owner, clientId, newClient });
     const final = own ? ownCampaign(draft, me) : draft;
     const problem = problemsOf(final)[0];
     if (problem) {
@@ -327,7 +339,6 @@ export function JdIntake({ seed, embedded, onManual, onClose }: {
     switch (a.key) {
       case "client":
         if (optionId === "new") give({ newClient: clientSaid(current?.facts?.client ?? null, lite).kind === "named" ? (current?.facts?.client as string) : "" });
-        else if (optionId === NO_CLIENT) give({ clientId: NO_CLIENT });
         else give({ clientId: optionId.replace(/^client:/, "") });
         return;
       case "workMode": give({ workMode: optionId as "onsite" | "hybrid" | "remote" }); return;
@@ -348,10 +359,10 @@ export function JdIntake({ seed, embedded, onManual, onClose }: {
     if (a.key === "experience") { const r = parseExperience(t); if (r) give({ exp: r }); else setOops("Try years like 4-7, 5+ or up to 3."); return; }
     if (a.key === "comp") { const r = parseComp(t); if (r) give({ comp: r }); else setOops("Try lakhs like 20-30 or up to 25."); return; }
     if (a.key === "client") {
-      const there = companyIn(t, clients);
-      if (there) give({ clientId: there.id });
-      else if (mayAddClient) give({ newClient: t });
-      else setOops("None of your clients is called that.");
+      const made = addedAs(t, clients);
+      if (made.kind === "problem") setOops(made.text);
+      else if (made.kind === "pick") give({ clientId: made.id });
+      else give({ newClient: made.name });
     }
   };
   const skip = (a: Ask) => give({ skipped: [a.key] });
@@ -363,6 +374,14 @@ export function JdIntake({ seed, embedded, onManual, onClose }: {
   const total = items.length;
   const doneCount = items.filter((i) => i.phase === "made").length;
   const position = current ? items.indexOf(current) + 1 : total;
+
+  /* A campaign made, or nothing left to do: what the chat handed over is not to be read again (it would make the campaigns twice). */
+  const ended = stage === "queue" && total > 0 && !current;
+  const toMake = items.filter((i) => OPEN.includes(i.phase)).length;
+  useEffect(() => {
+    if (doneCount > 0 || ended) onFinish?.(doneCount, toMake);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doneCount, ended, toMake]);
 
   if (!LIVE) return <p className="ji-note">Adding roles from job descriptions needs a connected workspace.</p>;
 
@@ -514,7 +533,7 @@ export function JdIntake({ seed, embedded, onManual, onClose }: {
               )}
               {oops && <p className="ji-oops t-caption" role="alert">{oops}</p>}
               <div className="ji-more">
-                <button type="button" className="cn-link" onClick={() => skip(ask)}>Skip this</button>
+                {!ask.required && <button type="button" className="cn-link" onClick={() => skip(ask)}>Skip this</button>}
                 {others > 0 && (
                   <label className="ji-all t-body-sm">
                     <input type="checkbox" checked={forAll} onChange={(e) => setForAll(e.target.checked)} />
@@ -535,7 +554,7 @@ export function JdIntake({ seed, embedded, onManual, onClose }: {
               <Check size={13} weight="bold" aria-hidden="true" />
               <a className="cn-link" href={campaignHref(i.made?.id ?? "")}>{i.made?.name}</a>
               <span className="ji-spec t-caption">
-                {i.spec === "drafted" ? "Role spec ready to approve" : i.spec === "failed" ? `Role spec not drafted${i.specWhy ? `: ${i.specWhy}` : ""}` : "Drafting the role spec"}
+                {i.spec === "drafted" ? "Requirements ready to approve" : i.spec === "failed" ? `Requirements not drafted${i.specWhy ? `: ${i.specWhy}` : ""}` : "Drafting the requirements"}
               </span>
             </li>
           ))}
@@ -552,7 +571,7 @@ export function JdIntake({ seed, embedded, onManual, onClose }: {
       {!current && (
         <footer className="jd-foot is-done">
           <p className="ji-done t-body">
-            {doneCount ? `${doneCount} ${doneCount === 1 ? "campaign" : "campaigns"} created. Approve each role spec to start finding people.` : "Nothing was created."}
+            {doneCount ? `${doneCount} ${doneCount === 1 ? "campaign" : "campaigns"} created. Approve ${doneCount === 1 ? "its" : "their"} requirements to start finding people.` : "Nothing was created."}
           </p>
           <span className="sp" />
           <button type="button" className="src-btn is-quiet mo-small" onClick={() => { setItems([]); setStage("add"); setSkipRest(false); setDefaults({}); started.current.clear(); making.current.clear(); }}>Add more roles</button>

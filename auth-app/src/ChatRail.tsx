@@ -10,7 +10,8 @@ import { useFlip } from "./useFlip";
  * The chat history, laid out like the chat apps people already know: New chat, Search and Campaigns at the top, what
  * they pinned (chats, and campaigns with their own chats under them), then Recents, newest first, a few at a time.
  * Hiding it leaves one button in the corner; resting on that button lets the whole list drift in over the page, and
- * pressing it docks the list again. Every row has the same small menu: pin, rename, put in a campaign, archive, delete (asked twice, and for good).
+ * pressing it docks the list again. Every row of the person's own has the same small menu: pin, rename, put in a campaign, archive,
+ * delete (asked twice, and for good); a campaign's daily search chat has no pin and no campaign to be put in (`menuOffers`).
  */
 
 type Campaign = { id: string; name: string };
@@ -120,9 +121,11 @@ export function ChatRail({
     try { window.localStorage.setItem(OPEN_KEY, JSON.stringify(next)); } catch { /* not worth failing over */ }
   };
 
+  /* What the rows are and their order, not how many of the Recents fit: opening a campaign's chats makes room for fewer, and the
+     rows that stay put must not glide for it. "View more" is in it so the rows it brings come in one after another. */
   const signature = searchMode
     ? `s|${found.map((c) => c.id).join(",")}`
-    : `${arranged.selected ? `sel:${arranged.selected.id}:${arranged.selected.chats.map((c) => c.id).join(",")}|` : ""}${arranged.pinned.map((p) => (p.kind === "chat" ? p.chat.id : `${p.id}:${p.chats.map((c) => c.id).join(",")}`)).join("|")}~${recents.map((c) => c.id).join(",")}`;
+    : `${arranged.selected ? `sel:${arranged.selected.id}:${arranged.selected.chats.map((c) => c.id).join(",")}|` : ""}${arranged.pinned.map((p) => (p.kind === "chat" ? p.chat.id : `${p.id}:${p.chats.map((c) => c.id).join(",")}`)).join("|")}~${arranged.recents.map((c) => c.id).join(",")}~${more}`;
   useFlip(body, signature);
 
   /* The list fills the height it has: as many Recents as fit under the Pinned section, no more and no gap. */
@@ -432,7 +435,7 @@ function CampaignBlock({ item, current, pinned, flash, rowProps, onNewIn, onOpen
         <Fold open={open}>
           <ul className="hx-list hx-nest">
             {nested.map((c) => (
-              <li key={c.id} data-flip={c.id}>
+              <li key={c.id} data-flip={`${item.id}:${c.id}`}>
                 <Row chat={c} {...rowProps} pinned={false} sub="" nested />
               </li>
             ))}
@@ -476,6 +479,9 @@ function Row({ chat, activeId, pinned, flash = false, nested = false, sub, campa
   const active = chat.id === activeId;
   /* Somebody else's chat about a campaign: read, not written in, so it has no menu, and says whose it is. */
   const theirs = chat.ownerName ?? null;
+  /* Every daily search chat is titled the same, so outside its campaign's own list the campaign is what tells them apart, after the title
+     in the same line (a second line would make these rows taller than the list is sized for). */
+  const under = chat.daily && !nested ? chat.campaignName : "";
   useEffect(() => {
     if (!menu) return undefined;
     hold(true);
@@ -508,14 +514,14 @@ function Row({ chat, activeId, pinned, flash = false, nested = false, sub, campa
     );
   }
   return (
-    <div className={`hx-row${active ? " is-on" : ""}${menu ? " has-menu" : ""}${flash ? " is-flash" : ""}${leaving ? " is-leaving" : ""}${nested ? " is-nested" : ""}${theirs ? " is-theirs" : ""}`}>
+    <div className={`hx-row${active ? " is-on" : ""}${menu ? " has-menu" : ""}${flash ? " is-flash" : ""}${leaving ? " is-leaving" : ""}${nested ? " is-nested" : ""}${theirs ? " is-theirs" : ""}${chat.daily ? " is-daily" : ""}`}>
       <button type="button" className="hx-row-t" onClick={() => onOpen(chat)} title={theirs ? `${chat.title} · started by ${theirs}` : chat.campaignName && !nested ? `${chat.title} · ${chat.campaignName}` : chat.title} aria-current={active ? "true" : undefined}>
-        <span className="hx-row-title">{chat.title}</span>
+        <span className="hx-row-title">{chat.daily && <PushPin size={14} weight="fill" aria-hidden="true" className="hx-row-pin" />}{chat.title}{under && <span className="hx-row-camp">{` · ${under}`}</span>}</span>
         {sub && <span className="hx-row-sub">{sub}</span>}
       </button>
       {flash && <Stamp />}
       <span className="hx-row-when">{theirs ? `${theirs.split(" ")[0]} · ${agoLabel(chat.at)}` : agoLabel(chat.at)}</span>
-      {!theirs && <button ref={more} type="button" className="hx-icon hx-row-more" onClick={() => setMenu((m) => !m)} aria-label={`More for ${chat.title}`} aria-haspopup="menu" aria-expanded={menu}>
+      {!theirs && <button ref={more} type="button" className="hx-icon hx-row-more" onClick={() => setMenu((m) => !m)} aria-label={`More for ${chat.title}${under ? `, ${under}` : ""}`} aria-haspopup="menu" aria-expanded={menu}>
         <DotsThree size={18} weight="bold" aria-hidden="true" />
       </button>}
       {menu && !theirs && (
@@ -542,7 +548,14 @@ function Row({ chat, activeId, pinned, flash = false, nested = false, sub, campa
 
 /* ── the row menu ── */
 
-function ChatMenu({ chat, pinned, campaigns, onPin, onRename, onArchive, onDelete, onPick }: {
+/**
+ * What a chat's menu offers beyond rename, archive and delete. A campaign's daily search chat belongs to its campaign and is kept first
+ * in it, so it is neither pinned by hand nor put in another campaign (one the agent pinned can still be unpinned). The menu's items and
+ * its keys both go by this.
+ */
+export const menuOffers = (chat: RailChat, pinned: boolean) => ({ pin: !chat.daily || pinned, move: !chat.daily });
+
+export function ChatMenu({ chat, pinned, campaigns, onPin, onRename, onArchive, onDelete, onPick }: {
   chat: RailChat;
   pinned: boolean;
   campaigns: readonly Campaign[];
@@ -554,10 +567,11 @@ function ChatMenu({ chat, pinned, campaigns, onPin, onRename, onArchive, onDelet
 }) {
   const [sub, setSub] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
+  const offers = menuOffers(chat, pinned);
   return (
     <MenuList
       onKey={(k) => {
-        if (k === "p") { onPin(); return true; }
+        if (k === "p" && offers.pin) { onPin(); return true; }
         if (k === "r") { onRename(); return true; }
         if (k === "a") { onArchive(); return true; }
         if (k === "d") { onDelete(); return true; }
@@ -566,12 +580,14 @@ function ChatMenu({ chat, pinned, campaigns, onPin, onRename, onArchive, onDelet
       onLeft={() => { if (sub) { setSub(false); trigger.current?.focus(); return true; } return false; }}
       onRight={(el) => { if (el === trigger.current) { setSub(true); return true; } return false; }}
     >
-      <Item icon={pinned ? <PushPinSlash size={17} /> : <PushPin size={17} />} label={pinned ? "Unpin" : "Pin"} kbd="P" onSelect={onPin} onEnter={() => setSub(false)} />
+      {offers.pin && <Item icon={pinned ? <PushPinSlash size={17} /> : <PushPin size={17} />} label={pinned ? "Unpin" : "Pin"} kbd="P" onSelect={onPin} onEnter={() => setSub(false)} />}
       <Item icon={<PencilSimple size={17} />} label="Rename" kbd="R" onSelect={onRename} onEnter={() => setSub(false)} />
-      <div className="hx-mi-wrap" onPointerEnter={() => setSub(true)}>
-        <Item ref={trigger} icon={<FolderOpen size={17} />} label="Add to campaign" chevron onSelect={() => setSub((s) => !s)} expanded={sub} />
-        {sub && <CampaignPick campaigns={campaigns} current={chat.campaignId} onPick={onPick} />}
-      </div>
+      {offers.move && (
+        <div className="hx-mi-wrap" onPointerEnter={() => setSub(true)}>
+          <Item ref={trigger} icon={<FolderOpen size={17} />} label="Add to campaign" chevron onSelect={() => setSub((s) => !s)} expanded={sub} />
+          {sub && <CampaignPick campaigns={campaigns} current={chat.campaignId} onPick={onPick} />}
+        </div>
+      )}
       <Item icon={<Archive size={17} />} label="Archive" kbd="A" onSelect={onArchive} onEnter={() => setSub(false)} />
       <Item icon={<Trash size={17} />} label="Delete" kbd="D" danger onSelect={onDelete} onEnter={() => setSub(false)} />
     </MenuList>
@@ -587,7 +603,7 @@ export function DeleteAsk({ chat, pinned, onKeep, onDelete }: { chat: RailChat; 
       <p className="hx-ask-h" id="hx-ask-h">Delete this chat?</p>
       <p className="hx-ask-p" id="hx-ask-p">
         “{chat.title}” and its messages are removed for good.{" "}
-        {pinned ? "It is pinned, so it would otherwise be kept." : "Chats nobody has written in for 60 days are deleted on their own; pin one to keep it."}
+        {chat.daily ? "While the daily search is on for this campaign, it starts a new one the next time it has news." : pinned ? "It is pinned, so it would otherwise be kept." : "Chats nobody has written in for 60 days are deleted on their own; pin one to keep it."}
       </p>
       <div className="hx-ask-b">
         <button ref={keep} type="button" className="hx-ask-keep" onClick={onKeep}>Keep it</button>

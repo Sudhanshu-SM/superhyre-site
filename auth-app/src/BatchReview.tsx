@@ -49,8 +49,8 @@ export function useBatchStanding(ids: readonly string[]): Readonly<Record<string
 
 /** What a role's line says. */
 export function standingWords(role: BatchRole, s: Standing | undefined): string {
-  if (role.spec === "failed") return "Role spec not drafted";
-  if (role.spec === "drafting" && !s?.approved) return "Drafting the role spec";
+  if (role.spec === "failed") return "Requirements not drafted";
+  if (role.spec === "drafting" && !s?.approved) return "Drafting the requirements";
   if (!s) return "Checking";
   if (!s.approved) return "Needs your approval";
   if (s.searching) return s.found != null ? `Searching, ${s.found} found so far` : "Searching";
@@ -67,10 +67,10 @@ export function BatchReview({ roles }: { roles: readonly BatchRole[] }): JSX.Ele
   return (
     <div className="bv">
       {many && (
-        <p className="bv-pos t-body-sm" aria-live="polite">Role spec {at + 1} of {roles.length}{waiting ? ` · ${waiting} need${waiting === 1 ? "s" : ""} approval` : ""}</p>
+        <p className="bv-pos t-body-sm" aria-live="polite">Requirements for role {at + 1} of {roles.length}{waiting ? ` · ${waiting} need${waiting === 1 ? "s" : ""} approval` : ""}</p>
       )}
 
-      <DraftingSpec key={role.id} campaignId={role.id} name={role.name} drafting={role.spec === "drafting"} trouble={role.spec === "failed" ? role.specWhy ?? "The role spec didn't come through this time." : null} />
+      <DraftingSpec key={role.id} campaignId={role.id} name={role.name} drafting={role.spec === "drafting"} trouble={role.spec === "failed" ? role.specWhy ?? "The requirements didn't come through this time." : null} />
 
       {/* Under the card, where its end is: the card grows once a search finds people, and the way on must not scroll away. */}
       {many && (

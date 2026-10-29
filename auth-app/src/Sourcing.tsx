@@ -373,7 +373,7 @@ export function SearchCard({
               : <span className="src-count">({matches.toLocaleString("en-IN")} matches)</span>}
           </p>
           {fixed ? (
-            fixed.onEdit && <button type="button" className="src-link" onClick={fixed.onEdit}>Edit the spec</button>
+            fixed.onEdit && <button type="button" className="src-link" onClick={fixed.onEdit}>Edit the requirements</button>
           ) : (
             !locked && (
               <button type="button" className="src-link" onClick={() => setEditing((e) => !e)} aria-expanded={editing}>

@@ -1,4 +1,4 @@
-import { ArrowUp, Check, FileText, FunnelSimple, ListPlus, Plus, SlidersHorizontal } from "@phosphor-icons/react";
+import { ArrowUp, Check, FileText, FunnelSimple, PaperclipHorizontal, Plus, SlidersHorizontal } from "@phosphor-icons/react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Campaigns } from "./Campaigns";
 import { Loader } from "./components/Loader";
@@ -16,6 +16,7 @@ import { highlightRuns } from "./slots";
 import { ProfileSidebar } from "./ProfileSidebar";
 import { FiltersDialog } from "./FiltersDialog";
 import { JdDialog, jdFromText } from "./JdDialog";
+import { jdBefore, jdFileRefusal, liveJdTextOf, useCampaignJd } from "./campaignJd";
 import type { Jd } from "./JdDialog";
 import { Dialog } from "./ui";
 import { activeCount, fromBrief } from "./filters";
@@ -34,15 +35,25 @@ import type { Verdict } from "./sourcing";
 import type { Campaign } from "./workspaces";
 import { api, LIVE, messageOf } from "./api/client";
 import { agentApi, attachmentApi, filtersApi, specApi } from "./api/agent";
-import { isSheetFile } from "./jdIntake";
-import { type ImportSeed, hasSeed, sheetLinkIn, stashImport } from "./importFiles";
+import { type ImportSeed, hasSeed, stashImport, stashImportFor } from "./importFiles";
+import { tooManyPeople } from "./peopleSheet";
+import { type SheetSeed, stashFor, stashPeople } from "./peopleSeed";
+import { resumeSeedOf } from "./resumeSheet";
+import { ROLE_WORDS, readLinkOne, readOne } from "./sheetRoute";
+import { peopleSheetApi } from "./api/peopleSheet";
 import {
-  ATTACH_ACCEPT, MAX_ATTACHMENTS, PATH_NOTE, composeMessage, fileRefusal, readClipboard, typeOf,
+  ATTACH_ACCEPT, PATH_NOTE, composeMessage, fileRefusal, readClipboard, typeOf,
 } from "./attachments";
-import type { Attachment, PasteOutcome } from "./attachments";
+import type { AddScope, Attachment, PasteOutcome } from "./attachments";
+import {
+  type AddContext, type LinkDoor, LIMIT_LINE, MAX_FILES, OPEN_ADD_MENU, SHEET_TYPES, canBe, filesOfAdding, fits, inTurns, isOldExcel, kindOf, liftLinksFrom, menuFor, oldExcelLine, outgoing, partsOf, placeholderFor, readingNote, refusalFor, rolesSeedOf, sendable, sheetRefusal, suggest, takeLinks,
+} from "./adding";
+import { AddMenu } from "./AddMenu";
+import { useAddingOn } from "./addingFlag";
+
 import { diffFilters, filtersLine, summariseFilters, valuesFromSetup, valuesFromSpec, withSaved } from "./liveFilters";
 import { TRANSCRIPT_TAIL, orcClass, tailPadding } from "./agentLayout";
-import { composerChips, keepsDraft, slotsFor } from "./agentDraft";
+import { composerChips, fieldHeight, keepsDraft, lineHeightPx, slotsFor } from "./agentDraft";
 import { AttachChips } from "./AttachChips";
 import { BriefSignals } from "./BriefSignals";
 import { refreshCampaign, refreshCampaignList, useCampaignRow, useCampaignRows } from "./campaignStore";
@@ -51,18 +62,17 @@ import { useCampaignSpec } from "./specDraft";
 import type { Conversation, MatchList } from "./api/agent";
 import { campaignById } from "./formKit";
 import { ChatRail } from "./ChatRail";
-import { BulkChip, BulkList, type BulkChoice } from "./BulkAdd";
 import { SheetDialog } from "./SheetDialog";
 import { ChatHeader } from "./ChatHeader";
 import { CampaignsPicker, type PickerCampaign } from "./CampaignsPicker";
 import { RailContext, type WeekStat } from "./RailContext";
 import { metaParts } from "./campaignMeta";
 import { railSlots } from "./railConfig";
-import type { RailChat } from "./chatGroups";
+import { type RailChat, railChatOf } from "./chatGroups";
 import "./agentChat.css";
 import { setFromMatches } from "./liveCandidate";
 import { mergeSet } from "./liveSourcing";
-import { CHAT_LIMIT, chatLength, chatNow, chatOver, newChat, onChatFocus, openChat, openChatFor, resumeChat, sendAction, sendMessage, useLiveChat } from "./liveChat";
+import { CHAT_LIMIT, chatLength, chatNow, chatOver, newChat, onChatFocus, openChat, openChatFor, resumeChat, sendAction, sendMessage, sendMessages, useLiveChat } from "./liveChat";
 import { DOUBTS_ASK, DOUBTS_LABEL, DOUBTS_SHOW } from "./memoryView";
 import { campaignFromHash, campaignLink, showFromHash, withoutShow } from "./nav";
 import { undoNote } from "./verdictUndo";
@@ -160,6 +170,8 @@ function briefOf(c: Conversation): Brief {
 const MATCHES_SHOW = "matches";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** A sheet chip as the card takes it: the file, and what reading it found, so the card does not read it twice. */
+const seedOf = (chip: Attachment): SheetSeed => ({ file: chip.file ?? null, link: chip.link ?? null, read: chip.sheet ?? null, campaignId: chip.readFor ?? null });
 export function Agent({
   campaign, campaignIsCurrent = false, inOrg = false, handoff, handoffSend = false, onHandoffTaken, chatFor = null, onChatForTaken, onOpenForm, onOpenCampaign, onFocusCampaign, onNewChat,
 }: {
@@ -325,27 +337,12 @@ export function Agent({
   const campaignRows = useCampaignRows();
   const railList = useMemo<readonly RailChat[] | undefined>(() => {
     if (!convs) return undefined;
-    const list: RailChat[] = convs.map((c) => ({
-      id: c.id,
-      title: chatTitle(c.title),
-      campaignId: c.focusCampaignId,
-      campaignName: c.focusCampaignName ?? "",
-      at: Date.parse(c.updatedAt) || 0,
-      last: c.lastMessage ?? null,
-    }));
+    const list: RailChat[] = convs.map((c) => railChatOf(c, chatTitle(c.title)));
     // Chats other people had about the selected campaign come after the person's own, and are read, not written in. For the
     // owner and admins that is every chat in the organisation, whatever it is about.
     for (const c of [...sharedList.chats, ...orgList]) {
       if (list.some((x) => x.id === c.id)) continue;
-      list.push({
-        id: c.id,
-        title: chatTitle(c.title),
-        campaignId: c.focusCampaignId,
-        campaignName: c.focusCampaignName ?? "",
-        at: Date.parse(c.updatedAt) || 0,
-        last: c.lastMessage ?? null,
-        ...(c.ownerName ? { ownerName: c.ownerName } : {}),
-      });
+      list.push(railChatOf(c, chatTitle(c.title)));
     }
     const id = live.conversationId;
     const first = live.turns[0]?.said;
@@ -546,7 +543,10 @@ export function Agent({
     () => withSaved(filtersBase, liveRow?.setup?.filters as Values | undefined),
     [filtersBase, liveRow?.setup?.filters],
   );
-  const liveJdText = (specNow?.jdText ?? liveRow?.setup?.jd ?? "").trim();
+  /* The campaign's description as the server says it stands now (the Overview card reads the same), not the text of
+     the approved requirements, which is the old one until new requirements are approved after a Replace. */
+  const liveJdRead = useCampaignJd(liveCampaignId, liveRow?.setup?.jd ?? "");
+  const liveJdText = liveJdTextOf(liveJdRead.jd, specNow?.jdText ?? liveRow?.setup?.jd ?? "");
   const liveJd = useMemo<Jd | null>(() => (liveJdText ? jdFromText("Job description", liveJdText) : null), [liveJdText]);
   /* Opens the filters on the campaign in focus, or for the next one. Pre-filled from what the brief already
      says (`fromBrief`), and scrolled to the group that was asked for. */
@@ -918,12 +918,19 @@ export function Agent({
   }, []);
 
   const send = useCallback(() => {
-    const bulk = draftApi.current.bulk?.() ?? null;
+    /* A Google Sheet's link still in the words is made a chip first (it is read there, and its scope chosen there): this Send is
+       held, and the next one sends the chip, as it would a sheet that was attached. */
+    if (draftApi.current.liftLinks?.()) return;
+    /* Files chosen from the paperclip, or suggested for a drop, go as the messages the choice makes (adding.ts): the sheets and roles
+       as one message answered with their cards, the rest as turns of the agent. A file with a line still to settle stays where it is. */
+    const plan = LIVE ? (draftApi.current.outgoing?.() ?? null) : null;
+    if (plan && !plan.messages.length) return;
+    const bulk = plan ? null : (draftApi.current.bulk?.() ?? null);
     if (bulk) stashImport(bulk);
-    const said = bulk ? "Add roles in bulk" : draftApi.current.get().trim();
+    const said = plan ? (plan.messages[0]?.text ?? "") : bulk ? "Add roles in bulk" : draftApi.current.get().trim();
     if (!said) return;
     /* Too long for the agent: the composer says by how much and has Send off, and Enter does the same. */
-    if (LIVE && chatOver(said)) return;
+    if (LIVE && (plan ? plan.messages.some((m) => chatOver(m.text)) : chatOver(said))) return;
 
     /* ── MEASURE THE OLD LAYOUT WHILE IT IS STILL THE LAYOUT ──
        Only on the FIRST send: that is the one that rearranges the page. Every
@@ -946,7 +953,7 @@ export function Agent({
            travel from under the text to beside it; the send button slides up
            the field's right edge as the field collapses around it. */
         const kids = new Map<Element, { x: number; y: number }>();
-        root.querySelectorAll(".orc-mode, .orc-slots .orc-gslot, .orc-send").forEach((kid) => {
+        root.querySelectorAll(".orc-mode, .orc-pin, .orc-slots .orc-gslot, .orc-send").forEach((kid) => {
           const r = kid.getBoundingClientRect();
           kids.set(kid, { x: r.left - box.left, y: r.top - box.top });
         });
@@ -966,12 +973,30 @@ export function Agent({
     if (r) setFlight({ id, x: r.left + r.width / 2, y: r.top + r.height / 2 });
     if (LIVE) {
       pinned.current = true;
-      /* A campaign the recruiter picked travels with the message; otherwise the
-         server works out which one is meant from the text and the chat. */
-      sendMessage(said, campaignIsCurrent && UUID.test(campaign.id) ? campaign.id : undefined);
-      draftApi.current.set("");
+      if (plan) {
+        /* Each message waits for its files under the id of its add, so two sends in one chat keep their own, and a send that
+           fails leaves files that only expire. The words are the person's message, as typed. */
+        for (const m of plan.messages) {
+          /* A server that does not take the choice (adding.ts, `legacy`): the cards find their files as they always did, not by the add's id. */
+          if (m.keep && !m.adding) {
+            if (m.keep.people.length) stashPeople(m.keep.people.map(seedOf));
+            if (m.keep.roles.length) stashImport(rolesSeedOf(m.keep.roles));
+          }
+          if (m.keep && m.adding) {
+            if (m.keep.people.length || m.keep.resumes.length) stashFor(m.adding.id, { sheets: m.keep.people.map(seedOf), resumes: m.keep.resumes.map(resumeSeedOf), words: m.keep.words, picked: m.keep.picked, say: m.keep.say });
+            if (m.keep.roles.length) stashImportFor(m.adding.id, rolesSeedOf(m.keep.roles));
+          }
+        }
+        sendMessages(partsOf(plan.messages, jdBefore));
+        draftApi.current.finish?.(plan.taken);
+      } else {
+        /* A campaign the recruiter picked travels with the message; otherwise the
+           server works out which one is meant from the text and the chat. */
+        sendMessage(said, campaignIsCurrent && UUID.test(campaign.id) ? campaign.id : undefined);
+        draftApi.current.set("");
+      }
       /* What was set for "the next message" went with it. The filters are saved on the campaign it makes. */
-      if (!next.current.focused) {
+      if (!next.current.focused && (!plan || plan.usedBrief)) {
         const set = next.current.filters;
         if (activeCount(set) > 0 || next.current.sources !== DEFAULT_SOURCE_MODE) {
           pendingFilters.current = {
@@ -1048,22 +1073,34 @@ export function Agent({
     (file: File) => attachmentApi.read(file, typeOf(file)).then((r) => r.text),
     [],
   );
-  /* ── ADD IN BULK ──
-     What is added many at a time, from the composer: roles become campaigns on the import card in the chat, and a candidate
-     sheet is brought into the campaign in the chat. The second is offered only where it can work (a campaign in the chat that
-     the person may change). */
-  const [bulkRolesOpen, setBulkRolesOpen] = useState(false);
-  const [bulkSheetOpen, setBulkSheetOpen] = useState(false);
-  const bulkChoices = useMemo<readonly BulkChoice[]>(
-    () => (LIVE ? ["roles", ...(focused && mayChange ? (["candidates"] as const) : [])] : []),
-    [focused, mayChange],
+  /* ── WHAT THE PAPERCLIP ADDS ──
+     The paperclip asks what is being added before it opens the picker, and the answer travels with each file: a sheet of people,
+     a sheet or documents of roles, the job description of the campaign in the chat, a resume, or something only to read. The
+     composer holds the chips; this is the chat they are drawn in: the campaign the page has open and what the person may do with
+     it, and the campaigns the words may name as where the people go. "Connect a Google Sheet" is the one thing the old bulk chip
+     had that the menu does not: the team's own tracker, kept in step. */
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const mayStart = useCan("campaign.create");
+  const closedNow = liveRow?.status === "closed";
+  const mayNameCampaigns = useMemo(
+    () => campaignRows.filter((r) => r.status === "active" && r.canManage !== false && UUID.test(r.id)).map((r) => ({ id: r.id, name: r.name })),
+    [campaignRows],
   );
-  const pickBulk = useCallback((c: BulkChoice) => { if (c === "roles") setBulkRolesOpen(true); else setBulkSheetOpen(true); }, []);
-  /* Roles, handed to the import card: one description is a batch of one. */
-  const sendBulk = useCallback((pick: { files?: File[]; links?: string[]; texts?: Array<{ label: string; jd: string }> }) => {
-    stashImport(pick);
-    sendMessage("Add roles in bulk", undefined);
-  }, []);
+  const addingOn = useAddingOn();
+  const addingCtx = useMemo<AddingCtx | undefined>(
+    () => LIVE
+      ? {
+          on: addingOn,
+          campaign: focused ? { id: liveCampaignId, name: campaign.name } : null,
+          mayChange,
+          closed: closedNow,
+          canStart: mayStart,
+          campaigns: mayNameCampaigns,
+          ...(focused && mayChange && !closedNow ? { onConnectSheet: () => setSheetOpen(true) } : {}),
+        }
+      : undefined,
+    [addingOn, focused, liveCampaignId, campaign.name, mayChange, closedNow, mayStart, mayNameCampaigns],
+  );
 
   const saveFilters = useCallback(
     (values: Values) =>
@@ -1692,7 +1729,7 @@ export function Agent({
     >
       {dragging && (
         <div className="orc-drop" aria-hidden="true">
-          <div className="orc-drop-in">Drop to attach<small>PDF, Word, text or an image, up to 10 MB</small></div>
+          <div className="orc-drop-in">Drop files to add<small>I will suggest what each one is. Up to 10 MB each.</small></div>
         </div>
       )}
       {LIVE && (
@@ -1875,8 +1912,7 @@ export function Agent({
                 }
               : {})}
             onOpenJd={() => setJdOpen(true)}
-            bulk={bulkChoices}
-            onBulk={pickBulk}
+            adding={addingCtx}
             {...(LIVE && (!focused || mayChange) ? { sources: { value: sourcesValue, onChange: changeSources } } : {})}
             {...(LIVE && focused && !mayChange ? { following: followingLine } : {})}
             onOpenFilters={LIVE ? openLiveFilters : openFilters}
@@ -1976,28 +2012,15 @@ export function Agent({
             onApply={focused ? sendJd : setNextJd}
             {...(!focused && nextJd ? { onRemove: () => setNextJd(null) } : {})}
             read={readJdFile}
-            /* Several descriptions, or a sheet of them, are added together on the import card, not one at a time here. */
-            {...(!focused ? { onMany: (pick: { files?: File[]; links?: string[] }) => { stashImport(pick); sendMessage("Add roles in bulk", undefined); } } : {})}
             viewOnly={focused && !mayChange}
             lead={focused
               ? (liveJd
-                ? "Choose another and the agent reads it again, drafts the role spec and searches."
-                : "The agent reads it, drafts the role spec and starts finding people.")
+                ? "Choose another and the agent reads it again, drafts the requirements and searches."
+                : "The agent reads it, drafts the requirements and starts finding people.")
               : "It goes with your next message, and the agent starts a campaign from it."}
           />
-          {/* Add in bulk: several roles, a spreadsheet of them or a Google Sheet. They go to the import card in the chat. */}
-          <JdDialog
-            open={bulkRolesOpen}
-            onClose={() => setBulkRolesOpen(false)}
-            current={null}
-            onApply={(jd) => { setBulkRolesOpen(false); sendBulk({ texts: [{ label: jd.name, jd: jd.text }] }); }}
-            read={readJdFile}
-            onMany={sendBulk}
-            title="Add roles in bulk"
-            useLabel="Add this role"
-            lead="Several roles at once: drop job descriptions or a spreadsheet of roles, or paste a Google Sheet's link. I read each one and ask only for what it leaves out. Each campaign is made as its role is done."
-          />
-          {focused && mayChange && <SheetDialog open={bulkSheetOpen} onClose={() => setBulkSheetOpen(false)} campaignId={liveCampaignId} name={campaign.name} />}
+          {/* The paperclip's "Connect a Google Sheet": the team's own tracker for this campaign, kept in step. */}
+          {focused && mayChange && <SheetDialog open={sheetOpen} onClose={() => setSheetOpen(false)} campaignId={liveCampaignId} name={campaign.name} />}
           <FiltersDialog
             open={liveFiltersOpen}
             onClose={() => setLiveFiltersOpen(false)}
@@ -2212,7 +2235,7 @@ function TurnView({
   return (
     <article className={`orc-turn${turn.quiet ? " is-continued" : ""}`}>
       {liveTurn?.opening && <Opening line={liveTurn.opening.line} jdWords={liveTurn.opening.jdWords} />}
-      {!turn.quiet && !liveTurn?.opening && <Prompt text={turn.said} />}
+      {!turn.quiet && !liveTurn?.opening && <Prompt text={turn.said} at={turn.startedAt} files={liveTurn?.structured?.adding ? filesOfAdding(liveTurn.structured.adding) : liveTurn?.added} />}
       {!turn.quiet && !liveTurn?.opening && <FormLinkChips text={turn.said} />}
 
       <div className="orc-answer">
@@ -2295,35 +2318,46 @@ function Mark() {
 
 /* ── composer ────────────────────────────────────────────────────────────── */
 
-/**
- * The field's resting height, in lines of its own leading.
- *
- * `LINE_H` mirrors `.orc-input`'s computed `line-height` (14.5px type at 1.5).
- * Stated as two numbers rather than one so the intent — TWO LINES — survives
- * a change to the type size, and so the mismatch is visible if the CSS moves.
- *
- * It was three, which made the composer the largest thing on the landing; two
- * say "write a sentence" and it grows with the text, up to MAX_LINES.
- */
-const REST_LINES = 2;
-const LINE_H = 22;
-/** The most lines the field grows to before it scrolls: a brief longer than this is read in the field, not in the layout. */
-const MAX_LINES = 6;
+/* The field's height is counted in lines of its OWN leading (REST_LINES at rest, one once a brief has been sent, MAX_LINES
+   at most: `fieldHeight`, agentDraft.ts), and the leading is read from the field below rather than written down here, so
+   the intent — TWO LINES — survives any change to the type size. */
 
 /** What the page can ask of the composer: the draft as it will be sent, setting it, and what was dropped or pasted. */
 type ComposerHandle = {
   get: () => string;
   set: (t: string) => void;
-  /** When what is in the composer is a list of roles (a Google Sheet's link, or several job descriptions), what the import card takes. */
+  /** When what is in the composer is a list of roles (several job descriptions), what the import card takes. */
   bulk?: () => ImportSeed | null;
+  /** A Google Sheet's link left in the words becomes a chip (read there, its scope chosen there); true when one did, and the Send is held for it. None with a campaign open. */
+  liftLinks?: () => boolean;
   attach?: (files: File[]) => void;
   paste?: (out: PasteOutcome) => void;
+  /** What a Send makes of the files that were chosen or suggested: the messages, and the chips they took. None: no file was chosen. */
+  outgoing?: () => ReturnType<typeof outgoing>;
+  /** The messages went: the chips they took, and the words, are cleared; a chip with a line still to settle stays. */
+  finish?: (taken: readonly string[]) => void;
+};
+
+/** The chat the paperclip adds in: the campaign the page has open and what the person may do with it (see `addingCtx`). */
+type AddingCtx = {
+  /** The server takes the paperclip's choice (addingFlag.ts). Without it the paperclip opens the picker at once and a Send goes as it always did. */
+  on: boolean;
+  campaign: { id: string; name: string } | null;
+  mayChange: boolean;
+  closed: boolean;
+  canStart: boolean;
+  /** The campaigns the person may change, to find the one the words name as where the people go. */
+  campaigns: ReadonlyArray<{ id: string; name: string }>;
+  /** Connect the team's own Google Sheet to this campaign: the one thing the menu offers besides files. */
+  onConnectSheet?: () => void;
 };
 
 function Composer({
-  api, mode, onMode, context, jd, filterCount, onOpenJd, onOpenFilters, bulk, onBulk, sources, following, onSend,
+  api, mode, onMode, context, jd, filterCount, onOpenJd, onOpenFilters, adding, sources, following, onSend,
   sendRef, areaRef, rootRef, sending, started, preview, below, campaignName, brief,
 }: {
+  /** The chat the paperclip adds in. Absent in the demo, where there is no paperclip. */
+  adding?: AddingCtx | undefined;
   /** The campaign in focus, which a job description and the filters act on at once. Absent: they wait for the next message. */
   campaignName?: string;
   /**
@@ -2345,9 +2379,6 @@ function Composer({
   jd: Jd | null;
   filterCount: number;
   onOpenJd: () => void;
-  /** What can be added many at a time from here (roles; a candidate sheet when a campaign is in the chat). Empty: nothing. */
-  bulk?: readonly BulkChoice[];
-  onBulk?: (choice: BulkChoice) => void;
   /** Where searches look (database, external or both) and how to change it; absent where the person may not change it. */
   sources?: { value: SourceMode; onChange: (m: SourceMode) => void };
   /** Said where the search controls would be when the person only follows this campaign (the filters and where to look are the campaign's own). */
@@ -2389,43 +2420,126 @@ function Composer({
   const uid = useRef(0);
 
   const fresh = () => `a${Date.now().toString(36)}${(uid.current += 1)}`;
-  const addFiles = (dropped: File[]) => {
-    if (!LIVE || !dropped.length) return;
-    /* A spreadsheet is a list of roles, not an attachment to one message: the import card reads it, row by row, and
-       asks only what a row leaves out. The files wait for it here, and the chat answers with the card. */
-    const sheets = dropped.filter(isSheetFile);
-    const files = dropped.filter((f) => !isSheetFile(f));
-    if (sheets.length) {
-      stashImport({ files: sheets });
-      sendMessage("Add these roles in bulk", undefined);
-      if (!files.length) return;
+  /* The server takes the paperclip's choice (addingFlag.ts): the menu and the scoped messages are used only then. A server that does not
+     drops the choice and answers a fixed phrase with a bare picker, so for it the paperclip opens the picker at once and a Send goes as it always did. */
+  const modern = adding?.on === true;
+  /* What the paperclip adds in: the campaign the page has open and what the person may do with it. */
+  const here: Pick<AddContext, "campaign" | "campaignId" | "mayChange" | "closed"> = {
+    campaign: adding?.campaign?.name ?? null,
+    campaignId: adding?.campaign?.id ?? null,
+    mayChange: adding?.mayChange ?? false,
+    closed: adding?.closed ?? false,
+  };
+  /* Sheets are read two at a time: the read is wall time on one thread of the server, and a dozen at once is a dozen waits. */
+  const readLater = useRef(inTurns(2)).current;
+  const patch = (id: string, change: (x: Attachment, others: Attachment[]) => Partial<Attachment>) =>
+    setAtts((a) => a.map((x) => (x.id === id ? { ...x, ...change(x, a.filter((y) => y.id !== id)) } : x)));
+  /* A dropped document is suggested as what it looks like; when that no longer fits beside the others it is something to read. */
+  const place = (x: Attachment, others: Attachment[], want: AddScope): Partial<Attachment> => {
+    const kind = x.kind ?? "document";
+    for (const scope of want === "read" ? (["read"] as const) : ([want, "read"] as const)) {
+      // A file the job description route does not take (a Markdown note, a WebP picture) is something to read, never the job description.
+      if (scope === "job_description" && x.file && jdFileRefusal(x.file)) continue;
+      if (!fits(others, x, { kind, scope })) return { scope };
     }
+    return { status: "failed", note: fits(others, x, { kind, scope: "read" }) ?? LIMIT_LINE };
+  };
+  /* `chosen` is the kind the person picked from the menu; a file dropped or pasted has none and is suggested one, to change with a click. */
+  const addFiles = (dropped: File[], chosen?: AddScope) => {
+    if (!LIVE || !dropped.length) return;
     setNote(null);
-    let room = MAX_ATTACHMENTS - attsNow.current.length;
     const refused: string[] = [];
-    for (const f of files) {
-      const why = fileRefusal(f);
-      if (why) { refused.push(why); continue; }
-      if (room <= 0) { refused.push(`Up to ${MAX_ATTACHMENTS} files go in one message.`); break; }
-      room -= 1;
-      const id = fresh();
+    const have = [...itemsNow.current];
+    for (const f of dropped) {
+      const kind = kindOf(f);
       const name = f.name || "Pasted image";
-      setAtts((a) => [...a, { id, name, origin: "file", size: f.size, status: "reading", text: "" }]);
-      attachmentApi.read(f, typeOf(f)).then(
-        (r) => setAtts((a) => a.map((x) => (x.id === id ? { ...x, status: "ready", text: r.text, docKind: r.kind, ...(r.truncated ? { note: "Only the start fits in a message." } : {}) } : x))),
-        (err: unknown) => setAtts((a) => a.map((x) => (x.id === id ? { ...x, status: "failed", note: messageOf(err) } : x))),
-      );
+      const why =
+        (chosen ? refusalFor(f, chosen) : null) ??
+        (chosen === "job_description" ? jdFileRefusal(f) : null) ??
+        (kind === "sheet" ? sheetRefusal(f) : fileRefusal(f)) ??
+        fits(have, { name, size: f.size }, { kind, scope: chosen ?? (kind === "sheet" ? "candidates" : "read") });
+      if (why) { refused.push(why); if (why === LIMIT_LINE) break; continue; }
+      const id = fresh();
+      const chip: Attachment = {
+        id, name, origin: "file", size: f.size, status: "reading", text: "", kind,
+        file: f,
+        ...(chosen ? { scope: chosen } : { suggested: true }),
+        /* A job description is chosen for the campaign in the chat now, and goes to that one only. */
+        ...(chosen === "job_description" && adding?.campaign ? { onCampaign: adding.campaign } : {}),
+      };
+      have.push(chip);
+      setAtts((a) => [...a, chip]);
+      const fail = (err: unknown) => patch(id, () => ({ status: "failed", note: typeof err === "string" ? err : messageOf(err) }));
+      if (kind === "sheet") {
+        /* The sheet is read now, for free, so the chip can say how many people are in it and the card does not read it twice. */
+        readLater(async () => {
+          if (isOldExcel(new Uint8Array(await f.slice(0, 4).arrayBuffer()))) throw oldExcelLine(name);
+          const forCampaign = adding?.campaign && adding.mayChange && !adding.closed ? adding.campaign.id : null;
+          return readOne(f, forCampaign, (file, opts) => peopleSheetApi.read(file, opts));
+        }).then(
+          (got) => patch(id, () => ({ status: "ready", sheet: got.sheet, readFor: got.campaignId, scope: chosen ?? suggest({ kind, sheetKind: got.sheet.kind }, here) })),
+          (err) => {
+            /* More people than can be added at once is no reason to turn the file away: the words typed with it can leave most of them out, and its card reads the sheet itself with them. */
+            const many = tooManyPeople(err);
+            if (many === null) fail(err);
+            else patch(id, () => ({ status: "ready", tooMany: many, scope: chosen ?? "candidates" }));
+          },
+        );
+      } else {
+        attachmentApi.read(f, typeOf(f)).then(
+          (r) => patch(id, (x, others) => ({
+            status: "ready", text: r.text, docKind: r.kind,
+            ...(r.picture ? { picture: true } : {}),
+            ...(r.truncated ? { note: "Only the start fits in a message." } : {}),
+            ...(chosen ? {} : place(x, others, suggest({ kind, docKind: r.kind }, here))),
+          })),
+          fail,
+        );
+      }
     }
     if (refused.length) setNote({ text: refused[0] ?? "", picker: false });
   };
+  /* What a file is, changed from the caret on its chip: only to what that kind of file can be, and what fits beside the others. */
+  const setScope = (id: string, scope: AddScope) => {
+    const x = attsNow.current.find((a) => a.id === id);
+    if (!x) return;
+    const kind = x.kind ?? "document";
+    const why = canBe(kind, scope)
+      ? (scope === "job_description" && x.file ? jdFileRefusal(x.file) : null) ?? fits(itemsNow.current.filter((a) => a.id !== id), x, { kind, scope })
+      : refusalFor({ name: x.name, type: "" }, scope);
+    if (why) { setNote({ text: why, picker: false }); return; }
+    setNote(null);
+    patch(id, () => ({ scope, suggested: false, kept: false, ...(scope === "job_description" && adding?.campaign ? { onCampaign: adding.campaign } : {}) }));
+  };
+  /* A Google Sheet's link, pasted or lifted out of the words at Send: a chip like a sheet that was dropped. It is read now, for free, and
+     suggested what it looks like (people, or roles) to change with one click. A sheet that can not be opened (one that needs a sign-in)
+     says so on its chip, in the server's words. */
+  const linkDoor: LinkDoor = {
+    chips: () => itemsNow.current,
+    add: (chip, replacing) => setAtts((a) => [...a.filter((x) => !replacing.includes(x.id)), chip]),
+    patch: (id, change) => patch(id, () => change),
+    read: (url) => readLater(() => {
+      const forCampaign = adding?.campaign && adding.mayChange && !adding.closed ? adding.campaign.id : null;
+      return readLinkOne(url, forCampaign, (u, opts) => peopleSheetApi.readLink(u, opts));
+    }),
+    suggest: (sheet) => suggest({ kind: "sheet", sheetKind: sheet.kind }, here),
+    id: fresh,
+    say: (line) => setNote(line === null ? null : { text: line, picker: false }),
+    words: messageOf,
+  };
+  const addLinks = (urls: readonly string[]) => {
+    if (!LIVE) return;
+    takeLinks(urls, linkDoor);
+  };
   const addPasted = (text: string) => {
     setNote(null);
-    if (attsNow.current.length >= MAX_ATTACHMENTS) { setNote({ text: `Up to ${MAX_ATTACHMENTS} files go in one message.`, picker: false }); return; }
+    if (itemsNow.current.length >= MAX_FILES) { setNote({ text: LIMIT_LINE, picker: false }); return; }
     setAtts((a) => [...a, { id: fresh(), name: "Pasted text", origin: "pasted", size: text.length, status: "ready", text }]);
   };
   const takePaste = (out: PasteOutcome) => {
     if (out.kind === "files") addFiles(out.files);
     else if (out.kind === "path") setNote({ text: PATH_NOTE, picker: true });
+    else if (out.kind === "links") addLinks(out.urls);
     else if (out.kind === "long") addPasted(out.text);
   };
   const dropAtt = (id: string) => {
@@ -2433,6 +2547,24 @@ function Composer({
     setAtts((a) => a.filter((x) => x.id !== id));
     setViewing((v) => (v === id ? null : v));
   };
+  /* The paperclip: "What are you adding?" first, then the picker for that kind alone (what it takes, one file or many). Both are
+     set on the input itself in the same press, since a browser opens the picker only inside the gesture that asked for it. */
+  const [menuOpen, setMenuOpen] = useState(false);
+  const pin = useRef<HTMLButtonElement>(null);
+  const chosen = useRef<AddScope | null>(null);
+  const openPicker = (row?: { scope: AddScope; accept: string; multiple: boolean }) => {
+    const input = picker.current;
+    if (!input) return;
+    chosen.current = row?.scope ?? null;
+    input.accept = row?.accept ?? `${SHEET_TYPES},${ATTACH_ACCEPT}`;
+    input.multiple = row?.multiple ?? true;
+    input.click();
+  };
+  useEffect(() => {
+    const open = () => (modern ? setMenuOpen(true) : openPicker());
+    window.addEventListener(OPEN_ADD_MENU, open);
+    return () => window.removeEventListener(OPEN_ADD_MENU, open);
+  }, [modern]);
 
   /* With no campaign in focus, the job description set from its dialog is one more attachment, and the filters
      are a line at the end of the message; both are consumed by the send. */
@@ -2446,7 +2578,8 @@ function Composer({
     composeMessage(typed, list, campaignName
       ? { campaignName }
       : { newCampaign: true, tail: brief?.filtersLine ?? null });
-  const composed = compose(draft, items);
+  /* (Only what rides in the message can be cut short by it: the people and roles chips go to their cards whole.) */
+  const composed = compose(draft, items.filter((a) => a.scope !== "candidates" && a.scope !== "roles"));
   /* What is sent is what is typed and what was attached, as one message; clearing the field clears the files. */
   api.current = {
     get: () => compose(draftNow.current, itemsNow.current).text,
@@ -2454,31 +2587,55 @@ function Composer({
       setDraft(t);
       if (!t) { setAtts([]); setNote(null); }
     },
-    attach: addFiles,
+    attach: (files) => addFiles(files),
     paste: takePaste,
-    /* Several job descriptions attached, or a Google Sheet's link in the words, are roles to add together: the agent
-       answers with the import card, which reads them, instead of one message about all of them. */
+    /* What a Send makes of the files that were chosen or suggested (adding.ts), and the chips it took. */
+    outgoing: () =>
+      outgoing(itemsNow.current, draftNow.current, {
+        campaign: adding?.campaign ?? null,
+        mayChange: here.mayChange,
+        closed: here.closed,
+        campaigns: adding?.campaigns ?? [],
+        id: fresh(),
+        tail: brief?.filtersLine ?? null,
+        ...(modern ? {} : { legacy: true }),
+      }),
+    finish: (taken) => {
+      setDraft("");
+      setAtts((a) => a.filter((x) => !taken.includes(x.id)));
+      setNote(null);
+    },
+    /* Several job descriptions attached, or a Google Sheet's link the words call roles ("create campaigns from this sheet"),
+       are roles to add together: the agent answers with the import card, which reads them, instead of one message about all
+       of them. A Google Sheet's link is no longer one of these: it is a chip, read first, and its scope says where it goes. */
     bulk: () => {
       if (!LIVE || campaignName) return null;
-      const ready = itemsNow.current.filter((a) => a.status === "ready" && a.text.trim().length >= 60);
+      const ready = itemsNow.current.filter((a) => a.scope === undefined && a.status === "ready" && a.text.trim().length >= 60);
       const typed = draftNow.current.trim();
-      const link = sheetLinkIn(typed);
       /* Two or more documents with no résumé among them, and nothing typed that says they are something else (a
          question about them), are roles to add. A file the reader took for a job description counts either way. */
       const docs = ready.filter((a) => a.docKind !== "resume");
       const sure = ready.filter((a) => a.docKind === "job_description");
-      const about = !typed || /\b(campaigns?|roles?|jds?|job descriptions?|openings?|positions?|vacanc\w+|hir(?:e|ing))\b/i.test(typed);
+      const about = !typed || ROLE_WORDS.test(typed);
       const many = sure.length >= 2 || (docs.length >= 2 && docs.length === ready.length && about);
       const seed: ImportSeed = {
         files: [],
         texts: many ? docs.map((a) => ({ label: a.name.replace(/\.[a-z0-9]+$/i, ""), jd: a.text })) : [],
-        links: link ? [link] : [],
+        links: [],
       };
       return hasSeed(seed) ? seed : null;
     },
+    /* A Google Sheet's link left in the words (typed, or inside a longer paste) becomes a chip, as a pasted one does: one way in for a link,
+       read there and given its scope there. Not with a campaign open: the words may be about the team's own candidate sheet, which the
+       agent connects, and they go as they were typed. The Send is held, so the chip is seen before anything goes. */
+    liftLinks: () => {
+      if (!LIVE || campaignName) return false;
+      return liftLinksFrom(draftNow.current, linkDoor, setDraft);
+    },
   };
   const reading = atts.some((a) => a.status === "reading");
-  const withText = items.filter((a) => a.status === "ready").length;
+  /* A file with a line still to settle (it looks like something else) is not sent, and is not a reason to send. */
+  const withText = items.filter((a) => a.status === "ready" && (a.scope === undefined || sendable(a, here))).length;
 
   /* The mirror does not scroll itself — it sits behind a textarea that does,
      so it has to be moved by the same amount or the underlines drift off the
@@ -2499,15 +2656,20 @@ function Composer({
      warns against, and there is nothing to communicate here anyway.
 
      ── AND IT HAS A FLOOR, SET HERE RATHER THAN IN CSS ──
-     `rows={1}` left the field 22px tall at rest, which made the composer read
-     as a search box rather than as somewhere you write a brief, so the
+     `rows={1}` left the field one line tall at rest, which made the composer
+     read as a search box rather than as somewhere you write a brief, so the
      resting size should say so. The floor is REST_LINES lines of the field's
-     own 21.75px leading, rounded up.
+     own leading (24.75px at 16.5px type and 1.5), in whole pixels.
 
-     It lives in this expression and not as a CSS `min-height` because this
-     effect writes `style.height` directly: two owners for one dimension is how
-     you get a resting height that disagrees with the grown one. `max` of the
-     floor and `min` of the cap, so the clamp reads in the order it applies. */
+     That leading is READ from the field, below, and not kept as a number here:
+     it was kept, as 22, and when the type grew the field rested at 44px of a
+     real 49.5, jumped 6px as the second line wrapped and capped a line early.
+
+     It lives in this expression (`fieldHeight`) and not as a CSS `min-height`
+     because this effect writes `style.height` directly: two owners for one
+     dimension is how you get a resting height that disagrees with the grown
+     one. `max` of the floor and `min` of the cap, so the clamp reads in the
+     order it applies. */
   /* ── A LAYOUT EFFECT, AND THE ORDERING IS THE WHOLE REASON ──
      This was `useEffect`, which React runs after paint and after every
      layout effect. The page's morph is a layout effect in the PARENT, so it
@@ -2525,6 +2687,7 @@ function Composer({
     const el = areaRef.current;
     if (!el) return;
 
+    const line = lineHeightPx(getComputedStyle(el).lineHeight);
     el.style.height = "auto";
     /* ── THE FLOOR MOVES WITH THE STATE, THE CEILING DOES NOT ──
        Two lines at rest, because a brief is more than a word and the field
@@ -2532,9 +2695,7 @@ function Composer({
        the conversation is the subject then and the field is the instrument,
        so it gives the room back. Either way the autosize still grows it the
        moment the draft needs more. */
-    const floor = (started ? 1 : REST_LINES) * LINE_H;
-    const target = Math.max(floor, Math.min(el.scrollHeight, MAX_LINES * LINE_H));
-    el.style.height = `${target}px`;
+    el.style.height = `${fieldHeight(line, el.scrollHeight, started)}px`;
 
     /* ── THE HEIGHT IS SET HERE, BUT NO LONGER ANIMATED HERE ──
        This used to own the collapse, animating the TEXTAREA from its old
@@ -2589,6 +2750,7 @@ function Composer({
             onView={setViewing}
             onRemove={dropAtt}
             filters={filterChip}
+            scopes={adding ? { ctx: here, onScope: setScope, onKeep: (id) => patch(id, () => ({ kept: true })) } : undefined}
           />
         )}
         {/* ── THE BRIEF SHOWS ITS OWN STRUCTURE ──
@@ -2639,8 +2801,8 @@ function Composer({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder={preview && !draft ? preview : LIVE
-            /* Connected there is one wording: the agent is briefed in words, whatever the state. */
-            ? "Brief the agent…"
+            /* Connected there is one wording: the agent is briefed in words, whatever the state; once a file is ready it says what Enter does. */
+            ? (placeholderFor(items, adding?.campaign?.name ?? null) ?? "Brief the agent…")
             : started
             /* Docked, the field shares its line with five controls; the long
                prompt wrapped to two lines and made the bar taller. */
@@ -2660,7 +2822,8 @@ function Composer({
           onPaste={(e) => {
             if (!LIVE) return;
             const out = readClipboard(e.clipboardData);
-            if (out.kind === "text") return;
+            // A link pasted into words is part of them (lifted into a chip at Send, or left to the agent); alone in an empty field it is the sheet.
+            if (out.kind === "text" || (out.kind === "links" && draftNow.current.trim())) return;
             e.preventDefault();
             takePaste(out);
           }}
@@ -2668,6 +2831,32 @@ function Composer({
         </div>
 
         <div className="orc-composer-row">
+          {/* The paperclip: it asks what is being added ("What are you adding?") and the answer goes with the file. It stays
+              there at the limit, and the menu says why its rows can not be chosen. */}
+          {LIVE && (
+            <button
+              ref={pin}
+              type="button"
+              className="orc-pin"
+              title={modern ? "Add candidates, job descriptions or a file to read" : "Attach a file"}
+              aria-label="Add something"
+              aria-haspopup={modern ? "menu" : undefined}
+              aria-expanded={modern ? menuOpen : undefined}
+              onClick={() => (modern ? setMenuOpen((o) => !o) : openPicker())}
+            >
+              <PaperclipHorizontal size={18} aria-hidden="true" />
+            </button>
+          )}
+          {LIVE && modern && (
+            <AddMenu
+              anchor={pin}
+              open={menuOpen}
+              onClose={() => setMenuOpen(false)}
+              rows={menuFor({ ...here, canStart: adding?.canStart ?? false, count: items.length })}
+              onPick={(row) => { setMenuOpen(false); openPicker(row); }}
+              footer={adding?.onConnectSheet ? { label: "Connect a Google Sheet", onPick: () => { setMenuOpen(false); adding.onConnectSheet?.(); } } : undefined}
+            />
+          )}
           {/* The job description by name and the filters by count: the same controls the prototype's
               composer has, connected. The description goes to the campaign in focus (or starts the next
               one) and the filters are the campaign's own, read by its next search. There is no mode
@@ -2721,14 +2910,13 @@ function Composer({
                 {filterCount > 0 && <b className="orc-ctx-n" key={filterCount}>{filterCount}</b>}
               </button>}
               {LIVE && sources && <SourcesChip value={sources.value} onChange={sources.onChange} />}
-              {LIVE && bulk && onBulk && <BulkChip choices={bulk} onPick={onBulk} />}
               {LIVE && following && <span className="orc-follow">{following}</span>}
             </div>
           )}
 
           {/* Docked, the modes and the two context buttons fold into one
               control, so the bar reads as field → tune → send. */}
-          {started && (showJd || sources || (LIVE && bulk && bulk.length > 0 && onBulk)) && (
+          {started && (showJd || sources) && (
             <TuneMenu
               mode={mode}
               onMode={onMode}
@@ -2739,20 +2927,22 @@ function Composer({
               filterCount={filterCount}
               onOpenJd={onOpenJd}
               onOpenFilters={() => onOpenFilters(draft)}
-              {...(LIVE && bulk && onBulk ? { bulk, onBulk } : {})}
             />
           )}
 
-          {/* The picker is reached from the job description slot and from the note on a pasted path: there is
-              no separate pin. Files can also be dropped on the page or pasted. */}
+          {/* The picker is the menu's, and the note on a pasted path's; what it takes is set for the kind chosen (see `openPicker`).
+              Files can also be dropped on the page or pasted. After the dialog, focus goes back to the words. */}
           {LIVE && (
             <input
               ref={picker}
               type="file"
-              multiple
               hidden
-              accept={`${ATTACH_ACCEPT},.xlsx,.csv,.tsv`}
-              onChange={(e) => { addFiles(Array.from(e.target.files ?? [])); e.target.value = ""; }}
+              onChange={(e) => {
+                addFiles(Array.from(e.target.files ?? []), chosen.current ?? undefined);
+                e.target.value = "";
+                chosen.current = null;
+                areaRef.current?.focus();
+              }}
             />
           )}
 
@@ -2784,10 +2974,11 @@ function Composer({
       {/* Under the input, in a block of its own: the page's grid gives it its own row, so what is here (a note,
           the ideas, what the brief says) can be as tall as it needs without the rail having to make room. */}
       <div className="orc-composer-below">
+        {!note && readingNote(items) && <p className="orc-attach-note" role="status">{readingNote(items)}</p>}
         {note && (
           <p className="orc-attach-note" role="status">
             <span>{note.text}</span>
-            {note.picker && <button type="button" onClick={() => { setNote(null); picker.current?.click(); }}>Choose a file</button>}
+            {note.picker && <button type="button" onClick={() => { setNote(null); openPicker(); }}>Choose a file</button>}
           </p>
         )}
 
@@ -2871,20 +3062,18 @@ function Composer({
 /* ── the docked bar's one control ────────────────────────────────────────── */
 
 function TuneMenu({
-  mode, onMode, withBrief, withFilters, jd, filterCount, onOpenJd, onOpenFilters, bulk, onBulk, sources,
+  mode, onMode, withBrief, withFilters, jd, filterCount, onOpenJd, onOpenFilters, sources,
 }: {
   sources?: { value: SourceMode; onChange: (m: SourceMode) => void };
   mode: ModeId;
   onMode: (m: ModeId) => void;
-  /** Whether the job description and the filters are offered (a chat about no campaign); else it holds only "Add in bulk". */
+  /** Whether the job description and the filters are offered (a chat about no campaign); else it holds only where to search. */
   withBrief: boolean;
   withFilters: boolean;
   jd: Jd | null;
   filterCount: number;
   onOpenJd: () => void;
   onOpenFilters: () => void;
-  bulk?: readonly BulkChoice[];
-  onBulk?: (choice: BulkChoice) => void;
 }) {
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
@@ -2908,11 +3097,11 @@ function TuneMenu({
         className={`orc-tune${open ? " is-open" : ""}${set ? " is-set" : ""}`}
         aria-haspopup="menu"
         aria-expanded={open}
-        title={!withBrief ? (sources ? "Where to search, and add in bulk" : "Add in bulk") : LIVE ? "Job description, filters and where to search" : "Mode, job description and filters"}
+        title={!withBrief ? "Where to search" : LIVE ? "Job description, filters and where to search" : "Mode, job description and filters"}
         onClick={() => setOpen((o) => !o)}
       >
         {!LIVE && Current && <Current size={14} weight="bold" aria-hidden="true" />}
-        {withBrief ? <SlidersHorizontal size={14} weight="bold" aria-hidden="true" /> : <ListPlus size={15} weight="bold" aria-hidden="true" />}
+        <SlidersHorizontal size={14} weight="bold" aria-hidden="true" />
         {set > 0 && <b className="orc-tune-n" key={set}>{set}</b>}
       </button>
       {open && (
@@ -2939,12 +3128,6 @@ function TuneMenu({
             <div className="orc-tune-group">
               <p className="orc-tune-cap">Search in</p>
               <SourcesList value={sources.value} onPick={(m) => { setOpen(false); if (m !== sources.value) sources.onChange(m); }} />
-            </div>
-          )}
-          {bulk && bulk.length > 0 && onBulk && (
-            <div className="orc-tune-group">
-              <p className="orc-tune-cap">Add in bulk</p>
-              <BulkList choices={bulk} onPick={(c) => { setOpen(false); onBulk(c); }} />
             </div>
           )}
         </div>

@@ -1,4 +1,5 @@
 import type { DayTask } from "./api/tasks";
+import { browserZone, whenLabel } from "./schedulesView";
 
 /**
  * What the card shown when someone rests on a task says. The title is the one line the task was made with, often several
@@ -39,6 +40,25 @@ export function stepsOf(title: string): { heading: string; steps: string[] } {
   return { heading: first, steps: rest };
 }
 
+/** A task made with a day and no time is kept at the end of that day: that is a day, not a time of day worth saying. */
+const endOfDay = (iso: string): boolean => {
+  const d = new Date(iso);
+  return d.getHours() === 23 && d.getMinutes() === 59;
+};
+
+/**
+ * The due line: the day and the time of day ("Today, 10 am", "Mon 3 Nov, 9:30 am"), and how late it is once its day has passed.
+ * A finished task is not late: it says the day it was due and nothing about the days since.
+ */
+export function dueLine(task: Pick<DayTask, "dueAt" | "dueInDays"> & { state?: DayTask["state"] }): string | null {
+  const day = dueWords(task);
+  if (day === null) return null;
+  const exact = task.dueAt && !endOfDay(task.dueAt) ? whenLabel(task.dueAt, browserZone()) : "";
+  if (task.state === "done") return task.dueAt ? dayWords(Date.parse(task.dueAt)) : null;
+  if (!exact) return day;
+  return task.dueInDays !== null && task.dueInDays < 0 ? `${day} (${exact})` : exact;
+}
+
 export function taskCardOf(
   t: Pick<DayTask, "title" | "state" | "campaign" | "assigneeName" | "createdByName" | "createdById" | "dueAt" | "dueInDays" | "progress" | "open" | "kind" | "candidateName" | "removable">,
   you: { id: string | null; name: string | null },
@@ -49,8 +69,7 @@ export function taskCardOf(
   rows.push(["For", forYou ? "You" : (t.assigneeName ?? "A teammate")]);
   const by = t.createdByName ?? (t.kind === "system" ? "A rule of the workspace" : t.kind === "agent" ? "The agent" : null);
   if (by && by !== t.assigneeName && !(you.id && t.createdById === you.id)) rows.push(["Added by", by]);
-  const due = dueWords(t);
-  rows.push(["Due", due ?? "No date"]);
+  rows.push(["Due", dueLine(t) ?? "No date"]);
   if (t.campaign) rows.push(["Campaign", t.campaign]);
   if (t.candidateName) rows.push(["About", t.candidateName]);
   rows.push(["Status", STATE[t.state]]);

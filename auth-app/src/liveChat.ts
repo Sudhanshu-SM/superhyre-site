@@ -7,7 +7,8 @@ import type { FeedLine } from "./agentFeed";
 import { applyPhaseEvent, closePhases } from "./agentPhases";
 import type { PhaseLine } from "./agentPhases";
 import { agentApi } from "./api/agent";
-import type { ChatCard, Structured, ChatMessage, ConversationDetail, Match, Suggestion } from "./api/agent";
+import { type AddedFile, filesOfArtifact } from "./adding";
+import type { ChatCard, Structured, ChatMessage, Conversation, ConversationDetail, Match, Suggestion } from "./api/agent";
 import { ApiError, messageOf } from "./api/client";
 import { onWorkspaceChange } from "./api/identity";
 import { ALREADY_HANDLED, approvalFailure, helpLinkOf } from "./chatCards";
@@ -81,8 +82,8 @@ export type MeetingDraft = {
   was?: { startsAt: string; endsAt: string };
   cancel: boolean;
 };
-/** An option of a question. `input` is a value the card asks for inside itself when this one is picked (a new client's name); `quiet` is a way out beside Continue ("No client"). */
-export type Choice = { id: string; name: string; text?: string; input?: { label: string; placeholder?: string; tag?: string }; quiet?: boolean };
+/** An option of a question. `input` is a value the card asks for inside itself when this one is picked (a new client's name); `quiet` is a way out beside Continue ("No campaign"); `lead` makes that way out the one to take ("All open campaigns"), not a way to skip. */
+export type Choice = { id: string; name: string; text?: string; input?: { label: string; placeholder?: string; tag?: string }; quiet?: boolean; lead?: boolean };
 /**
  * A question the agent put on the screen, answered on its card: the pick goes to the server as an answer (not as a
  * message), and the card keeps it as one line. `runId` and `seq` say where it was asked, which is how an answer
@@ -172,6 +173,8 @@ export type LiveTurn = {
   opening?: { line: string; jdWords: number | null };
   /** The people a button on a card was about, sent with its words: what the agent does is for them only. */
   structured?: Structured;
+  /** The files the paperclip added with this message, by name and what each was chosen as (from the chat as the server kept it). */
+  added?: AddedFile[];
 };
 
 export type ChatState = {
@@ -209,6 +212,7 @@ export function questionChoices(raw: unknown): Choice[] {
       ...(text ? { text } : {}),
       ...(label ? { input: { label, ...(placeholder ? { placeholder } : {}), ...(tag ? { tag } : {}) } } : {}),
       ...(o.quiet === true ? { quiet: true } : {}),
+      ...(o.lead === true ? { lead: true } : {}),
     }];
   });
 }
@@ -774,7 +778,8 @@ export function fromDetail(detail: ConversationDetail): ChatState {
     }
     if (m.role !== "user") continue;
     const key = m.clientId ?? m.id;
-    turns.push({ ...newTurn(key, m.text, Date.parse(m.createdAt)), runId: m.runId, status: "working", ...quietOf(m.artifact), ...openingOf(m.artifact) });
+    const added = filesOfArtifact(m.artifact);
+    turns.push({ ...newTurn(key, m.text, Date.parse(m.createdAt)), runId: m.runId, status: "working", ...quietOf(m.artifact), ...openingOf(m.artifact), ...(added.length ? { added } : {}) });
     if (m.runId) owners[m.runId] = key;
   }
   return { conversationId: detail.conversation.id, turns, owners, orphans: {}, applied: {}, loading: false, error: null };
@@ -1035,6 +1040,19 @@ export async function openChat(id: string): Promise<void> {
 }
 
 /**
+ * The chat a campaign's task opens into: the latest of the person's chats about it. Its daily search chat is never it: the agent
+ * writes there every morning, which would make it the newest, and what the person then asks would land among the mornings' findings.
+ */
+export function chatToOpenFor(
+  conversations: ReadonlyArray<Pick<Conversation, "id" | "focusCampaignId" | "kind" | "updatedAt">>,
+  campaignId: string,
+) {
+  return conversations
+    .filter((c) => c.focusCampaignId === campaignId && c.kind !== "daily_search")
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+}
+
+/**
  * One chat per campaign, the way a chat app keeps a thread per subject: the latest chat about this campaign, or a blank
  * one that is about it from its first message. A chat already open for it stays as it is. Opening a campaign's task must
  * not land in whichever chat happened to be last open.
@@ -1043,9 +1061,7 @@ export async function openChatFor(campaignId: string): Promise<void> {
   const open = state.conversationId;
   try {
     const { conversations } = await agentApi.conversations();
-    const mine = conversations
-      .filter((c) => c.focusCampaignId === campaignId)
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+    const mine = chatToOpenFor(conversations, campaignId);
     if (mine) {
       if (mine.id !== open) await openChat(mine.id);
       return;
@@ -1061,6 +1077,7 @@ export function newChat(): void {
   epoch += 1;
   closeStreams();
   replayUntil = 0;
+  befores.clear();
   remember(null);
   set(EMPTY);
 }
@@ -1091,6 +1108,76 @@ export function sendMessage(text: string, campaignId?: string, structured?: Stru
   set({ ...state, error: null, turns: [...state.turns, { ...newTurn(key, text), campaignId: campaignId ?? null, ...(structured ? { structured } : {}) }] });
   void deliver(key, text, campaignId, false, undefined, structured);
   return key;
+}
+
+/**
+ * Work a message waits for, with its turn on screen while it is done: a job description's file goes up by the campaign's own route
+ * (which keeps the file and drafts the requirements), and only then does the message that shows them go. It happens once: a turn
+ * sent again after the work was done sends the message alone. A failure is the turn's own, said in its words, with "Send again".
+ */
+export type Before = {
+  /** What the turn says while the work is done, and once it is. */
+  working: string;
+  done: string;
+  run: () => Promise<unknown>;
+  /** The line a failure becomes. */
+  failure: (err: unknown) => string;
+  /** A turn that follows once the message is in (a button's words, under its label), for a message that is the person's own words. */
+  then?: { text: string; label: string; campaignId?: string | undefined };
+};
+const befores = new Map<string, Before & { ran?: boolean }>();
+const BEFORE_LINE = "before";
+const waitingLine = (b: Before, state: "running" | "done"): PhaseLine => ({
+  id: BEFORE_LINE, phase: "understand", state, label: state === "running" ? b.working : b.done, seq: 0,
+});
+
+/** Does the work a turn waits for. False when it did not come through: the turn has said so, and nothing is sent. */
+async function prepare(key: string, before: Before & { ran?: boolean }, at: number): Promise<boolean> {
+  set(update(state, key, (t) => ({ ...t, startedAt: Date.now(), phases: [waitingLine(before, "running")] })));
+  try {
+    await before.run();
+  } catch (err) {
+    if (at !== epoch) return false;
+    // (A limit with a time says when it lifts. Any other failure leaves the code out: "Send again" is offered, and the words are not put back in the box.)
+    const api = err instanceof ApiError && (err.code === "rate_limited" || err.code === "unavailable") ? err : null;
+    set(update(state, key, (t) => ({
+      ...t, status: "failed", phases: closePhases(t.phases, "failed"), error: before.failure(err),
+      errorCode: api?.code ?? null, retryAt: api?.retryAt ?? null, finishedAt: Date.now(),
+    })));
+    return false;
+  }
+  if (at !== epoch) return false;
+  before.ran = true;
+  set(update(state, key, (t) => ({ ...t, startedAt: Date.now(), phases: [waitingLine(before, "done")] })));
+  return true;
+}
+
+/**
+ * Several messages from one Send (the files that were added, then what the agent is to read or answer): every turn is on screen at
+ * once and they go out one after the other, in this order, so the chat is started by the first and the rest follow in the order
+ * they were made. A message that fails is a failed turn with its own "Send again"; the ones after it still go. A part with a
+ * `quiet` label is a turn that answers words already in the chat: it is shown with no message of the person's, as a button's is.
+ * A part with `before` waits for that work first (see `Before`).
+ */
+export function sendMessages(parts: ReadonlyArray<{ text: string; campaignId?: string | undefined; structured?: Structured | undefined; quiet?: string | undefined; before?: Before | undefined }>): string[] {
+  const keys = parts.map(() => crypto.randomUUID());
+  parts.forEach((p, i) => { if (p.before) befores.set(keys[i]!, { ...p.before }); });
+  set({
+    ...state,
+    error: null,
+    turns: [
+      ...state.turns,
+      ...parts.map((p, i) => ({
+        ...newTurn(keys[i]!, p.text), campaignId: p.campaignId ?? null,
+        ...(p.quiet ? { quiet: { label: p.quiet } } : {}), ...(p.structured ? { structured: p.structured } : {}),
+        ...(p.before ? { phases: [waitingLine(p.before, "running")] } : {}),
+      })),
+    ],
+  });
+  void (async () => {
+    for (const [i, p] of parts.entries()) await deliver(keys[i]!, p.text, p.campaignId, false, p.quiet, p.structured);
+  })();
+  return keys;
 }
 
 /**
@@ -1179,6 +1266,8 @@ async function redeliverAnswer(key: string, a: { runId: string; seq: number; ids
 
 async function deliver(key: string, text: string, campaignId?: string, again = false, quiet?: string, structured?: Structured): Promise<void> {
   const at = epoch;
+  const before = befores.get(key);
+  if (before && !before.ran && !(await prepare(key, before, at))) return;
   try {
     let id = state.conversationId;
     if (!id) {
@@ -1195,6 +1284,9 @@ async function deliver(key: string, text: string, campaignId?: string, again = f
     if (at !== epoch) return;
     startedHere.add(sent.runId);
     set(update(claim(state, sent.runId, key), key, (t) => ({ ...t, runId: sent.runId, status: t.status === "sending" ? "working" : t.status })));
+    // What waited for the work is over, and what is asked once it is in follows the message in the chat's order.
+    befores.delete(key);
+    if (before?.then) sendAction(before.then.text, before.then.label, before.then.campaignId ?? campaignId);
   } catch (err) {
     if (at !== epoch) return;
     /* The server's own sentence and code, so a refused message is told as refused (and a limit counts

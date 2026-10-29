@@ -41,15 +41,16 @@
 .sg-colour.is-fixed { cursor: default; }
 .sg-colour.is-auto i { background: none; box-shadow: none; border: 1.5px dashed var(--ink-3); }
 
-.sg-swatches { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px; }
+/* The colours: four to a row (the popover is 196px wide, so each swatch is 34px, a real target), the chosen one ringed. */
+.sg-swatches { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; padding: 14px; }
 .sg-sw {
-  width: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%; background: var(--sg-c); cursor: pointer;
+  width: 100%; aspect-ratio: 1; align-self: start; padding: 0; border: 0; border-radius: 50%; background: var(--sg-c); cursor: pointer;
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12); transition: transform 140ms var(--ease-out);
 }
 .sg-sw:hover { transform: scale(1.1); }
 .sg-sw.is-on { box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12), 0 0 0 2px var(--card, #fff), 0 0 0 4px var(--ink); }
 .sg-sw:focus-visible, .sg-auto:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-.sg-auto { flex: 1 1 100%; height: 30px; padding: 0 10px; border: 0; border-radius: 8px; background: var(--sub); color: var(--ink); text-align: left; cursor: pointer; }
+.sg-auto { grid-column: 1 / -1; height: 30px; padding: 0 10px; border: 0; border-radius: 8px; background: var(--sub); color: var(--ink); text-align: left; cursor: pointer; }
 .sg-auto.is-on { background: var(--accent-tint); color: var(--accent-text); }
 
 .sg-add { display: grid; justify-items: start; gap: 8px; }

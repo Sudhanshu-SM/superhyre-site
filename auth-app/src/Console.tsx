@@ -48,6 +48,8 @@ import { pageTitle } from "./pageTitle";
 import { COMING_SOON_NOTE, comingSoon } from "./emptyStates";
 import { SupportPage } from "./SupportPage";
 import { SourcedPage } from "./SourcedPage";
+import { SHOW_EVENT, showPhrase } from "./suggestNudge";
+import type { ShowAsk } from "./suggestNudge";
 import { canonicalZone } from "./schedulesView";
 
 /* The first-run tour is a file of its own; it draws nothing until someone is new here or asks for it. */
@@ -269,6 +271,18 @@ export function Console({ bootstrap, live, onSignOut, signingOut }: Props) {
   const focusCampaign = useCallback((id: string, name: string) => {
     chooseCampaign(campaignInFocus(id, name, campaignRowsNow()));
   }, [chooseCampaign]);
+  /* The Daily search popup's "Show me" (on the Campaigns page or in the agent's own rail): the same words the Sourced page's nudge sends,
+     put in that campaign's chat and sent. The page follows to that campaign first, so the message goes with its id: the agent takes the
+     campaign from that, not from the name in the words alone (a short name, or two campaigns of one name, the words do not tell apart). */
+  useEffect(() => {
+    const show = (e: Event) => {
+      const { campaignId, campaignName } = (e as CustomEvent<ShowAsk>).detail;
+      focusCampaign(campaignId, campaignName);
+      brief(showPhrase(campaignName), { send: true, campaignId });
+    };
+    window.addEventListener(SHOW_EVENT, show);
+    return () => window.removeEventListener(SHOW_EVENT, show);
+  }, [brief, focusCampaign]);
   /* Visiting any campaign page, by link, sidebar or back button, counts. */
   useEffect(() => {
     if (route.startsWith("campaign-")) setCampaignChosen(true);

@@ -30,11 +30,15 @@ import type { Question } from "../liveChat";
 import { leaveOutAsked, LiveTurnBody } from "../LiveTurn";
 import { newTurn } from "../liveChat";
 
+/* What the server asks: the clients, and one "A new client" that asks for its name. A campaign always has a client, so there is no way out. */
 const CLIENTS = [
   { id: "c1", name: "Acme Fintech", text: "The client is Acme Fintech" },
+  { id: "c2", name: "Orbit Labs", text: "The client is Orbit Labs" },
   { id: "new", name: "A new client", text: "The client is {value}, who isn't in Clients yet", input: { label: "Client name", placeholder: "Company name", tag: "new" } },
-  { id: "none", name: "No client", text: "No client for this one", quiet: true },
 ];
+const NEW_ONLY = CLIENTS.filter((c) => c.id === "new");
+/* A question that does have a way out beside Continue (the server's "who is this person for" has one). */
+const SKIP = { id: "none", name: "No campaign", text: "It is not for a campaign, only for the person", quiet: true };
 const question = (over: Partial<Question> = {}): Question => ({
   kind: "client", text: "Which client is this for?", choices: CLIENTS, runId: "r1", seq: 4, ...over,
 });
@@ -71,8 +75,32 @@ describe("the card", () => {
     expect(html).toContain("Acme Fintech");
     expect(html).toContain("A new client");
     expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Continue<\/button>/);
-    expect(html).toMatch(/class="ch-skip"[^>]*>No client<\/button>/);
+    // Every campaign has a client: the question has no way out beside Continue.
+    expect(html).not.toContain("ch-skip");
+    expect(html).not.toMatch(/No client/);
     expect(html).not.toContain("Client name");
+  });
+
+  it("keeps a way out beside Continue for a question that has one, and it is not a third option", () => {
+    const html = renderToStaticMarkup(<ChoiceCard question={question({ kind: "campaign", text: "Which campaign is this for?", choices: [...CLIENTS.slice(0, 2), SKIP] })} onAnswer={() => {}} />);
+    expect(html).toMatch(/class="ch-skip"[^>]*>No campaign<\/button>/);
+    expect(html.match(/role="radio"/g)).toHaveLength(2);
+  });
+
+  it("draws a client question of only 'A new client' (nobody to pick from) as that one choice, its name asked once it is picked, and no way out", () => {
+    const html = renderToStaticMarkup(<ChoiceCard question={question({ choices: NEW_ONLY })} onAnswer={() => {}} />);
+    expect(html.match(/A new client/g)).toHaveLength(1);
+    expect(html.match(/role="radio"/g)).toHaveLength(1);
+    expect(html).not.toContain("Client name");
+    expect(html).not.toContain("ch-skip");
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Continue<\/button>/);
+    // It is not "one option and nothing to type": the option is not the button, because it asks for a name.
+    expect(html).toContain("ch-opts");
+    const q = question({ choices: NEW_ONLY });
+    expect(readyToContinue(q, [], "")).toBe(false);
+    expect(readyToContinue(q, ["new"], "")).toBe(false);
+    expect(readyToContinue(q, ["new"], "  ")).toBe(false);
+    expect(readyToContinue(q, ["new"], "Orbit Labs")).toBe(true);
   });
 
   it("lists every option, with a field to find one by name and a list that scrolls when there are many", () => {
@@ -134,9 +162,9 @@ describe("the card", () => {
     const many = question({ multi: { min: 1, max: 2 } });
     expect(readyToContinue(many, [], "")).toBe(false);
     expect(readyToContinue(many, ["c1", "new"], "x")).toBe(true);
-    expect(readyToContinue(many, ["c1", "new", "none"], "x")).toBe(false);
+    expect(readyToContinue(many, ["c1", "new", "c2"], "x")).toBe(false);
     expect(pickChoice(many, ["c1"], "new")).toEqual(["c1", "new"]);
-    expect(pickChoice(many, ["c1", "new"], "none")).toEqual(["c1", "new"]);
+    expect(pickChoice(many, ["c1", "new"], "c2")).toEqual(["c1", "new"]);
     expect(pickChoice(many, ["c1", "new"], "c1")).toEqual(["new"]);
   });
 });
@@ -199,13 +227,13 @@ describe("answering", () => {
 
   it("is one answer however many times it is pressed, and the stream's copy changes nothing", async () => {
     await asked();
-    vi.mocked(agentApi.answer).mockResolvedValue({ runId: "r2", repeated: false, answer: { ids: ["none"], line: "Client: No client" } });
-    await Promise.all([answerQuestion("m1", 0, ["none"]), answerQuestion("m1", 0, ["none"])]);
-    await answerQuestion("m1", 0, ["none"]);
+    vi.mocked(agentApi.answer).mockResolvedValue({ runId: "r2", repeated: false, answer: { ids: ["c1"], line: "Client: Acme Fintech" } });
+    await Promise.all([answerQuestion("m1", 0, ["c1"]), answerQuestion("m1", 0, ["c1"])]);
+    await answerQuestion("m1", 0, ["c1"]);
     expect(agentApi.answer).toHaveBeenCalledTimes(1);
-    feed(event("r1", "progress", { step: "answer", questionSeq: 4, ids: ["none"], line: "Client: No client", continuedRunId: "r2" }, 5));
+    feed(event("r1", "progress", { step: "answer", questionSeq: 4, ids: ["c1"], line: "Client: Acme Fintech", continuedRunId: "r2" }, 5));
     expect(chatNow().turns).toHaveLength(2);
-    expect(chatNow().turns[0]?.questions[0]?.answer?.line).toBe("Client: No client");
+    expect(chatNow().turns[0]?.questions[0]?.answer?.line).toBe("Client: Acme Fintech");
   });
 
   it("settles from the run's event alone when the chat is reopened", async () => {
@@ -231,7 +259,7 @@ describe("answering", () => {
   it("settles as out of date when the server says the chat has moved on", async () => {
     await asked();
     vi.mocked(agentApi.answer).mockRejectedValue(new ApiError(409, "conflict", "That question is out of date.", {}));
-    await answerQuestion("m1", 0, ["none"]);
+    await answerQuestion("m1", 0, ["c1"]);
     expect(chatNow().turns[0]?.questions[0]).toMatchObject({ stale: true, sending: false });
     expect(chatNow().turns).toHaveLength(1);
   });
@@ -239,14 +267,14 @@ describe("answering", () => {
   it("says why when it fails and sends the same answer again on a retry", async () => {
     await asked();
     vi.mocked(agentApi.answer).mockRejectedValueOnce(new ApiError(500, "internal", "Something went wrong.", {}));
-    await answerQuestion("m1", 0, ["none"]);
+    await answerQuestion("m1", 0, ["c1"]);
     const failed = chatNow().turns[0]?.questions[0];
     expect(failed).toMatchObject({ sending: false, error: "Something went wrong." });
-    vi.mocked(agentApi.answer).mockResolvedValue({ runId: "r2", repeated: false, answer: { ids: ["none"], line: "Client: No client" } });
-    await answerQuestion("m1", 0, ["none"]);
+    vi.mocked(agentApi.answer).mockResolvedValue({ runId: "r2", repeated: false, answer: { ids: ["c1"], line: "Client: Acme Fintech" } });
+    await answerQuestion("m1", 0, ["c1"]);
     const [first, second] = vi.mocked(agentApi.answer).mock.calls;
     expect(second?.[1].clientId).toBe(first?.[1].clientId);
-    expect(chatNow().turns[0]?.questions[0]?.answer?.line).toBe("Client: No client");
+    expect(chatNow().turns[0]?.questions[0]?.answer?.line).toBe("Client: Acme Fintech");
   });
 
   it("sends a button's words as a turn the agent reads, marked as a press", async () => {

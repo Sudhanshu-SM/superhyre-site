@@ -22,7 +22,7 @@ beforeEach(() => {
   server.calls.length = 0;
 });
 
-describe("approving a role spec", () => {
+describe("approving requirements", () => {
   it("asks for matching to start when the button says it will", async () => {
     const done = await specApi.approve("c1", "s1", { match: true });
     expect(server.calls).toEqual([{ method: "POST", path: "/v1/campaigns/c1/spec/s1/approve?match=true" }]);

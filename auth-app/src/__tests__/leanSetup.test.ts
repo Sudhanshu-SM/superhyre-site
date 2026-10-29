@@ -171,7 +171,7 @@ describe("the words", () => {
   it("asks for the job description right after the role, and says when sourcing starts", () => {
     expect(words("role", EMPTY).head).toEqual(["Which role should we start with?"]);
     expect(words("jd", EMPTY).head).toEqual(["Paste the *job description*."]);
-    expect(words("jd", EMPTY).quiet).toBe("Mind reads it and drafts the role spec. You approve it before anything starts.");
+    expect(words("jd", EMPTY).quiet).toBe("Mind reads it and drafts the requirements. You approve them before anything starts.");
   });
 
   it("asks about a client by name only, and says so", () => {
@@ -218,7 +218,7 @@ describe("the words", () => {
   it("says Personal is private when no organisation was made, and what Mind does next", () => {
     const solo: Answers = { ...forClient, team: { kind: "personal" } };
     expect(readyWords(solo).quiet).toMatch(/Personal is yours alone/);
-    expect(readyWords(solo).quiet).toMatch(/reading the job description and drafting your first role spec for you to approve/);
+    expect(readyWords(solo).quiet).toMatch(/reading the job description and drafting your first requirements for you to approve/);
     expect(readyWords({ ...solo, jd: null }).quiet).toMatch(/ask for the job description/);
     // Asked to join and carrying on: not an admin of anything yet.
     expect(readyWords({ ...forClient, team: { kind: "asked", name: "Northstar Talent" } }).quiet).not.toMatch(/admin/);

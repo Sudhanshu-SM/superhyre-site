@@ -97,19 +97,19 @@
   gap: 10px;
   width: 100%;
   min-width: 0;
-  min-height: 34px;
-  padding: 6px 10px;
+  min-height: 40px;
+  padding: 7px 12px;
   border: 0;
   border-radius: 10px;
   background: transparent;
   color: var(--ink-2);
-  font: 400 13.5px/1.4 var(--ui);
+  font: 400 15.5px/1.4 var(--ui);
   letter-spacing: -0.006em;
   text-align: left;
   cursor: pointer;
   transition: color var(--t), background-color var(--t);
 }
-.orc .orc-idea svg { flex: none; }
+.orc .orc-idea svg { flex: none; width: 17px; height: 17px; }
 .orc .orc-idea span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .orc .orc-idea:hover { color: var(--ink); background: var(--nav-hover, var(--sub)); }
 .orc .orc-idea:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }

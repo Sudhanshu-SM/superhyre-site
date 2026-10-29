@@ -174,7 +174,7 @@ export function SpecPeek({ open, onClose, flow, view, campaignName, may, canAppr
     <Peek
       open={open}
       onClose={leave}
-      title="Role spec"
+      title="Requirements"
       subtitle={sub}
       note={asking ? "Discard your changes?" : flow.problem ?? (changed ? "Unsaved changes" : saved)}
       footer={
@@ -201,7 +201,7 @@ export function SpecPeek({ open, onClose, flow, view, campaignName, may, canAppr
       }
     >
       {edit ? <SpecEditor spec={edit} readOnly={!may} onChange={edited} /> : <ShimmerText lines={6} />}
-      {!may && <p className="rc-line" style={{ marginTop: 14 }}>{FOLLOWING_LINE}</p>}
+      {!may && FOLLOWING_LINE && <p className="rc-line" style={{ marginTop: 14 }}>{FOLLOWING_LINE}</p>}
     </Peek>
   );
 }
@@ -233,7 +233,7 @@ export function RoleSpecCardView({ card, state, onApprove, onDraft, onOpen, onSc
   const approved = view.state === "approved" && !approving;
   const tone = approving || drafting ? "" : ` is-${view.state}`;
   /* Why it stands unfinished: what just went wrong, or what the card was made saying (the draft failed, or needs a look). */
-  const trouble = problem ?? (!approved ? card.trouble : null) ?? (view.state === "missing" ? "The role spec didn't come through this time." : null);
+  const trouble = problem ?? (!approved ? card.trouble : null) ?? (view.state === "missing" ? "The requirements didn't come through this time." : null);
   /* Settled and asked: until the server has said where the search stands, the card does not guess. */
   const reading = approved && !searching && LIVE && standing === null;
   const elsewhere = approved && !searching && standing?.running != null;
@@ -242,7 +242,7 @@ export function RoleSpecCardView({ card, state, onApprove, onDraft, onOpen, onSc
   const scoring = busy === "score";
 
   return (
-    <section className="rc" aria-label={`Role spec for ${card.campaignName}`} aria-busy={approving || drafting || undefined}>
+    <section className="rc" aria-label={`Requirements for ${card.campaignName}`} aria-busy={approving || drafting || undefined}>
       <header className="rc-head">
         <h3 className="rc-title">{view.title || card.campaignName}</h3>
         <span className={`rc-status${tone}`} role="status">{statusWord(view, busy)}</span>
@@ -290,7 +290,7 @@ export function RoleSpecCardView({ card, state, onApprove, onDraft, onOpen, onSc
                   {scoring ? <Loader size="sm" tone="inherit" /> : null}{standing && standing.found > standing.unscored ? "Score the rest" : "Score them"}
                 </Cta>
               )}
-              <Cta icon={Eye} onClick={onOpen}>View spec</Cta>
+              <Cta icon={Eye} onClick={onOpen}>View requirements</Cta>
             </>
           ) : (
             <>
@@ -298,10 +298,10 @@ export function RoleSpecCardView({ card, state, onApprove, onDraft, onOpen, onSc
                 <Cta variant="primary" icon={approving ? undefined : Check} disabled={approving} aria-busy={approving} onClick={onApprove}>
                   {approving ? <><Loader size="sm" tone="inherit" />Approving</> : problem ? "Try again" : "Approve and start finding people"}
                 </Cta>
-              ) : (
+              ) : FOLLOWING_LINE ? (
                 <p className="rc-line">{FOLLOWING_LINE}</p>
-              )}
-              <Cta icon={may ? PencilSimple : Eye} disabled={approving} onClick={onOpen}>{may ? "View and edit spec" : "View spec"}</Cta>
+              ) : null}
+              <Cta icon={may ? PencilSimple : Eye} disabled={approving} onClick={onOpen}>{may ? "View and edit requirements" : "View requirements"}</Cta>
             </>
           )}
         </div>
@@ -354,7 +354,7 @@ export function SpecButton({ campaignId, campaignName }: { campaignId: string; c
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Cta icon={Eye} onClick={() => setOpen(true)}>View the role spec</Cta>
+      <Cta icon={Eye} onClick={() => setOpen(true)}>View the requirements</Cta>
       <SpecPeek open={open} onClose={() => setOpen(false)} flow={flow} view={view} campaignName={campaignName} may={may} canApprove={false} />
     </>
   );

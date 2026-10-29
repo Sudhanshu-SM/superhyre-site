@@ -20,7 +20,7 @@ const everything = (over: Partial<JdFacts> = {}): JdFacts =>
     comp: { currency: "INR", min: 20, max: 30 }, mustHave: ["Go"], ...over,
   });
 const ctx = (over: Partial<AskContext> = {}): AskContext => ({
-  clients: [{ id: "c1", name: "Winspire Technologies Pvt Ltd" }, { id: "c2", name: "Acme" }], mayAddClient: true, defaults: {}, cities: [], ...over,
+  clients: [{ id: "c1", name: "Winspire Technologies Pvt Ltd" }, { id: "c2", name: "Acme" }], defaults: {}, cities: [], ...over,
 });
 const keys = (f: JdFacts, a: Answers = {}, c: AskContext = ctx()) => asksFor(f, a, c).map((x) => x.key);
 
@@ -48,22 +48,41 @@ describe("what is asked", () => {
     expect(keys(f, { workMode: "remote" }, ctx({ defaults: { workMode: "hybrid", locations: ["Pune"] } }))).toEqual(["experience", "notice", "comp"]);
   });
 
-  it("asks for the client only when there is one to choose, or the description names one that is not there", () => {
+  it("asks for the client unless the description names one the workspace has, even with no client to choose from", () => {
     expect(keys(facts({ ...everything(), client: null }))).toEqual(["client"]);
-    expect(keys(facts({ ...everything(), client: null }), {}, ctx({ clients: [] }))).toEqual([]);
+    expect(keys(facts({ ...everything(), client: null }), {}, ctx({ clients: [] }))).toEqual(["client"]);
     expect(keys(everything({ client: "Brand New Co" }))).toEqual(["client"]);
     expect(keys(everything({ client: "Brand New Co" }), {}, ctx({ clients: [] }))).toEqual(["client"]);
-    expect(keys(everything({ client: null }), { clientId: "none" })).toEqual([]);
+    // Answered, by a pick or by a name.
+    expect(keys(everything({ client: null }), { clientId: "c2" })).toEqual([]);
     expect(keys(everything({ client: "Brand New Co" }), { newClient: "Brand New Co" })).toEqual([]);
+    expect(keys(everything({ client: null }), {}, ctx({ defaults: { clientId: "c2" } }))).toEqual([]);
   });
 
-  it("offers adding the client named only to someone who may add one, and always no client", () => {
+  it("offers the company the description names to add, to anyone, with the clients to pick from and a box for another, and never no client", () => {
     const named = everything({ client: "Brand New Co" });
-    const admin = asksFor(named, {}, ctx())[0];
-    expect(admin?.text).toBe("Brand New Co isn't one of your clients yet.");
-    expect(admin?.options.map((o) => o.id)).toEqual(["new", "client:c1", "client:c2", "none"]);
-    const recruiter = asksFor(named, {}, ctx({ mayAddClient: false }))[0];
-    expect(recruiter?.options.map((o) => o.id)).toEqual(["client:c1", "client:c2", "none"]);
+    const ask = asksFor(named, {}, ctx())[0];
+    expect(ask?.text).toBe("Brand New Co isn't one of your clients yet.");
+    expect(ask?.options.map((o) => o.id)).toEqual(["new", "client:c1", "client:c2"]);
+    expect(ask?.input).toMatchObject({ label: "Another client" });
+    for (const q of [asksFor(named, {}, ctx())[0], asksFor(facts(), {}, ctx())[0], asksFor(facts(), {}, ctx({ clients: [] }))[0]]) {
+      expect(q?.options.map((o) => `${o.id} ${o.label}`).join(" ")).not.toMatch(/none|no client|internal/i);
+    }
+  });
+
+  it("asks for the company's name alone when there is no client to choose from", () => {
+    const ask = asksFor(facts({ ...everything(), client: null }), {}, ctx({ clients: [] }))[0];
+    expect(ask?.options).toEqual([]);
+    expect(ask?.input).toMatchObject({ label: "The client's company name" });
+  });
+
+  it("cannot be skipped, for this role or for the batch, though everything else can", () => {
+    const f = facts({ client: null });
+    expect(asksFor(f, {}, ctx())[0]).toMatchObject({ key: "client", required: true });
+    expect(keys(f, { skipped: ["client", "workMode"] })).toEqual(["client", "locations", "experience", "notice", "comp"]);
+    expect(keys(f, {}, ctx({ defaults: { skipped: ["client"] } }))).toContain("client");
+    // The others are not required.
+    expect(asksFor(f, {}, ctx()).filter((a) => a.key !== "client").some((a) => a.required)).toBe(false);
   });
 
   it("matches a client by the name the description uses, however the company is written", () => {
@@ -121,8 +140,8 @@ describe("what is typed", () => {
 });
 
 describe("the campaign made from it", () => {
-  const make = (f: JdFacts, answers: Answers = {}, defaults: Answers = {}, clientId = "") =>
-    draftFromIntake({ facts: f, jd: "The description.", answers, defaults, owner: "Asha", clientId });
+  const make = (f: JdFacts, answers: Answers = {}, defaults: Answers = {}, clientId = "", newClient = "") =>
+    draftFromIntake({ facts: f, jd: "The description.", answers, defaults, owner: "Asha", clientId, newClient });
 
   it("takes everything the description stated, and creates no screening form unasked", () => {
     const d = make(everything({ department: "Engineering", seniority: "Senior", openings: 2, niceToHave: ["Kafka"], education: "B.Tech" }), {}, {}, "c1");
@@ -145,7 +164,17 @@ describe("the campaign made from it", () => {
   });
 
   it("says in words what would stop it being created", () => {
-    expect(problemsOf(make(facts({ title: "x" })))).not.toEqual([]);
+    expect(problemsOf(make(facts({ title: "x" }), {}, {}, "c1"))).not.toEqual([]);
+  });
+
+  it("is for a client: the one picked, or a company named to be added with it, and is stopped with neither", () => {
+    expect(problemsOf(make(everything()))).toEqual(["Pick the client this campaign is for, or add one."]);
+    expect(problemsOf(make(everything(), {}, {}, "c1"))).toEqual([]);
+    const named = make(everything(), {}, {}, "", "  Brand New Co ");
+    expect(named).toMatchObject({ clientId: "", newClient: "Brand New Co" });
+    expect(problemsOf(named)).toEqual([]);
+    // A client that is known wins over a name.
+    expect(make(everything(), {}, {}, "c1", "Brand New Co")).toMatchObject({ clientId: "c1", newClient: "" });
   });
 
   it("is said as one line of what was found, with the answers in it", () => {

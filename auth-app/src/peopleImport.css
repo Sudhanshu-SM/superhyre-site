@@ -1,0 +1,82 @@
+/* A sheet of people, read in the chat. It borrows the roles import's parts (progress bar, hairlines, buttons) so it reads
+   as one family with it; only what is new is here. No boxes inside the card, no badges: lines, and plain muted words. */
+.pi { display: grid; gap: 14px; min-width: 0; }
+.pi-h { margin: 0; font: 600 16px/1.3 var(--ui); letter-spacing: -0.01em; color: var(--ink); }
+.pi-note, .pi-tabs, .pi-totals { margin: 0; color: var(--ink-2); max-width: 66ch; }
+.pi-busy, .pi-upd { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--ink-2); }
+.pi-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+.pi-facts { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.pi-facts li { color: var(--ink); }
+
+/* What was left out, and why: a line each, in the card's own quiet colour. */
+.pi-left { margin: 0; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--ink) 4%, transparent); color: var(--ink-2); }
+.pi-left-h { margin: 0 0 4px; color: var(--ink); }
+.pi-left ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 3px; }
+
+/* The columns, as they were read, each with a dropdown to say what it is. */
+.pi-cols { display: grid; gap: 8px; justify-items: start; }
+.pi-look { margin: 0; color: var(--accent-text); max-width: 66ch; }
+.pi-cols-t { justify-self: start; }
+.pi-col-list {
+  width: 100%; max-height: 260px; overflow-y: auto; margin: 0; padding: 0; list-style: none;
+  border-top: 1px solid var(--hairline);
+}
+.pi-col {
+  display: grid; grid-template-columns: minmax(120px, 0.9fr) minmax(0, 1.1fr) minmax(150px, 0.8fr); align-items: center; gap: 12px;
+  padding: 7px 2px; border-bottom: 1px solid var(--hairline);
+}
+.pi-col-n { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+.pi-guess { color: var(--ink-2); font-weight: 400; }
+.pi-col-s { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); }
+.pi-sel {
+  height: 30px; max-width: 100%; padding: 0 28px 0 10px; border: 1px solid var(--hairline); border-radius: 8px; background-color: transparent;
+  font: 500 13px/1 var(--ui); color: var(--ink); cursor: pointer;
+}
+.pi-sel:hover:not(:disabled) { border-color: var(--accent-line); }
+.pi-sel:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.pi-sel:disabled { opacity: 0.55; cursor: default; }
+
+.pi-pick { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; color: var(--ink-2); }
+
+.pi-foot { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.pi-foot.is-done { gap: 16px; }
+.pi-none, .pi-done { margin: 0; color: var(--ink-2); }
+.pi-done { display: inline-flex; align-items: center; gap: 8px; color: var(--ink); }
+.pi-done svg { color: var(--c-sage-fill); flex: none; }
+/* Where focus goes when adding ends: the line that says how it went. It is reached by the card, not by Tab. */
+.pi-done:focus-visible, .pi-err:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; border-radius: 4px; }
+.pi-progress { display: grid; gap: 6px; flex: 1 1 220px; min-width: 200px; }
+.pi-progress-t { color: var(--ink-2); }
+.pi-err { margin: 0; color: var(--accent-text); max-width: 66ch; }
+.pi-fail { display: grid; gap: 10px; }
+.pi-fail p { margin: 0; color: var(--accent-text); max-width: 66ch; }
+
+/* Nothing to pick yet: choose a sheet, or paste a link. */
+.pi-pick-file { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.pi-or { color: var(--ink-2); }
+.pi-link { display: flex; align-items: center; gap: 8px; flex: 1 1 100%; }
+.pi-link .ji-input { flex: 1 1 auto; min-width: 0; }
+
+@media (max-width: 640px) {
+  .pi-col { grid-template-columns: minmax(0, 1fr) minmax(130px, auto); }
+  .pi-col-s { display: none; }
+}
+
+/* The first line of the card: what is being added from the file, and that nothing else in it is. */
+.pi-scope, .pi-fail .pi-scope { margin: 0; color: var(--ink-2); max-width: 66ch; }
+/* Tabs to add, and the tick for what the sheet hides: plain checkboxes on lines, no boxes round them. */
+.pi-tabs-pick { display: grid; gap: 6px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.pi-tabs-pick legend { padding: 0; margin-bottom: 4px; color: var(--ink-2); }
+.pi-tick { display: flex; align-items: baseline; gap: 8px; max-width: 66ch; color: var(--ink); cursor: pointer; }
+.pi-tick input { flex: none; margin: 0; accent-color: var(--accent); transform: translateY(2px); }
+.pi-tick small { color: var(--ink-2); }
+
+/* Several files on one card: a section each, a hairline between them, and one foot for all. */
+.pi-files { display: grid; gap: 18px; min-width: 0; }
+.pi-files > .pi { padding-bottom: 16px; border-bottom: 1px solid var(--hairline); }
+.pi-file-t { font-weight: 600; }
+
+/* Placing people by their status: one tick, then (when it is on) the sheet's words each with a choice, and hiring and rejecting as ticks of their own. */
+.pi-place { display: grid; gap: 8px; min-width: 0; }
+.pi-place-body { display: grid; gap: 8px; padding-left: 24px; min-width: 0; }

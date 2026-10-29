@@ -849,7 +849,6 @@ body:has(.pl-bin) .ct-toast-host { bottom: 100px; }
 .cl-t small { font: 400 12.5px/1.2 var(--ui); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cl-cur { display: inline-flex; align-items: center; gap: 4px; font: 600 12px/1 var(--ui); color: #2f7a47; }
 .cl-go { color: var(--ink-2); }
-.cl-list .cl-remove { justify-content: center; border-style: dashed; color: var(--ink-2); font: 500 12.5px/1 var(--ui); }
 .cl-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; }
 .cl-form textarea { padding: 10px 12px; border: 1px solid #e6e0da; border-radius: 12px; font: 400 14px/1.45 var(--ui); color: var(--ink); resize: vertical; }
 .cl-form textarea:focus { outline: none; border-color: #f0a46e; box-shadow: 0 0 0 4px #fdeae0; }

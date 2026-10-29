@@ -75,7 +75,7 @@ export type UsageKey = "messages" | "searches" | "specs" | "profiles" | "exports
 export const USAGE_LABEL: Record<UsageKey, string> = {
   messages: "Agent messages",
   searches: "Searches",
-  specs: "Role specs drafted",
+  specs: "Requirements drafted",
   profiles: "New profiles bought",
   exports: "Exports",
 };

@@ -1,8 +1,12 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { Children, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
-import type { StageDef } from "../boardStages";
+import { describe, expect, it, vi } from "vitest";
+import type { StageColor, StageDef } from "../boardStages";
 import { stagesFrom } from "../boardStages";
-import { StagesForm } from "../StagesDialog";
+import { PICKABLE_HUES } from "../stageDonut";
+import { ColourSwatches, StagesForm } from "../StagesDialog";
 
 /** The stage editor as it first opens: every stage a line, the controls that matter on it, Hired and Rejected locked at the end. */
 
@@ -74,5 +78,69 @@ describe("the stage editor", () => {
 
   it("offers to add a stage while there is room", () => {
     expect(render(STANDARD)).toContain("Add a stage");
+  });
+});
+
+describe("the colour picker", () => {
+  const NAMES = ["Blue", "Sky", "Indigo", "Violet", "Plum", "Pink", "Rose", "Red", "Orange", "Amber", "Yellow", "Lime", "Green", "Mint", "Teal", "Brown"];
+  const html = (value: StageColor | null) => renderToStaticMarkup(<ColourSwatches value={value} onPick={() => {}} />);
+  const swatches = (out: string) => [...out.matchAll(/<button type="button" role="option" aria-selected="(true|false)" class="(sg-sw[^"]*)" title="([^"]+)" aria-label="([^"]+)" style="--sg-c:var\(--stage-([a-z]+)\)"><\/button>/g)]
+    .map((m) => ({ selected: m[1] === "true", cls: m[2]!, title: m[3]!, label: m[4]!, hue: m[5]! }));
+
+  it("offers sixteen swatches, in the order of the grid, each named for a screen reader and on hover and drawn in its own colour, and no grey", () => {
+    const out = html(null);
+    const list = swatches(out);
+    expect(list).toHaveLength(16);
+    expect(list.map((x) => x.label)).toEqual(NAMES);
+    expect(list.map((x) => x.title)).toEqual(NAMES);
+    expect(list.map((x) => x.hue)).toEqual([...PICKABLE_HUES]);
+    expect(list.map((x) => x.label.toLowerCase())).toEqual(list.map((x) => x.hue));
+    expect(out).not.toContain("Slate");
+    expect(out).toContain('role="listbox" aria-label="Colour"');
+  });
+
+  it("offers Default after the swatches, as a seventeenth choice that says the stage takes its kind's colour", () => {
+    const out = html(null);
+    expect((out.match(/role="option"/g) ?? []).length).toBe(17);
+    expect((out.match(/class="sg-auto/g) ?? []).length).toBe(1);
+    expect(out.lastIndexOf("sg-auto")).toBeGreaterThan(out.lastIndexOf('class="sg-sw'));
+    expect(out).toMatch(/<button type="button" role="option" aria-selected="true" class="sg-auto t-body-sm is-on">Default<\/button>/);
+  });
+
+  it("rings the chosen colour and no other, and rings Default only when no colour is chosen", () => {
+    expect(swatches(html(null)).filter((x) => x.selected)).toEqual([]);
+    const teal = html("teal");
+    expect(swatches(teal).filter((x) => x.selected).map((x) => [x.label, x.cls])).toEqual([["Teal", "sg-sw is-on"]]);
+    expect(teal).toMatch(/aria-selected="false" class="sg-auto t-body-sm">Default</);
+    // One of the nine added later is ringed the same way.
+    expect(swatches(html("brown")).filter((x) => x.selected).map((x) => x.label)).toEqual(["Brown"]);
+  });
+
+  it("says which colour was pressed: the key of the swatch, and null for Default", () => {
+    const picked = vi.fn();
+    const tree = ColourSwatches({ value: null, onPick: picked }) as ReactElement<{ children: unknown }>;
+    const buttons = Children.toArray(tree.props.children as never) as Array<ReactElement<{ title?: string; onClick: () => void }>>;
+    expect(buttons).toHaveLength(17);
+    for (const b of buttons.filter((x) => x.props.title)) b.props.onClick();
+    expect(picked.mock.calls.map((c) => c[0])).toEqual([...PICKABLE_HUES]);
+    buttons.find((x) => !x.props.title)!.props.onClick();
+    expect(picked).toHaveBeenLastCalledWith(null);
+  });
+
+  it("lays them out four to a row, in a popover wide enough for each to be a real target", () => {
+    const css = readFileSync(resolve(__dirname, "..", "stagesDialog.css"), "utf8");
+    const dialog = readFileSync(resolve(__dirname, "..", "StagesDialog.tsx"), "utf8");
+    expect(css).toMatch(/\.sg-swatches \{[^}]*display: grid; grid-template-columns: repeat\(4, minmax\(0, 1fr\)\);/);
+    expect(css).toMatch(/\.sg-auto \{ grid-column: 1 \/ -1;/);
+    const gap = Number(/\.sg-swatches \{[^}]*gap: (\d+)px/.exec(css)?.[1]);
+    const pad = Number(/\.sg-swatches \{[^}]*padding: (\d+)px/.exec(css)?.[1]);
+    const width = Number(/<Popover anchor=\{ref\} open=\{open\} onClose=\{\(\) => setOpen\(false\)\} width=\{(\d+)\}>/.exec(dialog)?.[1]);
+    // The popover's width, less its border and padding and the three gaps, shared by four swatches.
+    const swatch = (width - 2 - 2 * pad - 3 * gap) / 4;
+    expect(swatch).toBeGreaterThanOrEqual(32);
+    expect(css).toMatch(/\.sg-sw \{[^}]*width: 100%; aspect-ratio: 1;[^}]*border-radius: 50%;/);
+    // The chosen one is ringed (a shape, not only a colour), with a gap of its own that stays inside the grid's gap.
+    expect(css).toMatch(/\.sg-sw\.is-on \{[^}]*0 0 0 2px var\(--card, #fff\), 0 0 0 4px var\(--ink\)/);
+    expect(gap).toBeGreaterThanOrEqual(2 * 4);
   });
 });

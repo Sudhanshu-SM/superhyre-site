@@ -11,9 +11,9 @@ import { SheetNeeds } from "../SheetNeeds";
 const role = (spec?: "drafting" | "drafted" | "failed") => ({ id: "c1", name: "Backend Engineer", spec });
 
 describe("where a role stands", () => {
-  it("says the role spec is being drafted, or did not come through", () => {
-    expect(standingWords(role("drafting"), undefined)).toBe("Drafting the role spec");
-    expect(standingWords(role("failed"), undefined)).toBe("Role spec not drafted");
+  it("says the requirements are being drafted, or did not come through", () => {
+    expect(standingWords(role("drafting"), undefined)).toBe("Drafting the requirements");
+    expect(standingWords(role("failed"), undefined)).toBe("Requirements not drafted");
   });
 
   it("says it needs approval until the spec is approved", () => {

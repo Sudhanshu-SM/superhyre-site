@@ -178,7 +178,7 @@ export function nobodyWaitingLine(p: Pool, matching = false): string | null {
     const n = p.unranked.toLocaleString("en-IN");
     return matching
       ? `Matching ${p.unranked === 1 ? "1 person" : `${n} people`} to the role now.`
-      : `${p.unranked === 1 ? "1 person" : `${n} people`} found earlier ${p.unranked === 1 ? "has" : "have"} not been ranked on the latest role spec yet. The next search ranks them.`;
+      : `${p.unranked === 1 ? "1 person" : `${n} people`} found earlier ${p.unranked === 1 ? "has" : "have"} not been ranked on the latest requirements yet. The next search ranks them.`;
   }
   if (p.ruledOut > 0 && p.decided + p.ruledOut >= p.found) {
     const n = p.ruledOut.toLocaleString("en-IN");
@@ -200,8 +200,8 @@ export function countLine(p: Pool): string | null {
  */
 export function searchNote(p: Pool): string | null {
   const notes: string[] = [];
-  if (p.exhausted) notes.push("That's everyone I could reach for these filters for now. Change the spec to widen the search.");
-  else if (p.nextSize <= 0 && p.crustdata) notes.push("This campaign has no searches left for these filters. Change the spec to look further.");
+  if (p.exhausted) notes.push("That's everyone I could reach for these filters for now. Change the requirements to widen the search.");
+  else if (p.nextSize <= 0 && p.crustdata) notes.push("This campaign has no searches left for these filters. Change the requirements to look further.");
   return notes.length ? notes.join(" ") : null;
 }
 
@@ -211,7 +211,7 @@ export type CampaignFacts = { name: string; department?: string; location?: stri
 
 export type RoleRead = { campaign: CampaignFacts | null; approved: SpecRow | null; latest: SpecRow | null };
 
-const READ_LIVE = "Reading the role and its spec";
+const READ_LIVE = "Reading the role and its requirements";
 
 /** What the first phase turned up, line by line: the campaign, the spec and what it asks for. */
 export function readSteps({ campaign, approved, latest }: RoleRead): string[] {
@@ -222,14 +222,14 @@ export function readSteps({ campaign, approved, latest }: RoleRead): string[] {
   }
   if (approved) {
     const on = shortDate(approved.approvedAt);
-    steps.push(`Role spec version ${approved.version}, approved${on ? ` ${on}` : ""}`);
+    steps.push(`Requirements version ${approved.version}, approved${on ? ` ${on}` : ""}`);
     const counts = requirementCounts(approved.spec);
     if (counts) steps.push(`${plural(approved.spec.requirements.length, "requirement")}: ${counts}`);
     else steps.push("No requirements listed, only the title and place");
   } else if (latest) {
-    steps.push(`A draft of the role spec (version ${latest.version}) is waiting for approval`);
+    steps.push(`A draft of the requirements (version ${latest.version}) is waiting for approval`);
   } else {
-    steps.push("No role spec yet");
+    steps.push("No requirements yet");
   }
   return steps;
 }
@@ -239,8 +239,8 @@ export function readSays({ campaign, approved, latest }: RoleRead): string {
   const name = campaign?.name ?? "This campaign";
   if (!approved) {
     return latest
-      ? `${name} has a draft role spec, but it hasn't been approved, so I can't search yet. Approve it and I'll start looking.`
-      : `${name} has no role spec yet, so there is nothing to search on. Paste the job description here and I'll read it, draft the role spec and start the search.`;
+      ? `${name} has draft requirements, but they haven't been approved, so I can't search yet. Approve them and I'll start looking.`
+      : `${name} has no requirements yet, so there is nothing to search on. Paste the job description here and I'll read it, draft the requirements and start the search.`;
   }
   const spec = approved.spec;
   const where = locationLine(spec);
@@ -248,18 +248,18 @@ export function readSays({ campaign, approved, latest }: RoleRead): string {
   const must = [...reqs(spec, "knockout"), ...reqs(spec, "must")];
   const nice = reqs(spec, "nice");
   const asks = must.length
-    ? `The approved spec asks for ${joinAnd(must)}${nice.length ? `, and counts ${joinAnd(nice)} in a candidate's favour` : ""}.`
+    ? `The approved requirements ask for ${joinAnd(must)}${nice.length ? `, and count ${joinAnd(nice)} in a candidate's favour` : ""}.`
     : nice.length
-      ? `The approved spec has no must-haves; it counts ${joinAnd(nice)} in a candidate's favour.`
-      : "The approved spec lists no skills, so the search leans on the title and place.";
-  return `${first} ${asks} Building the search from it now.`;
+      ? `The approved requirements have no must-haves; they count ${joinAnd(nice)} in a candidate's favour.`
+      : "The approved requirements list no skills, so the search leans on the title and place.";
+  return `${first} ${asks} Building the search from them now.`;
 }
 
 export function readPhase(read: RoleRead, timed = true): Phase {
   return {
     id: "read",
     live: READ_LIVE,
-    done: read.approved ? "Read the role and its spec" : "Read the role",
+    done: read.approved ? "Read the role and its requirements" : "Read the role",
     ms: 0,
     steps: readSteps(read),
     says: readSays(read),
@@ -268,7 +268,7 @@ export function readPhase(read: RoleRead, timed = true): Phase {
 }
 
 /** The live line of the first phase, before anything has been read. */
-export const readingPhase = (): Phase => ({ id: "read", live: READ_LIVE, done: "Read the role and its spec", ms: 0, steps: [], says: "" });
+export const readingPhase = (): Phase => ({ id: "read", live: READ_LIVE, done: "Read the role and its requirements", ms: 0, steps: [], says: "" });
 
 /**
  * The pool in a sentence, for the paragraph that introduces the search card. It says what is
@@ -285,7 +285,7 @@ export function poolSentence(p: Pool): string {
   return `${people(p.found)} found so far, ${waiting}.${next}`;
 }
 
-export const buildSays = (p: Pool): string => `Here is the search, straight from the spec. ${poolSentence(p)}`;
+export const buildSays = (p: Pool): string => `Here is the search, straight from the requirements. ${poolSentence(p)}`;
 
 export function buildSteps(spec: RoleSpec): string[] {
   const steps = filterLines(spec).map((f) => `${f.label}: ${f.value}`);

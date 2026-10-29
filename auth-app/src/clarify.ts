@@ -495,8 +495,9 @@ const CAMPAIGN_NAMED = /\bcampaign\s*(?:(?:called|named|for|to\s+(?:hire|recruit
 
 
 /**
- * Whether the signed-in person may add a client: a manager's (the server's `requireAdmin` on clients). A recruiter
- * picks from the clients they can already see, or none, and is never offered "Add X as a new client".
+ * Whether the signed-in person may add a client of their own, to the Clients page: a manager's (the server's
+ * `requireAdmin` on clients). Naming a company for a campaign needs no such right: the server adds it with the
+ * campaign, for anyone.
  */
 export const mayAddClient = (): boolean => can(standingOf(getSession()), "client.manage");
 
@@ -637,13 +638,12 @@ export function campaignAskIn(said: string): CampaignAsk {
   const none: CampaignAsk = { role: null, client: null, city: null, exp: null, comp: null, skills: null, compTop: null };
   const known = getClients().clients;
   const clientNamed = (text: string) => companyIn(text, known);
-  /* A company that is not one of the clients is a client to add only for someone who may add it; for a recruiter
-     it stays in the role's words, so nothing they said is lost and nothing offers to add it. */
+  /* A company that is not one of the clients is a client to add, for anyone: the campaign is named for it. */
   const asClient = (text: string | undefined | null): string | null => {
     const t = (text ?? "").trim();
     if (!t) return null;
     const match = clientNamed(t);
-    return match ? match.name : mayAddClient() ? t : null;
+    return match ? match.name : t;
   };
   /* A place we know (the common cities, and wherever one of the workspace's clients is): "in Fintech" or
      "in Data Science" is part of the role, not a city. */
@@ -714,13 +714,13 @@ export function campaignAskIn(said: string): CampaignAsk {
   let client: string | null = given.client ?? fromClause;
   /* "Cobalt Payments' Senior Backend Engineer": the company's own role. */
   const own = splitPossessive(rest);
-  if (!client && own && (clientNamed(own.client) || mayAddClient())) {
+  if (!client && own) {
     client = asClient(own.client);
     if (client) rest = own.role;
   }
   /* "the client Cobalt Payments, a Backend Engineer", "Cobalt Payments, a Backend Engineer": the company first. */
   const first = !client ? /^(?:the\s+client\s+|client\s+)?(.+?)\s*[,:;]\s*(?:an?\s+)?(.+)$/i.exec(rest) : null;
-  if (first?.[1] && first[2] && (clientNamed(first[1]) || (/^(?:the\s+)?client\s/i.test(rest) && mayAddClient()))) {
+  if (first?.[1] && first[2] && (clientNamed(first[1]) || /^(?:the\s+)?client\s/i.test(rest))) {
     client = asClient(first[1]);
     if (client) rest = first[2].trim();
   }
@@ -728,7 +728,7 @@ export function campaignAskIn(said: string): CampaignAsk {
   if (!client && forClient?.[1] && forClient[3]) {
     const named = forClient[3].trim();
     const match = clientNamed(named);
-    if (match || (forClient[2] && mayAddClient())) {
+    if (match || forClient[2]) {
       client = match?.name ?? named;
       rest = forClient[1].trim();
     }
@@ -741,20 +741,20 @@ export function campaignAskIn(said: string): CampaignAsk {
     const company = at?.[2]?.trim() ?? "";
     if (at?.[1] && company) {
       const match = clientNamed(company);
-      if (match || (mayAddClient() && /^[A-Z0-9]/.test(company) && company.split(/\s+/).length <= 4)) {
+      if (match || (/^[A-Z0-9]/.test(company) && company.split(/\s+/).length <= 4)) {
         client = match?.name ?? company;
         rest = at[1].trim();
       }
     }
   }
-  /* "Data Engineer for Orbit Labs": a capitalised company after "for" is the client too, for someone who may add one;
+  /* "Data Engineer for Orbit Labs": a capitalised company after "for" is the client too;
      "for the Payments team" is a team of the same company, and stays in the role. */
   if (!client) {
     const forCo = /^(.*\S)\s+for\s+([A-Z0-9][\p{L}0-9&.'-]*(?:\s+[A-Z0-9][\p{L}0-9&.'-]*){0,3})$/u.exec(rest);
     const company = forCo?.[2]?.trim() ?? "";
     /* Two or more capitalised words, none of them a field or a team ("Orbit Labs", not "Payments" or "Data Science"). */
     const DOMAIN = /\b(?:teams?|department|division|group|squad|desk|org|organi[sz]ation|data|science|payments?|platform|infrastructure|engineering|product|design|sales|marketing|finance|security|growth|operations|support|research|analytics|ai|ml|devops|cloud|mobile|web|backend|frontend|fullstack)\b/i;
-    if (forCo?.[1] && company && company.split(/\s+/).length >= 2 && mayAddClient() && !DOMAIN.test(company)) {
+    if (forCo?.[1] && company && company.split(/\s+/).length >= 2 && !DOMAIN.test(company)) {
       client = asClient(company);
       if (client) rest = forCo[1].trim();
     }
@@ -780,12 +780,12 @@ export function newCampaignAnswers(said: string, answers: Readonly<Record<string
   const named = (brief.client ? companyIn(brief.client, clients) : undefined) ?? companySaid(said, clients);
   if (!A.client && named) A.client = named.id;
   /* "Add X as a new client" was the answer and X is in Clients now (Create added it): the campaign is for that
-     client, by its own id, so the card that stays on screen names it and does not fall back to "Internal hire". */
+     client, by its own id, so the card that stays on screen names it. */
   if (A.client === NEW_CLIENT && named) A.client = named.id;
   /* A client the message names that is not in Clients yet is a new client, by its name alone: it is added with the
      campaign and not asked about. It stays named once it is the answer (`client` is then NEW_CLIENT), because the
-     card and the create read the name from here: dropping it is what made a campaign an "Internal hire". */
-  if (!named && brief.client && (!A.client || A.client === NEW_CLIENT)) {
+     card and the create read the name from here; a company the person typed as the answer is theirs, and stands. */
+  if (!named && brief.client && (!A.client || (A.client === NEW_CLIENT && !A.newClient))) {
     A.newClient = brief.client;
     A.client = NEW_CLIENT;
   }
@@ -830,7 +830,7 @@ const wordsIn = (text: string) => text.trim().split(/\s+/).filter(Boolean).lengt
 export function jdQuestion(role: string): Question {
   return {
     id: "nc-jd", step: "Job description", ms: 350, found: role, ask: "Do you have the job description?",
-    why: "I'll draft the role spec from it.",
+    why: "I'll draft the requirements from it.",
     options: [
       { id: "paste", label: "Paste it", meta: "Opens a box for the text" },
       { id: "upload", label: "Upload a file", meta: "PDF, Word or text" },
@@ -884,6 +884,24 @@ export function newCampaignQuestion(said: string, ctx: MomentCtx): Question | nu
     const open = clients.filter((c) => c.status !== "inactive");
     const adding = A.newClient?.trim();
     const top = open.slice(0, adding ? 3 : 4);
+    /* Every campaign is for a client, so there is no "no client": a tile is a client of the workspace (or the company the
+       message named), and any other company is typed, by name alone. */
+    const tiles = new Set<string>([NEW_CLIENT, "another", ...clients.map((c) => c.id)]);
+    const apply = (ids: readonly string[]): { answers: Record<string, string> } => {
+      const v = (ids[0] ?? "").trim();
+      /* An answer from before every campaign had a client ("none") is not a company: the question is asked again. */
+      if (!v || v === "none") return { answers: {} };
+      if (tiles.has(v)) return { answers: { client: v } };
+      const there = companyIn(v, clients);
+      return there ? { answers: { client: there.id } } : { answers: { client: NEW_CLIENT, newClient: v } };
+    };
+    const company = { placeholder: "Company name", max: 120, check: (t: string) => (t.trim().length < 2 ? "Add the company's name." : null) };
+    if (!open.length && !adding) {
+      return {
+        id: "nc-client", step: "Client", ms: 350, found: role, ask: "Who is it for?", why: "Just the company's name. The rest can wait.",
+        options: [], input: { ...company, verb: "Continue" }, apply,
+      };
+    }
     return {
       id: "nc-client", step: "Client", ms: 350, found: role, ask: "Who is it for?", dense: true,
       options: [
@@ -891,9 +909,9 @@ export function newCampaignQuestion(said: string, ctx: MomentCtx): Question | nu
         ...(adding ? [{ id: NEW_CLIENT, label: `Add ${adding} as a new client`, meta: "Just the name. The rest can wait." }] : []),
         ...top.map((c) => ({ id: c.id, label: c.name, meta: [c.industry, c.location].filter(Boolean).join(", ") })),
         ...(open.length > top.length ? [{ id: "another", label: "Another client…", meta: `${open.length - top.length} more` }] : []),
-        { id: "none", label: "No client", meta: "An internal hire" },
       ],
-      apply: set("client"),
+      other: { ...company, label: "A new client" },
+      apply,
     };
   }
   if (A.client === "another") {

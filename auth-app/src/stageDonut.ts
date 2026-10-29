@@ -5,8 +5,9 @@ import type { CampaignRow, CampaignStage, StageKind } from "./campaignsData";
  * each, the arcs they make, and the one line a screen reader gets. Plain functions, so they are checked without a
  * browser.
  *
- * Colour. A stage may carry one of eight palette keys from the server; each key is a set of `--stage-<key>` tokens
- * (access.css for light, theme/theme.css for dark: mark, -text, -soft, -line), so light and dark follow the theme.
+ * Colour. A stage may carry one of seventeen palette keys from the server (the sixteen the picker offers, and slate for
+ * old data); each key is a set of `--stage-<key>` tokens (access.css for light, theme/theme.css for dark: mark, -text,
+ * -soft, -line), so light and dark follow the theme.
  * A stage without one (or with a key this build does not know) takes the colour of its kind: shortlisted violet,
  * outreach blue, interviewing amber, hired green, passed a soft rose, quieter. Hired is always green: it is the win,
  * and it reads the same in every campaign whatever the stages are called.
@@ -16,12 +17,21 @@ import type { CampaignRow, CampaignStage, StageKind } from "./campaignsData";
  * ("5 rejected"), here by `rejectedOf`.
  */
 
-export type StageHue = "slate" | "blue" | "teal" | "green" | "amber" | "orange" | "rose" | "violet";
+export type StageHue =
+  | "slate" | "blue" | "sky" | "indigo" | "violet" | "plum" | "pink" | "rose" | "red"
+  | "orange" | "amber" | "yellow" | "lime" | "green" | "mint" | "teal" | "brown";
 
-/** The palette keys a stage's `color` may be, in the order the server offers them (slate stays valid for old data; nothing draws it). */
-export const STAGE_HUES: readonly StageHue[] = ["slate", "blue", "teal", "green", "amber", "orange", "rose", "violet"];
+/**
+ * The palette keys a stage's `color` may be: slate (stays valid for old data; nothing draws it), then the sixteen on
+ * offer in the order the picker shows them, four to a row. The same list as the server's PALETTE (modules/pipeline/stages.ts)
+ * and migration 207's check; __tests__/stageColors.test.ts keeps the three the same.
+ */
+export const STAGE_HUES: readonly StageHue[] = [
+  "slate", "blue", "sky", "indigo", "violet", "plum", "pink", "rose", "red",
+  "orange", "amber", "yellow", "lime", "green", "mint", "teal", "brown",
+];
 
-/** The colours a person may pick: no grey. */
+/** The colours a person may pick: no grey. The picker's sixteen, in its order. */
 export const PICKABLE_HUES: readonly StageHue[] = STAGE_HUES.filter((h) => h !== "slate");
 
 /** The CSS variable of a palette key's token: the mark by default, or its `text`, `soft` wash or `line`. The one place that names them. */
@@ -97,12 +107,22 @@ export function filledLine(hires: { count: number; target: number | null } | und
 }
 
 /**
- * The one quiet line under a campaign whose pipeline has nobody in it yet, from how far sourcing has got: "Needs a
- * role spec" until the spec is approved; then, if people have been found but none shortlisted, how many ("30 found,
+ * Whether what a campaign waits on (`needs`) is its requirements being approved. `needs` is the title of its first open
+ * task, so it is told by the app's own labels, from their start: the server's task ("Approve the requirements", and
+ * "Approve the role spec" on tasks saved under the old name, either with a count after it) and the console's own lines
+ * ("Requirements not approved", "Brief not finished"). Words found anywhere else do not count: another task's title can
+ * carry a campaign's name ("Review 3 new applicants (Customer Support Specialist)"), which says nothing of requirements.
+ */
+const REQUIREMENTS_NEED = /^(?:approve (?:the )?(?:requirements|role spec)|requirements not approved|brief not finished)\b/i;
+export const waitsOnRequirements = (needs: string | undefined): boolean => !!needs && REQUIREMENTS_NEED.test(needs.trim());
+
+/**
+ * The one quiet line under a campaign whose pipeline has nobody in it yet, from how far sourcing has got: "Needs
+ * requirements" until they are approved; then, if people have been found but none shortlisted, how many ("30 found,
  * none shortlisted"); "Finding people" while a search is running; "Ready to start" otherwise.
  */
 export function startLine(r: Pick<CampaignRow, "needs" | "agents" | "funnel">): string {
-  if (r.needs && /spec|brief/i.test(r.needs)) return "Needs a role spec";
+  if (waitsOnRequirements(r.needs)) return "Needs requirements";
   if (r.funnel.sourced > 0) return `${r.funnel.sourced} found, none shortlisted`;
   return r.agents.length ? "Finding people" : "Ready to start";
 }

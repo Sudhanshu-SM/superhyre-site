@@ -146,7 +146,7 @@ describe("role facts", () => {
 const facts = roleFactsFrom(spec, setup) as RoleFacts;
 const titles = (f: Form) => f.questions.map((q) => q.title);
 
-describe("a form drafted from the role spec", () => {
+describe("a form drafted from the requirements", () => {
   const f = draftForm({ campaignId: "backend-snr", family: "engineering", sub: "other", roleText: facts.title, facts });
 
   it("asks each must-have as a yes or no, and marks it must-have", () => {
@@ -218,7 +218,7 @@ describe("a form drafted from the role spec", () => {
     const q = { id: "form-ideal", found: "x", ask: "y", why: "old", options: [], apply: () => ({}) } as Question;
     expect(tuneQuestion(q, facts, "fn3 Senior Android Engineer")).toMatchObject({
       found: "For fn3 Senior Android Engineer",
-      why: "The role spec already has Kotlin and Android as must-haves, and I'll use them. Add a line to refine it, or skip.",
+      why: "The requirements already have Kotlin and Android as must-haves, and I'll use them. Add a line to refine them, or skip.",
     });
     expect(tuneQuestion(q, null)).toBe(q);
     expect(tuneQuestion({ ...q, id: "form-family" } as Question, facts)).toMatchObject({ id: "form-family", why: "old" });

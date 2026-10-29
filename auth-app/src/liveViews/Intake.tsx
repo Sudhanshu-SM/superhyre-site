@@ -192,11 +192,11 @@ function Role({ campaignId, drafted, open, ctx, onGrow }: { campaignId: string; 
       )}
       <div className="mo-card-f">
         {phase === "approved" ? (
-          <span className="mo-done"><CheckCircle size={15} weight="fill" aria-hidden="true" />Approved as version {version}. {started === "rank" ? "The people already found are being ranked on it." : started === "search" ? "Looking for people on it now." : "Searches for this campaign rank people on it."}</span>
+          <span className="mo-done"><CheckCircle size={15} weight="fill" aria-hidden="true" />Approved as version {version}. {started === "rank" ? "The people already found are being ranked on them." : started === "search" ? "Looking for people on them now." : "Searches for this campaign rank people on them."}</span>
         ) : (
           <span>
-            {replaces ? `Approving replaces version ${replaces}, which the search uses now.` : "Approve it and the search ranks people on this."}
-            {" "}You can edit it in the campaign first.
+            {replaces ? `Approving replaces version ${replaces}, which the search uses now.` : "Approve them and the search ranks people on these."}
+            {" "}You can edit them in the campaign first.
           </span>
         )}
         <span className="mo-acts">

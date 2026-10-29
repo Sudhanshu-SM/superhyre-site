@@ -101,28 +101,28 @@ describe("copy builders", () => {
     const read = { campaign: { name: "fn3 Senior Android Engineer", department: "Engineering", location: "Bengaluru" }, approved: row(2), latest: row(2) };
     expect(readSteps(read)).toEqual([
       "fn3 Senior Android Engineer: Engineering, Bengaluru",
-      "Role spec version 2, approved 4 Oct",
+      "Requirements version 2, approved 4 Oct",
       "4 requirements: 1 hard requirement, 2 must have, 1 nice to have",
     ]);
     const says = readSays(read);
     expect(says).toContain("This is the Senior Android Engineer role in Bengaluru.");
     expect(says).toContain("Based in India, Kotlin and Android");
-    expect(says).toContain("counts Jetpack Compose in a candidate's favour");
-    expect(readPhase(read).done).toBe("Read the role and its spec");
+    expect(says).toContain("count Jetpack Compose in a candidate's favour");
+    expect(readPhase(read).done).toBe("Read the role and its requirements");
     expect(readPhase(read, false).timed).toBe(false);
   });
 
   it("says plainly there is no approved spec, and offers nothing to search", () => {
     const none = { campaign: { name: "fn4 Spec limit" }, approved: null, latest: null };
-    expect(readSteps(none)).toEqual(["fn4 Spec limit", "No role spec yet"]);
-    expect(readSays(none)).toContain("no role spec yet");
+    expect(readSteps(none)).toEqual(["fn4 Spec limit", "No requirements yet"]);
+    expect(readSays(none)).toContain("no requirements yet");
     expect(readSays(none)).toContain("nothing to search on");
     // It offers to take the description here; it does not send anyone to write one in the campaign.
     expect(readSays(none)).toContain("Paste the job description here");
     expect(readSays(none)).not.toMatch(/in the campaign|Write and approve/);
     const draft = { campaign: { name: "fn4 Spec limit" }, approved: null, latest: row(1, { approvedAt: null }) };
-    expect(readSteps(draft)[1]).toBe("A draft of the role spec (version 1) is waiting for approval");
-    expect(readSays(draft)).toContain("hasn't been approved");
+    expect(readSteps(draft)[1]).toBe("A draft of the requirements (version 1) is waiting for approval");
+    expect(readSays(draft)).toContain("haven't been approved");
     expect(readSays(draft)).not.toMatch(/in the campaign/);
     expect(readPhase(draft).done).toBe("Read the role");
   });
@@ -136,7 +136,7 @@ describe("copy builders", () => {
     const done = poolOf(status({ shown: 74, nextSize: 0, exhausted: true }), 21);
     expect(poolSentence(done)).toBe("74 people found so far, 21 of them ranked and waiting for your call.");
     expect(poolSentence(poolOf(status({ shown: 10, nextSize: 0, exhausted: true }), 0))).toBe("10 people found so far, none of them waiting for your call.");
-    expect(buildSays(first)).toContain("straight from the spec");
+    expect(buildSays(first)).toContain("straight from the requirements");
     expect(buildPhase(spec, first).steps.at(-1)).toBe("Ranked by: Based in India, Kotlin, Android");
     expect(buildPhase(spec, first).steps[0]).toBe("Title: Senior Android Engineer");
   });
@@ -159,7 +159,7 @@ describe("copy builders", () => {
   it("explains in words what a search cannot do right now", () => {
     expect(searchNote(poolOf(status(), 0))).toBeNull();
     expect(searchNote(poolOf(status({ crustdata: false }), 0))).toBeNull();
-    expect(searchNote(poolOf(status({ nextSize: 0, exhausted: true, shown: 74 }), 21))).toBe("That's everyone I could reach for these filters for now. Change the spec to widen the search.");
+    expect(searchNote(poolOf(status({ nextSize: 0, exhausted: true, shown: 74 }), 21))).toBe("That's everyone I could reach for these filters for now. Change the requirements to widen the search.");
     expect(searchNote(poolOf(status({ nextSize: 0, exhausted: false }), 21))).toContain("no searches left");
   });
 

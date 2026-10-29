@@ -359,7 +359,7 @@ export function words(beat: Beat, a: Answers, s: WordsState = {}): Words {
     case "role":
       return { head: ["Which role should we start with?"], quiet: "A job title is enough. The description comes next." };
     case "jd":
-      return { head: ["Paste the *job description*."], quiet: "Mind reads it and drafts the role spec. You approve it before anything starts." };
+      return { head: ["Paste the *job description*."], quiet: "Mind reads it and drafts the requirements. You approve them before anything starts." };
     case "client":
       if (s.foundClient && !s.askingClient)
         return { head: [`The client is *${s.foundClient}*.`, "Right?"], quiet: "It's in the job description. Change it if that's not right." };
@@ -415,7 +415,7 @@ export function readyWords(a: Answers): Words {
     return { head, quiet: org ? `You're the owner of ${org}. You can invite your team and add your first role whenever you're ready.` : "Personal is yours alone, so only you can see what's in it. Tell Mind which role to start with whenever you're ready." };
   }
   if (org) return { head, quiet: `You're the owner of ${org}. You can invite your team, assign work and see every campaign.` };
-  if (a.jd) return { head, quiet: "Mind is reading the job description and drafting your first role spec for you to approve. Personal is yours alone, so only you can see what's in it." };
+  if (a.jd) return { head, quiet: "Mind is reading the job description and drafting your first requirements for you to approve. Personal is yours alone, so only you can see what's in it." };
   return { head, quiet: "Your first campaign is ready. Mind will ask for the job description. Personal is yours alone, so only you can see what's in it." };
 }
 

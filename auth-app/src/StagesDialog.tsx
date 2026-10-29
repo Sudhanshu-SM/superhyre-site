@@ -21,7 +21,8 @@ import "./stagesDialog.css";
  */
 
 const HUE_LABEL: Readonly<Record<StageColor, string>> = {
-  slate: "Slate", blue: "Blue", teal: "Teal", green: "Green", amber: "Amber", orange: "Orange", rose: "Rose", violet: "Violet",
+  slate: "Slate", blue: "Blue", sky: "Sky", indigo: "Indigo", violet: "Violet", plum: "Plum", pink: "Pink", rose: "Rose", red: "Red",
+  orange: "Orange", amber: "Amber", yellow: "Yellow", lime: "Lime", green: "Green", mint: "Mint", teal: "Teal", brown: "Brown",
 };
 
 type Props = {
@@ -199,7 +200,7 @@ export function StagesForm({ stages, counts, title = "Stages", save = "Save stag
 }
 
 
-/** A stage's colour: one small button showing it, opening the eight on offer and "Default" (the colour of its kind). */
+/** A stage's colour: one small button showing it, opening the sixteen on offer and "Default" (the colour of its kind). */
 function ColourPick({ value, name, fixed, onPick }: { value: StageColor | null; name: string; fixed?: StageColor | undefined; onPick: (c: StageColor | null) => void }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLButtonElement>(null);
@@ -225,16 +226,26 @@ function ColourPick({ value, name, fixed, onPick }: { value: StageColor | null; 
         <i aria-hidden="true" />
       </button>
       <Popover anchor={ref} open={open} onClose={() => setOpen(false)} width={196}>
-        <div className="sg-swatches" role="listbox" aria-label="Colour">
-          {PICKABLE_HUES.map((h) => (
-            <button
-              key={h} type="button" role="option" aria-selected={value === h} className={`sg-sw${value === h ? " is-on" : ""}`} title={HUE_LABEL[h]} aria-label={HUE_LABEL[h]}
-              style={{ ["--sg-c" as string]: stageVar(h) }} onClick={() => { onPick(h); setOpen(false); }}
-            />
-          ))}
-          <button type="button" role="option" aria-selected={value === null} className={`sg-auto t-body-sm${value === null ? " is-on" : ""}`} onClick={() => { onPick(null); setOpen(false); }}>Default</button>
-        </div>
+        <ColourSwatches value={value} onPick={(c) => { onPick(c); setOpen(false); }} />
       </Popover>
     </>
+  );
+}
+
+/**
+ * What the colour button opens: the sixteen colours in a 4 by 4 grid, in the order of PICKABLE_HUES (names are the
+ * buttons' aria-label and title), then "Default". The chosen one is ringed.
+ */
+export function ColourSwatches({ value, onPick }: { value: StageColor | null; onPick: (c: StageColor | null) => void }): JSX.Element {
+  return (
+    <div className="sg-swatches" role="listbox" aria-label="Colour">
+      {PICKABLE_HUES.map((h) => (
+        <button
+          key={h} type="button" role="option" aria-selected={value === h} className={`sg-sw${value === h ? " is-on" : ""}`} title={HUE_LABEL[h]} aria-label={HUE_LABEL[h]}
+          style={{ ["--sg-c" as string]: stageVar(h) }} onClick={() => onPick(h)}
+        />
+      ))}
+      <button type="button" role="option" aria-selected={value === null} className={`sg-auto t-body-sm${value === null ? " is-on" : ""}`} onClick={() => onPick(null)}>Default</button>
+    </div>
   );
 }

@@ -94,7 +94,7 @@ describe("what an approval will not do", () => {
   it("is said in plain words for the actions the console knows, and the server's words win", () => {
     const a = approvalFor({ action: "shortlist", campaignId: "c1" }).turns[0]!.approvals[0]!;
     expect(wontDo(a)).toEqual(["It won't contact anyone. People are only put on the shortlist."]);
-    expect(wontDo({ ...a, wontDo: ["It won't change the role spec."] })).toEqual(["It won't change the role spec."]);
+    expect(wontDo({ ...a, wontDo: ["It won't change the requirements."] })).toEqual(["It won't change the requirements."]);
     expect(wontDo({ action: "something_new", wontDo: [] })).toEqual([]);
   });
 
@@ -349,11 +349,11 @@ describe("a yes that takes a while says what it is doing on its own card", () =>
   it("picks the lines that belong to one approval, in order, and no one else's", () => {
     const lines: PhaseLine[] = [
       line("understand", "Understood", "done", 1),
-      line("approval:7", "Preparing the role spec", "running", 2),
+      line("approval:7", "Preparing the requirements", "running", 2),
       line("approval:7:read", "Read the job description", "done", 3),
-      line("approval:7:draft", "Drafting the role spec", "running", 4, "Product Designer, 12 s"),
+      line("approval:7:draft", "Drafting the requirements", "running", 4, "Product Designer, 12 s"),
       line("approval:70", "Moving people on the board", "running", 5),
-      line("approval:8:draft", "Drafting the role spec", "running", 6),
+      line("approval:8:draft", "Drafting the requirements", "running", 6),
     ];
     expect(approvalLines(lines, 7).map((l) => l.id)).toEqual(["approval:7", "approval:7:read", "approval:7:draft"]);
   });
@@ -361,20 +361,20 @@ describe("a yes that takes a while says what it is doing on its own card", () =>
   it("shows the steps instead of only 'Working' while the approval is being decided", () => {
     const state = approvalFor(
       { action: "approve_spec", campaignId: "c1" },
-      { summary: "Draft the role spec for Product Designer from its job description, approve it and start finding people", capability: "campaign.approve_spec" },
+      { summary: "Draft the requirements for Product Designer from its job description, approve them and start finding people", capability: "campaign.approve_spec" },
     );
     const approval = { ...state.turns[0]!.approvals[0]!, deciding: true };
     const lines = [
       line("approval:1:read", "Read the job description", "done", 1),
-      line("approval:1:draft", "Drafting the role spec", "running", 2, "Product Designer, 21 s"),
+      line("approval:1:draft", "Drafting the requirements", "running", 2, "Product Designer, 21 s"),
     ];
     const html = renderToStaticMarkup(<ApprovalCard turnKey="t1" approval={approval} turnSaid="go" phases={lines} />);
     expect(html).toContain("Working");
     expect(html).toContain("Read the job description");
-    expect(html).toContain("Drafting the role spec");
+    expect(html).toContain("Drafting the requirements");
     expect(html).toContain("Product Designer, 21 s");
     // Waiting for the person's yes, nothing is narrated yet.
     const waiting = renderToStaticMarkup(<ApprovalCard turnKey="t1" approval={{ ...approval, deciding: false }} turnSaid="go" phases={lines} />);
-    expect(waiting).not.toContain("Drafting the role spec");
+    expect(waiting).not.toContain("Drafting the requirements");
   });
 });

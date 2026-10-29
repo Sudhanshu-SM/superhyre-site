@@ -37,6 +37,14 @@
 .ch-skip:hover { color: var(--ink); }
 .ch-skip:disabled { cursor: default; opacity: 0.55; }
 .ch-skip:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+/* A way out that is the thing to do for most people ("All open campaigns"): a text button in the accent, not a quiet skip. */
+.ch-lead {
+  padding: 0; border: 0; background: none; cursor: pointer;
+  font: var(--type-body-sm); letter-spacing: var(--track-body-sm); font-weight: 600; color: var(--accent-text);
+}
+.ch-lead:hover { text-decoration: underline; text-underline-offset: 3px; }
+.ch-lead:disabled { cursor: default; opacity: 0.55; }
+.ch-lead:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
 .ch-done { display: inline-flex; align-items: center; gap: 8px; margin: 0; max-width: 62ch; font: var(--type-body-sm); letter-spacing: var(--track-body-sm); color: var(--ink-2); }
 .ch-done svg { flex: none; }

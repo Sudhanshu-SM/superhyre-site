@@ -2,9 +2,12 @@
  * The chat history as a person scans it: the campaign they have selected with its chats (unless it is pinned, where it
  * already is), what they pinned (chats, and campaigns with their own chats under them), then every chat, most recent
  * first. Recents is the whole history, so a chat that sits under a campaign is in Recents too: a campaign folded shut
- * must not make its chats hard to find. Only a chat pinned on its own is not repeated there.
+ * must not make its chats hard to find. Only a chat pinned on its own is not repeated there. A campaign's daily search
+ * chat is the first of the campaign's chats, whatever the times, and it does not count when the campaigns are ordered
+ * (the agent writes in it every morning; that is not the person's attention).
  */
 
+import type { Conversation } from "./api/agent";
 import { pinKey, type Pins } from "./chatPins";
 
 export type RailChat = {
@@ -18,7 +21,32 @@ export type RailChat = {
   last: string | null;
   /** Whose it is, when it is somebody else's chat about a campaign the person can see: it is read, not written in. */
   ownerName?: string;
+  /** The person's own daily search chat for its campaign: first among the campaign's chats, tinted, with a pin. */
+  daily?: boolean;
 };
+
+/**
+ * A chat as the list draws it, from the server's row: the person's own, or somebody else's about a campaign they can see (the row has
+ * `ownerName`). Only the person's own daily search chat is drawn as one; a colleague's is read like any chat of theirs.
+ */
+export function railChatOf(c: Conversation, title: string): RailChat {
+  return {
+    id: c.id,
+    title,
+    campaignId: c.focusCampaignId,
+    campaignName: c.focusCampaignName ?? "",
+    at: Date.parse(c.updatedAt) || 0,
+    last: c.lastMessage ?? null,
+    ...(c.ownerName ? { ownerName: c.ownerName } : {}),
+    ...(c.kind === "daily_search" && !c.ownerName ? { daily: true } : {}),
+  };
+}
+
+/** A campaign's chats with its daily search chat first, whatever the times; the others keep the order they came in (newest first). */
+const dailyFirst = (chats: readonly RailChat[]): RailChat[] => [
+  ...chats.filter((c) => c.daily),
+  ...chats.filter((c) => !c.daily),
+];
 
 export type PinnedCampaign = { kind: "campaign"; id: string; name: string; chats: readonly RailChat[] };
 export type PinnedChat = { kind: "chat"; chat: RailChat };
@@ -49,7 +77,7 @@ export function arrangeRail(
   const sorted = [...chats].sort((a, b) => b.at - a.at);
   const pinnedChats = new Set(pins.filter((k) => k.startsWith("chat:")).map((k) => k.slice(5)));
   const latest = new Map<string, number>();
-  for (const c of sorted) if (c.campaignId && !latest.has(c.campaignId)) latest.set(c.campaignId, c.at);
+  for (const c of sorted) if (c.campaignId && !c.daily && !latest.has(c.campaignId)) latest.set(c.campaignId, c.at);
   /** Chats pinned on their own: they are in Pinned, so Recents does not repeat them. */
   const placed = new Set<string>();
   const found: Array<{ item: PinnedItem; at: number; pin: number }> = [];
@@ -62,7 +90,7 @@ export function arrangeRail(
       const campaign = campaigns.find((c) => c.id === id);
       if (!campaign) return;
       // A chat pinned on its own stays where it was pinned.
-      const nested = sorted.filter((c) => c.campaignId === id && !pinnedChats.has(c.id));
+      const nested = dailyFirst(sorted.filter((c) => c.campaignId === id && !pinnedChats.has(c.id)));
       found.push({ item: { kind: "campaign", id, name: campaign.name, chats: nested }, at: latest.get(id) ?? 0, pin });
     }
   });
@@ -74,7 +102,7 @@ export function arrangeRail(
           kind: "campaign",
           id: selectedCampaign.id,
           name: selectedCampaign.name,
-          chats: sorted.filter((c) => c.campaignId === selectedCampaign.id && !pinnedChats.has(c.id)),
+          chats: dailyFirst(sorted.filter((c) => c.campaignId === selectedCampaign.id && !pinnedChats.has(c.id))),
         }
       : null;
   return { selected, pinned: found.map((f) => f.item), recents: sorted.filter((c) => !placed.has(c.id)) };

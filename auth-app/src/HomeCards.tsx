@@ -1,3 +1,4 @@
+import { TaskHover } from "./TaskHover";
 import { TaskTitle } from "./TaskTitle";
 import {
   ArrowRight, ArrowUpRight, CaretDown, CaretLeft, CaretRight, Lightbulb, PencilSimple, Plus, Pulse, Sparkle, Trash,
@@ -20,7 +21,7 @@ import { dayLabel } from "./schedulesView";
 import { initialsOf } from "./ui";
 import { StageDonut, StagePop } from "./StageDonut";
 import type { StageHue } from "./stageDonut";
-import { filledLine, isEmpty, peopleLine, stageHue, stageVar, stagesLine, stagesOf, startLine } from "./stageDonut";
+import { filledLine, isEmpty, peopleLine, stageHue, stageVar, stagesLine, stagesOf, startLine, waitsOnRequirements } from "./stageDonut";
 import { useCan } from "./can";
 import { isMe, useSession, visibleCampaigns } from "./roleStore";
 import type { Scope } from "./orchestrator";
@@ -474,11 +475,11 @@ export function TodayCard({ scope, onOpen }: { scope: Scope; onOpen: (prompt: st
                   const st = t.state === "blocked" ? { l: "Waiting", c: "is-wait" } : t.state === "doing" ? { l: "In progress", c: "is-doing" } : { l: "To do", c: "is-todo" };
                   const mayMove = admin || isMe(t.createdById);
                   return (
-                    <li key={t.id} style={{ ["--hue" as string]: t.campaignId ? hueFor(t.campaignId) : undefined }}>
+                    <TaskHover key={t.id} task={t} style={{ ["--hue" as string]: t.campaignId ? hueFor(t.campaignId) : undefined }}>
                       <span className="hm-tl-av" aria-hidden="true">{initialsOf(t.assigneeName)}</span>
                       {t.open
-                        ? <TaskTitle task={t} className="hm-tl-t" href={t.open}>{t.title}</TaskTitle>
-                        : <TaskTitle task={t} className="hm-tl-t is-plain" plain>{t.title}</TaskTitle>}
+                        ? <TaskTitle className="hm-tl-t" href={t.open}>{t.title}</TaskTitle>
+                        : <TaskTitle className="hm-tl-t is-plain" plain>{t.title}</TaskTitle>}
                       <span className="hm-tl-camp">
                         <b className="hm-tl-who">{t.assigneeName ?? "A teammate"}</b>
                         <small className="hm-tl-for">{[t.campaign, admin && t.createdByName && !isMe(t.createdById) ? `by ${t.createdByName}` : null].filter(Boolean).join(" · ")}</small>
@@ -493,7 +494,7 @@ export function TodayCard({ scope, onOpen }: { scope: Scope; onOpen: (prompt: st
                           </select>
                         )}
                       </span>
-                    </li>
+                    </TaskHover>
                   );
                 })}
               </ul>
@@ -504,18 +505,18 @@ export function TodayCard({ scope, onOpen }: { scope: Scope; onOpen: (prompt: st
                   const isDone = !!done[t.id];
                   const st = isDone ? { l: "Done", c: "is-done" } : t.state === "blocked" ? { l: "Waiting", c: "is-wait" } : t.state === "doing" ? { l: "In progress", c: "is-doing" } : { l: "To do", c: "is-todo" };
                   return (
-                    <li key={t.id} className={`${leaving === t.id ? "is-leaving" : ""}${isDone ? " is-done" : ""}`} style={{ ["--hue" as string]: t.campaignId ? hueFor(t.campaignId) : undefined }}>
+                    <TaskHover key={t.id} task={t} disabled={editing === t.id || leaving === t.id} className={`${leaving === t.id ? "is-leaving" : ""}${isDone ? " is-done" : ""}`} style={{ ["--hue" as string]: t.campaignId ? hueFor(t.campaignId) : undefined }}>
                       {isDone
                         ? <button type="button" className="hm-check is-on" onClick={() => undo(t.id)} aria-label={`Mark "${t.title}" as not done`}>{CHECK}</button>
                         : <button type="button" className="hm-check" onClick={() => complete(t.id)} aria-label={`Mark "${t.title}" as done`}>{CHECK}{leaving === t.id && <Burst />}</button>}
                       {t.open
-                        ? <TaskTitle task={t} className="hm-tl-t" href={t.open}>{t.title}</TaskTitle>
-                        : <TaskTitle task={t} className="hm-tl-t" onClick={() => onOpen(t.title)}>{t.title}</TaskTitle>}
+                        ? <TaskTitle className="hm-tl-t" href={t.open}>{t.title}</TaskTitle>
+                        : <TaskTitle className="hm-tl-t" onClick={() => onOpen(t.title)}>{t.title}</TaskTitle>}
                       <span className="hm-tl-camp">
                         {t.campaign && <i aria-hidden="true" />}{t.campaign ?? "No campaign"}
                         {t.assigneeId && !isMe(t.assigneeId) && <small className="hm-tl-for"> · for {memberName(t.assigneeId) ?? "a teammate"}</small>}
                       </span>
-                      <span className={`hm-tl-st ${st.c}`} {...(t.progress && !isDone ? { title: `${t.progress.done} of ${t.progress.total} ${t.progress.what}` } : {})}>
+                      <span className={`hm-tl-st ${st.c}`}>
                         {st.l}
                         {t.progress && !isDone && t.progress.done > 0 && <small className="hm-tl-n">{t.progress.done}/{t.progress.total}</small>}
                       </span>
@@ -532,7 +533,7 @@ export function TodayCard({ scope, onOpen }: { scope: Scope; onOpen: (prompt: st
                         )}
                       </span>
                       {editing === t.id && <EditTask task={t} onClose={() => setEditing(null)} />}
-                    </li>
+                    </TaskHover>
                   );
                 })}
               </ul>
@@ -878,7 +879,7 @@ export function factsOf(r: CampaignRow) {
   /* A ring with people in it always says where they are ("1 shortlisted"): a number alone is a puzzle. */
   const caption = empty ? startLine(r) : filled ?? peopleLine(stages);
   /* What waits on a person leads a tile's line, in the brand's text colour; an empty campaign's own line already says a missing spec. */
-  const need = r.needs && !(empty && /spec|brief/i.test(r.needs)) ? r.needs : null;
+  const need = r.needs && !(empty && waitsOnRequirements(r.needs)) ? r.needs : null;
   /* How far its hires are: a slim bar and its words. No target, no bar. */
   const prog = empty || !h.target ? null : { pct: Math.min(1, h.count / h.target), text: filled ?? `${h.count} of ${h.target} hired` };
   /* How far people got, one row per funnel step reached (found, shortlisted, contacted, replied, interviewing, in the colour of
@@ -1051,7 +1052,7 @@ export function CampaignsList({ scope, onOpen }: { scope: Scope; onOpen: (r: Cam
       </ul>
       {allEmpty && (
         <div className="hm-cl-hint">
-          <p>Approve a role spec and the agent starts finding people</p>
+          <p>Approve requirements and the agent starts finding people</p>
           {rows.length === 1
             ? <button type="button" className="st-link" onClick={() => onOpen(rows[0]!)}>Open {rows[0]!.name}</button>
             : <a className="st-link" href="#/agent">Ask the agent</a>}

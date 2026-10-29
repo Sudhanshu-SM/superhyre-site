@@ -58,7 +58,8 @@ html:root[data-theme="dark"] {
   --c-slate-tint: rgba(123, 135, 148, 0.18); --c-slate-line: rgba(123, 135, 148, 0.42); --c-slate-text: #a9b4c0;
 
   /* Stage colours (light: access.css): the same hues, lighter and softer on the near-black card, a wash of the mark for
-     the soft and the line. Marks 4.4:1 or more on the card, text 5.6:1 or more on the card, its hover and its soft. */
+     the soft and the line. Marks 4.1:1 or more on the card (brown, the darkest), text 5.6:1 or more on the card, its hover and
+     its soft. The nine added after violet (sky to brown) follow the first eight, as in access.css. */
   --stage-slate: #969fab; --stage-slate-text: #9ea7b3; --stage-slate-soft: rgba(150, 159, 171, 0.16); --stage-slate-line: rgba(150, 159, 171, 0.4);
   --stage-blue: #4583b5; --stage-blue-text: #6aa5d6; --stage-blue-soft: rgba(69, 131, 181, 0.16); --stage-blue-line: rgba(69, 131, 181, 0.4);
   --stage-teal: #5cadb4; --stage-teal-text: #67b3ba; --stage-teal-soft: rgba(92, 173, 180, 0.16); --stage-teal-line: rgba(92, 173, 180, 0.4);
@@ -67,6 +68,15 @@ html:root[data-theme="dark"] {
   --stage-orange: #cb9467; --stage-orange-text: #d09b70; --stage-orange-soft: rgba(203, 148, 103, 0.16); --stage-orange-line: rgba(203, 148, 103, 0.4);
   --stage-rose: #e2a0a5; --stage-rose-text: #e0a1a5; --stage-rose-soft: rgba(226, 160, 165, 0.16); --stage-rose-line: rgba(226, 160, 165, 0.4);
   --stage-violet: #b19adb; --stage-violet-text: #b39edc; --stage-violet-soft: rgba(177, 154, 219, 0.16); --stage-violet-line: rgba(177, 154, 219, 0.4);
+  --stage-sky: #71bae6; --stage-sky-text: #7bc0ea; --stage-sky-soft: rgba(113, 186, 230, 0.16); --stage-sky-line: rgba(113, 186, 230, 0.4);
+  --stage-indigo: #7d8ece; --stage-indigo-text: #92a3e1; --stage-indigo-soft: rgba(125, 142, 206, 0.16); --stage-indigo-line: rgba(125, 142, 206, 0.4);
+  --stage-plum: #a773a0; --stage-plum-text: #c592be; --stage-plum-soft: rgba(167, 115, 160, 0.16); --stage-plum-line: rgba(167, 115, 160, 0.4);
+  --stage-pink: #f4aeda; --stage-pink-text: #f9b6e0; --stage-pink-soft: rgba(244, 174, 218, 0.16); --stage-pink-line: rgba(244, 174, 218, 0.4);
+  --stage-red: #c2766c; --stage-red-text: #da9085; --stage-red-soft: rgba(194, 118, 108, 0.16); --stage-red-line: rgba(194, 118, 108, 0.4);
+  --stage-yellow: #cfd98b; --stage-yellow-text: #d5df95; --stage-yellow-soft: rgba(207, 217, 139, 0.16); --stage-yellow-line: rgba(207, 217, 139, 0.4);
+  --stage-lime: #a2b86f; --stage-lime-text: #a9be79; --stage-lime-soft: rgba(162, 184, 111, 0.16); --stage-lime-line: rgba(162, 184, 111, 0.4);
+  --stage-mint: #88cebb; --stage-mint-text: #92d4c1; --stage-mint-soft: rgba(136, 206, 187, 0.16); --stage-mint-line: rgba(136, 206, 187, 0.4);
+  --stage-brown: #9b7048; --stage-brown-text: #b59a84; --stage-brown-soft: rgba(155, 112, 72, 0.16); --stage-brown-line: rgba(155, 112, 72, 0.4);
   --stage-track: #2b2b2b;
 
   /* The sidebar: the page itself, divided by a hairline; the current page is a quiet neutral fill. */

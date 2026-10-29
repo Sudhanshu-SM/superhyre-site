@@ -1,0 +1,57 @@
+/* ═════════ the Daily search popup (DailySearchDialog.tsx) ═════════
+   The Daily search button on the Campaigns page (and the rail's row for it, and the bell's row about it) opens it, built on the
+   Requirements dialog's own anatomy (.rl-dlg in roles.css) and the recruiter list's rows (.rl-pick, as AssignDialog draws them). A title,
+   one scrolling middle (the switch, when it looks, the campaigns to tick, the ones that cannot be searched yet, the last mornings, the
+   changes it suggests and how they have done, other people's searches for an owner or admin), and Cancel and Save in the foot. How a campaign stands is muted words under its name: no dots,
+   no badges. The list does not scroll on its own; the middle does, so the foot stays in view. */
+
+.ds-body {
+  flex: 1 1 auto; min-height: min(14rem, 36dvh); overflow-y: auto; scrollbar-width: thin; padding: 0 24px 20px;
+  display: grid; gap: 22px; align-content: start;
+}
+.ds-body > .ncx-toggle { grid-column: auto; }
+.ds-h { margin: 0 0 10px; color: var(--ink); }
+.ds-none { margin: 0; color: var(--ink-2); }
+
+.ds-when { display: flex; flex-wrap: wrap; gap: 12px 16px; }
+.ds-field { display: grid; gap: 4px; color: var(--ink-2); }
+.ds-field .ncx-in { width: auto; min-width: 9.5rem; }
+
+.ds-more { margin-top: 12px; color: var(--ink-2); }
+.ds-more > summary { cursor: pointer; width: fit-content; }
+.ds-more > summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.ds-sentence { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0 0; color: var(--ink); }
+.ds-num { width: 5rem; }
+
+.ds-find {
+  display: flex; align-items: center; gap: 8px; margin: 0 0 8px; padding: 0 12px; height: 38px;
+  border: 1px solid #e6dfd8; border-radius: 10px; background: #fff; color: var(--ink-3);
+}
+.ds-find:focus-within { border-color: rgba(234, 90, 30, 0.5); box-shadow: 0 0 0 3px rgba(234, 90, 30, 0.1); }
+.ds-find input {
+  flex: 1; min-width: 0; border: 0; outline: none; background: none; font: var(--type-body); letter-spacing: var(--track-body); color: var(--ink);
+}
+
+/* The list is the middle's own, not a scroller inside a scroller. */
+.ds-pick { flex: none; overflow: visible; padding: 0; }
+.ds-pick .rl-pick-i { grid-template-columns: minmax(0, 1fr) auto; }
+.ds-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+.ds-act { white-space: nowrap; }
+.ds-act:disabled { cursor: default; opacity: 0.6; }
+
+.ds-blocked > summary { cursor: pointer; width: fit-content; color: var(--ink); }
+.ds-blocked > summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.ds-n { margin-left: 8px; color: var(--ink-2); font-weight: 400; }
+.ds-note { margin: 10px 0 0; color: var(--ink-2); }
+.ds-off { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 14px; }
+.ds-off-i { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 8px; }
+.ds-off-i .rl-pick-t small { overflow-wrap: anywhere; }
+
+/* What Save spends, in the foot beside it: each sentence on its own line under the count. */
+.ds-spend { display: block; margin-top: 2px; }
+
+.ds-days { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.ds-day { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr); align-items: baseline; gap: 12px; }
+.ds-day > span:last-child { color: var(--ink-2); }
+/* The scoreboard sits under the waiting changes, set apart from them. */
+.ds-off + .ds-score { margin-top: 18px; }

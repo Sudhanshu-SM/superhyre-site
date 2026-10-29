@@ -134,7 +134,6 @@ describe("words that sent people elsewhere (D13, D14, D18)", () => {
       choices: [
         { id: "c1", name: "Acme Fintech", text: "The client is Acme Fintech" },
         { id: "new", name: "A new client", text: "The client is {value}, who isn't in Clients yet", input: { label: "Client name" } },
-        { id: "none", name: "No client", text: "No client for this one", quiet: true },
       ],
     };
     const html = renderToStaticMarkup(
@@ -144,8 +143,9 @@ describe("words that sent people elsewhere (D13, D14, D18)", () => {
     expect(html.match(/Which client is this for\?/g)).toHaveLength(1);
     for (const label of ["Acme Fintech", "A new client"]) expect(html).toContain(label);
     expect(html).toContain(">Continue</button>");
-    // "No client" is a way out beside Continue, not a third option.
-    expect(html).toMatch(/class="ch-skip"[^>]*>No client</);
+    // Every campaign has a client: there is no way out beside Continue.
+    expect(html).not.toContain("ch-skip");
+    expect(html).not.toMatch(/No client/);
     // The name is asked for only once "A new client" is picked.
     expect(html).not.toContain("Client name");
     expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Continue/);

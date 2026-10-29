@@ -44,7 +44,7 @@
   padding: 0;
   border: 0;
   background: transparent;
-  font: 500 14px/1.3 var(--ui);
+  font: 500 15px/1.3 var(--ui);
   letter-spacing: -0.011em;
   color: var(--ink);
   text-align: left;
@@ -74,7 +74,7 @@
 /* The measured duration of a finished phase: a separate muted token. */
 .src-took {
   margin-left: 4px;
-  font: 400 12px/1 var(--ui);
+  font: 400 13px/1 var(--ui);
   font-variant-numeric: tabular-nums;
   color: var(--ink-3);
 }
@@ -89,7 +89,7 @@
   padding: 2px 0 2px 19px;
   border-left: 1px solid var(--hairline);
   list-style: none;
-  font: 400 13px/1.5 var(--ui);
+  font: 400 14px/1.5 var(--ui);
   color: var(--ink-2);
   animation: src-in 240ms var(--ease-out);
 }
@@ -97,7 +97,7 @@
 .src-para {
   margin: 0;
   max-width: 64ch;
-  font: 400 15px/1.65 var(--ui);
+  font: 400 16px/1.65 var(--ui);
   letter-spacing: -0.011em;
   color: var(--ink);
 }
@@ -135,7 +135,7 @@
   align-items: center;
   gap: 5px;
   margin: 0;
-  font: 400 13.5px/1.4 var(--ui);
+  font: 400 14.5px/1.4 var(--ui);
   color: var(--ink);
 }
 
@@ -154,7 +154,7 @@
   padding: 2px 0;
   border: 0;
   background: transparent;
-  font: 500 13px/1.3 var(--ui);
+  font: 500 14px/1.3 var(--ui);
   color: var(--accent-text);
   cursor: pointer;
   transition: color var(--t);
@@ -169,7 +169,7 @@
   align-items: center;
   gap: 6px 7px;
   margin: 0;
-  font: 400 13.5px/1.3 var(--ui);
+  font: 400 14.5px/1.3 var(--ui);
   color: var(--ink-2);
 }
 
@@ -182,7 +182,7 @@
   border: 1px solid var(--accent-line);
   border-radius: var(--r-pill);
   background: #fff;
-  font: 500 13px/1 var(--ui);
+  font: 500 14px/1 var(--ui);
   letter-spacing: -0.011em;
   color: var(--ink);
   white-space: nowrap;
@@ -235,11 +235,11 @@
 .src-filter-k {
   width: 108px;
   flex: none;
-  font: 400 12.5px/1 var(--ui);
+  font: 400 13.5px/1 var(--ui);
   color: var(--ink-2);
 }
 
-.src-empty { font: 400 13px/1.4 var(--ui); color: var(--ink-2); }
+.src-empty { font: 400 14px/1.4 var(--ui); color: var(--ink-2); }
 
 .src-criteria {
   display: flex;
@@ -257,7 +257,7 @@
   border: 1px solid var(--accent-line);
   border-radius: var(--r-pill);
   background: #fff;
-  font: 400 13px/1 var(--ui);
+  font: 400 14px/1 var(--ui);
   color: var(--ink);
   outline: none;
   animation: src-in 200ms var(--ease-out);
@@ -281,7 +281,7 @@
   padding: 0 16px;
   border: 0;
   border-radius: var(--r-pill);
-  font: 500 13.5px/1 var(--ui);
+  font: 500 14.5px/1 var(--ui);
   letter-spacing: -0.011em;
   white-space: nowrap;
   cursor: pointer;
@@ -303,7 +303,7 @@
   align-items: center;
   gap: 6px;
   margin: 2px 0 0 2px;
-  font: 400 12.5px/1.3 var(--ui);
+  font: 400 13.5px/1.3 var(--ui);
   color: var(--ink-2);
   animation: src-in 280ms var(--ease-out);
 }
@@ -327,18 +327,18 @@
 
 .src-results-head h3 {
   margin: 0;
-  font: 600 15px/1.3 var(--ui);
+  font: 600 16px/1.3 var(--ui);
   letter-spacing: -0.014em;
   color: var(--ink);
 }
 
 .src-results-head span {
-  font: 400 12.5px/1 var(--ui);
+  font: 400 13.5px/1 var(--ui);
   font-variant-numeric: tabular-nums;
   color: var(--ink-2);
 }
 
-.src-results-sub { margin: 0 0 8px; font: 400 14px/1.55 var(--ui); color: var(--ink-2); }
+.src-results-sub { margin: 0 0 8px; font: 400 15px/1.55 var(--ui); color: var(--ink-2); }
 
 .src-cards { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; margin: 0; padding: 0; list-style: none; }
 .src-cards > li { animation: src-in 420ms var(--ease-out) both; }
@@ -396,7 +396,7 @@
   display: flex;
   gap: 8px;
   margin: 0;
-  font: 400 13.5px/1.5 var(--ui);
+  font: 400 14.5px/1.5 var(--ui);
   color: var(--ink);
 }
 
@@ -422,7 +422,7 @@
 
 .src-card-career { display: flex; align-items: center; gap: 10px; flex: 1 1 140px; min-width: 120px; max-width: 220px; }
 .src-card-career .cb-career { flex: 1 1 auto; }
-.src-card-k { flex: none; font: 500 12px/1 var(--ui); font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.src-card-k { flex: none; font: 500 13px/1 var(--ui); font-variant-numeric: tabular-nums; color: var(--ink-2); }
 .src-card-id { min-width: 0; flex: 1 1 auto; }
 
 .src-card-name {
@@ -431,13 +431,13 @@
   flex-wrap: wrap;
   gap: 8px;
   margin: 0;
-  font: 600 14.5px/1.3 var(--ui);
+  font: 600 15.5px/1.3 var(--ui);
   letter-spacing: -0.014em;
   color: var(--ink);
 }
 
 .src-otw {
-  font: 500 11px/1 var(--ui);
+  font: 500 12px/1 var(--ui);
   padding: 4px 7px;
   border-radius: var(--r-pill);
   background: var(--c-sage-tint);
@@ -446,7 +446,7 @@
 
 .src-card-line {
   margin: 2px 0 0;
-  font: 400 13.5px/1.4 var(--ui);
+  font: 400 14.5px/1.4 var(--ui);
   color: var(--ink);
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -454,7 +454,7 @@
   overflow: hidden;
 }
 
-.src-card-meta { margin: 2px 0 0; font: 400 12.5px/1.4 var(--ui); color: var(--ink-2); }
+.src-card-meta { margin: 2px 0 0; font: 400 13.5px/1.4 var(--ui); color: var(--ink-2); }
 
 /* The run's call to action: solid orange, raised, and it answers the pointer.
    Hover deepens the fill and lifts the shadow while the arrow steps forward;
@@ -476,7 +476,7 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.22),
     0 1px 2px rgba(204, 77, 23, 0.25),
     0 6px 16px -6px rgba(204, 77, 23, 0.45);
-  font: 600 13px/1 var(--ui);
+  font: 600 14px/1 var(--ui);
   letter-spacing: -0.011em;
   color: #fff;
   cursor: pointer;

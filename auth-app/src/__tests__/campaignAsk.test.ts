@@ -145,12 +145,30 @@ describe("the client, once it is read", () => {
     expect(newCampaignQuestion(said, ctx())?.id).not.toBe("nc-client");
   });
 
-  it("is a company a recruiter cannot add: it stays in the role and the question is of the clients they have", () => {
+  it.each([
+    ["a possessive", "Start a campaign for Zenith Foods' Staff SRE", { role: "Staff SRE", client: "Zenith Foods" }],
+    ["the company first", "Start a campaign for the client Zenith Foods, a Staff SRE", { role: "Staff SRE", client: "Zenith Foods" }],
+    ["for the client", "create a new campaign called Data Analyst for the client Orchid Bank in Pune", { role: "Data Analyst", client: "Orchid Bank", city: "Pune" }],
+    ["at a company", "Start a new campaign for Staff SRE at Zenith Foods", { role: "Staff SRE", client: "Zenith Foods" }],
+    ["for a company", "create a campaign called Data Engineer for Orbit Labs", { role: "Data Engineer", client: "Orbit Labs" }],
+  ])("reads a company named as %s the same for a recruiter as for an admin", (_how, said, want) => {
+    const admin = campaignAskIn(said);
+    expect(admin).toMatchObject(want);
+    setSession({ role: "recruiter", name: "Riya K" });
+    try {
+      expect(campaignAskIn(said)).toEqual(admin);
+    } finally {
+      setSession({ role: "admin", name: "Ada A" });
+    }
+  });
+
+  it("is a company a recruiter names too: the campaign is for it, added with the campaign as for an admin, not left in the role", () => {
     setSession({ role: "recruiter", name: "Riya K" });
     try {
       const said = "Start a new campaign for Staff SRE at Zenith Foods";
-      expect(campaignAskIn(said)).toMatchObject({ client: null });
-      expect(newCampaignAnswers(said, {}).client).toBeUndefined();
+      expect(campaignAskIn(said)).toMatchObject({ role: "Staff SRE", client: "Zenith Foods" });
+      expect(newCampaignAnswers(said, {})).toMatchObject({ client: NEW_CLIENT, newClient: "Zenith Foods", role: "Staff SRE" });
+      expect(newCampaignQuestion(said, ctx())?.id).not.toBe("nc-client");
       // A client they can see is matched all the same.
       expect(newCampaignAnswers("Start a campaign for Senior Backend Engineer at Cobalt Payments", {}).client).toBe(cobalt);
     } finally {

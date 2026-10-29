@@ -5,8 +5,9 @@
    same elements at up to (0,4,0), so every row rule here is scoped under
    `.orc` to win without !important.
 
-   One height for the row: 32px at rest, 30px docked. Every control centres
-   on the same line, so modes, context buttons and send read as one strip. */
+   One height for the row: 38px at rest (the paperclip, the chips and send),
+   30px docked (the paperclip 34). Every control centres on the same line, so
+   modes, context buttons and send read as one strip. */
 
 /* ── the row ── */
 
@@ -41,7 +42,8 @@
   box-shadow: 0 1px 2px rgba(26, 22, 20, 0.08), 0 0 0 1px rgba(26, 22, 20, 0.03);
 }
 
-.orc .orc-composer .orc-slots { display: inline-flex; align-items: center; gap: 6px; }
+/* It may be narrower than its chips: the job description's name is what gives (chat.css), so Send is never pushed out of the box. */
+.orc .orc-composer .orc-slots { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
 
 /* The context buttons: warm, raised and obviously pressable. */
 .orc .orc-composer .orc-slots .orc-gslot.orc-ctx {
@@ -99,7 +101,29 @@
   animation: cb-pop 320ms var(--ease-out);
 }
 
-.orc .orc-composer .orc-send { width: 32px; height: 32px; }
+.orc .orc-composer .orc-send { width: 38px; height: 38px; }
+
+/* The paperclip: a quiet icon that opens the menu of what to add (the picker follows the choice), first in the row. No chip,
+   no label: it is the same control everywhere a file goes, and what is attached says what it was. */
+.orc .orc-composer .orc-pin {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background-color 160ms var(--ease-out), color 160ms var(--ease-out);
+}
+.orc .orc-composer .orc-pin:hover:not(:disabled) { background: var(--sub); color: var(--ink); }
+.orc .orc-composer .orc-pin:active:not(:disabled) { transform: scale(0.94); transition: transform 60ms var(--ease-out); }
+.orc .orc-composer .orc-pin:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.orc .orc-composer .orc-pin:disabled { opacity: 0.4; cursor: default; }
+.orc .orc-stream.is-live .orc-composer .orc-pin { width: 34px; height: 34px; }
 
 /* The length of a message, once it is near the most the agent takes. Quiet until it is over. */
 .orc .orc-composer .orc-count { margin-left: auto; color: var(--ink-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -546,18 +570,12 @@
    its own. */
 
 /* ── A NARROW COMPOSER KEEPS ITS ROW ON ONE LINE ──
-   Beside the rail the resting composer can be ~430px wide, and modes, two
-   labelled context buttons and send need ~470. Under that the context
-   buttons drop their labels and become the same round icons they are when
-   docked; the tooltip still names them. */
+   The field is the container the row is measured against (its content box is the row's width). The chips take
+   their steps against it in chat.css, beside the sizes they come from: labels give way, the least needed first,
+   down to the round icons they are when docked (the tooltip still names them). The copy of those rules that was
+   here was lighter than chat.css's on this page, which is always `.orc.is-agent`, and the label it meant to hide
+   stayed. */
 .orc .orc-composer .orc-composer-field { container-type: inline-size; }
-@container (max-width: 480px) {
-  .orc .orc-composer .orc-slots .orc-gslot.orc-ctx { width: 32px; padding: 0; justify-content: center; border-radius: 50%; }
-  .orc .orc-composer .orc-slots .orc-gslot.orc-ctx .orc-chip-l { display: none; }
-  .orc .orc-composer .orc-slots .orc-gslot.orc-ctx .orc-ctx-ico { background: transparent; box-shadow: none; }
-  .orc .orc-composer .orc-slots .orc-gslot.orc-ctx.is-on .orc-ctx-ico { background: var(--accent-fill); }
-  .orc .orc-composer .orc-ctx-n { position: absolute; top: -5px; right: -5px; min-width: 16px; height: 16px; font-size: 9.5px; box-shadow: 0 0 0 2px #fff; }
-}
 
 /* ── docked: field → tune → send ──
    Two mode icons and two context buttons on the docked bar read as clutter

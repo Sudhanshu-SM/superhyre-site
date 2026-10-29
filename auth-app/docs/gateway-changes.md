@@ -227,6 +227,8 @@ Task registry (versioned, in the gateway): `route@1`, `spec_from_jd@1`, `judge@1
 4. Low-confidence pages only → Sonnet vision through a task worker (`page_ocr@1`).
 5. `want: spec_from_jd | cv_profile` → one task call on the clean text.
 
+**Method names are read by the platform (29 Oct 2026).** The platform's client expects an extract to answer `{ text, pages, methods, lowConfidencePages }` (the table in section 7 says `method` and `quality`) and reads `methods` to tell text read off a picture from text that was in the file: a method that matches `/ocr|vision|tesseract|image/i`, or an image file, sets `picture` (`server/src/modules/agent/attachments.ts`). That flag is how a resume read from a scan says "Read from a picture: check the contact details before adding." So keep naming OCR and vision methods in a way that pattern matches, or change the pattern there in the same release.
+
 The container gains Tesseract and the model weights (image size grows; weights on a volume to keep builds fast).
 
 ---

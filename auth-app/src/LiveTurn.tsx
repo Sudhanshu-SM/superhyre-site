@@ -11,6 +11,7 @@ import { isMeetingAction, productsNeeded, withoutMetAccess } from "./agentCards/
 import { schedulingState } from "./connectStates";
 import { useConnections } from "./connectionsStore";
 import { approvalLines } from "./agentPhases";
+import { ChatTime } from "./ChatTime";
 import type { PhaseLine } from "./agentPhases";
 import { FormLinkChips } from "./FormLinkChip";
 import { Prose } from "./ReplyProse";
@@ -225,13 +226,15 @@ export function connectShownFor(a: Approval, cards: readonly Turn["cards"][numbe
 }
 
 export function LiveTurnBody({
-  turn, onAnswer, later = [],
+  turn, onAnswer, later = [], readOnly = false,
 }: {
   turn: Turn;
   /** Puts words back in the composer to edit (a failed message). */
   onAnswer: (text: string) => void;
   /** The turns after this one: a question it left open can no longer be answered once the chat has gone on, and an answer given since settles its card. */
   later?: readonly Turn[];
+  /** Somebody else's chat, read as it was: a run that is still going cannot be stopped from here, so no Stop is drawn. */
+  readOnly?: boolean;
 }): JSX.Element {
   const openCard = turn.approvals.some((a) => !a.decided);
   /* The line that carries the run's words dropped and has not come back for a few seconds: said quietly, once. */
@@ -257,6 +260,12 @@ export function LiveTurnBody({
   const gmailInCard = turn.approvals.some((a) => carriesGmailConnect(a.action));
   const cards = turn.cards.filter((c) => !(gmailInCard && c.kind === "connect" && c.provider === "google"));
   const { before, told: toldCards, quiet } = splitByTelling(cards.filter((c) => c.kind !== "view" && c.kind !== "role_spec"), told);
+  /* Said once the answer is whole, for one that was thought about (the same turns that carry a "Thought for" line) and for a line the
+     agent said on its own: a chat of mornings' findings is only readable if each says when it came. */
+  // The question's time is this browser's clock and the answer's the server's: a clock that runs ahead must not put the answer first.
+  const answeredAt = !working && !waiting && turn.status !== "failed" && (turn.runId || spokeFirst(turn)) && turn.finishedAt !== null
+    ? (turn.startedAt > turn.finishedAt ? turn.startedAt : turn.finishedAt)
+    : null;
   return (
     <div className="rep">
       {/* While it works, what it is doing; once it has answered, how long it thought, with those lines behind it.
@@ -264,7 +273,7 @@ export function LiveTurnBody({
       {waiting
         ? <p className="rep-thought" role="status">Waiting for your OK</p>
         : working
-          ? <PhaseTimeline lines={lines} working since={turn.startedAt} onStop={turn.runId ? () => void stopTurn(turn.key) : undefined} />
+          ? <PhaseTimeline lines={lines} working since={turn.startedAt} onStop={turn.runId && !readOnly ? () => void stopTurn(turn.key) : undefined} />
           : turn.status !== "failed" && <Thought turn={turn} lines={lines} />}
 
       {working && !waiting && reconnecting && <p className="rep-thought" role="status">Reconnecting…</p>}
@@ -317,6 +326,8 @@ export function LiveTurnBody({
         </p>
       )}
       {turn.error && <FailedTurn turn={turn} onEdit={onAnswer} />}
+      {/* Under the whole answer, at its left, as the person's own is under their bubble at the right. */}
+      <ChatTime at={answeredAt} className="rep-time-reply" />
     </div>
   );
 }
@@ -329,10 +340,13 @@ export function thoughtLabel(ms: number): string {
   return whole < 60 ? `Thought for ${whole}s` : `Thought for ${Math.floor(whole / 60)}m ${whole % 60}s`;
 }
 
+/** A line the agent said on its own (a reminder come due, a morning's findings): no run, and nothing of the person's above it. */
+export const spokeFirst = (turn: Pick<Turn, "runId" | "quiet">): boolean => !turn.runId && turn.quiet?.label === "";
+
 /** The thought line, measured from send to done; opens onto what the run actually did. */
 function Thought({ turn, lines }: { turn: Turn; lines: readonly PhaseLine[] }): JSX.Element | null {
-  // A line the agent said on its own (a reminder come due) was not thought about: no run, no "Thought for 0.0s".
-  if (!turn.finishedAt || (!turn.runId && turn.quiet?.label === "")) return null;
+  // A line the agent said on its own was not thought about: no run, no "Thought for 0.0s".
+  if (!turn.finishedAt || spokeFirst(turn)) return null;
   const label = thoughtLabel(turn.finishedAt - turn.startedAt);
   const spark = <Sparkle size={13} weight="fill" aria-hidden="true" />;
   if (!lines.length) return <p className="rep-thought">{spark}{label}</p>;

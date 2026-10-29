@@ -61,12 +61,12 @@ afterEach(() => { vi.unstubAllGlobals(); });
 
 /** The approval's lines, as the server writes them while `approve_role_spec` runs. */
 const STREAM: Array<[string, Record<string, unknown>]> = [
-  ["approval:13", { phase: "decide", state: "running", label: "Preparing the role spec" }],
+  ["approval:13", { phase: "decide", state: "running", label: "Preparing the requirements" }],
   ["approval:13:read", { phase: "understand", state: "running", label: "Reading the job description" }],
   ["approval:13:read", { phase: "understand", state: "done", label: "Read the job description" }],
-  ["approval:13:draft", { phase: "write", state: "running", label: "Drafting the role spec", detail: "Customer Success Partner, 3 s" }],
-  ["approval:13:draft", { phase: "write", state: "running", label: "Drafting the role spec", detail: "Customer Success Partner, 42 s" }],
-  ["approval:13:draft", { phase: "write", state: "done", label: "Drafted the role spec" }],
+  ["approval:13:draft", { phase: "write", state: "running", label: "Drafting the requirements", detail: "Customer Success Partner, 3 s" }],
+  ["approval:13:draft", { phase: "write", state: "running", label: "Drafting the requirements", detail: "Customer Success Partner, 42 s" }],
+  ["approval:13:draft", { phase: "write", state: "done", label: "Drafted the requirements" }],
   ["approval:13:approve", { phase: "decide", state: "done", label: "Approved version 1" }],
   ["approval:13:search", { phase: "search", state: "running", label: "Starting the search" }],
 ];
@@ -86,7 +86,7 @@ describe("a followed run's events", () => {
     const own = approvalLines(lines, 13);
     expect(own.map((l) => l.id)).toEqual(["approval:13", "approval:13:read", "approval:13:draft", "approval:13:approve", "approval:13:search"]);
     expect(own.map((l) => l.label)).toEqual([
-      "Preparing the role spec", "Read the job description", "Drafted the role spec", "Approved version 1", "Starting the search",
+      "Preparing the requirements", "Read the job description", "Drafted the requirements", "Approved version 1", "Starting the search",
     ]);
     expect(own.find((l) => l.id === "approval:13:draft")?.state).toBe("done");
   });
@@ -107,7 +107,7 @@ describe("a followed run's events", () => {
   });
 
   it("reads a stored run back with the same ids", () => {
-    const row = { id: 55, seq: 3, type: "progress" as const, payload: { step: "phase", id: "approval:13:draft", phase: "write", label: "Drafting the role spec" }, createdAt: "2026-10-12T10:00:00.000Z" };
+    const row = { id: 55, seq: 3, type: "progress" as const, payload: { step: "phase", id: "approval:13:draft", phase: "write", label: "Drafting the requirements" }, createdAt: "2026-10-12T10:00:00.000Z" };
     expect(eventFromRow("r1", row)).toMatchObject({ id: "approval:13:draft", eventId: 55 });
     expect(eventFromRow("r1", { ...row, payload: { step: "tool" } })).toMatchObject({ id: 55, eventId: 55 });
   });

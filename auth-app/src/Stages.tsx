@@ -65,9 +65,9 @@ export function Stages({
         <span className="stg-status" aria-live="polite">
           {reached ? (
             <span className="stg-reached"><Check size={12} weight="bold" /> {summary}</span>
-          ) : (
-            <span className="stg-step">Step {Math.max(1, liveAt + 1)} of 3</span>
-          )}
+          ) : liveAt >= 0 ? (
+            <span className="stg-step">Step {liveAt + 1} of 3</span>
+          ) : null}
         </span>
       </header>
 

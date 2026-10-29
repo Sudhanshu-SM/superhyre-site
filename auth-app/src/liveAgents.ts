@@ -34,7 +34,8 @@ export type WatchAgent = {
   state: WatchStatus;
   stateReason: string | null;
   summary: string;
-  config: { stop: WatchStop; cadence: Cadence };
+  /** `standing` is on a campaign of the daily search: it has no end (its `stop` is empty, and read as empty when it is not there), it rests instead of finishing. */
+  config: { stop?: WatchStop | null; cadence: Cadence; standing?: { sweepId: string; perDay: number } };
   counters: { found: number; emptyRuns?: number };
   startedAt: string;
   lastRunAt: string | null;
@@ -246,7 +247,7 @@ export function progressOf(
   a: Pick<WatchAgent, "config" | "counters" | "startedAt">,
   now = Date.now(),
 ): number {
-  const { profiles, until } = a.config.stop;
+  const { profiles, until } = a.config.stop ?? {};
   const parts: number[] = [];
   if (profiles) parts.push(a.counters.found / profiles);
   const start = Date.parse(a.startedAt);
@@ -261,19 +262,21 @@ const dayMonth = (iso: string) =>
 
 /** Its own life, in three steps: it started, it looks, it ends. */
 export function stepsOf(a: Pick<WatchAgent, "state" | "config">): string[] {
-  const { profiles, until } = a.config.stop;
+  const { profiles, until } = a.config.stop ?? {};
   const goal =
     a.state === "done"
       ? "Finished"
       : a.state === "stopped"
         ? "Stopped by you"
-        : profiles && until
-          ? `Reaches ${profiles} people or ${dayMonth(until)}`
-          : profiles
-            ? `Reaches ${profiles} people`
-            : until
-              ? `Runs until ${dayMonth(until)}`
-              : "Finishes";
+        : a.config.standing
+          ? "Looks again every morning"
+          : profiles && until
+            ? `Reaches ${profiles} people or ${dayMonth(until)}`
+            : profiles
+              ? `Reaches ${profiles} people`
+              : until
+                ? `Runs until ${dayMonth(until)}`
+                : "Finishes";
   return ["Started", "Looking for people", goal];
 }
 
@@ -286,7 +289,7 @@ export function metricsOf(
   now = Date.now(),
 ) {
   const found = a.counters.found;
-  const { profiles, until } = a.config.stop;
+  const { profiles, until } = a.config.stop ?? {};
   const out = [{ label: "found", n: found, d: 0 }];
   if (profiles) out.push({ label: "still to find", n: Math.max(0, profiles - found), d: 0 });
   else if (until) {
@@ -714,11 +717,18 @@ export function previewSummary(choice: StopChoice, cadence: Cadence = "every_4h"
   return `${cadenceLabel(cadence)}, ${WATCH_LIMITS.perRun} at a time, ${parts.join(" or ")}`;
 }
 
+/**
+ * The server's refusal for a search that needs requirements nobody has approved yet. Its words are still being polished
+ * ("Approve the requirements before searching. They decide who fits."), so it is known by what it is about, approving
+ * the requirements (or the role spec they were called), and not by how the sentence begins.
+ */
+const asksToApproveRequirements = (message: string): boolean => /\bapprov/i.test(message) && /\b(?:requirements?|role spec)\b/i.test(message);
+
 /** The server's refusals, said so a recruiter knows what to do next. */
 export function refusalCopy(message: string): { text: string; needsSpec: boolean } {
-  if (/approve the role spec/i.test(message)) {
+  if (asksToApproveRequirements(message)) {
     return {
-      text: "This campaign has no approved role spec yet. The agent needs it to know who fits, so approve one first.",
+      text: "This campaign has no approved requirements yet. The agent needs them to know who fits, so approve them first.",
       needsSpec: true,
     };
   }

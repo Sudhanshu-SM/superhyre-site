@@ -407,10 +407,10 @@ function Flow({
     ? {
         filters: filterLines(spec),
         criteria: criteriaLines(spec),
-        basis: "from the approved role spec",
+        basis: "from the approved requirements",
         count: countLine(pool),
         ran: hasRun,
-        ranLine: `Searched on the spec's ${filterLines(spec).length} filters${criteriaLines(spec).length ? ` and ${criteriaLines(spec).length} criteria` : ""}`,
+        ranLine: `Searched on ${filterLines(spec).length} ${filterLines(spec).length === 1 ? "filter" : "filters"}${criteriaLines(spec).length ? ` and ${criteriaLines(spec).length} ${criteriaLines(spec).length === 1 ? "criterion" : "criteria"}` : ""} from the requirements`,
         note: searchNote(pool),
         run: may && canRun(pool) ? { label: runLabel(pool), busy: running } : null,
         ...(ctx.openCampaign ? { onEdit: () => ctx.openCampaign?.(campaignId) } : {}),
@@ -457,10 +457,10 @@ function Flow({
       {plan.stage === "blocked" && may && plan.specs?.latest && (
         <div className="src-asks">
           <button type="button" className="src-btn is-primary" disabled={approving} onClick={() => approveAndStart(plan.specs?.latest?.id ?? "")}>
-            {approving ? "Approving" : "Approve it and start the search"}
+            {approving ? "Approving" : "Approve them and start the search"}
           </button>
           {ctx.openCampaign && (
-            <button type="button" className="src-btn is-quiet" onClick={() => ctx.openCampaign?.(campaignId)}>Review it first</button>
+            <button type="button" className="src-btn is-quiet" onClick={() => ctx.openCampaign?.(campaignId)}>Review them first</button>
           )}
         </div>
       )}

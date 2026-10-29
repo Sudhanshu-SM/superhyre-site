@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { PICKABLE_HUES } from "../stageDonut";
 
 /**
  * How the campaign's own stages are wired into the pages that use them. These read the sources, the way the
@@ -156,10 +157,14 @@ describe("the Overview's funnel row", () => {
 
 describe("the stylesheet", () => {
   it("colours stage names and columns from the console's own hue set, and draws no coloured edge on one side", () => {
-    for (const hue of ["blue", "teal", "green", "amber", "orange", "rose", "violet"]) {
+    // Every colour on offer (the picker's sixteen), not only the seven there were first.
+    for (const hue of PICKABLE_HUES) {
       expect(hues).toContain(`html .sc[data-sc="${hue}"]`);
       expect(css).toContain(`.cw-board .cw-col[data-sc="${hue}"]`);
+      expect(css).toContain(`.pl-jseg[data-sc="${hue}"]`);
+      expect(css).toContain(`html .ov2-bar[data-sc="${hue}"] .ov2-bar-col i`);
     }
+    expect(PICKABLE_HUES).toHaveLength(16);
     // no one-sided border, and no colour of its own on text: it all comes from the tokens
     expect(css).not.toMatch(/border-(left|inline-start)/);
     expect(css.match(/(^|[;{\s])color:\s*[^;}]*/g)!.every((c) => /var\(--/.test(c))).toBe(true);

@@ -61,15 +61,16 @@ export function tuneQuestion(q: Question, facts: RoleFacts | null, campaignName?
     return { ...q, preset: roleTitle(name), presetNote: "from the campaign" };
   }
   if (q.id === "form-ideal" && facts?.musts.length) {
-    const where = known.source === "setup" ? "campaign" : "role spec";
+    const where = known.source === "setup" ? "campaign" : "requirements";
+    const own = known.source === "setup" ? "campaign's" : "requirements'";
     return {
       ...q,
       ...(name ? { found: `For ${name}` } : {}),
-      why: `The role spec already has ${and(facts.musts.map((m) => m.text))} as must-haves, and I'll use them. Add a line to refine it, or skip.`,
+      why: `The requirements already have ${and(facts.musts.map((m) => m.text))} as must-haves, and I'll use them. Add a line to refine them, or skip.`,
       /* Nothing left to ask: the must-haves stand, and Change opens the line for anything to add. */
       preset: "",
       presetNote: `from the ${where}`,
-      ...(q.input ? { input: { ...q.input, skipped: `Using the ${where}'s must-haves` } } : {}),
+      ...(q.input ? { input: { ...q.input, skipped: `Using the ${own} must-haves` } } : {}),
     };
   }
   return q;

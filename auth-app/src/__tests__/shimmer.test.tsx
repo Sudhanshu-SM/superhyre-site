@@ -102,7 +102,7 @@ describe("the composed skeletons", () => {
     ["table", <ShimmerTable label="Loading responses" />],
     ["grid", <ShimmerGrid label="Loading the grid" />],
     ["chart", <ShimmerChart label="Loading the funnel" />],
-    ["panel", <ShimmerPanel label="Loading the role spec" />],
+    ["panel", <ShimmerPanel label="Loading the requirements" />],
     ["board", <ShimmerBoard label="Loading the campaign" />],
     ["page", <ShimmerPage label="Loading clients" />],
   ];
@@ -193,8 +193,8 @@ describe("where the Loader is still used", () => {
       return statSync(p).isDirectory() ? (f === "__tests__" || f === "node_modules" ? [] : walk(p)) : /\.tsx$/.test(f) ? [p] : [];
     });
 
-  /** The page-level loader: boot, sign-in, the route fallback, the public pages, the set-up. Every other wait shimmers. */
-  const ALLOWED = [/^main\.tsx$/, /^App\.tsx$/, /^consolePages\.tsx$/, /^setup\//, /^ApplyPage\.tsx$/, /^ReviewPage\.tsx$/, /^components\/Loader\.tsx$/];
+  /** The page-level loader: boot, sign-in, the route fallback (and the Sourced page's first read, which is the same wait), the public pages, the set-up. Every other wait shimmers. */
+  const ALLOWED = [/^main\.tsx$/, /^App\.tsx$/, /^consolePages\.tsx$/, /^setup\//, /^ApplyPage\.tsx$/, /^ReviewPage\.tsx$/, /^components\/Loader\.tsx$/, /^components\/PageLoader\.tsx$/];
 
   it("is a whole-screen loader outside inline busy buttons and rows", () => {
     const stray: string[] = [];

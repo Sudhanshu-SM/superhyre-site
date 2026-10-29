@@ -66,7 +66,7 @@ function Guided({ card, ctx }: LiveViewProps): JSX.Element {
   const waiting = useRole(back).state === "loading" && !!back;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const ask = useMemo(() => formAsk(card, rows), [card, rows, arrived]);
-  if (waiting) return <p className="pt-first" aria-live="polite"><Loader size="sm" /> Reading the role spec</p>;
+  if (waiting) return <p className="pt-first" aria-live="polite"><Loader size="sm" /> Reading the requirements</p>;
   return (
     <Clarified kind="form" ctx={ctx} ask={ask}>
       {(c) => <Draft card={card} ctx={c} />}
@@ -119,6 +119,6 @@ function Draft({ card, ctx }: LiveViewProps): JSX.Element {
   useEffect(() => { ctx.onGrow(); }, [made, failed, ctx]);
 
   if (failed) return <p className="lt-note" role="alert">I couldn't draft the form. {failed}</p>;
-  if (!made) return <p className="pt-first" aria-live="polite"><Loader size="sm" /> Reading the role spec</p>;
+  if (!made) return <p className="pt-first" aria-live="polite"><Loader size="sm" /> Reading the requirements</p>;
   return <FormDraft ctx={ctx} live={{ form: made, facts, source: role.state === "ready" ? role.source : "none" }} />;
 }

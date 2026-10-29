@@ -20,7 +20,7 @@ export function DeleteCampaignDialog({ open, name, onClose, onConfirm }: {
         <header className="rl-dlg-h">
           <h2 className="t-title">Delete this campaign?</h2>
           <div className="t-body rl-dlg-b">
-            <b>{name}</b> is deleted for good: its pipeline, forms, role spec, outreach and history. The people stay in
+            <b>{name}</b> is deleted for good: its pipeline, forms, requirements, outreach and history. The people stay in
             your candidates. This cannot be undone. To keep it but put it away, archive it instead.
           </div>
         </header>

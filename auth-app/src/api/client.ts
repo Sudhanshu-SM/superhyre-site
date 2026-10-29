@@ -178,6 +178,7 @@ const LONG_PATHS: readonly RegExp[] = [
   /\/approvals\/\d+$/,
   /\/export\/sheets$/,
   /^\/v1\/campaigns\/[^/]+\/contacts$/,
+  /^\/v1\/campaigns\/[^/]+\/place$/,
   /^\/v1\/contacts\/fetch$/,
   /^\/v1\/campaigns\/[^/]+\/sourcing(\/score)?$/,
 ];
@@ -196,7 +197,7 @@ export function timeoutFor(path: string, own?: number | false): number | null {
 }
 
 /** Requests sent as POST because they carry a file or a long text, that only read: the server changes nothing. */
-const READ_POSTS = [/^\/v1\/campaigns\/jd\/(read|sheet)$/, /^\/v1\/attachments\/read$/];
+const READ_POSTS = [/^\/v1\/campaigns\/jd\/(read|sheet)$/, /^\/v1\/attachments\/read$/, /^\/v1\/candidates\/sheet\/read$/];
 
 /** The failure a request that ran out of time becomes: code `timeout`, the same words the API uses for its own. */
 export function slowFailure(method: Method, path: string, ms: number): ApiError {

@@ -42,8 +42,8 @@ export function sourcingRun(chat = "r1", search = "s1", base = 0): { turn: Step[
   };
   const phase = (b: Build, t: number, p: Record<string, unknown>) => push(b, t, "progress", { step: "phase", ...p });
 
-  phase(chatB, 150, { id: "understand", phase: "understand", state: "running", label: "Reading the role spec", detail: "Software Engineer, Remote, 5+ years" });
-  phase(chatB, 900, { id: "understand", phase: "understand", state: "done", label: "Read the role spec" });
+  phase(chatB, 150, { id: "understand", phase: "understand", state: "running", label: "Reading the requirements", detail: "Software Engineer, Remote, 5+ years" });
+  phase(chatB, 900, { id: "understand", phase: "understand", state: "done", label: "Read the requirements" });
   push(chatB, 1000, "approval", {
     summary: "Search for 30 more people for Software Engineer",
     action: { action: "find_people", campaignId: CAMPAIGN, size: 30 }, campaignName: "Software Engineer", people: [],

@@ -8,8 +8,9 @@ import type { StageHue } from "../stageDonut";
  * The stage palette (--stage-<key>, access.css for light, theme/theme.css for dark), measured from the stylesheets
  * themselves: each key's mark is 3:1 or more on the card, its text 4.5:1 or more on every surface a stage word lands on
  * and on its own soft wash, the stages that sit side by side in a donut can be told apart (with normal sight and with
- * red-green colour blindness), the marks are calm (low chroma, lighter in dark), and nothing that draws a stage writes
- * a colour of its own. One palette, two themes, no hex anywhere else.
+ * red-green colour blindness), any two of the sixteen on offer can be told apart (swatches and column heads), the marks
+ * are calm (low chroma, lighter in dark), and nothing that draws a stage writes a colour of its own. One palette, two
+ * themes, no hex anywhere else. The list itself is the same in the console, the server and the database's check.
  */
 
 const read = (f: string) => readFileSync(resolve(__dirname, "..", f), "utf8");
@@ -83,10 +84,21 @@ const soft = (theme: "light" | "dark", hue: StageHue, under: RGBA = CARD[theme])
 
 /** The default order of a donut (shortlisted, outreach, interviewing, hired, passed), and back to the start. */
 const DEFAULT_RING: readonly StageHue[] = ["violet", "blue", "amber", "green", "rose", "violet"];
-/** The order the palette is offered in, a gentle run from violet round to rose. */
-const RUN: readonly StageHue[] = ["violet", "blue", "teal", "green", "amber", "orange", "rose"];
+/** The order the picker offers them in, four to a row: each one sits beside the one before it and after it. */
+const RUN: readonly StageHue[] = PICKABLE_HUES;
 const HUE_RANGE: Readonly<Record<StageHue, readonly [number, number]>> = {
   violet: [285, 315], blue: [235, 260], teal: [188, 210], green: [140, 160], amber: [75, 95], orange: [45, 65], rose: [0, 20], slate: [230, 280],
+  sky: [226, 244], indigo: [266, 284], plum: [320, 340], pink: [336, 358], red: [22, 34], yellow: [99, 116], lime: [119, 135], mint: [156, 178], brown: [46, 68],
+};
+/** The seven there were before the picker grew, exactly as they were drawn: [mark, text, soft, line] in light and in dark. */
+const FIRST_SEVEN: Readonly<Record<string, { light: readonly string[]; dark: readonly string[] }>> = {
+  blue: { light: ["#3675b2", "#2e69a2", "#e3ecf4", "#abc5df"], dark: ["#4583b5", "#6aa5d6", "rgba(69, 131, 181, 0.16)", "rgba(69, 131, 181, 0.4)"] },
+  teal: { light: ["#1c97a1", "#01747c", "#dff0f2", "#a0d3d8"], dark: ["#5cadb4", "#67b3ba", "rgba(92, 173, 180, 0.16)", "rgba(92, 173, 180, 0.4)"] },
+  green: { light: ["#38804b", "#2f7442", "#e3ede6", "#abcab3"], dark: ["#6ea576", "#7cb183", "rgba(110, 165, 118, 0.16)", "rgba(110, 165, 118, 0.4)"] },
+  amber: { light: ["#b28a31", "#866302", "#f4efe2", "#dfcea8"], dark: ["#d8ba79", "#d6ba7d", "rgba(216, 186, 121, 0.16)", "rgba(216, 186, 121, 0.4)"] },
+  orange: { light: ["#bd7042", "#9b552a", "#f6ebe5", "#e3c3b0"], dark: ["#cb9467", "#d09b70", "rgba(203, 148, 103, 0.16)", "rgba(203, 148, 103, 0.4)"] },
+  rose: { light: ["#ba6579", "#9d5062", "#f5e9ec", "#e2bec7"], dark: ["#e2a0a5", "#e0a1a5", "rgba(226, 160, 165, 0.16)", "rgba(226, 160, 165, 0.4)"] },
+  violet: { light: ["#9b82cf", "#745ca2", "#f1eef8", "#d5cbeb"], dark: ["#b19adb", "#b39edc", "rgba(177, 154, 219, 0.16)", "rgba(177, 154, 219, 0.4)"] },
 };
 
 describe("the stage palette is defined for both themes", () => {
@@ -101,6 +113,25 @@ describe("the stage palette is defined for both themes", () => {
     for (const hue of STAGE_HUES) {
       expect(stageVar(hue)).toBe(`var(--stage-${hue})`);
       for (const part of ["text", "soft", "line"] as const) expect(stageVar(hue, part)).toBe(`var(--stage-${hue}-${part})`);
+    }
+  });
+
+  it("has all four tokens in both stylesheets for each of the sixteen on offer and for slate, and none for a key that is not on the list", () => {
+    expect(PICKABLE_HUES).toHaveLength(16);
+    expect(STAGE_HUES).toHaveLength(17);
+    expect(new Set(STAGE_HUES).size).toBe(17);
+    for (const theme of ["light", "dark"] as const) {
+      for (const hue of STAGE_HUES) for (const part of PARTS) expect(THEMES[theme][`--stage-${hue}${part}`], `${theme} --stage-${hue}${part}`).toBeDefined();
+      // A token for a hue the list does not have is a colour nothing can pick or draw.
+      const declared = Object.keys(THEMES[theme]).flatMap((k) => { const m = /^--stage-([a-z]+)$/.exec(k); return m && m[1] !== "track" ? [m[1]!] : []; });
+      expect(declared.sort(), theme).toEqual([...STAGE_HUES].sort());
+    }
+  });
+
+  it("keeps the seven colours there were before the picker grew exactly as they were drawn, in both themes", () => {
+    expect(Object.keys(FIRST_SEVEN).sort()).toEqual(["amber", "blue", "green", "orange", "rose", "teal", "violet"]);
+    for (const [hue, was] of Object.entries(FIRST_SEVEN)) {
+      for (const theme of ["light", "dark"] as const) expect(PARTS.map((part) => THEMES[theme][`--stage-${hue}${part}`]), `${theme} ${hue}`).toEqual(was[theme]);
     }
   });
 
@@ -182,6 +213,13 @@ describe("the text (a stage's name)", () => {
       }
     });
 
+    it(`tells the names of any two of the sixteen apart as column heads in ${theme}, not only their marks`, () => {
+      const floor = theme === "light" ? 5 : 4.5;
+      for (const a of PICKABLE_HUES) for (const b of PICKABLE_HUES) {
+        if (a < b) expect(delta(tok(theme, a, "-text"), tok(theme, b, "-text")), `${theme} ${a} and ${b} names`).toBeGreaterThanOrEqual(floor);
+      }
+    });
+
     it(`has a soft wash and a line that stay quiet in ${theme}: the wash under 1.6:1 of the card, the line between the wash and the mark`, () => {
       for (const hue of STAGE_HUES) {
         const wash = soft(theme, hue);
@@ -216,7 +254,7 @@ describe("everything that draws a stage reads the tokens", () => {
 
   it("writes no colour of its own in a rule for a stage's column, strip segment or funnel bar", () => {
     const lines = rulesOf(read("boardStages.css"), /data-sc=|--stage/);
-    expect(lines.length).toBeGreaterThanOrEqual(21);
+    expect(lines.length).toBeGreaterThanOrEqual(48);
     for (const l of lines) expect(l, l).not.toMatch(RAW);
     for (const hue of PICKABLE_HUES) {
       const css = read("boardStages.css");
@@ -243,5 +281,23 @@ describe("everything that draws a stage reads the tokens", () => {
   it("has the dark theme's own bars gone: no hex funnel or strip overrides are left in theme.css", () => {
     const dark = read("theme/theme.css");
     expect(dark).not.toMatch(/\.ov2-bar(\.is-\w+)? \.ov2-bar-col i|\.pl-jseg\.is-/);
+  });
+});
+
+describe("one list of colours: the console, the server and the database's check", () => {
+  const PLATFORM = resolve(__dirname, "..", "..", "..", "..", "superhyre-platform");
+  /** The quoted words of a list, in order: `'sky', 'indigo'` in a check, `"sky",` in a TypeScript array. */
+  const wordsIn = (text: string): string[] => [...text.matchAll(/'([a-z]+)'|"([a-z]+)"/g)].map((m) => m[1] ?? m[2] ?? "");
+
+  it("is the same seventeen keys, in the same order, in the console's STAGE_HUES, the server's PALETTE and migration 207's check", () => {
+    const server = readFileSync(resolve(PLATFORM, "server", "src", "modules", "pipeline", "stages.ts"), "utf8");
+    const palette = /export const PALETTE = \[([^\]]*)\] as const;/.exec(server)?.[1] ?? "";
+    const migration = readFileSync(resolve(PLATFORM, "db", "migrations", "207_stage_colours.sql"), "utf8");
+    const check = /v_new constant text := \$q\$color in \(([^)]*)\)\$q\$/.exec(migration)?.[1] ?? "";
+    expect(wordsIn(palette)).toEqual([...STAGE_HUES]);
+    expect(wordsIn(check)).toEqual([...STAGE_HUES]);
+    // slate first (old data, and the locked Rejected stage), then the picker's sixteen.
+    expect(STAGE_HUES[0]).toBe("slate");
+    expect(STAGE_HUES.slice(1)).toEqual([...PICKABLE_HUES]);
   });
 });

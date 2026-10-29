@@ -13,7 +13,7 @@ const spec: RoleSpec = {
 };
 
 describe("the campaign's filters, as the dialog shows them", () => {
-  it("reads the role spec the way the search does", () => {
+  it("reads the requirements the way the search does", () => {
     expect(valuesFromSpec(spec)).toEqual({
       seniority: ["Senior"], cities: ["Bengaluru"], years: [5, 9], must: ["Go"], nice: ["Kafka"],
     });

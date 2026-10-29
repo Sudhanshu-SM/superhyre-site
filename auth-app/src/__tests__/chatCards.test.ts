@@ -118,9 +118,9 @@ describe("what the cards say", () => {
       kind: "campaign" as const, key: "k", campaignId: "c", name: "Android Engineer", status: "active", client: "Acme", target: 2, location: "Bengaluru",
       stages: [], spec: { title: "Senior Android Engineer", version: 2 }, draftWaiting: false, sourcing: { shown: 42, exhausted: false, nextSize: 5 }, watches: [],
     };
-    expect(specLine(base)).toBe("Role spec v2 approved: Senior Android Engineer");
-    expect(specLine({ ...base, spec: null, draftWaiting: true })).toBe("A role spec draft is waiting for your approval");
-    expect(specLine({ ...base, spec: null })).toBe("No role spec yet, so nothing can be searched");
+    expect(specLine(base)).toBe("Requirements v2 approved: Senior Android Engineer");
+    expect(specLine({ ...base, spec: null, draftWaiting: true })).toBe("A requirements draft is waiting for your approval");
+    expect(specLine({ ...base, spec: null })).toBe("No requirements yet, so nothing can be searched");
     expect(searchLine(base.sourcing)).toBe("42 people found so far. The next search looks for 5 more");
     expect(searchLine({ shown: 0, exhausted: true, nextSize: 0 })).toBe("Nobody found yet. That is everyone the search can reach for now");
     expect(campaignFacts(base)).toBe("Acme · Bengaluru · 2 hires wanted");

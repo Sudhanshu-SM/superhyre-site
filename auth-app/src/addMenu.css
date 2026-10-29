@@ -1,0 +1,40 @@
+/* "What are you adding?" on the paperclip, and the list a chip's scope opens. The rows are the other composer menus' (bulk.css). */
+
+.am-pop { width: min(320px, calc(100vw - 24px)); }
+.am-pop.am-narrow { width: min(220px, calc(100vw - 24px)); }
+.am-cap { margin: 0; padding: 8px 10px 6px; color: var(--ink-2); font: 500 12.5px/1.3 var(--ui); }
+.am-item.is-off { cursor: default; }
+.am-item.is-off:hover { background: transparent; }
+.am-item.is-off .bulk-l b { color: var(--ink-2); }
+.am-item.is-off .bulk-ico { background: var(--sub); color: var(--ink-2); }
+.am-foot {
+  display: block; width: 100%; margin-top: 2px; padding: 9px 10px 7px; border: 0; border-top: 1px solid var(--hairline);
+  background: transparent; color: var(--ink-2); text-align: left; font: 500 13px/1.3 var(--ui); cursor: pointer;
+}
+.am-foot:hover, .am-foot:focus-visible { color: var(--ink); outline: none; }
+
+.am-opts { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
+.am-opt {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 34px; padding: 6px 10px; border: 0; border-radius: 9px;
+  background: transparent; color: var(--ink); text-align: left; cursor: pointer; transition: background var(--t);
+}
+.am-opt:hover, .am-opt:focus-visible { background: color-mix(in srgb, var(--ink) 6%, transparent); outline: none; }
+.am-opt.is-on { background: var(--accent-tint, color-mix(in srgb, var(--accent) 10%, transparent)); }
+.am-opt-l { flex: 1; min-width: 0; font: 500 13.5px/1.25 var(--ui); }
+.am-opt.is-on .am-opt-l { font-weight: 600; }
+.am-tick { flex: none; display: grid; place-items: center; width: 16px; height: 16px; color: var(--accent-text, var(--accent)); }
+
+/* On a chip: what the file is as muted text with a caret, then what it held. */
+.am-scope {
+  display: inline-flex; align-items: center; gap: 2px; padding: 0; border: 0; background: none; color: var(--ink-2);
+  font: 400 13px/1 var(--ui); white-space: nowrap; cursor: pointer;
+}
+.am-scope:hover { color: var(--ink); }
+.am-scope:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.am-scope svg { flex: none; }
+.am-line { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.am-line button {
+  padding: 0; border: 0; background: none; color: var(--accent-text, var(--accent)); font: 500 12.5px/1.45 var(--ui);
+  text-decoration: underline; text-underline-offset: 2px; cursor: pointer;
+}
+.am-line button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }

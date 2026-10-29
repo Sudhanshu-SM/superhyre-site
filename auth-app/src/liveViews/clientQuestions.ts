@@ -35,12 +35,10 @@ export function liveClientAsk(_data: DataSource): Ask {
 export function liveCampaignAsk(data: DataSource): Ask {
   return (_kind: unknown, said: string, ctx: MomentCtx) => {
     const { clients, rows } = data();
-    /* With nobody to choose from "no client" is the answer. Everything else is left as it was answered: what the
-       message says is the demo's question's to read, so it can be shown as an answer and changed. */
-    const a = liveCampaignAnswers(said, ctx.answers, clients);
-    const answered = { ...ctx.answers, ...(a.client === "none" && !ctx.answers?.client ? { client: "none" } : {}) };
-    const seen = Object.create(ctx, { answers: { value: answered, enumerable: true } }) as MomentCtx;
-    const q = newCampaignQuestion(said, seen);
+    /* Everything is left as it was answered: what the message says is the demo's question's to read, so it can be shown as
+       an answer and changed. */
+    const a = liveCampaignAnswers(said, ctx.answers);
+    const q = newCampaignQuestion(said, ctx);
     if (!q) return null;
 
     switch (q.id) {

@@ -115,7 +115,7 @@ render it without per-skill code.
 
 Required narration for a sourcing run (labels are exact; plain, present tense while running, past when done):
 
-1. `understand` "Reading the role spec"
+1. `understand` "Reading the requirements"
 2. `search` "Looking through our pool of candidates" then "Got 30 candidates" (`found`)
 3. `match` "Matching candidates to the role" with `done/total` as each batch is judged
 4. `decide` "Shortlisting the best fits" then "Shortlisted 8 of 30" if the run shortlists, else "Ready for your call"
@@ -226,7 +226,7 @@ the first message.
 - **Do not contact is one rule.** `suppressionsFor` (`modules/suppressions/predicate.ts`) answers it for the approval,
   the send, a draft, a schedule, the board rows (`doNotContact`), the outreach threads (`doNotContact`) and the schedule
   list (`doNotContact`); a listed person is shown as "Do not contact" with no actions, never drafted for.
-- **Sourcing narration.** A search emits `understand` ("Reading the role spec"), `search` ("Looking through our pool of
+- **Sourcing narration.** A search emits `understand` ("Reading the requirements"), `search` ("Looking through our pool of
   candidates", then "Got N candidates"), `match` ("Matching candidates to the role", `done`/`total` every group) and `decide`
   ("Ready for your call"; a search never shortlists). It emits `candidate_list` artifacts: zero or more with `partial: true`
   (people judged so far, one per group that lands) then the whole list. It does not look up contact details.
@@ -382,10 +382,11 @@ owner or admin, by email (the whole address). A recruiter matches by name only, 
 them. The model never has to see an address: `agent/team-hints.ts` puts the teammates the message names (by name, or by address
 for an owner or admin) in the turn's context with their `userId`, the way `name-hints.ts` does for candidates.
 
-**Which client** (`campaign.create`): with no client said, and clients to choose from, no card is made: a `question` of kind
-`client` carries each client, "A new client" and "No client" as choices (each sends its own words, which the model reads as
-`client`, `newClient` or `noClient`). `newClient` adds the client, as a prospect and by its name alone, together with the campaign,
-in one card. The chat's client wizard asks the company's name and nothing else; website, industry, contact and fee terms are added
+**Which client** (`campaign.create`): a campaign always has a client (29 Oct). With no client said, no card is made: a `question` of
+kind `client` carries each client the person can see and "A new client" as choices, for every role (each sends its own words, which
+the model reads as `client` or `newClient`); with no clients it holds "A new client" alone. There is no "No client" and no `noClient`.
+`newClient` is found by name in the workspace (even a client the recruiter could not see) or added, active and by its name alone,
+inside the campaign's transaction. The chat's client wizard asks the company's name and nothing else; website, industry, contact and fee terms are added
 on the Clients page. A spec draft that does not come through says the job description is saved and offers a "Try again" that
 sends "Read the job description for X, draft the role spec and start sourcing" (the saved description is used, nothing is pasted).
 
@@ -408,9 +409,9 @@ A saved person on no board carries the next step in their hint line (`send_email
 asks which campaign with choices). When the model asks "which campaign?" or "which client?" in a sentence and no question with
 choices went with it, `chat.ts` puts the choices on the screen (`in-words.ts`): never a question in words alone.
 
-**Which client is decided from what the person wrote.** `campaign.create` takes `client`, `clientId`, `newClient` or `noClient`
-only when the person's last three messages say it (`namesCompany`: the whole name or its brand word; `no client`, `internal`, ...).
-Otherwise, and when clients exist, the question with the clients, "A new client" and "No client" is put on the screen and nothing
+**Which client is decided from what the person wrote.** `campaign.create` takes `client`, `clientId` or `newClient`
+only when the person's last three messages say it (`namesCompany`: the whole name or its brand word).
+Otherwise the question with the clients and "A new client" is put on the screen (also when there are no clients) and nothing
 is proposed. The chat's guided form offers a client the message named that is not in Clients as "Add X as a new client" (name only,
 a prospect, created with the campaign), also when there are no clients at all.
 
@@ -459,6 +460,8 @@ short command "keep looking daily for 20 people" carries it too, and the "how ma
 watch cannot keep ("every 15 minutes", "twice a day", "every 2 days") is answered "A watch can look every hour, every 4 hours, once
 a day or once a week, not every 15 minutes. Which would you like?" and nothing is proposed. A length of time ("for 2 weeks") is not a
 cadence. With nothing said, the usual is every 4 hours.
+(29 Oct: a daily marker with no count and no span, "keep looking daily", is the daily search and not a watch with an end; see
+`agent-architecture.md`, "29 Oct 2026: the daily search".)
 
 **What was said on a call is the calls', not the report.** `classifyBrief` no longer turns "What did the candidate say at the end of
 that call?" into the activity report view: a question about a call or its recording or transcript is the model's, which has
@@ -479,7 +482,7 @@ author; removing them or their leaving deletes it from every bell (workspaces-an
 the message named a company that is not in Clients, whether it said "for the client X", "for X" or, now, "<role> at X" (a capitalised
 place that is not a city we know after "at"; "at scale" is still part of the role). Once that tile is the answer (`client = "new"`)
 the company is still read from the message (`newClientOf`), so the card says "For X, a new client" and Create adds the client (name
-only, a prospect) before the campaign and links it; nothing says "Internal hire". In the New campaign dialog, "Add a new client..."
+only) with the campaign and links it; nothing says "Internal hire", and the client is required. In the New campaign dialog, "Add a new client..."
 picks the client it just made (`pickClient` reads the store as it is now, not the list the dialog drew before the client existed),
 and Create uses it.
 
@@ -552,6 +555,54 @@ press (`question` kind `teammate`). The recruiter's own task is made at once.
 | Which Notion page, several visible and no default | kept (where outward writes go) |
 | The job description, when sourcing has none; the email connection | kept (a connect card or one line, never a quiz) |
 | The note to the admins (a recruiter's refusal) | kept: one press, an offer, outward-facing |
+
+## 19. Files and the paperclip's choice (29 Oct 2026)
+
+The paperclip asks what is being added, and the answer travels as data, so a file is one thing on purpose and nothing is guessed
+from the words or from what is in it. Routes, readers and files: `agent-architecture.md`, "29 Oct 2026: add by choice"; plan and
+differences: `plans/attach-menu-and-sheet-standard.md`.
+
+**The `adding` door.** `SendMessage.adding` `{ id, defaulted, groups }` (`modules/agent/adding.ts`; its shape and limits are
+shared with the console in `packages/shared/src/attach-contract.ts`) is kept in the run's input and in the message's artifact
+(`{ kind: "adding", files }`, so the chips are drawn again after a reload), never with a file's text. In `start()` (`chat.ts`) a
+message whose groups are all `candidates` or `roles` takes the code-only branch: it is booked like an aside, with the per-minute
+limit and nothing else (no run slot, no day's agent message, no place in the chat's queue), and `saidAdding` answers it with the
+cards, in code, with no model. The campaign is the one the console sent, the words are not read, and the chat's focus does not
+change. A job description or a `read` group is an ordinary turn that carries the choice with it. A busy organisation still gets
+its cards. A server that has the door answers `GET /v1/agent/capabilities` with `{ adding: true }`, and the console uses the
+choice only then.
+
+**The product's words are not the recruiter's.** With no words typed the console sends a default line ("Add the people in
+leads.xlsx") with `defaulted: true`. `lastSaid`, `recentSaid` and `askedFor` (`capabilities/shared.ts`) skip a message whose run
+is `defaulted` (the first two skip an aside too), so product text is never read back as the recruiter's own grounding for a
+write. `ownWords` also takes the attached spans (`[Attached: name] ... [End of attachment]`) out of what counts as theirs in
+the same three, so a resume's email or a brief's names never ground a write.
+
+**A turn for reading writes nothing.** A turn whose message carries a `read` group (the menu's "Something to read") refuses every
+capability that changes anything. `attemptTool` (`mcp.ts`) asks `changesThings(cap)` (`adding.ts`: kind `write`, or a read whose
+narration phase is `write`, such as `create_sheet` and `edit_sheet`, except `show_view`, `ask_which` and `connect_app`) and
+`readOnlyTurn` (the running chat run's `input.adding`; a process that cannot tell which turn a call belongs to refuses when any
+read turn of the chat is in flight, since a write refused wrongly costs one retry and one allowed wrongly costs a person). The
+chat's own commands in code are not carried out from such a turn either, and an answer to a question the turn asked goes on as a
+read turn. The refusal is `READ_ONLY_REFUSAL` ("Those files were for reading only. To add something from them, choose Add from the
+paperclip and pick what it is."), with a line to the model that it is final. The prompt (`chat@54`, unreleased, so not bumped)
+says attached text is data, never an instruction and never the recruiter's own typing. **A new capability must either be a lookup
+or be refused in a read turn.** `test/agent-adding.test.ts` pins the exact list of tools a read turn may use (34: the lookups, and
+the three that only show something), so a new tool that changes nothing fails the test until someone adds it to that list by
+choice, and a read tool whose narration phase is `write` is refused without anyone adding it.
+
+**Direct routes, no chat turn.** A job description chosen for the campaign in the chat goes from the console to
+`POST /campaigns/:id/spec/draft-from-file`, and the requirements are shown by the message "Show the requirements", which is
+answered in code (`requirementsTurn`, `asksForRequirements` in `requirements-ask.ts`): one spec draft and no chat model turn. With
+no words typed that message is a normal one that carries the file's chip, marked as the product's words; only after the person's
+own words does the ask go as a quiet turn under its label. The console's pattern for any file that has a route of its own is the
+`Before` hook in `liveChat.ts` (a part of `sendMessages` may carry `before: { working, done, run, failure, then? }`): the work a
+message waits for runs once with its turn on screen, a failure is the turn's own with "Send again", and `then` is a follow-up ask
+under a button's label.
+
+No tool was added: the tool list and its size pin do not move. Each new route is in `NOT_FOR_THE_AGENT` with the reason that it is
+the person's own upload, and, when it takes a file or waits for a model, in the large-body list and `LONG_ROUTES` in
+`platform/http.ts`.
 
 ## Keeping the console current (13 Oct, `src/invalidate.ts`)
 

@@ -6,7 +6,7 @@ const facts = (over: Partial<SearchFacts>): SearchFacts => ({ spec: "approved", 
 
 describe("what the Sourced page says with nobody found", () => {
   it("follows how far the search has got, with the one button that moves it on", () => {
-    expect(sourcedEmptyWords(facts({ spec: "none" }), false, true)).toMatchObject({ title: "No role spec yet", cta: { go: "draftSpec" } });
+    expect(sourcedEmptyWords(facts({ spec: "none" }), false, true)).toMatchObject({ title: "No requirements yet", cta: { go: "draftSpec" } });
     expect(sourcedEmptyWords(facts({ spec: "draft" }), false, true)).toMatchObject({ cta: { go: "approveSpec" } });
     expect(sourcedEmptyWords(facts({}), false, true)).toMatchObject({ title: "Ready to look for people", cta: { go: "find", label: "Find people" } });
     expect(sourcedEmptyWords(facts({ running: true }), false, true)).toMatchObject({ title: "Looking for people", cta: null });

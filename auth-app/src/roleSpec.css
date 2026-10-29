@@ -12,6 +12,13 @@
   gap: 4px;
 }
 
+/* Who the role is for: a label over the client picker, above the requirements (RoleSpecPanel.tsx). */
+.rs-client {
+  display: grid;
+  gap: 6px;
+  max-width: 360px;
+}
+
 .rs-title {
   font: var(--type-title-sm);
   letter-spacing: var(--track-title-sm);

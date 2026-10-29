@@ -103,6 +103,8 @@ export type Visibility = "team" | "org";
 /** Everything the New campaign form asks beyond name, team and location. */
 export type CampaignSetup = {
   clientId?: string;
+  /** A company that is not a client yet, named with the campaign: the server adds it (or uses the client of that name). Sent instead of `clientId`. */
+  newClient?: string;
   hiringManager?: string;
   seniority?: string;
   employment?: Employment;
@@ -188,7 +190,7 @@ const BY_ID: Readonly<Record<string, Base>> = {
     status: "active", owner: "Sudhanshu M", team: ["Sudhanshu M"],
     funnel: { sourced: 0, shortlisted: 0, contacted: 0, replied: 0, interviews: 0, hired: 0 },
     trend: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], target: 1,
-    agents: [], needs: "Role spec not approved", updatedAgo: "2d ago", createdAgo: "2d ago",
+    agents: [], needs: "Requirements not approved", updatedAgo: "2d ago", createdAgo: "2d ago",
   },
 };
 
@@ -219,7 +221,7 @@ export function newCampaign(input: { name: string; department: string; location:
     trend: Array.from({ length: 14 }, () => 0),
     target: input.target,
     agents: input.agent ? ["Sourcing"] : [],
-    needs: input.agent ? undefined : "Role spec not approved",
+    needs: input.agent ? undefined : "Requirements not approved",
     updatedAgo: "Just now",
     createdAgo: "Just now",
   };

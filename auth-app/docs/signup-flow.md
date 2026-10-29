@@ -31,6 +31,8 @@ there, live.
 | 3 | "Which role should we start with?" | a job title | four suggestions, or type; a link is not a title |
 | 4 | "Paste the *job description*." Helper: "Mind starts sourcing as soon as you finish setting up." | text, or "I'll add it later" | a bare link is turned back gently: "That's a link, and I can't open links. Paste the text of the job description instead." |
 | 5 | "Is *Role* for a client?" | No, or Yes then **one field: "Client's company name"** | name only, nothing else is asked |
+
+The client is required when a role is given: `POST /onboarding/finish` with a role and no client answers 400 ("Pick the client this campaign is for, or add one.") before any organisation, client or campaign is made.
 | 6 | "Here's what you've *unlocked*." | Continue | all six powers together, plainly: icon, name, one line each; nothing highlights or dims |
 | 7 | "Setting up your first campaign." then "You're set, *Name*." | Open Mind | three lines tick over while the server works ("Setting up *Northstar*" or "Setting up Personal", the campaign, the hand-over to Mind) |
 
@@ -129,13 +131,13 @@ fake agent), then hands the rest to a background run.
    (`runFirstCampaign`), once however many times finish is called. It says, in phases (`"Reading the job description"` then
    `"Read the job description"`), what it is doing; drafts the spec; approves it; starts `startSourcing` hanging under the turn,
    and emits the same `plan` event (`step: "sourcing"`, `searchRunId`) a chat-started search does, so the console claims the search
-   into the turn and shows the search run's own phases. Mind says: "I've read the job description, drafted the role spec and
+   into the turn and shows the search run's own phases. Mind says: "I've read the job description, drafted the requirements and
    started the search. People appear here as they're found."
 7. **Without one**: the first turn is answered at once and the spec is drafted from the title in the background and stops at a
    draft; Mind's one line asks for the description: "Paste the job description here whenever you have it and I'll start sourcing."
 8. **When something goes wrong** it is said in the chat in one calm line, with an outcome card whose button tries again. The
    run ends `done`, never as a red error, and the campaign (active, description saved) is there either way:
-   the description could not be read ("I couldn't turn that job description into a role spec just now. It's saved on the
+   the description could not be read ("I couldn't turn that job description into requirements just now. It's saved on the
    campaign, so we can try again."), the spec is not sound enough to search with ("...needs a closer look"), or the search
    could not start (the spec stays approved).
 

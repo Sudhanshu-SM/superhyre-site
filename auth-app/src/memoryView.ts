@@ -165,7 +165,7 @@ const EPISODE_LABEL: Readonly<Record<string, string>> = {
   outreach_sent: "Outreach sent",
   outreach_outcome: "Outreach result",
   contacts: "Contact lookup",
-  spec_approved: "Role spec approved",
+  spec_approved: "Requirements approved",
   campaign_closed: "Campaign closed",
   campaign_reopened: "Campaign reopened",
   watch: "Keep-sourcing",

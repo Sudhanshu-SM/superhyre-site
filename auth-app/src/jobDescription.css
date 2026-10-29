@@ -1,0 +1,38 @@
+/* ═════════ the job description popup (JobDescriptionPopup.tsx) ═════════
+   The Job description button in a campaign's header opens it, built on the Requirements dialog's own anatomy (.rl-dlg in
+   roles.css): a title with when it was added and by whom, the whole text scrolling in the middle, and a foot with the
+   original file and its Download on the left and the buttons on the right. Update swaps the same popup to the paste or
+   upload form. The middle keeps a floor of height, so the loading lines and the text are about the same size and the
+   popup does not jump when one replaces the other. */
+
+.jdp-body {
+  flex: 1 1 auto; min-height: min(11rem, 36dvh); overflow-y: auto; scrollbar-width: thin; padding: 0 24px 20px;
+}
+.jdp-body:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 6px; }
+.jdp-text { margin: 0; color: var(--ink); white-space: pre-line; overflow-wrap: anywhere; }
+.jdp-none { margin: 0; color: var(--ink-2); }
+
+/* the original file, in the foot: its name (it gives way to the buttons), then Download */
+.jdp-file { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 2px 8px; min-width: 0; }
+.jdp-file > svg { color: var(--ink-3); }
+.jdp-file-n { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+.jdp-take { display: inline-flex; align-items: center; gap: 6px; }
+.jdp-take:disabled { cursor: default; opacity: 0.6; }
+.jdp-problem { grid-column: 1 / -1; color: #a2552f; }
+
+/* the last read did not come back: said above the text, with the way to ask again */
+.jdp-stale { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; margin: 0 0 12px; color: var(--ink-2); }
+
+/* ── the form: paste or upload ── */
+.jdp-form-b { display: grid; gap: 8px; min-height: 0; overflow-y: auto; padding: 0 24px 18px; }
+.jdp-form-b label { color: var(--ink-2); }
+.jdp-area {
+  width: 100%; min-height: 9rem; resize: vertical; padding: 10px 12px; box-sizing: border-box;
+  border: 1px solid var(--line, #e7e0d8); border-radius: 10px; background: #fff; color: var(--ink);
+}
+.jdp-area:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.jdp-area:disabled { opacity: 0.6; }
+.jdp-hint { margin: 0; color: var(--ink-2); }
+.jdp-hint.is-short { color: #a2552f; }
+/* a real button (the file input beside it stays hidden), so its focus ring and disabled look are .ct-btn's own */
+.jdp-pick { display: inline-flex; align-items: center; gap: 6px; }

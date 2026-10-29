@@ -17,6 +17,14 @@
 .cg-h1 { margin: 0 0 4px; font-family: var(--word); font-size: 30px; font-weight: 600; line-height: 1.15; letter-spacing: -0.024em; color: var(--ink); }
 .cg-lede { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 0; font: 400 13.5px/1.4 var(--ui); color: var(--ink-2); }
 .cg-lede .ct-num { font-weight: 600; color: var(--ink); }
+.cg-head-acts { display: flex; align-items: center; gap: 12px 20px; flex-wrap: wrap; }
+/* A text button: where the daily search is set up, beside the new-campaign button that is the page's one filled action. */
+.cg-daily {
+  padding: 0; border: 0; background: none; cursor: pointer;
+  font: var(--type-body); letter-spacing: var(--track-body); font-weight: 500; color: var(--ink-2);
+}
+.cg-daily:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.cg-daily:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .cg-dot { width: 3px; height: 3px; margin: 0 4px; border-radius: 50%; background: #cfc8c1; }
 .cg-lede-need {
   display: inline-flex;
@@ -208,6 +216,13 @@
   cursor: pointer;
 }
 .cg-name-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cg-client { min-width: 0; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 13px/1.3 var(--ui); color: var(--cg-client-ink); }
+/* A campaign with no client yet: a quiet "Add client" in the place its name would be, which opens the client picker. */
+.cg-client-add { flex: none; padding: 0; border: 0; background: none; font: 400 13px/1.3 var(--ui); color: var(--ink-3); white-space: nowrap; cursor: pointer; text-underline-offset: 3px; }
+.cg-client-add:hover { color: var(--accent-text); text-decoration: underline; }
+.cg-client-add:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+.cg-client-pop { display: grid; gap: 10px; padding: 14px; }
+.cg-client-pop-t { margin: 0; font: var(--type-label); letter-spacing: var(--track-label); color: var(--ink); }
 .cg-name-go { flex: none; color: var(--accent-text); opacity: 0; transform: translateX(-4px); transition: opacity 180ms var(--ease-out), transform 220ms var(--ease-out); }
 .cg-row:hover .cg-name-go, .cg-name:focus-visible .cg-name-go { opacity: 1; transform: none; }
 .cg-name:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; border-radius: 4px; }
@@ -230,6 +245,9 @@
 
 .cg-meta { margin: 0; font: 400 12.5px/1.35 var(--ui); color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cg-need { font-weight: 500; color: #8a6a12; }
+/* A list of roles is scanned by two names: who the role is for and whose it is. Each takes its own hue from the site's palette, at the text strength the theme already holds in light and dark: the brand's warm hue for the client, the stages' cool teal for the person. */
+.cg-row { --cg-client-ink: var(--accent-text); --cg-owner-ink: var(--stage-teal-text); }
+.cg-owner { font-weight: 500; color: var(--cg-owner-ink); }
 
 /* goal */
 .cg-goal { position: relative; display: grid; justify-items: center; gap: 4px; }

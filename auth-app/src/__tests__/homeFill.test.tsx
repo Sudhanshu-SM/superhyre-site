@@ -23,7 +23,7 @@ describe("the active campaigns bento fills its card", () => {
     expect(css).toMatch(/\.hm-cl-hint \{[^}]*align-items: center;[^}]*text-align: center;/);
     expect(css).toMatch(/prefers-reduced-motion: reduce\) \{\s*\.hm-card, \.hm-quad-c, \.hm-cl li, \.hm-cl-bar::after, \.hm-cl-hint,/);
     const code = readFileSync(join(__dirname, "..", "HomeCards.tsx"), "utf8");
-    expect(code).toContain("Approve a role spec and the agent starts finding people");
+    expect(code).toContain("Approve requirements and the agent starts finding people");
     expect(code).toContain("rows.every((r) => isEmpty(stagesOf(r)) && r.funnel.sourced === 0)");
     expect(code).toContain("Open {rows[0]!.name}");
     expect(code).toContain("Ask the agent</a>}");

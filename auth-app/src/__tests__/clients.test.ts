@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  addClientContact, addClientNote, clientById, getClients, resetCampaignRows, resetClients, saveClient, setCampaignClient,
-  setClientStatus, setPrimaryContact,
+  addCampaignRow, addClientContact, addClientNote, campaignRow, clientById, duplicateCampaign, getClients, resetCampaignRows, resetClients, saveClient,
+  setCampaignClient, setCampaignClientByName, setClientStatus, setPrimaryContact,
 } from "../campaignStore";
-import { CAMPAIGN_ROWS } from "../campaignsData";
+import { blankDraft, rowFromDraft, withNewClient } from "../campaignDraft";
+import { CAMPAIGN_ROWS, TEAM } from "../campaignsData";
 import {
   CLIENT_SEED, EMPTY_DRAFT, NO_CLIENT_FILTER, SEED_CLIENT_OF, agoLabel, agoMinutes, clientFromDraft, clientNameIn, clientProblems,
   clientSummary, clientsLine, domainOf, draftOf, matchesClient, normaliseClient, primaryContact, sortClients,
@@ -138,8 +139,35 @@ describe("client store", () => {
     expect(getClients().clientOf["backend-snr"]).toBe("cl-postman");
     expect(clientById("cl-postman")!.history?.[0]?.text).toMatch(/linked/);
     expect(clientById("cl-razorpay")!.history?.[0]?.text).toMatch(/another client/);
-    setCampaignClient("backend-snr", null);
-    expect(getClients().clientOf["backend-snr"]).toBeUndefined();
+    // Moved back: a campaign is always for some client, so a change is from one to another.
+    setCampaignClient("backend-snr", "cl-razorpay");
+    expect(getClients().clientOf["backend-snr"]).toBe("cl-razorpay");
+  });
+  it("sets a campaign's client from a company's name: a company that is new is added, and one of that name is the client used", async () => {
+    expect(await setCampaignClientByName("backend-snr", "  Acme Fintech ")).toBe(true);
+    const made = getClients().clientOf["backend-snr"]!;
+    expect(clientById(made)).toMatchObject({ name: "Acme Fintech", status: "active" });
+    const count = getClients().clients.length;
+    // A client made a moment later would get its own id (they are made from the clock).
+    await new Promise((r) => setTimeout(r, 5));
+    // The same company in other capitals, or with "Pvt Ltd" after it, is the same client, not a second one.
+    await setCampaignClientByName("ios-mid", "acme fintech pvt ltd");
+    expect(getClients().clientOf["ios-mid"]).toBe(made);
+    expect(getClients().clients).toHaveLength(count);
+    // Nothing typed is not a client.
+    expect(await setCampaignClientByName("ios-mid", "   ")).toBe(false);
+    expect(getClients().clientOf["ios-mid"]).toBe(made);
+  });
+  it("makes a campaign that names a company for a client: the company is added with it and the campaign is for it", () => {
+    const row = rowFromDraft(withNewClient({ ...blankDraft("Punith S"), name: "Data Lead" }, "Orbit Labs"), TEAM, 1);
+    void addCampaignRow(row);
+    const id = getClients().clientOf[row.id]!;
+    expect(clientById(id)).toMatchObject({ name: "Orbit Labs" });
+  });
+  it("gives a copy of a campaign the same client", () => {
+    const copy = duplicateCampaign("backend-snr")!;
+    expect(getClients().clientOf[copy.id]).toBe(getClients().clientOf["backend-snr"]);
+    expect(campaignRow(copy.id)).toBeDefined();
   });
   it("keeps notes, ignoring empty ones", () => {
     addClientNote("cl-cred", "  ");

@@ -50,13 +50,13 @@ describe("reading a phase event", () => {
 describe("the lines of a run", () => {
   it("keeps one line per phase, in the order they began, and moves it from running to done in place", () => {
     const s = play(chat(), [
-      phase("r1", { id: "understand", phase: "understand", state: "running", label: "Reading the role spec" }),
+      phase("r1", { id: "understand", phase: "understand", state: "running", label: "Reading the requirements" }),
       phase("r1", { id: "search", phase: "search", state: "running", label: "Looking through our pool of candidates" }),
-      phase("r1", { id: "understand", phase: "understand", state: "done", label: "Read the role spec" }),
+      phase("r1", { id: "understand", phase: "understand", state: "done", label: "Read the requirements" }),
       phase("r1", { id: "search", phase: "search", state: "done", label: "Got 30 candidates", found: 30 }),
     ]);
     expect(s.turns[0]?.phases.map((l) => [l.id, l.state, l.label])).toEqual([
-      ["understand", "done", "Read the role spec"],
+      ["understand", "done", "Read the requirements"],
       ["search", "done", "Got 30 candidates"],
     ]);
   });
@@ -239,7 +239,7 @@ describe("the outcome of a search stays in view", () => {
 
   it("is the last finished 'decide' line, with what it said", () => {
     const lines = [
-      line("understand", "understand", "done", "Reading the role spec"),
+      line("understand", "understand", "done", "Reading the requirements"),
       line("search", "search", "done", "Got 30 candidates"),
       line("decide", "decide", "done", "Ready for your call", "3 good fits, 2 partial fits"),
     ];

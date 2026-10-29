@@ -15,14 +15,11 @@ import { isAssigned, useSession } from "./roleStore";
 
 /** One calm line where the controls would have been. Said once on a screen, never as a toast. */
 export const FOLLOWING_LINE =
-  "You can follow this campaign. Ask its owner or the team lead to add you to change the role spec or start a search.";
+  "You can follow this campaign. Ask its owner or the team lead to add you to change the requirements or start a search.";
 
-/** The same line for an admin, whose way in is the team's lead or the owner rather than being added. */
-export const FOLLOWING_LINE_ADMIN = "This campaign isn't on a team you lead. Ask its team's lead or the owner to change it.";
-
-/** The line that fits the person reading it. */
+/** The line that fits the person reading it. An admin is told nothing: an admin changes every campaign, so there is nothing to explain. */
 export function useFollowingLine(): string {
-  return useSession().role === "admin" ? FOLLOWING_LINE_ADMIN : FOLLOWING_LINE;
+  return useSession().role === "admin" ? "" : FOLLOWING_LINE;
 }
 
 /** Whether a person may change this campaign. A row not loaded yet is left to the server, which says it too. */
@@ -35,8 +32,8 @@ export function mayChangeCampaign(session: Session, row: Assignable | undefined)
 }
 
 /**
- * Whether a person may close or reopen this campaign: an admin or its owner, and, for an admin, only one on a
- * campaign they manage (the server's `canManage`), so the control is not offered only to be refused.
+ * Whether a person may close or reopen this campaign: an admin (who changes every campaign, whatever team it is on) or
+ * its owner. A row the server has marked (`canManage`) is believed, so the control is not offered only to be refused.
  */
 export function mayCloseCampaign(session: Session, row: Assignable | undefined): boolean {
   const own = canSetStatus(session, { ownerId: row?.ownerId }) || (!row?.ownerId && !!row && row.owner === session.name);
@@ -48,4 +45,20 @@ export function useMayChangeCampaign(campaignId: string | null | undefined): boo
   const session = useSession();
   const row = useCampaignRow(campaignId ?? "");
   return mayChangeCampaign(session, campaignId ? row : undefined);
+}
+
+/**
+ * Whether a person may set or change this campaign's client. While it has none, anyone who may change the campaign sets it
+ * (every campaign has a client, and an older one without is not left waiting for an admin); once it has one, changing it is
+ * an admin's or the campaign's owner's. The server's rule, so no control is drawn that it would turn down.
+ */
+export function mayChangeCampaignClient(session: Session, row: Assignable | undefined, hasClient: boolean): boolean {
+  return mayChangeCampaign(session, row) && (!hasClient || mayCloseCampaign(session, row));
+}
+
+/** `mayChangeCampaignClient` for the signed-in person and one campaign, as a hook. */
+export function useMayChangeCampaignClient(campaignId: string | null | undefined, hasClient: boolean): boolean {
+  const session = useSession();
+  const row = useCampaignRow(campaignId ?? "");
+  return mayChangeCampaignClient(session, campaignId ? row : undefined, hasClient);
 }

@@ -15,6 +15,7 @@ import { searchFromMatches } from "../agentCards/searchFeed";
 import { SearchRun } from "../liveViews/SearchRun";
 import type { RunEvent } from "../api/events";
 import { applyEvent, applySearch, newSearch, newTurn } from "../liveChat";
+import { DEFAULT_SESSION, setSession } from "../roleStore";
 import type { ChatState } from "../liveChat";
 
 const calls = vi.hoisted(() => ({ save: vi.fn(), approve: vi.fn(), draft: vi.fn(), sourcing: vi.fn(), send: vi.fn(), decide: vi.fn() }));
@@ -81,7 +82,7 @@ describe("the card in each state", () => {
     expect(html).toContain("+5 more");
     expect(html).toContain("3 nice-to-haves");
     expect(html).toContain("Approve and start finding people");
-    expect(html).toContain("View and edit spec");
+    expect(html).toContain("View and edit requirements");
     // Not a written link, and no chip that sends a message.
     expect(html).not.toContain("lt-link");
     expect(html).not.toContain("rep-opt");
@@ -120,15 +121,15 @@ describe("the card in each state", () => {
   });
 
   it("a failed approval says why in the card, and the button reads Try again", () => {
-    const html = draw(state({ problem: "The role spec needs at least one must-have." }));
+    const html = draw(state({ problem: "The requirements need at least one must-have." }));
     expect(html).toContain('role="alert"');
-    expect(html).toContain("The role spec needs at least one must-have.");
+    expect(html).toContain("The requirements need at least one must-have.");
     expect(html).toContain("Try again");
     expect(html).not.toContain("Approve and start finding people");
   });
 
   it("a draft that never came through is a card with Try again in it, and nothing to approve", () => {
-    const card: RoleSpecCardData = { ...CARD, specId: null, version: null, spec: null, trouble: "The role spec didn't come through this time. The job description is saved, so you can try again." };
+    const card: RoleSpecCardData = { ...CARD, specId: null, version: null, spec: null, trouble: "The requirements didn't come through this time. The job description is saved, so you can try again." };
     const html = draw(state({ view: specView(card, live(null)) }, null), card);
     expect(html).toContain("Not drafted");
     expect(html).toContain("The job description is saved, so you can try again.");
@@ -138,9 +139,16 @@ describe("the card in each state", () => {
 
   it("someone who only follows the campaign can read the spec but is not offered the decision", () => {
     const html = draw(state({ may: false }));
-    expect(html).toContain("View spec");
-    expect(html).toMatch(/rc-line">(You can follow this campaign|This campaign isn&#x27;t on a team you lead)/);
+    expect(html).toContain("View requirements");
     expect(html).not.toContain("Approve and start finding people");
+    // An admin is told nothing; someone who follows the campaign is told what they can do.
+    expect(html).not.toContain("team you lead");
+    setSession({ role: "recruiter", standing: "recruiter", name: "Ravi", userId: "u-ravi" });
+    try {
+      expect(draw(state({ may: false }))).toMatch(/rc-line">You can follow this campaign/);
+    } finally {
+      setSession(DEFAULT_SESSION);
+    }
   });
 });
 
@@ -382,7 +390,7 @@ describe("approving is the card's own call", () => {
 
   it("a refusal comes back to the card as the server's words", async () => {
     const { approveAndFind } = await import("../agentCards/specActions");
-    calls.approve.mockRejectedValue(new Error("The role spec needs at least one must-have."));
+    calls.approve.mockRejectedValue(new Error("The requirements need at least one must-have."));
     await expect(approveAndFind("c1", "s1")).rejects.toThrow("at least one must-have");
   });
 });
@@ -506,7 +514,7 @@ describe("no text links in the chat's cards", () => {
   it("has none of the old link wordings", () => {
     for (const file of files) {
       const src = readFileSync(file, "utf8");
-      for (const words of ["Read the role spec first", "Show the role spec"]) {
+      for (const words of ["Read the requirements first", "Show the requirements"]) {
         expect(src, `${file}: ${words}`).not.toContain(words);
       }
     }

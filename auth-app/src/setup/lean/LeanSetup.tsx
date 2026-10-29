@@ -625,7 +625,7 @@ function useFinishRows(on: boolean, reduce: boolean, a: Answers, run?: (a: Answe
         first,
         { id: "campaign", label: "Setting up your first campaign", detail: role ? `${role}${a.forClient && a.client ? ` for ${a.client}` : ""}` : "From the role you chose", status: status(1) },
         a.jd
-          ? { id: "mind", label: "Handing it to Mind", detail: "It reads the job description and drafts the role spec for you", status: status(2) }
+          ? { id: "mind", label: "Handing it to Mind", detail: "It reads the job description and drafts the requirements for you", status: status(2) }
           : { id: "mind", label: "Mind is drafting the role", detail: "It will ask for the job description", status: status(2) },
       ];
   return {

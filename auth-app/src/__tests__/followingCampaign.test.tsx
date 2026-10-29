@@ -31,7 +31,7 @@ vi.mock("../campaignRights", async (original) => ({
   useMayChangeCampaign: () => may.on,
 }));
 
-const { FOLLOWING_LINE, FOLLOWING_LINE_ADMIN, mayChangeCampaign } = await import("../campaignRights");
+const { FOLLOWING_LINE, mayChangeCampaign } = await import("../campaignRights");
 const { setSession } = await import("../roleStore");
 const { AgentsPanel } = await import("../OverviewPanel");
 const store = await import("../contactsFetch");
@@ -63,7 +63,7 @@ describe("who may change a campaign they can see", () => {
 
   it("says it in one calm line, about what they can do and who to ask", () => {
     expect(FOLLOWING_LINE).toBe(
-      "You can follow this campaign. Ask its owner or the team lead to add you to change the role spec or start a search.",
+      "You can follow this campaign. Ask its owner or the team lead to add you to change the requirements or start a search.",
     );
   });
 });
@@ -89,15 +89,17 @@ describe("the agents panel of a campaign someone follows", () => {
     const html = renderToStaticMarkup(<AgentsPanel agents={agents()} onAction={() => {}} canChange={false} />);
     expect(html).not.toContain("Find people");
     expect(html).toContain("Review");
-    expect(html.split(FOLLOWING_LINE_ADMIN.replace(/'/g, "&#x27;"))).toHaveLength(2);
+    // An admin is told nothing: there is no sentence about a team they do not lead.
+    expect(html).not.toContain("isn&#x27;t on a team you lead");
+    expect(html).not.toContain(FOLLOWING_LINE);
     setSession(recruiter);
     expect(renderToStaticMarkup(<AgentsPanel agents={agents()} onAction={() => {}} canChange={false} />).split(FOLLOWING_LINE)).toHaveLength(2);
     setSession(admin);
     const waiting = renderToStaticMarkup(
       <AgentsPanel agents={agents({ approvedSpec: false })} onAction={() => {}} canChange={false} />,
     );
-    expect(waiting).not.toContain("Review the role spec");
-    expect(text(waiting)).toContain("Waiting for an approved role spec");
+    expect(waiting).not.toContain("Review the requirements");
+    expect(text(waiting)).toContain("Waiting for approved requirements");
   });
 
   it("does not offer to stop or resume a watch they are not on the campaign for", () => {

@@ -94,19 +94,13 @@ export function feeOptions(clients: readonly Pick<Client, "fee">[], limit = 4, u
 
 /* ── the answers ─────────────────────────────────────────────────────────── */
 
-/** The clients a campaign can be for: all but the ones marked inactive. */
-export const openClients = <T extends Pick<Client, "status">>(clients: readonly T[]): T[] => clients.filter((c) => c.status !== "inactive");
-
 /**
- * The new-campaign answers, with the role and client the message named. With no client to choose
- * from, "no client" is the answer, so nothing is asked that has only one possible reply, unless the
- * message named a company that is not in Clients yet (`newClient`): that one is offered, by name.
+ * The new-campaign answers, with the role and client the message named. A company the message named that is not in
+ * Clients yet is `newClient`, offered by name. Every campaign is for a client, so who it is for is always asked
+ * until it is answered: with nobody to choose from, the company's name is typed.
  */
-export function liveCampaignAnswers(said: string, answers: Readonly<Record<string, string>> = {}, clients: readonly Pick<Client, "status">[] = []): Record<string, string> {
-  const a = newCampaignAnswers(said, answers);
-  /* Nobody to choose from is "no client", unless the message named a company: that one is offered as a new client. */
-  if (!a.client && !a.newClient && openClients(clients).length === 0) a.client = "none";
-  return a;
+export function liveCampaignAnswers(said: string, answers: Readonly<Record<string, string>> = {}): Record<string, string> {
+  return newCampaignAnswers(said, answers);
 }
 
 /** "Senior Backend Engineer" → "Senior"; "" when the role doesn't say. */
@@ -157,7 +151,7 @@ export function campaignFacts(d: CampaignDraft): [string, string][] {
     ["Experience", exp || "Not set"],
     ["CTC", comp || "Not set"],
     ["Must-haves", d.mustHave.join(", ") || "None yet"],
-    ...(words ? [["Job description", `${words.toLocaleString("en-IN")} words, the role spec is drafted from it`] as [string, string]] : []),
+    ...(words ? [["Job description", `${words.toLocaleString("en-IN")} words, the requirements are drafted from it`] as [string, string]] : []),
     ...(d.seniority ? [["Level", d.seniority] as [string, string]] : []),
     ["Fee", d.fee || "Not set"],
   ];
@@ -169,12 +163,12 @@ export function campaignFacts(d: CampaignDraft): [string, string][] {
  * the server's own sentence for a draft it could not make.
  */
 export function draftingLine(name: string, draft: "drafting" | "drafted" | "failed" = "drafting", why = ""): string {
-  if (draft === "drafted") return `${name} created. The role spec is drafted from your job description. Read it, approve it and the search starts.`;
+  if (draft === "drafted") return `${name} created. The requirements are drafted from your job description. Read them, approve them and the search starts.`;
   if (draft === "failed") {
     const reason = why.replace(/[.\s]+$/, "");
-    return `${name} created, but its role spec isn't drafted yet${reason ? `: ${reason}` : ""}. Ask me to draft it from your job description.`;
+    return `${name} created, but its requirements aren't drafted yet${reason ? `: ${reason}` : ""}. Ask me to draft them from your job description.`;
   }
-  return `${name} created. I'm drafting its role spec from your job description.`;
+  return `${name} created. I'm drafting its requirements from your job description.`;
 }
 
 /* ── what stops a record, before the server has to ───────────────────────── */

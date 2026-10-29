@@ -9,16 +9,16 @@ import { emptyBoardWords, factsFrom, type SearchFacts } from "../pipelineEmpty";
 const facts = (over: Partial<SearchFacts> = {}): SearchFacts => ({ spec: "approved", found: 0, toReview: 0, running: false, ...over });
 
 describe("what an empty pipeline says", () => {
-  it("with no role spec: draft it", () => {
+  it("with no requirements: draft them", () => {
     const w = emptyBoardWords(facts({ spec: "none" }));
-    expect(w.title).toBe("No role spec yet");
-    expect(w.cta).toEqual({ label: "Draft the role spec", go: "draftSpec" });
+    expect(w.title).toBe("No requirements yet");
+    expect(w.cta).toEqual({ label: "Draft the requirements", go: "draftSpec" });
   });
 
-  it("with a spec that is not approved: look at it and approve it", () => {
+  it("with requirements that are not approved: look at them and approve them", () => {
     const w = emptyBoardWords(facts({ spec: "draft" }));
-    expect(w.body).toMatch(/Approve it/);
-    expect(w.cta).toEqual({ label: "Review the role spec", go: "approveSpec" });
+    expect(w.body).toMatch(/Approve them/);
+    expect(w.cta).toEqual({ label: "Review the requirements", go: "approveSpec" });
   });
 
   it("with matches waiting: shortlist from the matches, and say how many", () => {

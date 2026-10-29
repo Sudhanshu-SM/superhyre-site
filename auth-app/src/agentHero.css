@@ -50,13 +50,15 @@
      field top = stream padding (--page-top) + log + the stream's gap (--orc-rhythm)
 
    `--land-y` is what sits above the stream (the phone's top bar), `--land-h`
-   the field's resting height (two lines, see REST_LINES in Agent.tsx). The
-   field grows DOWN from this line as it takes text, so what you are typing
-   never moves up the page under your eyes. */
+   the field's resting height: its border and padding (2 + 32), two lines of
+   text (REST_LINES, 2 x 24.75 in whole pixels = 50, agentDraft.ts), the row's
+   margin and its 38px controls (8 + 38) = 130. The field grows DOWN from this
+   line as it takes text, so what you are typing never moves up the page under
+   your eyes. */
 .orc {
   --land-at: min(40dvh, 440px);
   --land-y: 0px;
-  --land-h: 118px;
+  --land-h: 130px;
 }
 @media (max-width: 1023px) {
   .orc { --land-y: 62px; }

@@ -513,8 +513,8 @@ describe("when it should stop", () => {
   });
 
   it("says the server's refusal for a missing spec in plain words, and passes the rest on", () => {
-    expect(refusalCopy("Approve the role spec before searching. It decides who fits.")).toEqual({
-      text: "This campaign has no approved role spec yet. The agent needs it to know who fits, so approve one first.",
+    expect(refusalCopy("Approve the requirements before searching. They decide who fits.")).toEqual({
+      text: "This campaign has no approved requirements yet. The agent needs them to know who fits, so approve them first.",
       needsSpec: true,
     });
     expect(refusalCopy("This campaign already has a watch. Change that one instead.")).toEqual({

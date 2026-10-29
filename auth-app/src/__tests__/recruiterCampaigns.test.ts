@@ -10,7 +10,8 @@ const src = (f: string) => readFileSync(resolve(root, f), "utf8");
 
 /**
  * A recruiter opens campaigns of their own: theirs alone (they own it, nobody else is on it until an admin adds
- * them), for a client they can already see or none. Who owns it, who is on it and adding a client stay an admin's.
+ * them), for a client they can already see or a company they name (the server adds it with the campaign: every
+ * campaign has a client). Who owns it, who is on it and the Clients page stay an admin's.
  */
 describe("what a recruiter may do about a campaign", () => {
   it("opens one, and nothing that is a manager's about it", () => {
@@ -40,11 +41,14 @@ describe("what a recruiter may do about a campaign", () => {
     expect(page).toContain("admin={manages}");
   });
 
-  it("draws neither the owner nor the team for a recruiter, and offers no new client", () => {
+  it("draws neither the owner nor the team for a recruiter, and gives them the add by name, not the client's details", () => {
     const dialog = src("NewCampaign.tsx");
     expect(dialog).toContain('const own = standingOf(session) === "recruiter";');
     expect(dialog).toContain('const mayAddClient = can(standingOf(session), "client.manage");');
-    expect(dialog).toContain("{mayAdd && <option");
+    // Everyone is offered "Add a new client"; an admin gets the form with the details, anyone else the company's name.
+    expect(dialog).not.toContain("{mayAdd && <option");
+    expect(dialog).toContain('<option value="+">Add a new client…</option>');
+    expect(dialog).toMatch(/\) : !mayAdd \? \(\s*<ClientNameAdd/);
     expect(dialog).toMatch(/\{own \? \(\s*<Field label="Owner" hint="You own it/);
     // What is sent for a recruiter is put back to theirs, whatever a kept draft said.
     expect(dialog).toContain("const draft = own ? ownCampaign(d, me) : d;");
@@ -56,10 +60,12 @@ describe("what a recruiter may do about a campaign", () => {
     expect(src("clarify.ts")).toContain('can(standingOf(getSession()), "campaign.create") ? newCampaignQuestion');
   });
 
-  it("is not offered a new client when they change a campaign's client", () => {
+  it("names the company, and is not given the client's details, when they set a campaign's client", () => {
     const page = src("CampaignWorkspace.tsx");
-    expect(page).toContain('const mayAdd = useCan("client.manage");');
-    expect(page).toContain("{mayAdd && <button");
+    expect(page).toContain('const detailed = useCan("client.manage");');
+    expect(page).toContain("<ClientNameAdd");
+    // The tab to add one is for everyone now; it is the form inside it that is the admin's.
+    expect(page).not.toContain("{mayAdd && <button");
   });
 });
 

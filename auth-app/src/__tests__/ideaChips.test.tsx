@@ -198,8 +198,9 @@ describe("what a browser alone would see", () => {
     expect(hero).toMatch(/\.orc \.orc-stream:not\(\.is-live\) \.orc-log \{\s*min-height: max\(/);
     const agent = src("Agent.tsx");
     expect(agent).not.toMatch(/--land-push|landPush/);
-    // Two lines at rest, six at most, then it scrolls.
-    expect(agent).toMatch(/const REST_LINES = 2;/);
-    expect(agent).toMatch(/const MAX_LINES = 6;/);
+    // Two lines at rest, six at most, then it scrolls (the numbers and the arithmetic are agentDraft.ts's, pinned in agentDraft.test.ts).
+    const draft = src("agentDraft.ts");
+    expect(draft).toMatch(/export const REST_LINES = 2;/);
+    expect(draft).toMatch(/export const MAX_LINES = 6;/);
   });
 });

@@ -5,8 +5,9 @@ import { companyIn } from "./campaignAsk";
  * Adding a role from its job description. The description is read into the facts it states (server:
  * `POST /v1/campaigns/jd/read`); what it does not state is asked for, one question at a time, and only what is
  * missing: a description that says everything is created without a single question. The questions are the filters a
- * search needs (client, how it is worked, where, experience, notice, pay), each skippable, and an answer can stand
- * for the rest of a batch. Nothing here touches the network or the page: it is the rules, kept apart so they are tested.
+ * search needs (client, how it is worked, where, experience, notice, pay), each skippable but the client, which every
+ * campaign has, and an answer can stand for the rest of a batch. Nothing here touches the network or the page: it is the
+ * rules, kept apart so they are tested.
  */
 
 export type WorkMode = "onsite" | "hybrid" | "remote";
@@ -38,9 +39,9 @@ export type AskKey = "client" | "workMode" | "locations" | "experience" | "notic
 export const ASK_ORDER: readonly AskKey[] = ["client", "workMode", "locations", "experience", "notice", "comp"];
 
 export type Answers = {
-  /** A client of the workspace, by id; `"none"` is an internal hire. */
+  /** A client of the workspace, by id. */
   clientId?: string;
-  /** A company to add as a client (an admin's choice). */
+  /** A company that is not a client yet, by name: the client is added (or the one of that name used). */
   newClient?: string;
   workMode?: WorkMode;
   locations?: string[];
@@ -56,6 +57,8 @@ export type Ask = {
   key: AskKey;
   text: string;
   options: AskOption[];
+  /** Cannot be skipped: every campaign has a client, so that question is asked until it is answered. */
+  required?: true;
   /** A box to type an answer in, beside the options. */
   input?: { label: string; placeholder: string };
 };
@@ -73,7 +76,6 @@ export function clientSaid(named: string | null, clients: readonly ClientLite[])
 }
 
 const CLIENT_OPTIONS_SHOWN = 8;
-export const NO_CLIENT = "none";
 export const EXPERIENCE_OPTIONS: ReadonlyArray<AskOption & { min: number; max: number | null }> = [
   { id: "0-2", label: "0–2 years", min: 0, max: 2 },
   { id: "2-5", label: "2–5 years", min: 2, max: 5 },
@@ -84,8 +86,6 @@ export const NOTICE_CHOICES = ["Immediate", "Up to 30 days", "Up to 60 days", "U
 
 export type AskContext = {
   clients: readonly ClientLite[];
-  /** Adding a client is an admin's: a recruiter picks one they can see, or none. */
-  mayAddClient: boolean;
   /** Answers that stand for every role that lacks them (set by "use this for the rest"). */
   defaults: Answers;
   /** Cities already given in this batch, offered again. */
@@ -97,8 +97,9 @@ const effectiveMode = (facts: JdFacts, a: Answers): WorkMode | null => a.workMod
 
 /**
  * The questions this role still needs asked, in order: what the description did not state and no answer (its own
- * or one that stands for the batch) has already given. The client is asked only when the workspace has clients to
- * choose from, or the description names one that is not there yet.
+ * or one that stands for the batch) has already given. The client is asked unless the description names one the
+ * workspace has: every campaign is for a client, so there is no skipping it, and a company that is not a client yet
+ * is typed by name.
  */
 export function asksFor(facts: JdFacts, answers: Answers, ctx: AskContext): Ask[] {
   const out: Ask[] = [];
@@ -107,19 +108,17 @@ export function asksFor(facts: JdFacts, answers: Answers, ctx: AskContext): Ask[
 
   if (said.kind !== "match" && !has(merged.clientId) && !has(merged.newClient)) {
     const pickable = ctx.clients.filter((c) => c.status !== "inactive");
-    const options: AskOption[] = [
-      ...(said.kind === "named" && ctx.mayAddClient ? [{ id: "new", label: `Add ${said.name} as a client` }] : []),
-      ...pickable.slice(0, CLIENT_OPTIONS_SHOWN).map((c) => ({ id: `client:${c.id}`, label: c.name })),
-      { id: NO_CLIENT, label: "No client, an internal hire" },
-    ];
-    if (said.kind === "named" || pickable.length) {
-      out.push({
-        key: "client",
-        text: said.kind === "named" ? `${said.name} isn't one of your clients yet.` : "Which client is this role for?",
-        options,
-        ...(pickable.length > CLIENT_OPTIONS_SHOWN ? { input: { label: "Another client", placeholder: "Type the company's name" } } : {}),
-      });
-    }
+    out.push({
+      key: "client",
+      text: said.kind === "named" ? `${said.name} isn't one of your clients yet.` : "Which client is this role for?",
+      options: [
+        ...(said.kind === "named" ? [{ id: "new", label: `Add ${said.name} as a client` }] : []),
+        ...pickable.slice(0, CLIENT_OPTIONS_SHOWN).map((c) => ({ id: `client:${c.id}`, label: c.name })),
+      ],
+      /* A company that is not listed is typed: by name alone, whoever the person is. */
+      input: { label: pickable.length || said.kind === "named" ? "Another client" : "The client's company name", placeholder: "Type the company's name" },
+      required: true,
+    });
   }
   if (!facts.workMode && !has(merged.workMode)) {
     out.push({
@@ -156,7 +155,7 @@ export function asksFor(facts: JdFacts, answers: Answers, ctx: AskContext): Ask[
     });
   }
   const skipped = new Set([...(ctx.defaults.skipped ?? []), ...(answers.skipped ?? [])]);
-  return out.filter((a) => !skipped.has(a.key));
+  return out.filter((a) => a.required || !skipped.has(a.key));
 }
 
 /* ── what people type ── */
@@ -225,6 +224,8 @@ export function draftFromIntake(args: {
   owner: string;
   /** The client's id once it is known (a match, a pick or one just added). */
   clientId: string;
+  /** A company the server is to add with the campaign, when no client id is known (anyone but an admin adding one). */
+  newClient?: string;
 }): CampaignDraft {
   const { facts, jd, clientId } = args;
   const a: Answers = { ...args.defaults, ...args.answers };
@@ -236,6 +237,7 @@ export function draftFromIntake(args: {
     ...base,
     name: facts.title.trim().slice(0, 120),
     clientId,
+    newClient: clientId ? "" : (args.newClient ?? "").trim(),
     department: facts.department ?? "",
     seniority: facts.seniority ?? "",
     employment: facts.employment ?? "full-time",

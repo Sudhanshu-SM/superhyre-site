@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { liveNotes } from "../agentCards/ApprovalCard";
+import { deleteClient, getClients, resetClients } from "../campaignStore";
 import { NEW_CLIENT, newCampaignAnswers, newCampaignQuestion, newClientOf } from "../clarify";
 import { logLine } from "../api/campaigns";
 import type { MomentCtx } from "../moments";
@@ -19,10 +20,21 @@ const ctx = (answers: Record<string, string> = {}): MomentCtx => ({
 
 describe("a client the message names that is not in Clients yet (X3 D3)", () => {
   const said = "create a new campaign called Data Analyst for the client Orchid Bank in Pune";
+  afterEach(() => { resetClients(); });
+  /** A workspace with no client at all. */
+  const noClients = () => { for (const c of getClients().clients) void deleteClient(c.id); };
 
-  it("is kept, as a new client, and not dropped to 'Internal hire'", () => {
+  it("is kept, as a new client, and the campaign is still for it", () => {
     const a = newCampaignAnswers(said, {});
     expect(a).toMatchObject({ role: "Data Analyst", location: "Pune", newClient: "Orchid Bank", client: NEW_CLIENT });
+  });
+
+  it("stands when the person typed another company as the answer: the message's company does not take its place", () => {
+    const a = newCampaignAnswers(said, { client: NEW_CLIENT, newClient: "Typed Co" });
+    expect(a).toMatchObject({ client: NEW_CLIENT, newClient: "Typed Co" });
+    expect(newClientOf(a)).toBe("Typed Co");
+    // With no company typed, the message's is the one.
+    expect(newClientOf(newCampaignAnswers(said, { client: NEW_CLIENT }))).toBe("Orchid Bank");
   });
 
   it("is not asked about: a company the message names that is not a client yet is added, by its name alone", () => {
@@ -32,10 +44,23 @@ describe("a client the message names that is not in Clients yet (X3 D3)", () => 
   });
 
   it("is added even when there are no clients at all", () => {
-    expect(liveCampaignAnswers(said, {}, []).client).toBe(NEW_CLIENT);
-    expect(liveCampaignAnswers("create a campaign called Data Analyst in Pune", {}, []).client).toBe("none");
+    noClients();
+    expect(liveCampaignAnswers(said, {}).client).toBe(NEW_CLIENT);
     const ask = liveCampaignAsk(() => ({ clients: [], rows: [] }));
     expect(ask("campaign-new", said, ctx({}))?.id).not.toBe("nc-client");
+  });
+
+  it("is asked for when nobody named one and there are no clients: the company's name is typed, never answered as no client", () => {
+    noClients();
+    const plain = "create a campaign called Data Analyst in Pune";
+    expect(liveCampaignAnswers(plain, {}).client).toBeUndefined();
+    const ask = liveCampaignAsk(() => ({ clients: [], rows: [] }));
+    const q = ask("campaign-new", plain, ctx({}))!;
+    expect(q.id).toBe("nc-client");
+    expect(q.options).toEqual([]);
+    expect(q.input?.placeholder).toBe("Company name");
+    // What is typed is the company to add, by its name.
+    expect(q.apply(["Orchid Bank"]).answers).toEqual({ client: NEW_CLIENT, newClient: "Orchid Bank" });
   });
 
   it("is added for a company that does not exist when other clients do", () => {
@@ -45,9 +70,10 @@ describe("a client the message names that is not in Clients yet (X3 D3)", () => 
     expect(ask("campaign-new", text, ctx({}))?.id).not.toBe("nc-client");
   });
 
-  it("makes a draft with no client of its own: the client is added when the campaign is created", () => {
-    const d = draftFromAnswers({ role: "Data Analyst", client: NEW_CLIENT, dept: "Data", mode: "onsite", location: "Pune", openings: "1" }, "Punith S", []);
+  it("makes a draft with no client id of its own: the company is named, and added when the campaign is created", () => {
+    const d = draftFromAnswers({ role: "Data Analyst", client: NEW_CLIENT, newClient: "Orchid Bank", dept: "Data", mode: "onsite", location: "Pune", openings: "1" }, "Punith S", []);
     expect(d.clientId).toBe("");
+    expect(d.newClient).toBe("Orchid Bank");
     expect(d.name).toBe("Data Analyst");
   });
 });

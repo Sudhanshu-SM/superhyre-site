@@ -24,11 +24,11 @@
 }
 
 .stg-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }
-.stg-goal { display: inline-flex; align-items: center; gap: 7px; min-width: 0; font: 400 12.5px/1.2 var(--ui); color: var(--ink-2); }
+.stg-goal { display: inline-flex; align-items: center; gap: 7px; min-width: 0; font: 400 13.5px/1.2 var(--ui); color: var(--ink-2); }
 .stg-goal svg { flex: none; color: var(--accent); }
 .stg-goal-k { flex: none; }
 .stg-goal-v { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; color: var(--ink); }
-.stg-status { flex: none; font: 500 12px/1 var(--ui); font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.stg-status { flex: none; font: 500 13px/1 var(--ui); font-variant-numeric: tabular-nums; color: var(--ink-2); }
 .stg-reached {
   display: inline-flex;
   align-items: center;
@@ -63,8 +63,8 @@
 
 .stg-text { grid-column: 1 / -1; display: grid; gap: 3px; min-width: 0; padding-right: 12px; }
 .stg-stage:last-child .stg-text { padding-right: 0; }
-.stg-label { font: 600 13px/1.2 var(--ui); letter-spacing: -0.01em; color: var(--ink-2); transition: color 300ms var(--ease-out); }
-.stg-note { font: 400 12px/1.35 var(--ui); color: var(--ink-2); animation: stg-note 360ms var(--ease-out) both; }
+.stg-label { font: 600 14px/1.2 var(--ui); letter-spacing: -0.01em; color: var(--ink-2); transition: color 300ms var(--ease-out); }
+.stg-note { font: 400 13px/1.35 var(--ui); color: var(--ink-2); animation: stg-note 360ms var(--ease-out) both; }
 .stg-stage.is-live .stg-label, .stg-stage.is-wait .stg-label, .stg-stage.is-done .stg-label { color: var(--ink); }
 .stg-stage.is-wait .stg-note { color: #8a6a12; }
 /* Nothing to say yet (Deciding, until it is done): the line keeps its height, so the card does not jump. */
@@ -191,7 +191,7 @@
    drops its "Goal" key to keep its own words. */
 @container (max-width: 460px) {
   .stg { padding: 12px 14px 13px; }
-  .stg-note { font-size: 11.5px; }
+  .stg-note { font-size: 12.5px; }
   .stg-text { padding-right: 8px; }
   .stg-goal-k { display: none; }
   .stg-rail { margin-right: 8px; }

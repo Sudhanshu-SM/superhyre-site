@@ -89,32 +89,30 @@ describe("the new-campaign flow", () => {
     // The role and the city are read out of the sentence for anyone, the city under the one name the console uses.
     expect(campaignBriefIn(said)).toEqual({ role: "DevOps Engineer", client: null, city: "Bengaluru" });
     expect(newCampaignAnswers(said, {})).toMatchObject({ role: "DevOps Engineer", location: "Bengaluru" });
-    // Who it is for is asked of the clients they have, "No client" among them.
+    // Who it is for is asked of the clients they have, with a field for a company that is not one of them: every
+    // campaign has a client, so "no client" is not among the answers.
     const who = questionFor("campaign-new", said, ctx());
     expect(who?.id).toBe("nc-client");
-    expect(who?.options.some((o) => o.id === "none")).toBe(true);
+    expect(who?.options.some((o) => o.id === "none")).toBe(false);
+    expect(who?.options.map((o) => o.label).join(" ")).not.toMatch(/no client|internal/i);
+    expect(who?.other).toMatchObject({ label: "A new client" });
   });
-  it("never offers a recruiter to add a company the message names as a new client", () => {
+  it("reads a company the message names as a new client the same for a recruiter as for an admin: the server adds it with the campaign", () => {
     const said = "create a new campaign called Data Analyst for the client Orchid Bank in Pune";
-    // An admin: Orchid Bank is not a client yet, so it is cut out of the title and offered as one to add.
+    // An admin: Orchid Bank is not a client yet, so it is cut out of the title and is the one to add.
     expect(campaignBriefIn(said)).toEqual({ role: "Data Analyst", client: "Orchid Bank", city: "Pune" });
     expect(newCampaignAnswers(said, {})).toMatchObject({ newClient: "Orchid Bank", client: "new" });
     // Not asked about: it is the client to add.
     expect(questionFor("campaign-new", said, ctx())?.id).not.toBe("nc-client");
 
-    // A recruiter may not add one: the words stay in the role, nothing offers to add them, and the question
-    // is only of the clients they have.
+    // A recruiter too: every campaign has a client, and anyone may name the company for it.
     setSession({ role: "recruiter", name: "Riya K" });
-    expect(campaignBriefIn(said).client).toBeNull();
-    expect(campaignBriefIn(said).role).toMatch(/Orchid Bank/);
-    expect(newCampaignAnswers(said, {}).newClient).toBeUndefined();
-    const q = questionFor("campaign-new", said, ctx());
-    expect(q?.id).toBe("nc-client");
-    expect(q?.options.map((o) => o.id)).not.toContain("new");
-    expect(q?.options.map((o) => o.label).join(" ")).not.toMatch(/as a new client/);
+    expect(campaignBriefIn(said)).toEqual({ role: "Data Analyst", client: "Orchid Bank", city: "Pune" });
+    expect(newCampaignAnswers(said, {})).toMatchObject({ newClient: "Orchid Bank", client: "new" });
+    expect(questionFor("campaign-new", said, ctx())?.id).not.toBe("nc-client");
     const at = "create a campaign called Backend Engineer at Zorblax Studios";
-    expect(campaignBriefIn(at)).toMatchObject({ role: "Backend Engineer at Zorblax Studios", client: null });
-    expect(newCampaignAnswers(at, {}).newClient).toBeUndefined();
+    expect(campaignBriefIn(at)).toMatchObject({ role: "Backend Engineer", client: "Zorblax Studios" });
+    expect(newCampaignAnswers(at, {})).toMatchObject({ newClient: "Zorblax Studios", client: "new" });
   });
   it("takes the client from the message", () => {
     const q = questionFor("campaign-new", "start a new campaign for Razorpay", ctx({ role: "SRE" }));

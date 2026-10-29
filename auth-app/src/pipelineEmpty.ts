@@ -38,16 +38,16 @@ export function emptyBoardWords(facts: SearchFacts | null): EmptyBoardWords {
   }
   if (facts.spec === "none") {
     return {
-      title: "No role spec yet",
-      body: "The role spec says who fits. Draft it first, and then the agent can look for people.",
-      cta: { label: "Draft the role spec", go: "draftSpec" },
+      title: "No requirements yet",
+      body: "The requirements say who fits. Draft them first, and then the agent can look for people.",
+      cta: { label: "Draft the requirements", go: "draftSpec" },
     };
   }
   if (facts.spec === "draft") {
     return {
-      title: "The role spec is waiting for you",
-      body: "Approve it and the agent starts looking for people.",
-      cta: { label: "Review the role spec", go: "approveSpec" },
+      title: "The requirements are waiting for you",
+      body: "Approve them and the agent starts looking for people.",
+      cta: { label: "Review the requirements", go: "approveSpec" },
     };
   }
   if (facts.toReview > 0) {

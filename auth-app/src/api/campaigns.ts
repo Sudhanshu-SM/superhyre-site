@@ -3,7 +3,7 @@ import type { PipelinePerson, Source, StageId, Step } from "../campaign";
 import type { CampaignRates, CampaignReached, CampaignRow, CampaignSetup, CampaignStage, CampaignStatus, Priority, StageKind, Visibility } from "../campaignsData";
 import { agoLabel } from "../clients";
 import type { Hue } from "../orchestrator";
-import { api } from "./client";
+import { api, apiFile } from "./client";
 import type { ClientVerdict } from "./stages";
 
 /**
@@ -18,7 +18,7 @@ import type { ClientVerdict } from "./stages";
 export type ApiPerson = { id: string; name: string | null };
 export type ApiStage = "shortlisted" | "outreach" | "interviewing" | "hired" | "passed";
 
-export type ApiSetup = Omit<CampaignSetup, "clientId" | "priority" | "visibility">;
+export type ApiSetup = Omit<CampaignSetup, "clientId" | "newClient" | "priority" | "visibility">;
 
 export type ApiCampaignStage = { id: string; name: string; kind: StageKind; color: string | null; count: number };
 
@@ -148,7 +148,10 @@ export const whoAmI = () => api<{ user: { id: string } }>("GET", "/v1/me").then(
 
 export type CreateCampaignBody = {
   name: string;
+  /** An existing client. A campaign always has a client, so the form sends this or `newClient`; null only reaches the wire as no key at all. */
   clientId: string | null;
+  /** A company that is not a client yet: the server adds it, or uses the client of that name. Sent when there is no `clientId`. */
+  newClient?: string;
   department: string | null;
   location: string | null;
   target: number;
@@ -159,10 +162,44 @@ export type CreateCampaignBody = {
   ownerId?: string;
 };
 
-export const createCampaign = (body: CreateCampaignBody) => api<ApiCampaign>("POST", "/v1/campaigns", body);
+export const createCampaign = ({ clientId, ...body }: CreateCampaignBody) =>
+  api<ApiCampaign>("POST", "/v1/campaigns", { ...body, ...(clientId ? { clientId } : {}) });
 /** Keeps a job description on the campaign, which its role spec is drafted from. */
 export const setCampaignJd = (id: string, jd: string) => api<{ saved: boolean }>("PUT", `/v1/campaigns/${id}/jd`, { jd });
-export const patchCampaign = (id: string, body: { clientId: string | null }) => api<ApiCampaign>("PATCH", `/v1/campaigns/${id}`, body);
+
+/**
+ * A campaign's job description as it stands (server: `GET /v1/campaigns/:id/jd`): its text, when and by whom it was
+ * added, the original file when one was uploaded and is still kept, and every version of the requirements that was
+ * drafted from a new description. `text` is null when the campaign has none.
+ */
+export type ApiJobDescription = {
+  text: string | null;
+  addedAt: string | null;
+  addedBy: string | null;
+  source?: "pasted" | "file" | "extension" | "agent";
+  /** `specId` is the version of the requirements the file belongs to: a download asks for that very file. */
+  file: { name: string; size: number; version: number; specId: string } | null;
+  versions: Array<{ specId: string; version: number; at: string; hasFile: boolean }>;
+};
+
+export const jdApi = {
+  /** The description as it stands; with `specId`, what one version of the requirements was drafted from. */
+  read: (campaignId: string, specId?: string) =>
+    api<ApiJobDescription>("GET", `/v1/campaigns/${campaignId}/jd${specId ? `?specId=${encodeURIComponent(specId)}` : ""}`),
+  /**
+   * Replaces the description with a file: the server keeps the file, reads its text and drafts new requirements
+   * from it, for the person to review (a minute or so). `type` is the file's type, which the server checks.
+   */
+  upload: (campaignId: string, file: File, type: string) =>
+    api<{ id: string; version: number }>("POST", `/v1/campaigns/${campaignId}/spec/draft-from-file?name=${encodeURIComponent(file.name)}`, file, {
+      headers: { "content-type": type },
+    }),
+  /** The original file, with the person's own token (a plain link would not carry it). */
+  file: (campaignId: string, specId?: string) =>
+    apiFile(`/v1/campaigns/${campaignId}/jd/file${specId ? `?specId=${encodeURIComponent(specId)}` : ""}`),
+};
+/** Sets the campaign's client: an existing one by its id, or a company by its name (the server adds it, or uses the client of that name). A campaign's client is never taken away. */
+export const patchCampaign = (id: string, body: { clientId?: string; newClient?: string }) => api<ApiCampaign>("PATCH", `/v1/campaigns/${id}`, body);
 /** `closeForms`: closing also closes the campaign's forms (a separate choice, off unless asked for). */
 export const setCampaignStatus = (id: string, status: CampaignStatus, closeForms?: boolean) =>
   api<ApiCampaign>("PUT", `/v1/campaigns/${id}/status`, { status, ...(closeForms ? { closeForms: true } : {}) });
@@ -193,6 +230,46 @@ export const setCampaignMembers = (id: string, userIds: string[]) => api<ApiCamp
 /** Where this campaign's searches look for people: our database, external sources, or both. */
 export const setSources = (id: string, sources: "database" | "both" | "external") =>
   api<{ sources: "database" | "both" | "external" }>("PUT", `/v1/campaigns/${id}/sources`, { sources });
+/**
+ * One line of a campaign's search history: a change to where its searches look or to its filters, with the value before and
+ * after as the server kept them (the console says them in words: searchHistory.ts).
+ */
+export type ApiSearchChange = {
+  id: string;
+  at: string;
+  by: string | null;
+  lever: "filters" | "sources";
+  before: unknown;
+  after: unknown;
+  via: string | null;
+  /** The earlier line this one put back, when it is an Undo. */
+  undoes: string | null;
+  /** A later line put this one back. */
+  undone: boolean;
+  /** This person may put it back now. */
+  canUndo: boolean;
+};
+export const searchHistory = (id: string) =>
+  api<{ items: ApiSearchChange[] }>("GET", `/v1/campaigns/${id}/search-history`).then((r) => r.items);
+/** Puts one change back as it was; the answer is the history as it stands. */
+export const undoSearchChange = (id: string, changeId: string) =>
+  api<{ lever: "filters" | "sources"; items: ApiSearchChange[] }>("POST", `/v1/campaigns/${id}/search-history/${changeId}/undo`);
+/**
+ * A change the daily search suggests for a campaign: which, and why in counts. It is shown as a card in the agent's chat ("Show me
+ * the changes you suggest") and made, or put back, by the card; the page only says there is one (modules/sourcing/suggestions.ts).
+ */
+export type ApiSuggestion = {
+  id: string;
+  campaignId: string;
+  rule: string;
+  lever: "filters" | "sources" | "spec";
+  headline: string;
+  why: string;
+  state: string;
+};
+/** The changes waiting for a look on one campaign; none while the daily search is switched off. */
+export const campaignSuggestions = (id: string) =>
+  api<{ on: boolean; suggestions: ApiSuggestion[] }>("GET", `/v1/campaigns/${id}/suggestions`).then((r) => (r.on ? r.suggestions : []));
 export const archiveCampaign = (id: string, archived: boolean) =>
   api<ApiCampaign>("PUT", `/v1/campaigns/${id}/archive`, { archived });
 /** Deletes a closed campaign and everything on it, for good. */
@@ -323,12 +400,13 @@ export function rowFromApi(c: ApiCampaign, ov?: ApiOverview, now = Date.now()): 
 
 /** The create form's row as the API's create body. Names become member ids. */
 export function createBodyFrom(row: CampaignRow, idOf: (name: string) => string | undefined): CreateCampaignBody {
-  const { clientId, priority, visibility, ...setup } = row.setup ?? {};
+  const { clientId, newClient, priority, visibility, ...setup } = row.setup ?? {};
   const ownerId = idOf(row.owner);
   const memberIds = row.team.filter((n) => n !== row.owner).map(idOf).filter((x): x is string => !!x);
   return {
     name: row.name,
     clientId: clientId ?? null,
+    ...(!clientId && newClient?.trim() ? { newClient: newClient.trim() } : {}),
     department: row.department || null,
     location: row.location || null,
     target: row.target,
@@ -588,12 +666,16 @@ export function logLine(a: ApiActivity, me: string | null, personIdOf: (candidat
     }
     if (a.verb === "spec_drafted" || a.verb === "spec_approved") {
       const v = num(a.data.version);
-      return line({ who, kind: "agent", actor, verb: `${a.verb === "spec_drafted" ? "drafted" : "approved"} the role spec${v ? ` (version ${v})` : ""}` });
+      return line({ who, kind: "agent", actor, verb: `${a.verb === "spec_drafted" ? "drafted" : "approved"} the requirements${v ? ` (version ${v})` : ""}` });
+    }
+    /* A job description put on the campaign or replaced: said as that, not as "edited the campaign". */
+    if (a.verb === "updated" && Array.isArray(a.data.fields) && a.data.fields.length === 1 && a.data.fields[0] === "jd") {
+      return line({ who, kind: "agent", actor, verb: a.data.jd === "replaced" ? "replaced the job description" : "added the job description" });
     }
     if (a.verb === "search_started" || a.verb === "scoring_started") {
       /* Said with what asked for it, so a search that nobody remembers asking for can be traced. */
       const via = str(a.data.via);
-      const by = a.data.trigger === "chat" ? "in the chat" : via === "approve" ? "when the role spec was approved" : via === "score_rest" ? "from the Score the rest button" : via === "find_more" ? "from Find more people" : via === "job_description" ? "from the job description" : "by hand";
+      const by = a.data.trigger === "chat" ? "in the chat" : via === "approve" ? "when the requirements were approved" : via === "score_rest" ? "from the Score the rest button" : via === "find_more" ? "from Find more people" : via === "job_description" ? "from the job description" : "by hand";
       return line({ who, kind: "agent", actor, verb: a.verb === "search_started" ? "started a search" : "started scoring the people found", detail: `Asked ${by}` });
     }
     if (a.verb === "exported") {
@@ -629,15 +711,27 @@ export type SheetPreview = {
   rows: number;
   people: number;
   unreadable: number;
+  /** Of the rows that are not people: how many have no name, and how many no phone, email or LinkedIn that could be read. */
+  noName: number;
+  noContact: number;
   stages: Record<string, number>;
+  /** For each stage, the words in the sheet's statuses that put people there (the product's own words, never a cell's text). */
+  placedBy: Record<string, Array<{ word: string; n: number }>>;
   noStatus: number;
   read: Array<{ field: string; heading: string }>;
   left: string[];
+  /** Which tab is read: the one the link points at, or the first because it names none. */
+  tab: "linked" | "first";
 };
 export type SheetSync = {
   people: number;
+  /** Each person row is one of these four: added + alreadyHere + repeats + refused = people. */
   added: number;
   alreadyHere: number;
+  repeats: number;
+  refused: number;
+  /** The first few refused rows, by their number in the sheet, and why. */
+  refusals: Array<{ row: number; why: string }>;
   unreadable: number;
   moved: Record<string, number>;
   notMoved: number;
@@ -649,7 +743,7 @@ export const sheetApi = {
   /** What a sheet holds (nothing is changed). Without a link, the connected one. */
   preview: (campaignId: string, url?: string) =>
     api<SheetPreview>("POST", `/v1/campaigns/${campaignId}/sheet/preview`, url ? { url } : {}),
-  /** Brings its people in on the stage their status says. Without a link, reads the connected one again. */
-  sync: (campaignId: string, url?: string) =>
-    api<SheetSync>("POST", `/v1/campaigns/${campaignId}/sheet`, url ? { url } : {}),
+  /** Brings its people in on the stage their status says (`place: false` adds them all as shared and moves no one). Without a link, reads the connected one again. */
+  sync: (campaignId: string, url?: string, options: { place?: boolean } = {}) =>
+    api<SheetSync>("POST", `/v1/campaigns/${campaignId}/sheet`, { ...(url ? { url } : {}), ...options }),
 };

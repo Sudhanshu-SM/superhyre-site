@@ -1,19 +1,28 @@
 import { describe, expect, it } from "vitest";
-import { addTag, blankDraft, compLabel, draftProblems, prefillFromClient, rowFromDraft } from "../campaignDraft";
+import { CLIENT_NEEDED, addTag, blankDraft, compLabel, draftProblems, prefillFromClient, rowFromDraft, withNewClient } from "../campaignDraft";
 import { CLIENT_SEED } from "../clients";
 import { TEAM } from "../campaignsData";
 
 const today = new Date("2026-10-03T09:00:00");
-const base = () => ({ ...blankDraft("Punith S"), name: "Staff SRE", locations: ["Bengaluru"] });
+/* Every campaign is for a client, so a draft that is meant to be fine has one. */
+const base = () => ({ ...blankDraft("Punith S"), name: "Staff SRE", locations: ["Bengaluru"], clientId: "cl-zepto" });
 
 describe("draftProblems", () => {
-  it("needs only a role to create a campaign, with no place and no agent asked for", () => {
-    expect(draftProblems({ ...blankDraft("Punith S"), name: "SRE" }, today, { agents: false })).toEqual({});
-    expect(draftProblems({ ...blankDraft("Punith S"), name: "SRE", locations: [] }, today, { agents: false })).toEqual({});
+  it("needs only a role and its client to create a campaign, with no place and no agent asked for", () => {
+    expect(draftProblems({ ...blankDraft("Punith S"), name: "SRE", clientId: "cl-zepto" }, today, { agents: false })).toEqual({});
+    expect(draftProblems({ ...blankDraft("Punith S"), name: "SRE", clientId: "cl-zepto", locations: [] }, today, { agents: false })).toEqual({});
     expect(draftProblems(blankDraft("Punith S"), today).name).toBeTruthy();
   });
+  it("needs the client the campaign is for: one picked, or a company named to be added with it (a draft with neither is stopped)", () => {
+    const none = draftProblems({ ...blankDraft("Punith S"), name: "SRE" }, today, { agents: false });
+    expect(none).toEqual({ clientId: CLIENT_NEEDED });
+    expect(CLIENT_NEEDED).toBe("Pick the client this campaign is for, or add one.");
+    expect(draftProblems({ ...blankDraft("Punith S"), name: "SRE", newClient: "Acme Fintech" }, today, { agents: false })).toEqual({});
+    // Spaces are not a name.
+    expect(draftProblems({ ...blankDraft("Punith S"), name: "SRE", newClient: "   " }, today, { agents: false })).toEqual({ clientId: CLIENT_NEEDED });
+  });
   it("asks for an agent only where agents are offered", () => {
-    const p = draftProblems({ ...blankDraft("Punith S"), name: "SRE", agents: [] }, today);
+    const p = draftProblems({ ...base(), agents: [] }, today);
     expect(Object.keys(p)).toEqual(["agents"]);
     expect(p.agents).not.toMatch(/draft/i);
   });
@@ -38,6 +47,19 @@ describe("prefillFromClient", () => {
   it("clears client-owned fields when the client is removed", () => {
     expect(prefillFromClient({ ...base(), clientId: "x", hiringManager: "A", fee: "1%" }, undefined)).toMatchObject({ clientId: "", hiringManager: "", fee: "" });
   });
+  it("drops a company that was only named once a client is picked instead", () => {
+    const named = withNewClient(blankDraft("Punith S"), "Acme Fintech");
+    expect(prefillFromClient(named, CLIENT_SEED.find((c) => c.id === "cl-zepto"))).toMatchObject({ clientId: "cl-zepto", newClient: "" });
+  });
+});
+
+describe("withNewClient", () => {
+  it("names the company for the campaign instead of a client, and takes the last client's contact and fee with it", () => {
+    const picked = prefillFromClient(blankDraft("Punith S"), CLIENT_SEED.find((c) => c.id === "cl-zepto"));
+    const named = withNewClient(picked, "  Acme Fintech ");
+    expect(named).toMatchObject({ clientId: "", newClient: "Acme Fintech", hiringManager: "", fee: "" });
+    expect(draftProblems({ ...named, name: "SRE" }, today, { agents: false })).toEqual({});
+  });
 });
 
 describe("rowFromDraft", () => {
@@ -51,6 +73,17 @@ describe("rowFromDraft", () => {
     const r = rowFromDraft(base(), TEAM);
     expect(r.status).toBe("active");
     expect(r.needs).toBeUndefined();
+  });
+  it("carries the client it is for: the one picked, or the company named to be added with it, never both", () => {
+    expect(rowFromDraft(base(), TEAM).setup).toMatchObject({ clientId: "cl-zepto" });
+    expect(rowFromDraft(base(), TEAM).setup?.newClient).toBeUndefined();
+    const named = rowFromDraft(withNewClient(base(), "Acme Fintech"), TEAM);
+    expect(named.setup?.newClient).toBe("Acme Fintech");
+    expect(named.setup?.clientId).toBeUndefined();
+    // A picked client wins over a name left in the draft.
+    const both = rowFromDraft({ ...base(), newClient: "Acme Fintech" }, TEAM);
+    expect(both.setup?.clientId).toBe("cl-zepto");
+    expect(both.setup?.newClient).toBeUndefined();
   });
 });
 

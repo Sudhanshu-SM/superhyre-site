@@ -1,7 +1,7 @@
 import { resetSectionState } from "./sectionState";
 import { Component, lazy } from "react";
 import type { ComponentType, ReactNode } from "react";
-import { Loader } from "./components/Loader";
+import { PageLoader } from "./components/PageLoader";
 import { LoadFailed } from "./ui";
 
 /**
@@ -92,7 +92,7 @@ export function preloadPages(): void {
 
 /** What shows while a page's file arrives: the page loader, where the page will be. */
 export function PageFallback(): JSX.Element {
-  return <div className="con-page" aria-busy="true"><Loader size="lg" label="Loading" block /></div>;
+  return <PageLoader />;
 }
 
 /**

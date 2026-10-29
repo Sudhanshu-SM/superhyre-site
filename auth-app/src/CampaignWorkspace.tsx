@@ -26,7 +26,7 @@ import { addForCandidate, allowContactAgain } from "./dncStore";
 import { notContactedYet, shortlistSplit, shortlistTip } from "./shortlistWaiting";
 import type { Client, Move } from "./campaignStore";
 import {
-  currentUserId, loadOlderActivity, refreshCampaignAgents, useCampaignAgents, movePeople, useActivityHasOlder, movePerson, resolveCampaignId, setCampaignClient, setCampaignStatus, useCampaignActivity, useCampaignOverview, useOverviewFailed, retryOverview,
+  currentUserId, loadOlderActivity, refreshCampaignAgents, useCampaignAgents, movePeople, useActivityHasOlder, movePerson, resolveCampaignId, setCampaignClient, setCampaignClientByName, setCampaignStatus, useCampaignActivity, useCampaignOverview, useOverviewFailed, retryOverview,
   onHiredLanded, orgHasEarlierHire, pipelineNow, removeFromShortlist, retryPipeline, saveStages, stagesNow, useCampaignRow, useCampaignStages, useClients, useMoves, usePipeline, usePipelineFailed, usePipelineReady,
 } from "./campaignStore";
 import type { StageDef } from "./boardStages";
@@ -40,7 +40,8 @@ import { LooseEndsNote } from "./TiedBlock";
 import { CloseDialog } from "./CloseDialog";
 import { hiresOf } from "./hired";
 import { AssignDialog, ConfirmDialog, ReopenDialog, YourWorkCard } from "./RoleBits";
-import { mayChangeCampaign, mayCloseCampaign, useMayChangeCampaign } from "./campaignRights";
+import { mayChangeCampaign, mayChangeCampaignClient, mayCloseCampaign, useMayChangeCampaign } from "./campaignRights";
+import { ClientNameAdd } from "./ClientPicker";
 import { can, standingOf, useCan } from "./can";
 import { isMe, useSession } from "./roleStore";
 import imgHired from "./assets/stages/hired.png";
@@ -51,6 +52,7 @@ import type { CampaignRow } from "./campaignsData";
 import { Avatar } from "./CandidateBits";
 import { AgentsPanel, ClosedPanel, HiresCard, OvCard, dMMM, isSent } from "./OverviewPanel";
 import { TasksCard, TasksGhost } from "./TasksPanel";
+import { JobDescriptionButton } from "./JobDescriptionPopup";
 import { plainText } from "./displayText";
 import { firstHireSeen, rememberFirstHire } from "./firstHireSeen";
 import { Popover, useToast } from "./Contacts";
@@ -696,8 +698,8 @@ export function CampaignOverview({ ctx }: { ctx: Ctx }) {
   const stages = useCampaignStages(ctx.campaignId);
   const m = overviewModel({ row, people, moves, client, briefs, responses, ...(ov ? { api: ov } : {}) });
   const name = plainText(row?.name) || "this campaign";
-  /* The server lets an admin or the campaign's owner change its client; the menu says the same. */
-  const canClient = (admin || (LIVE ? isMe(row?.ownerId) : row?.owner === session.name)) && mayChangeCampaign(session, row);
+  /* Anyone on the campaign sets its client while it has none; changing one it has is an admin's or the owner's (the server's rule, and the menu says the same). */
+  const canClient = mayChangeCampaignClient(session, row, !!client);
   /* The brief, the role spec and the search are the people on the campaign's; anyone else follows it. */
   const mayChange = mayChangeCampaign(session, row);
   /* Closing and reopening are the owner's or an admin's, the server's own rule. */
@@ -771,7 +773,9 @@ export function CampaignOverview({ ctx }: { ctx: Ctx }) {
   return (
     <div className="cw is-wide ov2">
       <CampaignHeader ctx={ctx} meta={meta}>
-        {LIVE && <button type="button" className="cw-btn" onClick={() => setSpecOpen(true)}><ListChecks size={14} /> Role spec</button>}
+        {/* The job description is read and updated in a popup: the Overview is laid out to fit one screen. Keyed by the campaign, so a draft is never carried to another. */}
+        {LIVE && <JobDescriptionButton key={resolveCampaignId(ctx.campaignId)} campaignId={resolveCampaignId(ctx.campaignId)} />}
+        {LIVE && <button type="button" className="cw-btn" onClick={() => setSpecOpen(true)}><ListChecks size={14} /> Requirements</button>}
         {LIVE && mayChange && <SheetButton campaignId={resolveCampaignId(ctx.campaignId)} name={name} />}
         {/* The one control for whether the campaign is on. */}
         {mayClose && (m.phase === "closed"
@@ -805,7 +809,7 @@ export function CampaignOverview({ ctx }: { ctx: Ctx }) {
       )}
       {/* A dialog, not a section: the overview is laid out to fit one screen. */}
       {LIVE && (
-        <Dialog open={specOpen} onClose={() => setSpecOpen(false)} label="Role spec" size="md">
+        <Dialog open={specOpen} onClose={() => setSpecOpen(false)} label="Requirements" size="md">
           <div className="ov2-spec"><RoleSpecPanel campaignId={resolveCampaignId(ctx.campaignId)} onClose={() => setSpecOpen(false)} /></div>
         </Dialog>
       )}
@@ -1007,11 +1011,12 @@ function ClientDialog({ open, onClose, campaignId, current, clients }: { open: b
   const [mode, setMode] = useState<"pick" | "new">("pick");
   const [q, setQ] = useState("");
   const toast = useToast();
-  /* A client is added by an admin; the owner of a campaign who is a recruiter picks from the ones they can see. */
-  const mayAdd = useCan("client.manage");
-  useEffect(() => { if (open) { setMode(clients.length || !mayAdd ? "pick" : "new"); setQ(""); } }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  /* An admin adds a client with all its details; anyone else names the company and the server adds it. */
+  const detailed = useCan("client.manage");
+  useEffect(() => { if (open) { setMode(clients.length ? "pick" : "new"); setQ(""); } }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   /* Said once the server has answered: a refusal puts the client back and says why. */
   const pick = (c: Client) => { void setCampaignClient(campaignId, c.id).then((ok) => { if (ok) toast(`${c.name} is now the client`); }); onClose(); };
+  const named = (name: string) => { void setCampaignClientByName(campaignId, name).then((ok) => { if (ok) toast(`${name} is now the client`); }); onClose(); };
   /* Active first, then prospects, then inactive; the current one leads. */
   const order = { active: 0, prospect: 1, inactive: 2 } as const;
   const needle = q.trim().toLowerCase();
@@ -1028,7 +1033,7 @@ function ClientDialog({ open, onClose, campaignId, current, clients }: { open: b
         </header>
         <div className="cl-tabs" role="tablist">
           <button type="button" role="tab" aria-selected={mode === "pick"} className={mode === "pick" ? "is-on" : ""} onClick={() => setMode("pick")} disabled={!clients.length}>Existing client</button>
-          {mayAdd && <button type="button" role="tab" aria-selected={mode === "new"} className={mode === "new" ? "is-on" : ""} onClick={() => setMode("new")}><Plus size={12} weight="bold" /> New client</button>}
+          <button type="button" role="tab" aria-selected={mode === "new"} className={mode === "new" ? "is-on" : ""} onClick={() => setMode("new")}><Plus size={12} weight="bold" /> New client</button>
         </div>
         {mode === "pick" ? (
           <>
@@ -1051,15 +1056,14 @@ function ClientDialog({ open, onClose, campaignId, current, clients }: { open: b
                   </button>
                 </li>
               ))}
-              {!list.length && <li className="cl-none t-body-sm">{clients.length ? <>No client matches “{q.trim()}”.</> : "There are no clients to choose from yet. An admin adds clients."}</li>}
-              {current && (
-                <li><button type="button" className="cl-remove" onClick={() => { void setCampaignClient(campaignId, null).then((ok) => { if (ok) toast("Client removed"); }); onClose(); }}>Remove client from this campaign</button></li>
-              )}
+              {!list.length && <li className="cl-none t-body-sm">{clients.length ? <>No client matches “{q.trim()}”.</> : "There are no clients to choose from yet."}</li>}
             </ul>
           </>
         ) : (
           <div className="cl-new">
-            <ClientForm onCancel={onClose} onSaved={pick} submitLabel="Add and link" />
+            {detailed
+              ? <ClientForm onCancel={onClose} onSaved={pick} submitLabel="Add and link" />
+              : <ClientNameAdd clients={clients} onCancel={onClose} onDone={(made) => { if (made.kind === "name") named(made.name); else { const c = clients.find((x) => x.id === made.id); if (c) pick(c); } }} />}
           </div>
         )}
       </div>

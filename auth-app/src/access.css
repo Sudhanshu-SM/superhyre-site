@@ -227,7 +227,9 @@
      columns, the strip, the Overview funnel, the stages editor, the status words). Light is here, dark is in
      theme/theme.css; each key has a mark (arcs, bars, swatches: 3:1 or more on the card), a text (4.5:1 or more on
      the card, the page and its own soft), a soft wash and a line. Calm and a little desaturated, so orange stays
-     the action colour; violet first, blue, teal, green, amber, clay, rose. __tests__/stageColors.test.ts measures them. ── */
+     the action colour; violet first, blue, teal, green, amber, clay, rose. Sixteen are on offer (stageDonut.ts
+     PICKABLE_HUES, the picker's 4 by 4 grid) and slate is kept for old data; the first eight lines are the colours
+     that were there first, the nine after them were added later. __tests__/stageColors.test.ts measures them. ── */
   --stage-slate: #76818f; --stage-slate-text: #5e6876; --stage-slate-soft: #ecedef; --stage-slate-line: #c5cad0;
   --stage-blue: #3675b2; --stage-blue-text: #2e69a2; --stage-blue-soft: #e3ecf4; --stage-blue-line: #abc5df;
   --stage-teal: #1c97a1; --stage-teal-text: #01747c; --stage-teal-soft: #dff0f2; --stage-teal-line: #a0d3d8;
@@ -236,6 +238,15 @@
   --stage-orange: #bd7042; --stage-orange-text: #9b552a; --stage-orange-soft: #f6ebe5; --stage-orange-line: #e3c3b0;
   --stage-rose: #ba6579; --stage-rose-text: #9d5062; --stage-rose-soft: #f5e9ec; --stage-rose-line: #e2bec7;
   --stage-violet: #9b82cf; --stage-violet-text: #745ca2; --stage-violet-soft: #f1eef8; --stage-violet-line: #d5cbeb;
+  --stage-sky: #4999ce; --stage-sky-text: #145c85; --stage-sky-soft: #e6f1f8; --stage-sky-line: #b3d4ea;
+  --stage-indigo: #4d5092; --stage-indigo-text: #50518f; --stage-indigo-soft: #e6e7f0; --stage-indigo-line: #b4b6d1;
+  --stage-plum: #7b467e; --stage-plum-text: #6e4376; --stage-plum-soft: #ede5ed; --stage-plum-line: #c8b1c9;
+  --stage-pink: #cc7aa3; --stage-pink-text: #874066; --stage-pink-soft: #f8ecf2; --stage-pink-line: #eac7d8;
+  --stage-red: #9d4d43; --stage-red-text: #853f3c; --stage-red-soft: #f1e6e5; --stage-red-line: #d6b4b0;
+  --stage-yellow: #868127; --stage-yellow-text: #676011; --stage-yellow-soft: #eeede1; --stage-yellow-line: #cccaa4;
+  --stage-lime: #829d4e; --stage-lime-text: #426117; --stage-lime-soft: #eef1e6; --stage-lime-line: #cbd6b5;
+  --stage-mint: #37a47d; --stage-mint-text: #046645; --stage-mint-soft: #e3f2ed; --stage-mint-line: #abd9c8;
+  --stage-brown: #7a4712; --stage-brown-text: #794b1e; --stage-brown-soft: #ece5de; --stage-brown-line: #c7b29b;
   --stage-track: #efeae4;  /* the faint ring under a donut's arcs */
 
   --accent-deep: #b8400f;  /* burnt end of the accent */
@@ -5236,7 +5247,7 @@ html .con-main .orc-main:has(.sh-bento.is-home) > :is(.orc-page, .orc-stream) {
   align-items: center;
   gap: 7px;
   margin: 0;
-  font: 400 13.5px/1.4 var(--ui);
+  font: 400 14.5px/1.4 var(--ui);
   color: var(--ink-2);
 }
 
@@ -5915,7 +5926,7 @@ html .con-main .orc-main:has(.sh-bento.is-home) > :is(.orc-page, .orc-stream) {
   border: none;
   padding: 0;
   margin: 0;
-  font: 400 14.5px/1.5 var(--ui);
+  font: 400 16.5px/1.5 var(--ui);
   letter-spacing: -0.008em;
   white-space: pre-wrap;
   overflow-wrap: break-word;
@@ -5963,7 +5974,7 @@ html .con-main .orc-main:has(.sh-bento.is-home) > :is(.orc-page, .orc-stream) {
    the boundary becoming ambiguous, whereas two underlines simply abut.
 
    `--f` is the facet's mark colour, set inline from FACET_HUE. 2px so it
-   reads as deliberate at 14.5px, and `text-underline-offset` keeps it clear
+   reads as deliberate at 16.5px, and `text-underline-offset` keeps it clear
    of the descenders it would otherwise cut through. */
 .orc-mark-span {
   text-decoration: underline;
@@ -10775,7 +10786,7 @@ button.rail-config-act {
   align-items: center;
   gap: 5px;
   margin: 0;
-  font: 400 11.5px/1 var(--ui);
+  font: 400 12.5px/1 var(--ui);
   letter-spacing: -0.011em;
   font-variant-numeric: tabular-nums;
   color: var(--ink-2);
@@ -10852,7 +10863,7 @@ button.rail-config-act {
 .rep-free {
   margin: 0;
   max-width: 62ch;
-  font: 400 11.5px/1.6 var(--ui);
+  font: 400 12.5px/1.6 var(--ui);
   letter-spacing: -0.011em;
   color: var(--ink-2);
 }
@@ -10867,7 +10878,7 @@ button.rail-config-act {
    letter-spacing: normal because the -0.011em above is Inter's optical
    correction and it would otherwise inherit into a face never cut for it. */
 .rep-trace-note code {
-  font: 400 10.5px/1 ui-monospace, monospace;
+  font: 400 11.5px/1 ui-monospace, monospace;
   letter-spacing: normal;
   color: var(--ink-2);
 }
@@ -10940,7 +10951,7 @@ button.rail-config-act {
    still quieter than the reply it explains. */
 .rep-step-label {
   display: block;
-  font: 500 12.5px/1.35 var(--ui);
+  font: 500 13.5px/1.35 var(--ui);
   letter-spacing: -0.011em;
   color: var(--ink);
 }
@@ -10956,7 +10967,7 @@ button.rail-config-act {
 .rep-step-detail {
   margin: 2px 0 0;
   max-width: 62ch;
-  font: 400 12px/1.5 var(--ui);
+  font: 400 13px/1.5 var(--ui);
   letter-spacing: -0.011em;
   color: var(--ink-2);
 }
@@ -10981,7 +10992,7 @@ button.rail-config-act {
   position: relative;
   padding-left: 12px;
   max-width: 62ch;
-  font: 400 12px/1.5 var(--ui);
+  font: 400 13px/1.5 var(--ui);
   letter-spacing: -0.011em;
   color: var(--ink);
 }
@@ -11018,7 +11029,7 @@ button.rail-config-act {
 .rep-para {
   margin: 0;
   max-width: 62ch;
-  font: 400 15px/1.65 var(--ui);
+  font: 400 16px/1.65 var(--ui);
   letter-spacing: -0.011em;
   color: var(--ink);
 }
@@ -11034,7 +11045,7 @@ button.rail-config-act {
 .rep-ask {
   margin: 0;
   max-width: 62ch;
-  font: 500 15px/1.5 var(--ui);
+  font: 500 16px/1.5 var(--ui);
   letter-spacing: -0.011em;
   color: var(--ink);
 }
@@ -11046,7 +11057,7 @@ button.rail-config-act {
 .rep-why {
   margin: -4px 0 0;
   max-width: 62ch;
-  font: 400 12.5px/1.5 var(--ui);
+  font: 400 13.5px/1.5 var(--ui);
   letter-spacing: -0.011em;
   color: var(--ink-2);
 }
@@ -11092,7 +11103,7 @@ button.rail-config-act {
   border: 1px solid var(--hairline);
   border-radius: var(--r-pill);
   background: var(--nav-surface);
-  font: 400 12.5px/1.2 var(--ui);
+  font: 400 13.5px/1.2 var(--ui);
   letter-spacing: -0.011em;
   color: var(--ink);
   cursor: pointer;
@@ -11181,7 +11192,7 @@ button.rail-config-act {
 .rep-app-name {
   flex: 1 1 auto;
   min-width: 0;
-  font: 600 12.5px/1.3 var(--ui);
+  font: 600 13.5px/1.3 var(--ui);
   letter-spacing: -0.011em;
   color: var(--ink);
 }
@@ -11208,7 +11219,7 @@ button.rail-config-act {
      carry the unavailability instead. */
   background: var(--btn-fill);
   color: var(--btn-ink);
-  font: 600 12.5px/1 var(--ui);
+  font: 600 13.5px/1 var(--ui);
   letter-spacing: -0.011em;
   cursor: not-allowed;
 }
@@ -11224,7 +11235,7 @@ button.rail-config-act {
    this size sets far too tight without it, which is why every micro-label on
    this surface opens up instead of closing in. Same call, same reason. */
 .rep-commit-mark {
-  font: 600 9.5px/1 var(--ui);
+  font: 600 10.5px/1 var(--ui);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-2);
@@ -11241,7 +11252,7 @@ button.rail-config-act {
 .rep-lead {
   margin: 0;
   max-width: 62ch;
-  font: 400 13.5px/1.55 var(--ui);
+  font: 400 14.5px/1.55 var(--ui);
   letter-spacing: -0.011em;
   color: var(--ink);
 }
@@ -11266,7 +11277,7 @@ button.rail-config-act {
 .rep-field + .rep-field { margin-top: -7px; }
 
 .rep-field-label {
-  font: 600 10.5px/1.6 var(--ui);
+  font: 600 11.5px/1.6 var(--ui);
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--ink-2);
@@ -11274,7 +11285,7 @@ button.rail-config-act {
 
 .rep-field-value {
   min-width: 0;
-  font: 400 13.5px/1.5 var(--ui);
+  font: 400 14.5px/1.5 var(--ui);
   letter-spacing: -0.011em;
   color: var(--ink);
 }
@@ -11315,7 +11326,7 @@ button.rail-config-act {
 .rep-sec-title {
   flex: 1 1 auto;
   min-width: 0;
-  font: 600 12.5px/1.35 var(--ui);
+  font: 600 13.5px/1.35 var(--ui);
   letter-spacing: -0.011em;
 }
 
@@ -11362,7 +11373,7 @@ button.rail-config-act {
 }
 
 .rep-sec-items li {
-  font: 400 13px/1.5 var(--ui);
+  font: 400 14px/1.5 var(--ui);
   letter-spacing: -0.011em;
   color: var(--ink);
 }
@@ -11386,7 +11397,7 @@ button.rail-config-act {
   padding: 8px 10px;
   border-radius: var(--r-field);
   background: var(--sub);
-  font: 400 11.5px/1.6 var(--ui);
+  font: 400 12.5px/1.6 var(--ui);
   letter-spacing: -0.011em;
   color: var(--ink-2);
 }
@@ -11419,7 +11430,7 @@ button.rail-config-act {
   border: 1px solid var(--nav-rule);
   border-radius: var(--r-field);
   background: var(--nav-surface);
-  font: 400 11px/1 ui-monospace, monospace;
+  font: 400 12px/1 ui-monospace, monospace;
   letter-spacing: normal;
   color: var(--ink-2);
 }
@@ -11452,7 +11463,7 @@ button.rail-config-act {
   border: 1px solid var(--nav-edge-panel);
   border-radius: var(--r-pill);
   background: var(--nav-surface);
-  font: 500 12px/1 var(--ui);
+  font: 500 13px/1 var(--ui);
   letter-spacing: -0.011em;
   color: var(--ink-2);
   cursor: not-allowed;
@@ -11466,7 +11477,7 @@ button.rail-config-act {
   align-items: center;
   gap: 4px;
   margin-left: 2px;
-  font: 600 9.5px/1 var(--ui);
+  font: 600 10.5px/1 var(--ui);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-2);
