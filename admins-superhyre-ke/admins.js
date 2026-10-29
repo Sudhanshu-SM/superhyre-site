@@ -23,8 +23,12 @@
   var fixture = isLocal ? new URLSearchParams(location.search).get("fixture") : null;
   var agentFixture = isLocal ? new URLSearchParams(location.search).get("agentFixture") : null;
 
+  /* The admin sign-in is its own, apart from the normal Superhyre one: its own storage key, so a console session is
+     never picked up here and signing out here never signs anyone out of the console. The server holds the same line
+     (27_admin_sign_in.sql): an owner or admin, a Google sign-in on @superhyre.com, at most 12 hours old. */
+  var STORAGE_KEY = "sh-admins-auth";
   var sb = fixture ? null : window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-    auth: { flowType: "pkce", detectSessionInUrl: true, persistSession: true, autoRefreshToken: true }
+    auth: { flowType: "pkce", detectSessionInUrl: true, persistSession: true, autoRefreshToken: true, storageKey: STORAGE_KEY }
   });
 
   var COLORS = {
@@ -172,7 +176,7 @@
     $("gateTitle").textContent = forbidden ? "Not an admin account" : "Sign in";
     $("gateText").textContent = forbidden
       ? "You're signed in as " + (info || "another account") + ". This page is only for owners and admins of the Superhyre workspace."
-      : "Use your superhyre.com Google account to see how the extension and the agent are used.";
+      : "This sign-in is separate from your Superhyre login. Use your @superhyre.com Google account.";
     $("inText").textContent = forbidden ? "Use a different Google account" : "Continue with Google";
     $("in").disabled = false;
     $("gateOut").hidden = !forbidden;
@@ -185,10 +189,9 @@
     $("in").disabled = true;
     $("inText").textContent = "Opening Google…";
     // A different account starts from no session, so the page never mixes two people's sign-ins.
-    if (gateMode === "forbidden") await sb.auth.signOut();
     var r = await sb.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: location.origin + location.pathname + location.search, queryParams: { prompt: "select_account" } }
+      options: { redirectTo: location.origin + location.pathname + location.search, queryParams: { prompt: "select_account", hd: "superhyre.com" } }
     });
     // Success leaves the page for Google; only a failure to start lands here.
     if (r.error) {
@@ -198,7 +201,8 @@
     }
   }
   async function signOut() {
-    if (sb) await sb.auth.signOut();
+    // "local": this page's session only. The person stays signed in to the console and anywhere else.
+    if (sb) await sb.auth.signOut({ scope: "local" });
     $("who").hidden = $("out").hidden = true;
     data = null;
     agent = makeAgent();
@@ -245,12 +249,7 @@
       var d = await rpc("extension_admin_dashboard", { from: r.from, to: r.to, org: state.org, user: state.user });
       if (mine !== seq) return;
       if (!d || d.ok === false) {
-        if (d && d.reason === "forbidden") {
-          var email = "";
-          if (sb) { var s = await sb.auth.getSession(); email = s.data.session && s.data.session.user.email; }
-          gate("forbidden", email);
-          return;
-        }
+        if (d && d.reason === "forbidden") { refused(); return; }
         throw new Error((d && d.reason) || "no answer");
       }
       data = d;
@@ -748,10 +747,42 @@
       onSignedOut: function () { gate("signin"); }
     });
   }
-  async function forbidden() {
-    var email = "";
-    if (sb) { var s = await sb.auth.getSession(); email = s.data.session && s.data.session.user.email; }
-    gate("forbidden", email);
+  function forbidden() { refused(); }
+
+  /* Whether this sign-in opens the page, asked of the server (public.admin_check) before anything is loaded. */
+  var admitting = false;
+  async function admit() {
+    if (admitting) return;
+    admitting = true;
+    try {
+      var r = await sb.rpc("admin_check");
+      if (r.error) throw r.error;
+      if (r.data && r.data.ok) { $("who").textContent = r.data.email || ""; await openView(); }
+      else await refused(r.data);
+    } catch (e) {
+      console.error("admin check:", e);
+      gate("signin");
+      gateError("Couldn't check your sign-in. Check your connection and try again.");
+    } finally {
+      admitting = false;
+    }
+  }
+  /* Not let in (or no longer): drop this page's session at once, so nobody is left "signed in" to a page they cannot
+     see, and say why on the sign-in page. */
+  async function refused(check) {
+    if (!check) {
+      try { var r = await sb.rpc("admin_check"); check = r.data; } catch (e) { check = null; }
+    }
+    var email = check && check.email;
+    try { await sb.auth.signOut({ scope: "local" }); } catch (e) { /* the session is dropped from storage either way */ }
+    data = null;
+    agent = makeAgent();
+    $("who").textContent = "";
+    $("who").hidden = $("out").hidden = true;
+    gate("signin");
+    gateError(check && check.reason === "sign_in_again"
+      ? "Your admin sign-in has ended. Admin sessions are a Google sign-in and last 12 hours. Sign in again."
+      : (email || "That account") + " can't open this page. Only owners and admins of the Superhyre workspace, signed in with an @superhyre.com Google account, can.");
   }
   /** Show whichever view the address asks for, loading it the first time it is opened. */
   function showView() {
@@ -793,11 +824,10 @@
     if (fixture) { $("who").textContent = "local preview"; $("who").hidden = false; openView(); return; }
     var err = returnedError();
     var s = await sb.auth.getSession();
-    if (s.data.session) { $("who").textContent = s.data.session.user.email; }
-    if (s.data.session && !err) openView();
+    if (s.data.session && !err) admit();
     else { gate("signin"); if (err) gateError(err); }
     sb.auth.onAuthStateChange(function (event, session) {
-      if (event === "SIGNED_IN" && session && !data && !agent.isLoaded() && !loading) { $("who").textContent = session.user.email; openView(); }
+      if (event === "SIGNED_IN" && session && !data && !agent.isLoaded() && !loading) admit();
       if (event === "SIGNED_OUT" && (!$("board").hidden || !$("agentBoard").hidden)) { data = null; agent = makeAgent(); gate("signin"); }
     });
   }
