@@ -3,7 +3,7 @@
  * The same dashboard as /agent/admin-dashboard (its drawing is carried over from agent/admin.js), but signed in the
  * way the rest of this page is: the Supabase Google session, and public.admin_agent_dashboard, which lets in only the
  * people core.is_extension_admin lets in and logs every read to agent_admin_audit. That page and the onboard function
- * behind it are unchanged.
+ * behind it are unchanged; the page now forwards here.
  *
  * Model spend is priced here from each model's own tokens, with the onboard function's built-in prices (no
  * GATEWAY_PRICES override is set), so the figure is the one the agent page shows.
