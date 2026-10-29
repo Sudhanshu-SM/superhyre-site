@@ -1,6 +1,7 @@
-/* superhyre.com/extension/admin-dashboard/
+/* superhyre.com/admins-superhyre-ke/ — the one admin page: the Extension dashboard and the Agent dashboard
+ * (agent-view.js), one sign-in, a switch between them (?view=agent).
  *
- * How the Contact Finder extension is used, for Superhyre's owners and admins. Signs in with the console's Google
+ * The Extension half: how the Contact Finder extension is used, for Superhyre's owners and admins. Signs in with the console's Google
  * sign-in (same Supabase project, same browser session as superhyre.com/access/), then asks the database for
  * everything at once: public.extension_admin_dashboard. The database decides who is an admin and refuses everyone
  * else; this file only draws what comes back. The one write is public.extension_admin_set_credits, which logs every
@@ -20,6 +21,7 @@
   // Local only: ?fixture=<file> draws a saved answer instead of signing in, to check the page offline.
   var isLocal = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
   var fixture = isLocal ? new URLSearchParams(location.search).get("fixture") : null;
+  var agentFixture = isLocal ? new URLSearchParams(location.search).get("agentFixture") : null;
 
   var sb = fixture ? null : window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
     auth: { flowType: "pkce", detectSessionInUrl: true, persistSession: true, autoRefreshToken: true }
@@ -30,7 +32,7 @@
     sheet: "#1c1a18", jobs: "#f2a27c", people: "#EA5A1E", grid: "#eeeae5", text: "#8a847d"
   };
 
-  var state = { p: "30", from: "", to: "", org: "", user: "", plot: "lookups", feed: "", idle: false, q: "" };
+  var state = { view: "extension", p: "30", from: "", to: "", org: "", user: "", plot: "lookups", feed: "", idle: false, q: "" };
   var sorts = { org: ["numbers", -1], user: ["activity", -1], src: ["calls", -1] };
   var data = null, charts = {}, loading = false, seq = 0;
 
@@ -92,6 +94,7 @@
 
   function readUrl() {
     var q = new URLSearchParams(location.search);
+    state.view = q.get("view") === "agent" ? "agent" : "extension";
     state.p = q.get("p") || "30";
     state.from = q.get("from") || "";
     state.to = q.get("to") || "";
@@ -101,6 +104,8 @@
   function writeUrl() {
     var q = new URLSearchParams();
     if (fixture) q.set("fixture", fixture);
+    if (agentFixture) q.set("agentFixture", agentFixture);
+    if (state.view === "agent") q.set("view", "agent");
     if (state.p !== "30") q.set("p", state.p);
     if (state.p === "custom") { if (state.from) q.set("from", state.from); if (state.to) q.set("to", state.to); }
     if (state.org) q.set("org", state.org);
@@ -159,13 +164,15 @@
     gateMode = mode || "signin";
     $("checking").hidden = true;
     $("board").hidden = true;
+    $("agentBoard").hidden = true;
+    $("views").hidden = true;
     $("gate").hidden = false;
     document.body.classList.add("gated");
     var forbidden = gateMode === "forbidden";
     $("gateTitle").textContent = forbidden ? "Not an admin account" : "Sign in";
     $("gateText").textContent = forbidden
       ? "You're signed in as " + (info || "another account") + ". This page is only for owners and admins of the Superhyre workspace."
-      : "Use your superhyre.com Google account to see how the extension is used.";
+      : "Use your superhyre.com Google account to see how the extension and the agent are used.";
     $("inText").textContent = forbidden ? "Use a different Google account" : "Continue with Google";
     $("in").disabled = false;
     $("gateOut").hidden = !forbidden;
@@ -194,6 +201,7 @@
     if (sb) await sb.auth.signOut();
     $("who").hidden = $("out").hidden = true;
     data = null;
+    agent = makeAgent();
     gate("signin");
   }
   /* Google or Supabase can send the person back with an error instead of a session (they pressed Cancel, or the
@@ -213,6 +221,10 @@
   // ---------------------------------------------------------------- data
 
   async function rpc(name, p) {
+    if (fixture && name === "admin_agent_dashboard") {
+      var ar = await fetch(agentFixture, { cache: "no-store" });
+      return ar.json();
+    }
     if (fixture) {
       if (name === "extension_admin_set_credits") return { ok: true, lookup: Number(p.lookup || 0), apollo: Number(p.apollo || 0), refreshes: 1 };
       var res = await fetch(fixture, { cache: "no-store" });
@@ -244,7 +256,7 @@
       data = d;
       banner("");
       ungate();
-      $("board").hidden = false;
+      showView();
       if (d.me) { $("who").textContent = d.me.email; $("who").hidden = false; }
       $("out").hidden = !!fixture;
       render();
@@ -681,6 +693,12 @@
 
   function wire() {
     $("in").onclick = signIn;
+    $("views").onclick = function (e) {
+      var b = e.target.closest("button"); if (!b || b.dataset.view === state.view) return;
+      state.view = b.dataset.view;
+      writeUrl();
+      openView();
+    };
     $("out").onclick = signOut;
     $("reload").onclick = load;
     $("reset").onclick = function () { state.p = "30"; state.org = ""; state.user = ""; writeUrl(); paintFilters(); load(); };
@@ -720,19 +738,67 @@
     $("crForm").onsubmit = saveCredits;
   }
 
+  // ---------------------------------------------------------------- the two views
+
+  var agent = null;
+  function makeAgent() {
+    return window.AgentView({
+      rpc: rpc, esc: esc, banner: banner,
+      onForbidden: forbidden,
+      onSignedOut: function () { gate("signin"); }
+    });
+  }
+  async function forbidden() {
+    var email = "";
+    if (sb) { var s = await sb.auth.getSession(); email = s.data.session && s.data.session.user.email; }
+    gate("forbidden", email);
+  }
+  /** Show whichever view the address asks for, loading it the first time it is opened. */
+  function showView() {
+    var ext = state.view !== "agent";
+    $("board").hidden = !ext;
+    $("agentBoard").hidden = ext;
+    $("views").hidden = false;
+    $("who").hidden = !$("who").textContent;
+    $("out").hidden = !!fixture;
+    Array.prototype.forEach.call($("views").children, function (b) {
+      var on = b.dataset.view === state.view;
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-selected", on);
+    });
+    document.title = (ext ? "Extension" : "Agent") + " · Admins · Superhyre";
+  }
+  async function openView() {
+    // Once someone is known to be an admin (either view has loaded), switching shows the new view at once and fills it
+    // in; before that, the view only appears once the server has said yes.
+    var known = !!data || agent.isLoaded();
+    if (state.view === "agent") {
+      if (agent.isLoaded()) { showView(); return; }
+      if (known) { showView(); agent.load(); return; }
+      var r = await agent.load();
+      if (r) { ungate(); showView(); }
+    } else {
+      if (data) { showView(); return; }
+      if (known) showView();
+      await load();
+    }
+  }
+
   async function start() {
     readUrl();
     wire();
     paintFilters();
     $("gateOut").onclick = signOut;
-    if (fixture) { load(); return; }
+    agent = makeAgent();
+    if (fixture) { $("who").textContent = "local preview"; $("who").hidden = false; openView(); return; }
     var err = returnedError();
     var s = await sb.auth.getSession();
-    if (s.data.session && !err) load();
+    if (s.data.session) { $("who").textContent = s.data.session.user.email; }
+    if (s.data.session && !err) openView();
     else { gate("signin"); if (err) gateError(err); }
     sb.auth.onAuthStateChange(function (event, session) {
-      if (event === "SIGNED_IN" && session && !data && !loading) load();
-      if (event === "SIGNED_OUT" && !$("board").hidden) { data = null; gate("signin"); }
+      if (event === "SIGNED_IN" && session && !data && !agent.isLoaded() && !loading) { $("who").textContent = session.user.email; openView(); }
+      if (event === "SIGNED_OUT" && (!$("board").hidden || !$("agentBoard").hidden)) { data = null; agent = makeAgent(); gate("signin"); }
     });
   }
 

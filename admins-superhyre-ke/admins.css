@@ -1,4 +1,4 @@
-/* /extension/admin-dashboard. Light, quiet, dense where it is read daily. Orange is the accent and stays scarce. */
+/* /admins-superhyre-ke: the Extension and Agent dashboards. Light, quiet, dense where it is read daily. Orange is the accent and stays scarce. */
 :root {
   --accent: #EA5A1E;
   --accent-soft: #FDEEE6;
@@ -211,4 +211,58 @@ dialog .muted { margin: -6px 0 0; font-size: 13px; }
   input[type=search] { width: 100%; }
   .who { display: none; }
   .db { grid-template-columns: 1fr; }
+}
+
+/* ---- the switch between the two dashboards ---- */
+.views { display: inline-flex; gap: 2px; background: #ece8e3; border-radius: 10px; padding: 3px; margin-left: 6px; }
+.views button { border: 0; background: none; padding: 5px 14px; border-radius: 8px; cursor: pointer; color: var(--ink-2); font-weight: 500; }
+.views button:hover { color: var(--ink); }
+.views button.on { background: var(--card); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+
+/* ---- the Agent view (its chart and states, carried over from /agent/admin-dashboard, in this page's light palette) ---- */
+#agentBoard {
+  --ag-in: #EA5A1E; --ag-out: #4687CE; --ag-p50: #F59E6B; --ag-p90: #D9480F;
+}
+#agentBoard .tiles { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+#agentBoard .tile .n.none { color: var(--rule-2); }
+#agentBoard .legend { display: flex; gap: 13px; font-size: 12px; color: var(--ink-3); align-items: center; }
+#agentBoard .legend i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; margin-right: 5px; }
+#agentBoard .legend .dash { width: 14px; height: 0; border-top: 1px dashed var(--bad); display: inline-block; margin-right: 5px; vertical-align: 3px; }
+.ag-plot { position: relative; }
+.ag-plot .chart { width: 100%; height: auto; display: block; overflow: visible; }
+.ag-plot .chart:focus { outline: none; }
+.ag-plot .chart:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.ag-plot .grid { stroke: #eeeae5; stroke-width: 1; }
+.ag-plot .axis { fill: var(--ink-3); font-size: 11px; font-family: var(--ui); }
+.ag-plot .thr { stroke: var(--bad); stroke-width: 1; stroke-dasharray: 3 3; opacity: .55; }
+.ag-plot .bin { fill: var(--ag-in); }
+.ag-plot .bout { fill: var(--ag-out); }
+.ag-plot .l50 { fill: none; stroke: var(--ag-p50); stroke-width: 2; }
+.ag-plot .l90 { fill: none; stroke: var(--ag-p90); stroke-width: 2; }
+.ag-plot .d50 { fill: var(--ag-p50); }
+.ag-plot .d90 { fill: var(--ag-p90); }
+.ag-plot .hit { fill: transparent; }
+.ag-plot .tip { position: absolute; pointer-events: none; background: var(--ink); color: #fff; border-radius: 8px; padding: 7px 10px;
+  font-size: 12px; line-height: 1.5; white-space: nowrap; transform: translate(-50%, -100%); box-shadow: 0 6px 18px rgba(0,0,0,.18); }
+.ag-plot .tip .t { color: #cfc8c0; }
+.ag-plot .tip b { font-weight: 600; }
+#agentBoard #ag-plotnote { margin: 8px 0 0; }
+#agentBoard .link { font-size: 12.5px; }
+.sig { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; font-size: 13px; }
+.sig i { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.sig.bad { color: var(--bad); } .sig.bad i { background: var(--bad); }
+.sig.warn { color: var(--warn); } .sig.warn i { background: #e0a44a; }
+.sig.ok { color: var(--ok); } .sig.ok i { background: #5cbf84; }
+.sig.flat { color: var(--ink-3); } .sig.flat i { background: var(--ink-3); }
+#agentBoard td { white-space: normal; }
+#agentBoard td:first-child { white-space: nowrap; }
+#agentBoard th { cursor: default; }
+#agentBoard .trackbar { height: 5px; border-radius: 999px; background: #eeeae5; overflow: hidden; min-width: 80px; }
+#agentBoard .trackbar i { display: block; height: 100%; background: var(--accent); }
+#agentBoard code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--ink-2); }
+#agentBoard .err { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; word-break: break-word; color: var(--ink-2); }
+
+@media (max-width: 760px) {
+  .bar { flex-wrap: wrap; height: auto; padding: 10px 0; }
+  .views { order: 5; margin-left: 0; }
 }
