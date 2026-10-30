@@ -1,0 +1,1 @@
+import{aw as t}from"./access-D73qnngq.js";const e=100,s=(n={})=>{const i=new URLSearchParams({limit:String(n.limit??e)});return n.campaignId&&i.set("campaignId",n.campaignId),n.since&&i.set("since",new Date(n.since).toISOString()),t("GET",`/v1/runs?${i.toString()}`).then(a=>a.runs)};export{e as R,s as l};
