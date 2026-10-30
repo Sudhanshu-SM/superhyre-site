@@ -81,7 +81,10 @@ export type DailyDefaults = {
   waitingCap: number;
   /** The waiting count a resting campaign carries on at. */
   waitingResumeAt: number;
+  /** New people each campaign gets in a morning when a search starts, and the most a person may set it to (the server's two settings). */
   perCampaign: number;
+  /** An older server sends none: it holds 5 (`OLD_PER_CAMPAIGN_MAX`). */
+  perCampaignMax?: number;
   /** What a new person costs, for what a yes spends a day, and the most campaigns one search holds. */
   creditsPerProfile: number;
   maxCampaigns: number;
@@ -141,6 +144,8 @@ export type DailySave = {
   repeat?: DailyRepeat;
   reserve?: number;
   waitingCap?: number;
+  /** New people each campaign gets in a morning (the server refuses more than its ceiling, `DailyDefaults.perCampaignMax`). */
+  perCampaign?: number;
   /** A paused search stays paused, with the end of its pause: the campaigns are saved into it and it is turned on when the person says. */
   keepPaused?: boolean;
 };
@@ -156,7 +161,7 @@ export const dailySearchApi = {
   resume: () => api<{ resumed: number }>("PATCH", "/v1/daily-search", { action: "resume" }),
   setClock: (body: { runAt?: string; repeat?: DailyRepeat }) =>
     api<{ search: DailySearch | null }>("PATCH", "/v1/daily-search", { action: "set_clock", ...body }),
-  setRoom: (body: { reserve?: number; waitingCap?: number }) =>
+  setRoom: (body: { reserve?: number; waitingCap?: number; perCampaign?: number }) =>
     api<{ search: DailySearch | null }>("PATCH", "/v1/daily-search", { action: "set_room", ...body }),
   /** The other people's searches (an owner or admin; anyone else is refused). */
   others: () => api<{ on: boolean; searches: OtherSearch[] }>("GET", "/v1/daily-search/all"),

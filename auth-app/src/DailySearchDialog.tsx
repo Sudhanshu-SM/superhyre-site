@@ -25,6 +25,7 @@ import {
   morningLine,
   otherLine,
   overLimit,
+  perCampaignMaxOf,
   pickedCount,
   pickedWords,
   rowAction,
@@ -38,6 +39,7 @@ import {
   suggestionWhere,
   toggled,
   validClock,
+  validPerCampaign,
   whenWords,
 } from "./dailySearchView";
 import type { Draft } from "./dailySearchView";
@@ -95,13 +97,15 @@ export function DailySearchView({ search, detail, draft, q, busy, problem, other
   const n = pickedCount(draft.sel, ids);
   const cap = detail.defaults.maxCampaigns;
   const change = changesOf(search, draft, detail.campaigns, cap);
-  const roomOk = draft.reserve >= 0 && draft.reserve <= 400 && draft.waitingCap >= 1 && draft.waitingCap <= 100;
+  const roomOk =
+    draft.reserve >= 0 && draft.reserve <= 400 && draft.waitingCap >= 1 && draft.waitingCap <= 100 && validPerCampaign(draft.perCampaign, perCampaignMaxOf(detail.defaults.perCampaignMax));
   // What Save spends: said beside it, because Save is the yes.
   const canSave = busy === "" && n > 0 && !overLimit(draft.sel, n, cap) && roomOk && validClock(draft.runAt) !== null && change.any;
   const searchStatus = search?.status ?? null;
   // A search that holds the most it may has no room for a ticked campaign that is ready: its row says so, not that it starts when saved.
   const full = atLimit(search, cap);
-  const perCampaign = search?.perCampaign ?? detail.defaults.perCampaign;
+  // What Save would spend is said from what is typed, so the sentence moves with the number.
+  const perCampaign = draft.perCampaign;
   const firstLooks = firstLooksWords(startingNow(search, draft.sel, detail.campaigns, cap), { perCampaign, reserve: draft.reserve, profilesLeft: detail.room.profilesLeft });
   const running = (search?.campaigns ?? []).filter((c) => c.state === "running");
   const next = whenWords(
@@ -134,8 +138,8 @@ export function DailySearchView({ search, detail, draft, q, busy, problem, other
           </button>
         )}
 
-        <section className="ds-sec" aria-label="When">
-          <h3 className="ds-h t-body-strong">When</h3>
+        <section className="ds-sec" aria-label="Each morning">
+          <h3 className="ds-h t-body-strong">Each morning</h3>
           <div className="ds-when">
             <label className="ds-field">
               <span className="t-body-sm">Time</span>
@@ -147,6 +151,10 @@ export function DailySearchView({ search, detail, draft, q, busy, problem, other
                 <option value="daily">Every day</option>
                 <option value="weekdays">Weekdays only</option>
               </select>
+            </label>
+            <label className="ds-field">
+              <span className="t-body-sm">New people on each campaign (up to {perCampaignMaxOf(detail.defaults.perCampaignMax)})</span>
+              <input className="ncx-in ds-num" type="number" inputMode="numeric" min={1} max={perCampaignMaxOf(detail.defaults.perCampaignMax)} value={draft.perCampaign} onChange={(e) => onDraft({ ...draft, perCampaign: Number(e.target.value) })} />
             </label>
           </div>
           <details className="ds-more">

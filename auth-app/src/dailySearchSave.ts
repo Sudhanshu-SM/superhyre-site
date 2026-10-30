@@ -33,12 +33,13 @@ export async function saveDraft(
       repeat: draft.repeat,
       reserve: draft.reserve,
       waitingCap: draft.waitingCap,
+      perCampaign: draft.perCampaign,
       ...(search?.status === "paused" ? { keepPaused: true } : {}),
     });
     held = saved.started?.held?.length ?? 0;
   } else {
     if (change.clock) await calls.setClock({ runAt: time, repeat: draft.repeat });
-    if (change.room) await calls.setRoom({ reserve: draft.reserve, waitingCap: draft.waitingCap });
+    if (change.room) await calls.setRoom({ reserve: draft.reserve, waitingCap: draft.waitingCap, perCampaign: draft.perCampaign });
   }
   return { how: fresh ? "started" : "saved", held };
 }

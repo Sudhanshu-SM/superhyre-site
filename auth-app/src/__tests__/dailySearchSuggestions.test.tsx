@@ -76,7 +76,7 @@ const src = (f: string) => readFileSync(resolve(__dirname, "..", f), "utf8");
 const text = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 const NOW = new Date(2026, 9, 29, 10, 0).getTime();
 
-const DEFAULTS = { runAt: "07:00", repeat: "daily" as const, reserve: 100, waitingCap: 20, waitingResumeAt: 10, perCampaign: 5, creditsPerProfile: 0.03, maxCampaigns: 60 };
+const DEFAULTS = { runAt: "07:00", repeat: "daily" as const, reserve: 100, waitingCap: 20, waitingResumeAt: 10, perCampaign: 5, perCampaignMax: 10, creditsPerProfile: 0.03, maxCampaigns: 60 };
 const row = (over: Partial<DailyRow> = {}): DailyRow => ({
   id: "c1", name: "Data Engineer", clientName: "Acme", city: "Pune", ready: true, blocked: null, why: null,
   found: 112, waiting: 9, ownWatch: false, watch: null, closed: false, ...over,

@@ -69,9 +69,19 @@ export type Draft = {
   repeat: DailyRepeat;
   reserve: number;
   waitingCap: number;
+  /** New people each campaign gets in a morning. */
+  perCampaign: number;
 };
 
-export type Defaults = { runAt: string; repeat: DailyRepeat; reserve: number; waitingCap: number };
+export type Defaults = {
+  runAt: string;
+  repeat: DailyRepeat;
+  reserve: number;
+  waitingCap: number;
+  perCampaign: number;
+  /** The most the server lets a person set (a search set higher before it was lowered is shown at this). */
+  perCampaignMax?: number;
+};
 
 export function draftOf(search: DailySearch | null, defaults: Defaults): Draft {
   const live = search && search.status !== "off" ? search : null;
@@ -81,8 +91,18 @@ export function draftOf(search: DailySearch | null, defaults: Defaults): Draft {
     repeat: live?.repeat ?? defaults.repeat,
     reserve: live?.reserve ?? defaults.reserve,
     waitingCap: live?.waitingCap ?? defaults.waitingCap,
+    perCampaign: Math.min(live?.perCampaign ?? defaults.perCampaign, perCampaignMaxOf(defaults.perCampaignMax)),
   };
 }
+
+/** What a server that does not say its ceiling holds (before 1.5.5 a morning was 5 at most). */
+export const OLD_PER_CAMPAIGN_MAX = 5;
+
+/** The most new people each campaign may get in a morning, as the server says (an older one says nothing). */
+export const perCampaignMaxOf = (max: number | undefined): number => max ?? OLD_PER_CAMPAIGN_MAX;
+
+/** A number of new people for each campaign the server takes: a whole number from 1 up to its ceiling. */
+export const validPerCampaign = (n: number, max: number): boolean => Number.isInteger(n) && n >= 1 && n <= max;
 
 /** Whether the search already holds the most campaigns one search may (`cap`): another cannot join until one is taken out. */
 export const atLimit = (search: DailySearch | null, cap: number): boolean =>
@@ -104,7 +124,8 @@ export function changesOf(
   const joining = !atLimit(search, cap) && rows.some((r) => r.ready && !r.watch && isPicked(draft.sel, r.id));
   const selection = joining || !sameSelection(selectionOf(search), draft.sel);
   const clock = search.runAt !== draft.runAt || search.repeat !== draft.repeat;
-  const room = search.reserve !== draft.reserve || search.waitingCap !== draft.waitingCap;
+  const room =
+    search.reserve !== draft.reserve || search.waitingCap !== draft.waitingCap || search.perCampaign !== draft.perCampaign;
   return { selection, clock, room, any: selection || clock || room };
 }
 

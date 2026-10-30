@@ -38,7 +38,7 @@ const search = (over: Partial<DailySearch> = {}): DailySearch => ({
   id: "s1", status: "on", scope: { campaignIds: ["c1"] }, runAt: "07:00", timezone: "Asia/Kolkata", repeat: "daily",
   perCampaign: 5, reserve: 100, waitingCap: 20, maxCampaigns: 8, pausedUntil: null, campaigns: [watch()], ...over,
 });
-const DEFAULTS = { runAt: "07:00", repeat: "daily" as const, reserve: 100, waitingCap: 20, waitingResumeAt: 10, perCampaign: 5, creditsPerProfile: 0.03, maxCampaigns: 60 };
+const DEFAULTS = { runAt: "07:00", repeat: "daily" as const, reserve: 100, waitingCap: 20, waitingResumeAt: 10, perCampaign: 5, perCampaignMax: 10, creditsPerProfile: 0.03, maxCampaigns: 60 };
 const draftFor = (s: DailySearch | null) => view.draftOf(s, DEFAULTS);
 
 describe("what is ticked", () => {
@@ -83,6 +83,25 @@ describe("what is ticked", () => {
     expect(view.changesOf(search({ status: "off" }), same)).toMatchObject({ any: true });
     // With no search the popup shows what the server says a search is set to, not numbers of its own.
     expect(draftFor(null)).toMatchObject({ runAt: "07:00", repeat: "daily", reserve: 100, waitingCap: 20 });
+  });
+
+  it("carries how many new people a campaign gets a morning: the search's own, else the server's start, never above its ceiling", () => {
+    expect(draftFor(null).perCampaign).toBe(5);
+    expect(draftFor(search({ perCampaign: 8 })).perCampaign).toBe(8);
+    // A search set higher before the server's ceiling was lowered is shown at the ceiling, and saving it brings it there.
+    const lowered = view.draftOf(search({ perCampaign: 9 }), { ...DEFAULTS, perCampaignMax: 6 });
+    expect(lowered.perCampaign).toBe(6);
+    expect(view.changesOf(search({ perCampaign: 9 }), lowered)).toMatchObject({ room: true, any: true });
+    // A change of the number alone is a change of the room, and the same number is no change.
+    const s = search({ perCampaign: 5 });
+    expect(view.changesOf(s, { ...draftFor(s), perCampaign: 8 })).toMatchObject({ room: true, clock: false, selection: false, any: true });
+    expect(view.changesOf(s, draftFor(s))).toMatchObject({ room: false, any: false });
+  });
+
+  it("takes a whole number of people from one up to the server's ceiling, and no other", () => {
+    expect(view.validPerCampaign(1, 10)).toBe(true);
+    expect(view.validPerCampaign(10, 10)).toBe(true);
+    for (const n of [0, 11, -1, 2.5, Number.NaN]) expect(view.validPerCampaign(n, 10)).toBe(false);
   });
 
   it("takes a clock time the server takes, and no other", () => {
@@ -207,6 +226,44 @@ function render(over: { search?: DailySearch | null; detail?: ReturnType<typeof 
     />,
   );
 }
+
+describe("the number of new people on each campaign", () => {
+  it("is a field beside the time and the days, bounded by the server's ceiling, and shows the search's own number", () => {
+    const html = render({ search: search({ perCampaign: 8 }) });
+    expect(html).toContain("New people on each campaign (up to 10)");
+    expect(html).toMatch(/<input[^>]*type="number"[^>]*min="1"[^>]*max="10"[^>]*value="8"/);
+    expect(html).toContain('aria-label="Each morning"');
+  });
+
+  it("says what Save would spend from the number typed, and holds Save for a number the server would turn down", () => {
+    const s = search({ perCampaign: 5 });
+    const typed = render({ search: s, draft: { ...draftFor(s), perCampaign: 8 } });
+    expect(typed).toContain("Up to 8 new people");
+    expect(typed).not.toMatch(/disabled="">Save<\/button>/);
+    for (const n of [0, 11]) expect(render({ search: s, draft: { ...draftFor(s), perCampaign: n } })).toMatch(/<button type="submit" class="ct-btn is-primary" disabled="">Save<\/button>/);
+  });
+
+  it("follows a lowered ceiling: the field's limit and the label say the server's number", () => {
+    const html = render({ search: search({ perCampaign: 5 }), detail: detail({ defaults: { ...DEFAULTS, perCampaignMax: 6 } }) });
+    expect(html).toContain("(up to 6)");
+    expect(html).toMatch(/max="6"/);
+  });
+
+  it("holds to 5 when the server sends no ceiling (one from before 1.5.5), so the popup still saves", () => {
+    const { perCampaignMax: _none, ...old } = DEFAULTS;
+    expect(view.perCampaignMaxOf(undefined)).toBe(5);
+    expect(view.perCampaignMaxOf(DEFAULTS.perCampaignMax)).toBe(10);
+    expect(view.draftOf(search({ perCampaign: 5 }), old).perCampaign).toBe(5);
+    const html = render({ search: search({ perCampaign: 5 }), detail: detail({ defaults: old }) });
+    expect(html).toContain("(up to 5)");
+    expect(html).toMatch(/max="5"/);
+    // A number past what that server holds is held back, as it is for a ceiling the server names.
+    const typed = render({ search: search({ perCampaign: 5 }), detail: detail({ defaults: old }), draft: { ...view.draftOf(search({ perCampaign: 5 }), old), perCampaign: 6 } });
+    expect(typed).toMatch(/<button type="submit" class="ct-btn is-primary" disabled="">Save<\/button>/);
+    expect(view.validPerCampaign(5, view.perCampaignMaxOf(undefined))).toBe(true);
+    expect(view.validPerCampaign(6, view.perCampaignMaxOf(undefined))).toBe(false);
+  });
+});
 
 describe("the popup for a search that is on", () => {
   const html = render();
@@ -356,8 +413,19 @@ describe("what Save sends", () => {
     const out = await saveDraft(null, { ...d, sel: view.toggled(view.toggled(d.sel, "c1"), "c2"), runAt: "6:30", repeat: "weekdays" }, [], c.api);
     expect(out).toEqual({ how: "started", held: 0 });
     expect(c.log).toEqual([
-      `save ${JSON.stringify({ scope: { campaignIds: ["c1", "c2"] }, mode: "replace", runAt: "06:30", repeat: "weekdays", reserve: 100, waitingCap: 20 })}`,
+      `save ${JSON.stringify({ scope: { campaignIds: ["c1", "c2"] }, mode: "replace", runAt: "06:30", repeat: "weekdays", reserve: 100, waitingCap: 20, perCampaign: 5 })}`,
     ]);
+  });
+
+  it("sends the number of people a campaign gets: with the campaigns when they change, with the room when only it does", async () => {
+    const s = search();
+    const c = calls();
+    await saveDraft(s, { ...draftFor(s), perCampaign: 8 }, [], c.api);
+    expect(c.log).toEqual([`room ${JSON.stringify({ reserve: 100, waitingCap: 20, perCampaign: 8 })}`]);
+    const c2 = calls();
+    const d = draftFor(s);
+    await saveDraft(s, { ...d, sel: view.toggled(d.sel, "c2"), perCampaign: 7 }, [], c2.api);
+    expect(JSON.parse(c2.log[0]?.replace(/^save /, "") ?? "{}")).toMatchObject({ perCampaign: 7 });
   });
 
   it("changes the morning alone, or the room alone, without touching which campaigns it holds", async () => {
@@ -365,7 +433,7 @@ describe("what Save sends", () => {
     const c = calls();
     expect(await saveDraft(s, { ...draftFor(s), runAt: "08:15" }, [], c.api)).toEqual({ how: "saved", held: 0 });
     await saveDraft(s, { ...draftFor(s), reserve: 60, waitingCap: 8 }, [], c.api);
-    expect(c.log).toEqual([`clock ${JSON.stringify({ runAt: "08:15", repeat: "daily" })}`, `room ${JSON.stringify({ reserve: 60, waitingCap: 8 })}`]);
+    expect(c.log).toEqual([`clock ${JSON.stringify({ runAt: "08:15", repeat: "daily" })}`, `room ${JSON.stringify({ reserve: 60, waitingCap: 8, perCampaign: 5 })}`]);
     expect(c.api.save).not.toHaveBeenCalled();
   });
 
@@ -375,7 +443,7 @@ describe("what Save sends", () => {
     const d = draftFor(s);
     await saveDraft(s, { ...d, sel: view.toggled(d.sel, "c2"), runAt: "15:00" }, [], c.api);
     // One call, asked to keep it paused (the server keeps the end of its pause); the pause is not a second call.
-    expect(c.log).toEqual([`save ${JSON.stringify({ scope: { campaignIds: ["c1", "c2"] }, mode: "replace", runAt: "15:00", repeat: "daily", reserve: 100, waitingCap: 20, keepPaused: true })}`]);
+    expect(c.log).toEqual([`save ${JSON.stringify({ scope: { campaignIds: ["c1", "c2"] }, mode: "replace", runAt: "15:00", repeat: "daily", reserve: 100, waitingCap: 20, perCampaign: 5, keepPaused: true })}`]);
     expect(c.api.pause).not.toHaveBeenCalled();
     // A search that is on is not asked to be kept paused.
     const c2 = calls();
@@ -395,7 +463,7 @@ describe("what Save sends", () => {
     expect(view.changesOf(search({ scope: { all: true, except: ["c2"] } }), draftFor(search({ scope: { all: true, except: ["c2"] } })), rows).any).toBe(false);
     const c = calls();
     await saveDraft(s, draftFor(s), rows, c.api);
-    expect(c.log).toEqual([`save ${JSON.stringify({ scope: { all: true, except: [] }, mode: "replace", runAt: "07:00", repeat: "daily", reserve: 100, waitingCap: 20 })}`]);
+    expect(c.log).toEqual([`save ${JSON.stringify({ scope: { all: true, except: [] }, mode: "replace", runAt: "07:00", repeat: "daily", reserve: 100, waitingCap: 20, perCampaign: 5 })}`]);
     // The popup enables Save for it.
     expect(render({ search: s, detail: detail({ campaigns: rows }) })).toMatch(/<button type="submit" class="ct-btn is-primary">Save<\/button>/);
   });

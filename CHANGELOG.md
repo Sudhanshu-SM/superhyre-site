@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.5 (2026-10-30)
+
+### Added
+- **How many new people each campaign gets a morning** is a field in the Daily search popup, beside the time and the days (the section is now headed "Each morning"). It starts at the server's number and goes up to the ceiling the server says; the line under the list says what Save would spend from the number typed, and Save waits on a number the server would turn down. A change of the number alone saves like a change of the room. Needs the 1.5.5 server and migration 211 first.
+
 ## 1.5.4 (2026-10-30)
 
 ### Added
