@@ -572,7 +572,14 @@
   }
 
   function sourceTable() {
-    var rows = data.sources.map(function (s) { return Object.assign({ found: s.purpose === "profile_enrichment" ? s.profiles : s.phones }, s); });
+    // "Asked" counts only the times the source was really called: rows for a source the lookup never got to (an
+    // earlier one already had the number, it was asked about this person before, no key, a daily cap) are left out.
+    var rows = data.sources.map(function (s) {
+      return Object.assign({}, s, {
+        found: s.purpose === "profile_enrichment" ? s.profiles : s.phones,
+        calls: Math.max(0, (Number(s.calls) || 0) - (Number(s.skipped) || 0))
+      });
+    }).filter(function (r) { return r.calls > 0; });
     table("sourceTable", "src", [
       { k: "name", label: "Source", html: function (r) {
           return "<b>" + esc(r.name) + '</b><span class="sub">' + (r.purpose === "profile_enrichment" ? "profile details" : "contact lookup") + "</span>"; } },
@@ -583,7 +590,6 @@
       { k: "pending", label: "Answering later", num: true, html: function (r) { return num(r.pending); } },
       { k: "errors", label: "Errors", num: true, html: function (r) {
           return Number(r.errors) ? '<span class="pill bad">' + num(r.errors) + "</span>" : "0"; } },
-      { k: "skipped", label: "Skipped", num: true, html: function (r) { return num(r.skipped); } },
       { k: "hit", label: "Hit rate", num: true, v: function (r) { return r.found / Math.max(1, r.found + r.email_only + r.misses + r.errors); },
         html: function (r) { return pct(r.found, r.found + r.email_only + r.misses + r.errors); } },
       { k: "avg_ms", label: "Avg time", num: true, html: function (r) { return r.avg_ms == null ? "—" : (r.avg_ms / 1000).toFixed(1) + "s"; } }
