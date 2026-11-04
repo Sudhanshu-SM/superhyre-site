@@ -153,6 +153,30 @@
     <section class="card">
       <div class="ch"><h2>Sources</h2><span class="sp"></span><span class="note">Each source asked, in the period. Internal: never shown to customers.</span></div>
       <div class="scroll"><table id="sourceTable"></table></div>
+      <div class="chain">
+        <h3>How a lookup runs</h3>
+        <div class="chain-cols">
+          <div>
+            <p class="chain-t">Access phone number: one after another, stops at the first number</p>
+            <ol>
+              <li><b>Our database.</b> Your team already has the number: free. Another team paid for it: served from here, 1 credit. No source is asked.</li>
+              <li><b>LeadOcean</b></li>
+              <li><b>SalesQL</b>, only if LeadOcean found no number</li>
+              <li><b>Apollo</b>, only if neither found one. Its number arrives a few minutes later.</li>
+            </ol>
+          </div>
+          <div>
+            <p class="chain-t">Access email: same order, stops at the first email</p>
+            <ol>
+              <li><b>Our database</b></li>
+              <li><b>LeadOcean</b></li>
+              <li><b>SalesQL</b></li>
+            </ol>
+            <p class="note">Apollo is never asked for an email.</p>
+          </div>
+        </div>
+        <p class="note">A source that already answered about a person in the last 90 days is not asked again: its answer is in our database. Profile details (experience, education) come from Apify separately, when a person is first saved.</p>
+      </div>
     </section>
 
     <div class="two">
