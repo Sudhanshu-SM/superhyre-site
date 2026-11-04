@@ -474,19 +474,19 @@ describe("the paperclip", () => {
     expect(agent).toContain('else patch(id, () => ({ status: "ready", tooMany: many, scope: chosen ?? "candidates" }));');
   });
 
-  it("is one quiet button in the composer's row that opens the menu of what to add, not the picker", () => {
-    expect(agent).toContain('className="orc-pin"');
+  it("is one quiet button in the composer's tray that opens the menu of what to add, not the picker", () => {
+    expect(agent).toContain('className="orc-tray-btn orc-tray-pin"');
     expect(agent).toContain("PaperclipHorizontal");
     // (Only once the server says it takes the choice: addingFlag.ts. For one that does not, the same button opens the picker at once.)
     expect(agent).toContain("onClick={() => (modern ? setMenuOpen((o) => !o) : openPicker())}");
     expect(agent).not.toContain("onClick={() => picker.current?.click()}");
     expect(agent).toContain('aria-label="Add something"');
     expect(agent).toContain('aria-haspopup={modern ? "menu" : undefined}');
-    expect(src("composer.css")).toContain(".orc .orc-composer .orc-pin");
+    expect(src("composerTray.css")).toContain(".orc.is-agent .orc-tray-pin");
   });
 
   it("stays on at the limit: the menu says why its rows can not be chosen", () => {
-    const pin = agent.slice(agent.indexOf('className="orc-pin"'), agent.indexOf("</button>", agent.indexOf('className="orc-pin"')));
+    const pin = agent.slice(agent.indexOf('className="orc-tray-btn orc-tray-pin"'), agent.indexOf("</button>", agent.indexOf('className="orc-tray-btn orc-tray-pin"')));
     expect(pin).not.toContain("disabled=");
   });
 

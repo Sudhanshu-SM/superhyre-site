@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import type { Match, MatchProfile, RoleSpec } from "../api/agent";
 import { candidateFromMatch, criteriaOf, jobsFrom, monthYear, reasonOf, setFromMatches, shortOf, spanLabel } from "../liveCandidate";
@@ -33,6 +35,26 @@ const match = (over: Partial<Match> = {}): Match => ({
     concerns: ["Short tenure"],
   },
   ...over,
+});
+
+describe("people listed as the source returned them", () => {
+  it("carry the server's word that they were listed as found, and say nothing otherwise", () => {
+    const listed = candidateFromMatch(match({ stage: "features", judgement: null, score: null, tier: null, listedAsFound: true }), { criteria: [], now: NOW });
+    expect(listed.scored).toBe(false);
+    expect(listed.listedAsFound).toBe(true);
+    // A person ranked in the usual way, or from a server older than the marker, has none.
+    expect(candidateFromMatch(match(), { criteria: [], now: NOW })).not.toHaveProperty("listedAsFound");
+    expect(candidateFromMatch(match({ stage: "features", judgement: null }), { criteria: [], now: NOW })).not.toHaveProperty("listedAsFound");
+  });
+
+  it("are not said to be ordered by keywords, years and place, which they are not", () => {
+    const page = readFileSync(join(__dirname, "..", "RankedMatches.tsx"), "utf8");
+    expect(page).toContain("const asFoundN = CANDS.filter((c) => c.scored === false && c.listedAsFound).length;");
+    expect(page).toContain("asFoundN === unscoredN");
+    expect(page).toContain("are listed in the order they were found, and haven't been scored.");
+    // The words for the rest are as they were.
+    expect(page).toContain("haven't been read closely yet, so they're ordered by keywords, years and place only.");
+  });
 });
 
 describe("what a campaign ranks on", () => {

@@ -21,6 +21,8 @@ export type DailyWatch = {
   reason: string | null;
   found: number;
   lastFound: number;
+  /** People the search found for it since its day began. A server older than the chat list's daily sourcing sends none. */
+  today?: number;
   nextRunAt: string | null;
 };
 
@@ -153,6 +155,8 @@ export type DailySave = {
 export const dailySearchApi = {
   /** The dialog's read: the search, and everything it shows beside it. */
   read: () => api<DailyRead>("GET", "/v1/daily-search?detail=true"),
+  /** The quick read: whether it is on, and the search with its campaigns (the chat list's daily sourcing line). */
+  glance: () => api<DailyRead>("GET", "/v1/daily-search"),
   /** Starts the search, or changes which campaigns it holds (Save is the person's yes). */
   save: (body: DailySave) => api<{ started?: DailyStarted; search: DailySearch | null }>("PUT", "/v1/daily-search", body),
   /** The changes waiting on the search's campaigns and the scoreboard; the server answers `on: false` while they are off. */

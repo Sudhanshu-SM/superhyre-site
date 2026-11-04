@@ -11,6 +11,8 @@ type Pair = { current: number; previous: number };
 export type ApiHome = {
   days: number;
   found: Pair & { series: { day: string; count: number }[] };
+  /** People who reached "contacted" in the period. A server older than the chat list's Today block sends none. */
+  contacted?: Pair;
   replies: Pair;
   interviews: Pair;
   offers: Pair;

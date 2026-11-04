@@ -7,7 +7,7 @@ const chat = (id: string, over: Partial<RailChat> = {}): RailChat => ({
 });
 const campaigns = [{ id: "A", name: "Senior Data Scientist" }, { id: "B", name: "Frontend Engineer" }];
 
-describe("arranging the chat list: pinned, then recents", () => {
+describe("arranging the chat list: pinned, then one list of recents", () => {
   const chats = [
     chat("a1", { campaignId: "A", campaignName: "Senior Data Scientist", at: 300 }),
     chat("a2", { campaignId: "A", campaignName: "Senior Data Scientist", at: 100 }),
@@ -15,17 +15,29 @@ describe("arranging the chat list: pinned, then recents", () => {
     chat("g1", { at: 400 }),
     chat("g2", { at: 50 }),
   ];
+  /** A row as "campaign:A" or the chat's id. */
+  const keys = (list: ReadonlyArray<{ kind: string; id?: string; chat?: { id: string } }>) => list.map((r) => (r.kind === "campaign" ? `campaign:${r.id}` : r.chat?.id));
 
-  it("is all recents, newest first, when nothing is pinned", () => {
+  it("shows a chat about a campaign as the campaign, once, and a chat about none as itself, all newest first", () => {
     const { pinned, recents } = arrangeRail(chats, [], campaigns);
     expect(pinned).toEqual([]);
-    expect(recents.map((c) => c.id)).toEqual(["b1", "g1", "a1", "a2", "g2"]);
+    // Frontend (its chat at 500), the plain chat at 400, Senior Data Scientist (latest at 300, its other chat is not a row), the plain chat at 50.
+    expect(keys(recents)).toEqual(["campaign:B", "g1", "campaign:A", "g2"]);
+    expect(recents.map((r) => r.at)).toEqual([500, 400, 300, 50]);
+  });
+
+  it("says, for a campaign, how many chats it has and which of the person's own a pick opens", () => {
+    const { recents } = arrangeRail(chats, [], campaigns);
+    const a = recents.find((r) => r.kind === "campaign" && r.id === "A");
+    expect(a).toMatchObject({ kind: "campaign", name: "Senior Data Scientist", chats: 2 });
+    expect(a?.kind === "campaign" && a.latest?.id).toBe("a1");
   });
 
   it("lifts a pinned chat out of recents, and puts the most recently written pin first, not the latest pressed", () => {
     const { pinned, recents } = arrangeRail(chats, [pinKey("chat", "g2"), pinKey("chat", "b1")], campaigns);
     expect(pinned.map((p) => (p.kind === "chat" ? p.chat.id : p.id))).toEqual(["b1", "g2"]);
-    expect(recents.map((c) => c.id)).toEqual(["g1", "a1", "a2"]);
+    // b1 is pinned on its own, but it still makes its campaign recent: Frontend stays in the list at 500.
+    expect(keys(recents)).toEqual(["campaign:B", "g1", "campaign:A"]);
   });
 
   it("orders pinned campaigns by their latest chat, and one with no chats yet goes last in the order it was pinned", () => {
@@ -40,7 +52,7 @@ describe("arranging the chat list: pinned, then recents", () => {
     expect(pinned.map((p) => (p.kind === "chat" ? p.chat.id : p.id))).toEqual(["B", "b1", "A"]);
   });
 
-  it("puts a pinned campaign's chats under it, newest first, and keeps them in recents too", () => {
+  it("puts a pinned campaign's chats under it, newest first, and leaves the campaign out of recents", () => {
     const { pinned, recents } = arrangeRail(chats, [pinKey("campaign", "A")], campaigns);
     expect(pinned).toHaveLength(1);
     const block = pinned[0]!;
@@ -49,25 +61,24 @@ describe("arranging the chat list: pinned, then recents", () => {
       expect(block.name).toBe("Senior Data Scientist");
       expect(block.chats.map((c) => c.id)).toEqual(["a1", "a2"]);
     }
-    // Recents is the whole history: a campaign folded shut must not hide its chats from it.
-    expect(recents.map((c) => c.id)).toEqual(["b1", "g1", "a1", "a2", "g2"]);
+    // It is shown above with its chats: recents does not say it a second time.
+    expect(keys(recents)).toEqual(["campaign:B", "g1", "g2"]);
   });
 
   it("keeps a chat pinned on its own out of its pinned campaign and out of recents", () => {
-    const { pinned, recents } = arrangeRail(chats, [pinKey("campaign", "A"), pinKey("chat", "a1")], campaigns);
+    const { pinned, recents } = arrangeRail(chats, [pinKey("campaign", "A"), pinKey("chat", "a1"), pinKey("chat", "g1")], campaigns);
     const camp = pinned.find((p) => p.kind === "campaign");
     expect(camp?.kind === "campaign" && camp.chats.map((c) => c.id)).toEqual(["a2"]);
     expect(pinned.some((p) => p.kind === "chat" && p.chat.id === "a1")).toBe(true);
-    expect(recents.map((c) => c.id)).toEqual(["b1", "g1", "a2", "g2"]);
+    expect(keys(recents)).toEqual(["campaign:B", "g2"]);
   });
 
-  it("shows the selected campaign with its chats, whether or not it has been pinned", () => {
+  it("shows the selected campaign with its chats, whether or not it has been pinned, and not again in recents", () => {
     const sel = { id: "A", name: "Senior Data Scientist" };
     const unpinned = arrangeRail(chats, [], campaigns, sel);
     expect(unpinned.selected?.name).toBe("Senior Data Scientist");
     expect(unpinned.selected?.chats.map((c) => c.id)).toEqual(["a1", "a2"]);
-    // They are in Recents as well, along with the chats of no campaign.
-    expect(unpinned.recents.map((c) => c.id)).toEqual(["b1", "g1", "a1", "a2", "g2"]);
+    expect(keys(unpinned.recents)).toEqual(["campaign:B", "g1", "g2"]);
     // Pinned, it is in Pinned already and not drawn a second time.
     expect(arrangeRail(chats, [pinKey("campaign", "A")], campaigns, sel).selected).toBeNull();
     // A campaign with no chats of the person's is still shown, empty; nothing selected shows nothing.
@@ -83,7 +94,7 @@ describe("arranging the chat list: pinned, then recents", () => {
   it("leaves out a pin whose chat or campaign has gone", () => {
     const { pinned, recents } = arrangeRail(chats, [pinKey("chat", "gone"), pinKey("campaign", "closed-one")], campaigns);
     expect(pinned).toEqual([]);
-    expect(recents).toHaveLength(5);
+    expect(recents).toHaveLength(4);
   });
 
   it("shows a pinned campaign even before it has a chat, so there is a place to start one", () => {
@@ -98,6 +109,56 @@ describe("arranging the chat list: pinned, then recents", () => {
   it("states how many show at first and how many more each press brings", () => {
     expect(RECENTS_BATCH).toBeGreaterThanOrEqual(8);
     expect(NESTED_SHOWN).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe("the campaigns among the recents", () => {
+  const A = { campaignId: "A", campaignName: "Senior Data Scientist" };
+  const camps = [...campaigns, { id: "C", name: "Quiet" }, { id: "D", name: "Quieter" }];
+  const rows = (list: ReadonlyArray<{ kind: string; id?: string; chat?: { id: string } }>) => list.map((r) => (r.kind === "campaign" ? `campaign:${r.id}` : r.chat?.id));
+
+  it("leaves out a campaign nobody has chatted in (the Campaigns page lists them all), and one only the agent has written in", () => {
+    const chats = [
+      chat("a1", { ...A, at: 300 }),
+      chat("b1", { campaignId: "B", campaignName: "Frontend Engineer", at: 500 }),
+      chat("c-daily", { campaignId: "C", campaignName: "Quiet", at: 999, daily: true, title: "Daily search" }),
+    ];
+    const { recents } = arrangeRail(chats, [], camps);
+    // C has a chat, but it is the agent's: C is as quiet as D, and neither is a row.
+    expect(rows(recents)).toEqual(["campaign:B", "campaign:A"]);
+  });
+
+  it("carries the person's own latest chat for a pick to open: not the daily search's, not a colleague's", () => {
+    const chats = [
+      chat("a-theirs", { ...A, at: 900, ownerName: "Ravi Iyer" }),
+      chat("a-daily", { ...A, at: 800, daily: true, title: "Daily search" }),
+      chat("a-mine", { ...A, at: 300 }),
+      chat("a-old", { ...A, at: 100 }),
+    ];
+    const [row] = arrangeRail(chats, [], [{ id: "A", name: "Senior Data Scientist" }]).recents;
+    // The campaign is as recent as the colleague's chat, and a pick opens the person's own.
+    expect(row).toMatchObject({ kind: "campaign", id: "A", name: "Senior Data Scientist", at: 900, chats: 4 });
+    expect(row?.kind === "campaign" && row.latest?.id).toBe("a-mine");
+  });
+
+  it("has nothing to open for a campaign whose only chats are a colleague's, so a pick starts one", () => {
+    const chats = [chat("a-theirs", { ...A, at: 900, ownerName: "Ravi Iyer" }), chat("a-daily", { ...A, at: 800, daily: true })];
+    const row = arrangeRail(chats, [], campaigns).recents.find((r) => r.kind === "campaign" && r.id === "A");
+    expect(row?.kind === "campaign" && row.latest).toBeNull();
+  });
+
+  it("keeps the chats of a campaign that is no longer running as chats of their own, and leaves a daily search chat out", () => {
+    const chats = [
+      chat("old", { campaignId: "gone", campaignName: "Closed One", at: 40 }),
+      chat("old-daily", { campaignId: "gone", campaignName: "Closed One", at: 60, daily: true }),
+      chat("g", { at: 10 }),
+    ];
+    expect(rows(arrangeRail(chats, [], campaigns).recents)).toEqual(["old", "g"]);
+  });
+
+  it("puts a campaign and a plain chat written at the same moment in a steady order, the campaign first", () => {
+    const chats = [chat("g", { at: 300 }), chat("a1", { ...A, at: 300 })];
+    expect(rows(arrangeRail(chats, [], campaigns).recents)).toEqual(["campaign:A", "g"]);
   });
 });
 
@@ -132,11 +193,10 @@ describe("a campaign's daily search chat in the list", () => {
     expect(selected?.chats.slice(1, NESTED_SHOWN).map((c) => c.id)).toEqual([...many].reverse().slice(0, NESTED_SHOWN - 1).map((c) => c.id));
   });
 
-  it("is shown where it was pinned when it is pinned on its own, and not repeated under its campaign or in Recents", () => {
-    const { selected, pinned, recents } = arrangeRail(chats, [pinKey("chat", "a-daily")], campaigns, { id: "A", name: "Senior Data Scientist" });
+  it("is shown where it was pinned when it is pinned on its own, and not repeated under its campaign", () => {
+    const { selected, pinned } = arrangeRail(chats, [pinKey("chat", "a-daily")], campaigns, { id: "A", name: "Senior Data Scientist" });
     expect(pinned.map((p) => (p.kind === "chat" ? p.chat.id : p.id))).toEqual(["a-daily"]);
     expect(selected?.chats.map((c) => c.id)).toEqual(["a-new", "a-mid"]);
-    expect(recents.map((c) => c.id)).not.toContain("a-daily");
   });
 
   it("does not lift its campaign among the pinned ones: the agent writes in it every morning, and that is not the person's attention", () => {
@@ -158,9 +218,10 @@ describe("a campaign's daily search chat in the list", () => {
     expect(pinned.map((p) => (p.kind === "chat" ? p.chat.id : p.id))).toEqual(["B", "A"]);
   });
 
-  it("stays in Recents, where every chat is, in its place by time, and a search finds it by its campaign", () => {
-    const { recents } = arrangeRail(chats, [], campaigns, { id: "A", name: "Senior Data Scientist" });
-    expect(recents.map((c) => c.id)).toEqual(["a-new", "b-new", "a-mid", "a-daily", "b-daily", "b-old"]);
+  it("is not a row of its own in recents (its campaign is), and a search finds it by its campaign", () => {
+    const { recents } = arrangeRail(chats, [], campaigns);
+    // The campaigns are ordered by the person's chats: A's newest is 500, B's 400, and the morning chats at 100 and 50 do not move them.
+    expect(recents.map((r) => (r.kind === "campaign" ? r.id : r.chat.id))).toEqual(["A", "B"]);
     expect(searchChats(chats, "frontend").map((c) => c.id)).toContain("b-daily");
   });
 

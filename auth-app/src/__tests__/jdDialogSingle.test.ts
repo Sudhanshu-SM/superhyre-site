@@ -48,7 +48,7 @@ describe("the job description dialog", () => {
 
 describe("the paperclip's comment in the composer's styles", () => {
   it("says it opens the menu of what to add, and that the picker follows the choice, not that it opens the picker", () => {
-    const css = src("composer.css");
+    const css = src("composerTray.css");
     expect(css).toContain("a quiet icon that opens the menu of what to add (the picker follows the choice)");
     expect(css).not.toContain("a quiet icon that opens the file picker");
   });

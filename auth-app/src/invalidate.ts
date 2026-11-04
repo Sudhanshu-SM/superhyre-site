@@ -331,7 +331,9 @@ const WRITES: ReadonlyArray<{ method?: string; re: RegExp; effects: readonly Cap
   { method: "DELETE", re: new RegExp(`^/v1/campaigns/(${ID})/candidates/[^/]+$`), effects: ["candidates", "pipeline"], campaign: 1 },
   { re: new RegExp(`^/v1/campaigns/(${ID})/candidates(/.*)?$`), effects: ["candidates"], campaign: 1 },
   // Matches decided: "Review N matches" on Home counts down with them.
-  { re: new RegExp(`^/v1/campaigns/(${ID})/matches/(shortlist|reject|save)$`), effects: ["candidates"], campaign: 1, views: ["tasks"] },
+  { re: new RegExp(`^/v1/campaigns/(${ID})/matches/(shortlist|save)$`), effects: ["candidates"], campaign: 1, views: ["tasks"] },
+  // A rejection or a shortlist taken back also moves or removes the person's card on the board.
+  { re: new RegExp(`^/v1/campaigns/(${ID})/matches/(reject|unshortlist)$`), effects: ["candidates", "pipeline"], campaign: 1, views: ["tasks"] },
   // Closed or reopened: the Overview's activity, funnel and agents, the list's row and Home's counts all follow.
   { method: "PUT", re: new RegExp(`^/v1/campaigns/(${ID})/status$`), effects: ["campaign"], campaign: 1 },
   // The rest passed once the roles are filled: the board, the hire counts, Candidates and Home follow.

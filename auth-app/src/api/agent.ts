@@ -161,6 +161,8 @@ export type Match = {
   contactsChecked?: boolean;
   /** Their profile says they are open to a move / they recently changed jobs; ranked a little higher. Absent from older servers. */
   openToWork?: boolean;
+  /** Put on the list as the source returned them: nothing read, ruled out or ranked, listed in the order they were found. A server older than this sends none. */
+  listedAsFound?: boolean;
   recentlyChangedJob?: boolean;
   /** What was decided about them (on the board, or passed); null or absent while they wait for a call. */
   decision?: "shortlisted" | "passed" | null;
@@ -569,11 +571,16 @@ export const agentApi = {
   cancel: (runId: string) => api<Record<string, unknown>>("POST", `/v1/runs/${runId}/cancel`),
   shortlist: (campaignId: string, personIds: string[]) =>
     api<{ added: number }>("POST", `/v1/campaigns/${campaignId}/matches/shortlist`, { personIds }).then((r) => { told(campaignId); return r; }),
+  /** A shortlisted person rejected here moves to Rejected on the board too; someone hired stays hired (`hiredKept`). */
   reject: (campaignId: string, personIds: string[], reason?: string) =>
-    api<{ rejected: number }>("POST", `/v1/campaigns/${campaignId}/matches/reject`, {
+    api<{ rejected: number; hiredKept?: number }>("POST", `/v1/campaigns/${campaignId}/matches/reject`, {
       personIds,
       ...(reason ? { reason } : {}),
     }).then((r) => { told(campaignId); return r; }),
+  /** A shortlist taken back: off the board, still in Candidates. Only people not contacted yet come off; `stayed` counts the rest. */
+  unshortlist: (campaignId: string, personIds: string[]) =>
+    api<{ removed: number; stayed: number }>("POST", `/v1/campaigns/${campaignId}/matches/unshortlist`, { personIds })
+      .then((r) => { told(campaignId); return r; }),
 };
 
 /* ── role spec (server/src/modules/matching) ───────────────────────────── */

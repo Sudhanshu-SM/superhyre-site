@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.5.6 (2026-11-01)
+
+### Changed
+- **One list of Recents.** The bottom of the chat list is a single "Recents", newest first: a chat about a campaign shows as that campaign (once, as recent as its latest chat; the agent's daily search chat does not count) and a chat about no campaign shows as itself. A folder marks a campaign and a chat bubble a chat, so the titles line up. Picking a campaign opens your latest chat in it (or starts one), it moves up to Selected with its chats as before, and the list goes back to the top. Its menu is the pinned campaign's (new chat, open campaign, pin). A campaign nobody has chatted in is not listed (the Campaigns page has them all); Search still finds every chat.
+- **The top of the list is calmer and is today's, for the campaign you are on.** "Today" with the campaign's name (or "All campaigns") over three figures, Found, Contacted and Interviews, each with its gain on yesterday (Contacted appears when the server sends it). Under them three rows read alike, with the label on the left: Daily sourcing, Owner and Collaborators (or Team).
+- **The list is wider (320px, was 288px) and has more room**: taller rows, more space between its parts, and the daily sourcing, owner and collaborator rows spaced like the rest.
+- **The Agent page's landing is cleaner.** The faint SuperHyre mark behind the heading is gone. The three suggestions now sit above the message box, one under another, each a full sentence on its own rounded row as wide as its words, with a small icon that takes the accent on hover; they rise in one after another and go when the first message is sent. "Search past chats" is no longer a fourth row (the list's Search and "/" do it).
+- **The message box holds only the words and Send.** The paperclip, Job description, Filters and where to search are in a tray attached under the box, quiet buttons on a recessed strip, with what is set in the accent (the job description by name, the filters by count). The tray is the same at rest and in a chat, so the folded settings button the docked bar had is gone.
+- **Smaller type on the Agent page, in step with the other pages.** The chat list's rows and buttons are 14px (headings 12.5px, times 12px), and the transcript, the cards, the message box and the chips are back to the sizes they had before 1.5.4 made them one to two px larger (the answer and your message 15px, the message box 15px, chips and suggestions 14px). The raised type tokens inside the transcript are gone. The page's heading chip and title are a step down too.
+
+### Added
+- **People listed as the server found them are said so.** Under "Ranked matches", people the server listed as found (an external-only search with `SEARCH_DIRECT`) read "N of M are listed in the order they were found, and haven't been scored", not that they were ordered by keywords, years and place. Scoring them is still the one button.
+- **Daily sourcing, the first of those rows**: On, Paused, Resting or Off for the campaign, and how many people it found for it today ("4 sourced today"), or all of the search's campaigns with none selected ("12 today · 2 campaigns"); the next morning is on hover. Pressing it opens that campaign's Daily search chat, or the Daily search popup (all campaigns, off, or not on for this campaign). It is not drawn while the server has the daily search off.
+- **The chat list can be on the left or the right.** It starts on the left, right after the console's side bar, and a switch (two arrows) beside the hide button in the list's title row moves it; whoever moves it has that remembered. On the left the hide button is in the list's left corner and the floating list opens from there. Moving it is a slide: the list closes, is put on the other side, and opens there; the choice is remembered. The hide button is now part of the page's layout (it follows the side bar) instead of fixed to the window.
+
+### Fixed
+- **A shortlisted person can be taken off the shortlist, or sent straight to Rejected.** Both buttons were switched off once someone was shortlisted ("Move them on the Pipeline to change that"). Now, on the Sourced list and its profile, in the agent chat's lists and cards, on the board card's menu (Board and Table) and in the person sheet: pressing Shortlisted again removes them ("Sudhir is off the shortlist and still in Candidates.", with Undo), and Reject opens the usual reason dialog and moves them to Rejected on the pipeline. Someone already contacted stays on the pipeline and the message says so (Reject still works); a hire is changed on the pipeline. Needs the 1.5.6 server.
+
 ## 1.5.5 (2026-10-30)
 
 ### Added

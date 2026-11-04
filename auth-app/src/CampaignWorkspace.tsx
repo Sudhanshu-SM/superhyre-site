@@ -1862,6 +1862,11 @@ function MoveMenu({ p, stages, onMove }: { p: PipelinePerson; stages: readonly S
           <button type="button" role="menuitem" className="ct-menu-i" onClick={() => { onMove("passed"); close(); }}>
             <span className="ct-menu-box is-radio" /><span className="ct-menu-t">Reject</span>
           </button>
+          {p.stage === "shortlisted" && (
+            <button type="button" role="menuitem" className="ct-menu-i" onClick={() => { close(); takeOffShortlist(p, toast); }}>
+              <span className="ct-menu-box is-radio" /><span className="ct-menu-t">Remove from shortlist</span>
+            </button>
+          )}
           {candidateId && (!listed || mayAllowAgain) && (
             <button type="button" role="menuitem" className="ct-menu-i ct-menu-quiet" onClick={() => { setAsking(true); close(); }}>
               <span className="ct-menu-box is-radio" /><span className="ct-menu-t">{listed ? "Allow contact again" : "Do not contact"}</span>
@@ -1993,9 +1998,20 @@ function TableGhost(): JSX.Element {
   );
 }
 
-/** Where a person is, and the way to move them: a row of the campaign's stages and Pass. */
+/**
+ * A shortlist taken back from the board: off it, still in Candidates. Only someone not contacted yet (at the shortlist
+ * stage) comes off, as with Remove on the Shortlisted page; a refusal is said by the store.
+ */
+function takeOffShortlist(p: PipelinePerson, toast: ReturnType<typeof useToast>) {
+  void removeFromShortlist(p.campaign, [p.id]).then((n) => {
+    if (n > 0) toast(`${firstName(p.name)} is off the shortlist and still in Candidates.`);
+  });
+}
+
+/** Where a person is, and the way to move them: a row of the campaign's stages and Pass, and Remove while they are only shortlisted. */
 function StagePick({ p, onMove, locked = false }: { p: PipelinePerson; onMove: (p: PipelinePerson, to: MoveTo) => void; locked?: boolean }) {
   const stages = useCampaignStages(p.campaign);
+  const toast = useToast();
   return (
     <section>
       <h3>Stage</h3>
@@ -2005,6 +2021,7 @@ function StagePick({ p, onMove, locked = false }: { p: PipelinePerson; onMove: (
           item={(a) => <button key={a.key} type="button" role="radio" aria-checked={a.on} className={a.on ? "is-on" : ""} onClick={a.run} disabled={locked} aria-disabled={locked || undefined}>{a.label}</button>}
         />
         <button type="button" className={`is-pass${p.stage === "passed" ? " is-on" : ""}`} onClick={() => onMove(p, "passed")} disabled={locked} aria-disabled={locked || undefined}>{p.stage === "passed" ? "Rejected" : "Reject"}</button>
+        {p.stage === "shortlisted" && <button type="button" onClick={() => takeOffShortlist(p, toast)} disabled={locked} aria-disabled={locked || undefined} title="Take off the shortlist. They stay in Candidates.">Remove from shortlist</button>}
       </div>
     </section>
   );

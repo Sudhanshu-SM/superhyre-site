@@ -50,8 +50,8 @@ describe("where the rail is", () => {
     expect(wide).toMatch(/\.orc\.is-agent\.is-chat \.orc-composer-below \{\s*position: absolute;\s*top: 100%;/);
     const src = readFileSync(resolve(__dirname, "../Agent.tsx"), "utf8");
     expect(src).toMatch(/--config-top/);
-    // the suggestions are for the page before a conversation, and only that
-    expect(src).toMatch(/LIVE\s*\? !started/);
+    // the suggestions are for the page before a conversation, and only that: above the box, gone as the first message goes
+    expect(src).toContain("{LIVE && !started && !exiting && (\n              <IdeaList");
   });
 
   it("holds what is attached inside the composer's own box, not above it", () => {
@@ -74,7 +74,7 @@ describe("the transcript", () => {
     expect(rule).toMatch(/background: var\(--sub\)/);
     expect(rule).toMatch(/border: 0/);
     expect(rule).toMatch(/max-width: min\(72%, 760px\)/);
-    expect(rule).toMatch(/font: 400 16px\/1\.65/);
+    expect(rule).toMatch(/font: 400 15px\/1\.65/);
     expect(css).toMatch(/@media \(max-width: 640px\) \{ \.orc-turn \.rep-prompt \{ max-width: 85%; \} \}/);
   });
 

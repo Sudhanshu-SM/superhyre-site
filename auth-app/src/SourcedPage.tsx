@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MatchList } from "./api/agent";
 import { agentApi, specApi } from "./api/agent";
 import { getCandidate } from "./api/candidates";
@@ -17,10 +17,9 @@ import { SearchHistoryButton } from "./SearchHistory";
 import { SourcedEmpty } from "./SourcedEmpty";
 import { SuggestNudge } from "./SuggestNudge";
 import { asksAfter } from "./suggestNudge";
-import { campaignLink } from "./nav";
 import { similarToReject } from "./sourcedSimilar";
 import { useToast } from "./toast";
-import { undoNote } from "./verdictUndo";
+import { hiredKeptNote, takenBackNote, undoNote, withoutDecision } from "./verdictUndo";
 import type { Verdict } from "./sourcing";
 import "./sourced.css";
 
@@ -78,23 +77,43 @@ export function SourcedPage({ campaignId, campaignName, onAgent }: {
       return next;
     });
   }, []);
+  const firstOf = (id: string) => candidateById(id)?.name.split(" ")[0] ?? "They";
   const onVerdict = useCallback((id: string, v: Verdict | null) => {
     if (v === "shortlisted") {
       setVerdict(id, v);
       agentApi.shortlist(campaignId, [id]).catch(() => setVerdict(id, null));
-    } else if (v === "rejected") setPassing(id);
-    // Taking a shortlist or a pass back is not offered by the server: the press says so, and where to go.
-    else {
-      const note = undoNote(({ ...(getSet(campaignId)?.decisions ?? {}), ...verdicts })[id]);
-      toast(note.text, "error", note.toPipeline ? { label: "Open the pipeline", onClick: () => { window.location.hash = campaignLink(campaignId, "pipeline"); } } : undefined);
+      return;
     }
+    // Reject works on anyone still to review and on someone shortlisted: a shortlisted person moves to Rejected on the board too.
+    if (v === "rejected") { setPassing(id); return; }
+    const was = ({ ...(getSet(campaignId)?.decisions ?? {}), ...verdicts })[id];
+    // A rejection is kept so matching can learn from it: the press says so, and that shortlisting brings them back.
+    if (was !== "shortlisted") { toast(undoNote(was).text, "error"); return; }
+    // A shortlist taken back: off the board, still in Candidates, and back to review here at once.
+    setVerdict(id, null);
+    const s = getSet(campaignId);
+    if (s) putSet({ ...s, decisions: withoutDecision(s.decisions, id) });
+    agentApi.unshortlist(campaignId, [id]).then((r) => {
+      const note = takenBackNote(firstOf(id), r);
+      if (!note.done) setVerdict(id, "shortlisted");
+      toast(note.text, note.done ? "done" : "error", note.done && r.removed > 0 ? { label: "Undo", onClick: () => onVerdictRef.current(id, "shortlisted") } : undefined);
+    }).catch(() => {
+      setVerdict(id, "shortlisted");
+      toast("Couldn't take them off the shortlist. Try again.", "error");
+    });
   }, [campaignId, setVerdict, verdicts, toast]);
+  const onVerdictRef = useRef(onVerdict);
+  onVerdictRef.current = onVerdict;
   const passWith = useCallback((reason: string | undefined) => {
     const id = passing;
     setPassing(null);
     if (!id) return;
+    const was = ({ ...(getSet(campaignId)?.decisions ?? {}), ...verdicts })[id];
     setVerdict(id, "rejected");
-    agentApi.reject(campaignId, [id], reason).catch(() => setVerdict(id, null));
+    agentApi.reject(campaignId, [id], reason).then((r) => {
+      // Someone hired is not turned down from here: a hire is changed on the pipeline, where it is asked about first.
+      if (r.hiredKept) { setVerdict(id, was ?? null); toast(hiredKeptNote(firstOf(id)), "error"); }
+    }).catch(() => setVerdict(id, was ?? null));
     /* Rejected for experience while past the role's range: the others still to review who are past it too are offered. */
     const decided = { ...(getSet(campaignId)?.decisions ?? {}), ...verdicts, [id]: "rejected" as const };
     const ids = similarToReject(getSet(campaignId)?.candidates ?? [], decided, yearsMax, candidateById(id), reason);

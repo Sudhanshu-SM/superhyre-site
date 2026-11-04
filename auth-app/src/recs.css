@@ -79,40 +79,48 @@
   .orc .orc-chip, .orc .orc-find { transition: none; }
 }
 
-/* ═════════════ the list under the composer (IdeaList, Recs.tsx) ═════════════
-   Three suggestions one under the other, each a full sentence, and a last line to search past chats. Quiet:
-   no border, a small icon, the ink goes up and a faint wash shows on hover. It never wraps a sentence off the
-   column, and it sits in the composer's own block so it can never overlap the field. */
+/* ═════════════ the ideas above the composer (IdeaList, Recs.tsx) ═════════════
+   Three suggestions one under the other, under the heading and at the foot of the space above the box, so the box is
+   the last thing on the way down. Each is a full sentence on its own rounded row, as wide as its words: a hairline,
+   the page's own ground, a small icon. On hover the row takes the soft wash and the icon the accent. They rise in one
+   after another when the page opens. Pressing a question asks it; pressing an open one puts it in the box to finish. */
+.orc .orc-stream:not(.is-live) .orc-log { display: flex; flex-direction: column; }
 .orc .orc-ideas {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  align-items: flex-start;
+  gap: 8px;
   width: 100%;
   min-width: 0;
-  margin-top: 10px;
+  margin-top: auto;
+  padding: 24px 0 22px;
 }
 .orc .orc-idea {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 10px;
-  width: 100%;
+  max-width: 100%;
   min-width: 0;
   min-height: 40px;
-  padding: 7px 12px;
-  border: 0;
-  border-radius: 10px;
-  background: transparent;
-  color: var(--ink-2);
-  font: 400 15.5px/1.4 var(--ui);
+  padding: 9px 16px 9px 13px;
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  background: var(--page);
+  color: var(--ink);
+  font: 400 14px/1.4 var(--ui);
   letter-spacing: -0.006em;
   text-align: left;
   cursor: pointer;
-  transition: color var(--t), background-color var(--t);
+  transition: border-color var(--t), background-color var(--t);
+  animation: orc-idea-in 360ms var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 50ms + 60ms);
 }
-.orc .orc-idea svg { flex: none; width: 17px; height: 17px; }
+.orc .orc-idea svg { flex: none; width: 16px; height: 16px; color: var(--ink-2); transition: color var(--t); }
 .orc .orc-idea span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.orc .orc-idea:hover { color: var(--ink); background: var(--nav-hover, var(--sub)); }
-.orc .orc-idea:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
-.orc .orc-idea-find { color: var(--ink-2); }
+.orc .orc-idea:hover { background: var(--sub); border-color: var(--rule); }
+.orc .orc-idea:hover svg { color: var(--accent); }
+.orc .orc-idea:active { transform: scale(0.99); }
+.orc .orc-idea:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+@keyframes orc-idea-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @media (max-width: 640px) { .orc .orc-idea span { white-space: normal; } }
-@media (prefers-reduced-motion: reduce) { .orc .orc-idea { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .orc .orc-idea, .orc .orc-idea svg { transition: none; animation: none; } }

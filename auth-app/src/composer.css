@@ -1,13 +1,12 @@
 /* ═══════════════════════════════ composer ═══════════════════════════════════
-   The composer's control row, and the two dialogs its context buttons open.
+   The box's own row (Send, and the length near the limit), and the two dialogs the tray's context buttons open. The
+   paperclip and the chips are in the tray under the box: composerTray.css.
 
    Specificity is deliberate: access.css loads AFTER this file and styles the
    same elements at up to (0,4,0), so every row rule here is scoped under
    `.orc` to win without !important.
 
-   One height for the row: 38px at rest (the paperclip, the chips and send),
-   30px docked (the paperclip 34). Every control centres on the same line, so
-   modes, context buttons and send read as one strip. */
+   Send is 38px at rest and 30px docked. */
 
 /* ── the row ── */
 
@@ -16,114 +15,9 @@
    wraps and the controls sit one under another, never on top of one another. */
 @media (max-width: 520px) {
   .orc .orc-composer .orc-composer-row { flex-wrap: wrap; row-gap: 6px; }
-  .orc .orc-composer .orc-slots { flex-wrap: wrap; min-width: 0; max-width: 100%; }
-}
-
-.orc .orc-composer .orc-modes {
-  display: inline-flex;
-  align-items: center;
-  height: 32px;
-  padding: 3px;
-  gap: 2px;
-  border-radius: var(--r-pill);
-  background: var(--sub);
-}
-
-.orc .orc-composer .orc-modes .orc-mode {
-  height: 26px;
-  padding: 0 12px;
-  gap: 6px;
-  font: 500 12.5px/1 var(--ui);
-  color: var(--ink-2);
-}
-.orc .orc-composer .orc-modes .orc-mode.is-on {
-  background: #fff;
-  color: var(--ink);
-  box-shadow: 0 1px 2px rgba(26, 22, 20, 0.08), 0 0 0 1px rgba(26, 22, 20, 0.03);
-}
-
-/* It may be narrower than its chips: the job description's name is what gives (chat.css), so Send is never pushed out of the box. */
-.orc .orc-composer .orc-slots { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
-
-/* The context buttons: warm, raised and obviously pressable. */
-.orc .orc-composer .orc-slots .orc-gslot.orc-ctx {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  height: 32px;
-  padding: 0 13px 0 5px;
-  border: 1px solid var(--accent-line);
-  border-radius: var(--r-pill);
-  background: linear-gradient(180deg, #fff8f4 0%, #ffece2 100%);
-  box-shadow: 0 1px 2px rgba(204, 77, 23, 0.10), 0 3px 8px -2px rgba(204, 77, 23, 0.14);
-  font: 500 12.5px/1 var(--ui);
-  letter-spacing: -0.011em;
-  color: var(--accent-text);
-  cursor: pointer;
-  transition: border-color 200ms var(--ease-out), box-shadow 240ms var(--ease-out), background 240ms var(--ease-out);
-}
-.orc .orc-composer .orc-slots .orc-gslot.orc-ctx:hover {
-  border-color: #e9a883;
-  background: linear-gradient(180deg, #fff3ec 0%, #ffe3d4 100%);
-  box-shadow: 0 1px 2px rgba(204, 77, 23, 0.14), 0 6px 16px -4px rgba(204, 77, 23, 0.30);
-}
-.orc .orc-composer .orc-slots .orc-gslot.orc-ctx:active { transform: scale(0.96); transition: transform 60ms var(--ease-out); }
-.orc .orc-composer .orc-slots .orc-gslot.orc-ctx:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-
-.orc-ctx-ico {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: #fff;
-  color: var(--accent);
-  box-shadow: 0 1px 2px rgba(204, 77, 23, 0.18);
-  transition: background-color 240ms var(--ease-out), color 240ms var(--ease-out);
-}
-
-.orc .orc-composer .orc-slots .orc-gslot.orc-ctx.is-on { background: var(--accent-tint); border-color: var(--accent-fill); color: var(--accent-deep); }
-.orc .orc-composer .orc-slots .orc-gslot.orc-ctx.is-on .orc-ctx-ico { background: var(--accent-fill); color: #fff; animation: ab-check 420ms var(--ease-out); }
-
-.orc-ctx-n {
-  display: inline-grid;
-  place-items: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: var(--r-pill);
-  background: var(--accent-fill);
-  font: 600 10.5px/1 var(--ui);
-  color: #fff;
-  font-variant-numeric: tabular-nums;
-  animation: cb-pop 320ms var(--ease-out);
 }
 
 .orc .orc-composer .orc-send { width: 38px; height: 38px; }
-
-/* The paperclip: a quiet icon that opens the menu of what to add (the picker follows the choice), first in the row. No chip,
-   no label: it is the same control everywhere a file goes, and what is attached says what it was. */
-.orc .orc-composer .orc-pin {
-  display: inline-grid;
-  place-items: center;
-  flex: none;
-  width: 38px;
-  height: 38px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--ink-2);
-  cursor: pointer;
-  transition: background-color 160ms var(--ease-out), color 160ms var(--ease-out);
-}
-.orc .orc-composer .orc-pin:hover:not(:disabled) { background: var(--sub); color: var(--ink); }
-.orc .orc-composer .orc-pin:active:not(:disabled) { transform: scale(0.94); transition: transform 60ms var(--ease-out); }
-.orc .orc-composer .orc-pin:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-.orc .orc-composer .orc-pin:disabled { opacity: 0.4; cursor: default; }
-.orc .orc-stream.is-live .orc-composer .orc-pin { width: 34px; height: 34px; }
 
 /* The length of a message, once it is near the most the agent takes. Quiet until it is over. */
 .orc .orc-composer .orc-count { margin-left: auto; color: var(--ink-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -131,31 +25,9 @@
 /* The send button already takes the free space to its left; the count sits against it, not mid-row. */
 .orc .orc-composer .orc-count + .orc-send { margin-left: 0; }
 
-/* ── docked: one line, icons only ── */
+/* ── docked: the words and Send on one line ── */
 
 .orc .orc-stream.is-live .orc-composer .orc-composer-row { gap: 6px; }
-.orc .orc-stream.is-live .orc-composer .orc-modes { height: 30px; padding: 2px; }
-.orc .orc-stream.is-live .orc-composer .orc-modes .orc-mode { width: 26px; height: 26px; padding: 0; justify-content: center; }
-
-.orc .orc-stream.is-live .orc-composer .orc-slots .orc-gslot.orc-ctx {
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  gap: 0;
-  justify-content: center;
-  border-radius: 50%;
-}
-.orc .orc-stream.is-live .orc-composer .orc-slots .orc-gslot.orc-ctx .orc-ctx-ico { width: 20px; height: 20px; box-shadow: none; background: transparent; }
-.orc .orc-stream.is-live .orc-composer .orc-slots .orc-gslot.orc-ctx.is-on .orc-ctx-ico { background: var(--accent-fill); }
-.orc .orc-stream.is-live .orc-composer .orc-ctx-n {
-  position: absolute;
-  top: -5px;
-  right: -5px;
-  min-width: 16px;
-  height: 16px;
-  font-size: 9.5px;
-  box-shadow: 0 0 0 2px #fff;
-}
 .orc .orc-stream.is-live .orc-composer .orc-send { width: 30px; height: 30px; }
 
 /* ═══════════════════════════════ filters dialog ═════════════════════════════ */
@@ -525,7 +397,7 @@
 .jd-foot .sp { flex: 1 1 auto; }
 
 @media (prefers-reduced-motion: reduce) {
-  .fd-cat-n, .fd-chip.is-on svg, .fd-tag, .orc-ctx-n, .jd-read li, .jd-file, .jd-ok { animation: none; }
+  .fd-cat-n, .fd-chip.is-on svg, .fd-tag, .jd-read li, .jd-file, .jd-ok { animation: none; }
   .fd-switch::after, .fd-seg-pill { transition-duration: 1ms; }
   .jd-bar i { animation-duration: 1ms; }
 }
@@ -577,100 +449,10 @@
    stayed. */
 .orc .orc-composer .orc-composer-field { container-type: inline-size; }
 
-/* ── docked: field → tune → send ──
-   Two mode icons and two context buttons on the docked bar read as clutter
-   (reported). Docked, they fold into one Tune control whose badge says how
-   much is set, and a small menu above it holds all three. */
-.orc .orc-stream.is-live .orc-composer .orc-modes,
-.orc .orc-stream.is-live .orc-composer .orc-slots { display: none; }
+/* ── docked: the bar is field → send ──
+   The modes and context buttons used to fold into one Tune control on the docked bar. They live in the tray under the
+   box now (composerTray.css), the same at rest and docked, so the bar holds only the words and Send. */
 
-.orc-tune-wrap { position: relative; display: inline-flex; }
-
-.orc-tune {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 30px;
-  padding: 0 10px;
-  border: 1px solid var(--accent-line);
-  border-radius: var(--r-pill);
-  background: linear-gradient(180deg, #fff8f4 0%, #ffece2 100%);
-  box-shadow: 0 1px 2px rgba(204, 77, 23, 0.10), 0 3px 8px -2px rgba(204, 77, 23, 0.14);
-  color: var(--accent-text);
-  cursor: pointer;
-  transition: border-color 200ms var(--ease-out), box-shadow 240ms var(--ease-out);
-}
-.orc-tune:hover, .orc-tune.is-open { border-color: #e9a883; box-shadow: 0 1px 2px rgba(204, 77, 23, 0.14), 0 6px 16px -4px rgba(204, 77, 23, 0.30); }
-.orc-tune:active { transform: scale(0.95); transition: transform 60ms var(--ease-out); }
-.orc-tune:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-.orc-tune > svg:last-of-type { transition: transform 300ms var(--ease-out); }
-.orc-tune.is-open > svg:last-of-type { transform: rotate(90deg); }
-.orc-tune-n {
-  position: absolute;
-  top: -6px;
-  right: -6px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  display: grid;
-  place-items: center;
-  border-radius: var(--r-pill);
-  background: var(--accent-fill);
-  box-shadow: 0 0 0 2px #fff;
-  font: 600 9.5px/1 var(--ui);
-  color: #fff;
-  animation: cb-pop 300ms var(--ease-out);
-}
-
-.orc-tune-pop {
-  position: absolute;
-  right: -6px;
-  bottom: calc(100% + 12px);
-  z-index: 20;
-  display: grid;
-  gap: 4px;
-  width: 268px;
-  padding: 6px;
-  border: 1px solid var(--hairline);
-  border-radius: 16px;
-  background: #fff;
-  box-shadow: 0 12px 32px -8px rgba(26, 22, 20, 0.22), 0 1px 3px rgba(26, 22, 20, 0.06);
-  transform-origin: bottom right;
-  animation: orc-pop 220ms var(--ease-out) both;
-}
-@keyframes orc-pop { from { opacity: 0; transform: translateY(6px) scale(0.96); } to { opacity: 1; transform: none; } }
-
-.orc-tune-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 3px; margin-bottom: 4px; border-radius: 10px; background: var(--sub); }
-.orc-tune-mode { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 30px; border: 0; border-radius: 8px; background: transparent; font: 500 12.5px/1 var(--ui); color: var(--ink-2); cursor: pointer; transition: background-color var(--t), color var(--t), box-shadow var(--t); }
-.orc-tune-mode.is-on { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgba(26, 22, 20, 0.1); }
-.orc-tune-mode:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
-
-.orc-tune-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px;
-  border: 0;
-  border-radius: 10px;
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
-  transition: background-color var(--t-dim);
-}
-.orc-tune-item:hover { background: #fffaf7; }
-.orc-tune-item:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
-.orc-tune-item .orc-ctx-ico { width: 28px; height: 28px; background: var(--accent-tint); box-shadow: none; }
-.orc-tune-group { display: grid; gap: 2px; margin-top: 2px; padding-top: 6px; border-top: 1px solid var(--hairline); }
-.orc-tune-group:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
-.orc-tune-cap { margin: 0; padding: 0 10px 2px; color: var(--ink-2); font: 600 12px/1.3 var(--ui); }
-.orc-tune-l { display: grid; gap: 2px; flex: 1 1 auto; min-width: 0; }
-.orc-tune-l b { font: 600 13px/1.2 var(--ui); color: var(--ink); }
-.orc-tune-l small { font: 400 12px/1.3 var(--ui); color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-@media (prefers-reduced-motion: reduce) {
-  .orc-tune-pop, .orc-tune-n { animation: none; }
-}
 
 /* ── resting composer: a warmer, layered lift on the landing view ── */
 .orc .orc-stream:not(.is-live) .orc-composer .orc-composer-field {
@@ -709,25 +491,6 @@
     scrollbar-color: rgba(26, 22, 20, 0.18) transparent;
   }
 }
-
-/* ── context buttons: a neutral hover ──
-   The hover used to deepen the orange wash and add an orange glow, which read
-   as the button changing colour rather than responding. Now the button lifts
-   to white on a neutral shadow, and only its small icon circle takes the
-   accent: one point of colour that says "this one", not the whole button. */
-.orc .orc-composer .orc-slots .orc-gslot.orc-ctx:hover,
-.orc-tune:hover, .orc-tune.is-open {
-  background: #fff;
-  border-color: var(--rule);
-  box-shadow: 0 1px 2px rgba(26, 22, 20, 0.06), 0 6px 14px -6px rgba(26, 22, 20, 0.18);
-}
-.orc .orc-composer .orc-slots .orc-gslot.orc-ctx:hover .orc-ctx-ico {
-  background: var(--accent-fill);
-  color: #fff;
-  box-shadow: none;
-}
-.orc .orc-composer .orc-slots .orc-gslot.orc-ctx .orc-ctx-ico { transition: background-color 200ms var(--ease-out), color 200ms var(--ease-out), transform 260ms var(--ease-out); }
-.orc .orc-composer .orc-slots .orc-gslot.orc-ctx:hover .orc-ctx-ico { transform: rotate(-8deg); }
 
 /* ── what the brief covers ──
    Five plain words under the resting composer: no pill, no dot, no border.

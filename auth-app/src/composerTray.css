@@ -1,0 +1,132 @@
+/* ═══════════════════════ the composer's tray (Agent.tsx) ═══════════════════════
+   The box holds the words and Send. Everything that changes what a search does (the paperclip, the job description,
+   the filters, where to search) is in a tray attached under it: a recessed strip, a little narrower than the box and
+   tucked 18px behind its lower edge, so the two read as one object. The same tray at rest and docked: a control is in
+   one place in every state.
+
+   Quiet buttons: no border, no circle, the ink goes up and a faint wash shows on hover. What is set says so in the
+   accent (the job description by name, the filters by count). The lift the resting box used to cast is the tray's
+   now, because the tray is the bottom of the object.
+
+   Selectors carry `.orc.is-agent` so they outrank access.css and composer.css, which style the field and its row. */
+
+.orc.is-agent .orc-composer-field { position: relative; z-index: 1; }
+
+.orc.is-agent .orc-tray {
+  --tray-tuck: 18px;
+  position: relative;
+  z-index: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  margin: calc(var(--tray-tuck) * -1) 14px 0;
+  padding: calc(var(--tray-tuck) + 6px) 8px 6px;
+  border: 1px solid var(--hairline);
+  border-top: 0;
+  border-radius: 0 0 18px 18px;
+  background: var(--sub);
+  container-type: inline-size;
+}
+.orc.is-agent .orc-stream:not(.is-live) .orc-tray {
+  box-shadow: 0 8px 20px -12px rgba(26, 22, 20, 0.14), 0 22px 44px -26px rgba(204, 77, 23, 0.2);
+}
+/* At rest the box keeps a hairline lift of its own and the focus ring; the long shadow is the tray's. */
+.orc.is-agent .orc-stream:not(.is-live) .orc-composer .orc-composer-field { box-shadow: 0 1px 2px rgba(26, 22, 20, 0.05); }
+.orc.is-agent .orc-stream:not(.is-live) .orc-composer .orc-composer-field:focus-within { box-shadow: 0 0 0 4px rgba(234, 90, 30, 0.06), 0 1px 2px rgba(26, 22, 20, 0.05); }
+
+/* The box's own row is only Send now (and the length, near the limit), at its right end. */
+.orc.is-agent .orc-composer .orc-composer-row { justify-content: flex-end; }
+
+.orc.is-agent .orc-tray .orc-slots,
+.orc.is-agent .orc-tray .orc-modes { display: flex; align-items: center; gap: 2px; min-width: 0; height: auto; padding: 0; background: none; }
+
+.orc.is-agent .orc-tray-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: none;
+  height: 30px;
+  padding: 0 11px 0 9px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: transparent;
+  box-shadow: none;
+  color: var(--ink-2);
+  font: 500 13px/1 var(--ui);
+  letter-spacing: -0.006em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 160ms var(--ease-out), background-color 160ms var(--ease-out);
+}
+.orc.is-agent .orc-tray-btn svg { flex: none; }
+.orc.is-agent .orc-tray-btn:hover,
+.orc.is-agent .orc-tray-btn.is-open { color: var(--ink); background: color-mix(in srgb, var(--ink) 7%, transparent); }
+.orc.is-agent .orc-tray-btn:active { transform: scale(0.97); transition: transform 60ms var(--ease-out); }
+.orc.is-agent .orc-tray-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.orc.is-agent .orc-tray-btn:disabled { opacity: 0.4; cursor: default; }
+
+/* Set: the accent on the words and the icon, and its tint on hover. */
+.orc.is-agent .orc-tray-btn.is-on { color: var(--accent-text); }
+.orc.is-agent .orc-tray-btn.is-on:hover { background: var(--accent-tint); }
+
+/* The paperclip: a quiet icon that opens the menu of what to add (the picker follows the choice), first in the tray. */
+.orc.is-agent .orc-tray-pin { width: 30px; padding: 0; justify-content: center; }
+/* A hairline after the paperclip: adding something is one kind of control, shaping the search another. */
+.orc.is-agent .orc-tray-pin + .orc-slots::before {
+  content: "";
+  flex: none;
+  width: 1px;
+  height: 16px;
+  margin: 0 6px 0 4px;
+  background: var(--rule);
+}
+
+/* The job description's name is the one label that is anything the person chose: it is cut, never Send's room. */
+.orc.is-agent .orc-tray-btn:has(> .orc-tray-name) { flex: 0 1 auto; min-width: 0; }
+.orc.is-agent .orc-tray-name { display: block; min-width: 0; max-width: 22ch; overflow: hidden; text-overflow: ellipsis; line-height: 1.3; }
+
+.orc.is-agent .orc-tray-n {
+  display: inline-grid;
+  place-items: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: var(--r-pill);
+  background: var(--accent-fill);
+  color: #fff;
+  font: 600 10.5px/1 var(--ui);
+  font-variant-numeric: tabular-nums;
+  animation: cb-pop 320ms var(--ease-out);
+}
+
+.orc.is-agent .orc-tray .orc-follow { padding: 0 8px; font: 400 12.5px/1.3 var(--ui); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+
+/* Narrow: the labels go, the icons stay (each keeps its title); the job description's name goes last. */
+@container (max-width: 420px) {
+  .orc.is-agent .orc-tray-btn:not(:has(> .orc-tray-name)) { width: 30px; padding: 0; justify-content: center; }
+  .orc.is-agent .orc-tray-btn:not(:has(> .orc-tray-name)) .orc-tray-l { display: none; }
+  .orc.is-agent .orc-tray-n { position: absolute; top: -3px; right: -3px; }
+}
+
+/* ── docked ──
+   The bar is the box's one line with Send at its end; the tray hangs under it the same way, a step tighter. The dock
+   is taller by the tray's height, so the bar does not move up into the transcript. */
+.orc.is-agent { --dock: 156px; --dock-under: 32px; }
+.orc.is-agent .orc-stream.is-live .orc-tray { --tray-tuck: 16px; margin-inline: 22px; padding-bottom: 5px; border-radius: 0 0 16px 16px; }
+.orc.is-agent .orc-stream.is-live .orc-tray-btn { height: 28px; }
+.orc.is-agent .orc-stream.is-live .orc-tray-pin { width: 28px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .orc.is-agent .orc-tray-btn { transition: none; }
+  .orc.is-agent .orc-tray-n { animation: none; }
+}
+
+/* ── at rest, Send beside the words ──
+   With the controls in the tray, the box's own row would be Send alone under the text: a strip of nothing. The words
+   and Send share the box instead, Send on the last line, so the box is the words' height and the group (box and tray)
+   is the height the resting box used to be: `--land-h` still places it. What is attached stays on its own first line. */
+.orc.is-agent .orc-stream:not(.is-live) .orc-composer .orc-composer-field { display: flex; align-items: flex-end; gap: 12px; }
+.orc.is-agent .orc-stream:not(.is-live) .orc-composer .orc-field-text { flex: 1 1 auto; min-width: 0; }
+.orc.is-agent .orc-stream:not(.is-live) .orc-composer .orc-composer-row { flex: none; margin-top: 0; }

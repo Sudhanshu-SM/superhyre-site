@@ -57,15 +57,15 @@ export function SourcesChip({ value, onChange }: { value: SourceMode; onChange: 
       <button
         ref={btn}
         type="button"
-        className={`orc-gslot orc-ctx src-chip${open ? " is-open" : ""}`}
+        className={`orc-tray-btn${open ? " is-open" : ""}`}
         data-tour="sources-slot"
         title={`Searches look in ${SOURCES[value].says}`}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
       >
-        <span className="orc-ctx-ico" aria-hidden="true"><Database size={14} weight="bold" /></span>
-        <span className="orc-chip-l">{SOURCES[value].label}</span>
+        <Database size={15} aria-hidden="true" />
+        <span className="orc-tray-l">{SOURCES[value].label}</span>
       </button>
       {open && at && createPortal(
         <div ref={pop} className="src-pop" style={{ left: at.left, bottom: at.bottom }}>

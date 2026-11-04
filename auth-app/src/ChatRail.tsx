@@ -1,14 +1,16 @@
-import { Archive, CaretDown, Check, DotsThree, FolderOpen, Folders, MagnifyingGlass, PencilSimple, Plus, PushPin, PushPinSlash, SidebarSimple, Trash, X } from "@phosphor-icons/react";
+import { Archive, ArrowsLeftRight, CaretDown, ChatCircle, Check, DotsThree, FolderOpen, Folders, MagnifyingGlass, PencilSimple, Plus, PushPin, PushPinSlash, SidebarSimple, Trash, X } from "@phosphor-icons/react";
 import { forwardRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import { NESTED_SHOWN, RECENTS_BATCH, agoLabel, arrangeRail, searchChats, type PinnedCampaign, type RailChat } from "./chatGroups";
+import { NESTED_SHOWN, RECENTS_BATCH, agoLabel, arrangeRail, searchChats, type PinnedCampaign, type RailChat, type RecentCampaign } from "./chatGroups";
 import { pinKey, togglePin, usePins } from "./chatPins";
 import { Fold } from "./Fold";
 import { useFlip } from "./useFlip";
 
 /**
  * The chat history, laid out like the chat apps people already know: New chat, Search and Campaigns at the top, what
- * they pinned (chats, and campaigns with their own chats under them), then Recents, newest first, a few at a time.
+ * they pinned (chats, and campaigns with their own chats under them), then Recents, newest first, a few at a time: a chat
+ * about a campaign is the campaign (picking it opens its latest chat and it moves up to Selected, with its chats) and a
+ * chat about none is itself.
  * Hiding it leaves one button in the corner; resting on that button lets the whole list drift in over the page, and
  * pressing it docks the list again. Every row of the person's own has the same small menu: pin, rename, put in a campaign, archive,
  * delete (asked twice, and for good); a campaign's daily search chat has no pin and no campaign to be put in (`menuOffers`).
@@ -31,6 +33,8 @@ type Props = {
   onNew: () => void;
   onNewIn: (campaign: Campaign) => void;
   onOpenCampaign: (id: string) => void;
+  /** A campaign picked from the list: its latest chat opens, or a new one starts when it has none. */
+  onPickCampaign: (campaign: RecentCampaign) => void;
   onOpen: (chat: RailChat) => void;
   onRename: (id: string, title: string) => Promise<void>;
   onMove: (id: string, campaignId: string | null) => Promise<void>;
@@ -43,13 +47,16 @@ type Props = {
   top?: ReactNode;
   /** Each time this goes up the search is opened and focused ("/" asks for it). */
   findAsk?: number;
+  /** Which side of the page the list is on; `onSide` asks for the other one (the page moves it, with the list sliding away and back). */
+  side?: "left" | "right";
+  onSide?: (side: "left" | "right") => void;
 };
 
 const OPEN_KEY = "superhyre.chatrail.open";
 const CAMP_KEY = "superhyre.chatrail.campaigns";
 /* What the Recents measure with: a row's height with its gap, what the section's heading and "View more" take, and the least shown. */
-const ROW_H = 41;
-const RECENTS_CHROME = 108;
+const ROW_H = 40;
+const RECENTS_CHROME = 124;
 const MIN_RECENTS = 4;
 const isMac = typeof navigator !== "undefined" && /mac/i.test(navigator.platform);
 export const RAIL_SHORTCUT = isMac ? "⌘B" : "Ctrl+B";
@@ -65,7 +72,7 @@ function readOpen(): Record<string, boolean> {
 
 export function ChatRail({
   chats, state, onRetry, activeId, campaigns, hidden, onToggle, campaignsOpen, onCampaigns, onNew, onNewIn, onOpenCampaign,
-  onOpen, onRename, onMove, onArchive, onDelete, selected = null, top, findAsk = 0,
+  onPickCampaign, onOpen, onRename, onMove, onArchive, onDelete, selected = null, top, findAsk = 0, side = "right", onSide,
 }: Props) {
   const pins = usePins();
   const [q, setQ] = useState("");
@@ -85,6 +92,13 @@ export function ChatRail({
   const input = useRef<HTMLInputElement>(null);
   const body = useRef<HTMLDivElement>(null);
   const peek = hidden && (near || within || menus > 0);
+  const left = side === "left";
+  const rail = useRef<HTMLElement>(null);
+  /* Hidden and on the left, the list floats open from where the page starts, which is not the window's edge: measured as it opens. */
+  useLayoutEffect(() => {
+    if (!peek || !left) return;
+    rail.current?.style.setProperty("--peek-x", `${Math.round(rail.current.getBoundingClientRect().left)}px`);
+  }, [peek, left]);
 
   /* The search is where "/" lands: the list is brought back if it was hidden. */
   const hiddenNow = useRef(hidden);
@@ -111,7 +125,7 @@ export function ChatRail({
   const found = useMemo(() => searchChats(chats ?? [], q), [chats, q]);
   const searchMode = q.trim().length > 0;
   const count = fit + more;
-  const recents = arranged.recents.slice(0, count);
+  const listed = arranged.recents.slice(0, count);
   const pinnedOpen = open.pinned ?? true;
   const selectedOpen = open.selected ?? true;
   const recentsOpen = open.recents ?? true;
@@ -121,14 +135,14 @@ export function ChatRail({
     try { window.localStorage.setItem(OPEN_KEY, JSON.stringify(next)); } catch { /* not worth failing over */ }
   };
 
-  /* What the rows are and their order, not how many of the Recents fit: opening a campaign's chats makes room for fewer, and the
+  /* What the rows are and their order, not how many of the campaigns fit: opening a campaign's chats makes room for fewer, and the
      rows that stay put must not glide for it. "View more" is in it so the rows it brings come in one after another. */
   const signature = searchMode
     ? `s|${found.map((c) => c.id).join(",")}`
-    : `${arranged.selected ? `sel:${arranged.selected.id}:${arranged.selected.chats.map((c) => c.id).join(",")}|` : ""}${arranged.pinned.map((p) => (p.kind === "chat" ? p.chat.id : `${p.id}:${p.chats.map((c) => c.id).join(",")}`)).join("|")}~${arranged.recents.map((c) => c.id).join(",")}~${more}`;
+    : `${arranged.selected ? `sel:${arranged.selected.id}:${arranged.selected.chats.map((c) => c.id).join(",")}|` : ""}${arranged.pinned.map((p) => (p.kind === "chat" ? p.chat.id : `${p.id}:${p.chats.map((c) => c.id).join(",")}`)).join("|")}~${arranged.recents.map((r) => (r.kind === "campaign" ? `campaign:${r.id}` : r.chat.id)).join(",")}~${more}`;
   useFlip(body, signature);
 
-  /* The list fills the height it has: as many Recents as fit under the Pinned section, no more and no gap. */
+  /* The list fills the height it has: as many campaigns as fit under the Pinned section, no more and no gap. */
   useEffect(() => {
     const box = body.current;
     if (!box) return undefined;
@@ -176,19 +190,20 @@ export function ChatRail({
     <>
       <button
         type="button"
-        className={`hx-toggle${hidden ? " is-hidden" : ""}${peek ? " is-peek" : ""}`}
+        className={`hx-toggle${hidden ? " is-hidden" : ""}${peek ? " is-peek" : ""}${left ? " is-left" : ""}`}
         onClick={() => { justToggled.current = true; window.clearTimeout(leave.current); setNear(false); onToggle(); }}
         onPointerEnter={toggleEnter}
         onPointerLeave={toggleLeave}
         aria-label={hidden ? "Show chats" : "Hide chats"}
         aria-expanded={!hidden}
       >
-        <SidebarSimple size={20} aria-hidden="true" mirrored />
+        <SidebarSimple size={20} aria-hidden="true" mirrored={!left} />
         <span className="hx-tip" aria-hidden="true">{hidden ? "Show chats" : "Hide chats"}<kbd>{RAIL_SHORTCUT}</kbd></span>
       </button>
 
       <nav
-        className={`hx-rail${hidden ? " is-hidden" : ""}${peek ? " is-peek" : ""}`}
+        ref={rail}
+        className={`hx-rail${hidden ? " is-hidden" : ""}${peek ? " is-peek" : ""}${left ? " is-left" : ""}`}
         aria-label="Chats"
         onPointerEnter={() => { if (hidden) { window.clearTimeout(leave.current); setNear(true); } }}
         onPointerLeave={() => { if (hidden) toggleLeave(); }}
@@ -196,15 +211,26 @@ export function ChatRail({
         onBlurCapture={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setWithin(false); }}
       >
         <div className="hx-panel">
+          {onSide && (
+            <button
+              type="button"
+              className="hx-side"
+              onClick={() => onSide(left ? "right" : "left")}
+              aria-label={left ? "Move the list to the right" : "Move the list to the left"}
+              title={left ? "Move the list to the right" : "Move the list to the left"}
+            >
+              <ArrowsLeftRight size={16} aria-hidden="true" />
+            </button>
+          )}
           {top}
           <div className="hx-navs">
             <button type="button" className="hx-nav hx-nav--new" onClick={onNew}>
-              <Plus size={20} aria-hidden="true" />
+              <Plus size={18} aria-hidden="true" />
               <span className="hx-nav-l">New chat</span>
             </button>
             {searching ? (
               <label className="hx-nav hx-nav--search is-open">
-                <MagnifyingGlass size={20} aria-hidden="true" />
+                <MagnifyingGlass size={18} aria-hidden="true" />
                 <input
                   ref={input}
                   value={q}
@@ -218,13 +244,13 @@ export function ChatRail({
               </label>
             ) : (
               <button type="button" className="hx-nav hx-nav--search" onClick={() => setSearching(true)}>
-                <MagnifyingGlass size={20} aria-hidden="true" />
+                <MagnifyingGlass size={18} aria-hidden="true" />
                 <span className="hx-nav-l">Search</span>
                 <kbd className="hx-nav-k">/</kbd>
               </button>
             )}
             <button type="button" className={`hx-nav hx-nav--campaigns${campaignsOpen ? " is-on" : ""}`} onClick={onCampaigns} aria-pressed={campaignsOpen}>
-              <Folders size={20} aria-hidden="true" />
+              <Folders size={18} aria-hidden="true" />
               <span className="hx-nav-l">Campaigns</span>
             </button>
           </div>
@@ -309,11 +335,29 @@ export function ChatRail({
                     <SectionHead label="Recents" open={recentsOpen} onToggle={() => fold("recents")} />
                     <Fold open={recentsOpen}>
                       <ul className="hx-list">
-                        {recents.map((c) => (
-                          <li key={c.id} data-flip={c.id}>
-                            <Row chat={c} {...rowProps} pinned={false} sub="" />
-                          </li>
-                        ))}
+                        {listed.map((r) =>
+                          r.kind === "campaign" ? (
+                            <li key={`campaign:${r.id}`} data-flip={`campaign:${r.id}`}>
+                              <CampaignRow
+                                item={r}
+                                flash={flash === pinKey("campaign", r.id)}
+                                onPick={(c) => {
+                                  /* The campaign moves up to Selected: the list goes back to the top so it is in front of them. */
+                                  body.current?.scrollTo?.({ top: 0, behavior: "smooth" });
+                                  onPickCampaign(c);
+                                }}
+                                onNewIn={onNewIn}
+                                onOpenCampaign={onOpenCampaign}
+                                onTogglePin={() => pin("campaign", r.id)}
+                                hold={hold}
+                              />
+                            </li>
+                          ) : (
+                            <li key={r.chat.id} data-flip={r.chat.id}>
+                              <Row chat={r.chat} {...rowProps} pinned={false} sub="" lead />
+                            </li>
+                          ),
+                        )}
                       </ul>
                       {arranged.recents.length > count && (
                         <button type="button" className="hx-more" onClick={() => setMore((n) => n + RECENTS_BATCH)}>
@@ -401,7 +445,7 @@ function CampaignBlock({ item, current, pinned, flash, rowProps, onNewIn, onOpen
     <div className="hx-camp">
       <div className={`hx-row hx-camp-row${menu ? " has-menu" : ""}${flash ? " is-flash" : ""}${current ? " is-current" : ""}`}>
         <button type="button" className="hx-row-t" onClick={() => onNewIn(campaign)} title={`New chat in ${item.name}`}>
-          <FolderOpen size={19} aria-hidden="true" className="hx-row-ico" />
+          <FolderOpen size={17} aria-hidden="true" className="hx-row-ico" />
           <span className="hx-row-title">{item.name}</span>
         </button>
         {flash && <Stamp />}
@@ -415,19 +459,7 @@ function CampaignBlock({ item, current, pinned, flash, rowProps, onNewIn, onOpen
           </button>
         )}
         {menu && (
-          <Pop anchor={more} onClose={() => setMenu(false)}>
-            <MenuList
-              onKey={(k) => {
-                if (k === "p") { setMenu(false); onTogglePin(); return true; }
-                if (k === "n") { setMenu(false); onNewIn(campaign); return true; }
-                return false;
-              }}
-            >
-              <Item icon={<Plus size={17} />} label="New chat" kbd="N" onSelect={() => { setMenu(false); onNewIn(campaign); }} />
-              <Item icon={<FolderOpen size={17} />} label="Open campaign" onSelect={() => { setMenu(false); onOpenCampaign(item.id); }} />
-              <Item icon={pinned ? <PushPinSlash size={17} /> : <PushPin size={17} />} label={pinned ? "Unpin" : "Pin"} kbd="P" onSelect={() => { setMenu(false); onTogglePin(); }} />
-            </MenuList>
-          </Pop>
+          <CampaignMenu anchor={more} campaign={campaign} pinned={pinned} onClose={() => setMenu(false)} onNewIn={onNewIn} onOpenCampaign={onOpenCampaign} onTogglePin={onTogglePin} />
         )}
       </div>
       {chats === 0 && current && <p className="hx-camp-none">No chats yet. New chat starts one.</p>}
@@ -451,6 +483,72 @@ function CampaignBlock({ item, current, pinned, flash, rowProps, onNewIn, onOpen
   );
 }
 
+/** What a campaign's menu offers, in the list or under Pinned: a new chat in it, the campaign itself, and pinning it. */
+function CampaignMenu({ anchor, campaign, pinned, onClose, onNewIn, onOpenCampaign, onTogglePin }: {
+  anchor: RefObject<HTMLElement>;
+  campaign: Campaign;
+  pinned: boolean;
+  onClose: () => void;
+  onNewIn: Props["onNewIn"];
+  onOpenCampaign: Props["onOpenCampaign"];
+  onTogglePin: () => void;
+}) {
+  return (
+    <Pop anchor={anchor} onClose={onClose}>
+      <MenuList
+        onKey={(k) => {
+          if (k === "p") { onClose(); onTogglePin(); return true; }
+          if (k === "n") { onClose(); onNewIn(campaign); return true; }
+          return false;
+        }}
+      >
+        <Item icon={<Plus size={17} />} label="New chat" kbd="N" onSelect={() => { onClose(); onNewIn(campaign); }} />
+        <Item icon={<FolderOpen size={17} />} label="Open campaign" onSelect={() => { onClose(); onOpenCampaign(campaign.id); }} />
+        <Item icon={pinned ? <PushPinSlash size={17} /> : <PushPin size={17} />} label={pinned ? "Unpin" : "Pin"} kbd="P" onSelect={() => { onClose(); onTogglePin(); }} />
+      </MenuList>
+    </Pop>
+  );
+}
+
+/**
+ * A campaign in the list under Pinned: its name and how long ago its latest chat was written. Picking it opens that chat (the
+ * campaign becomes the selected one and shows its chats above), or starts one when there is none. The menu is the pinned
+ * campaign's: a new chat in it, the campaign itself, pin.
+ */
+function CampaignRow({ item, flash, onPick, onNewIn, onOpenCampaign, onTogglePin, hold }: {
+  item: RecentCampaign;
+  flash: boolean;
+  onPick: Props["onPickCampaign"];
+  onNewIn: Props["onNewIn"];
+  onOpenCampaign: Props["onOpenCampaign"];
+  onTogglePin: () => void;
+  hold: (on: boolean) => void;
+}) {
+  const [menu, setMenu] = useState(false);
+  const more = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!menu) return undefined;
+    hold(true);
+    return () => hold(false);
+  }, [menu, hold]);
+  return (
+    <div className={`hx-row hx-camp-row${menu ? " has-menu" : ""}${flash ? " is-flash" : ""}`}>
+      <button type="button" className="hx-row-t" onClick={() => onPick(item)} title={item.latest ? `Open ${item.name}` : `New chat in ${item.name}`}>
+        <FolderOpen size={17} aria-hidden="true" className="hx-row-ico" />
+        <span className="hx-row-title">{item.name}</span>
+      </button>
+      {flash && <Stamp />}
+      {item.at > 0 && <span className="hx-row-when">{agoLabel(item.at)}</span>}
+      <button ref={more} type="button" className="hx-icon hx-row-more" onClick={() => setMenu((m) => !m)} aria-label={`More for ${item.name}`} aria-haspopup="menu" aria-expanded={menu}>
+        <DotsThree size={18} weight="bold" aria-hidden="true" />
+      </button>
+      {menu && (
+        <CampaignMenu anchor={more} campaign={{ id: item.id, name: item.name }} pinned={false} onClose={() => setMenu(false)} onNewIn={onNewIn} onOpenCampaign={onOpenCampaign} onTogglePin={onTogglePin} />
+      )}
+    </div>
+  );
+}
+
 /** The pin that lands on a row for a moment when it has just been pinned. */
 function Stamp() {
   return (
@@ -460,12 +558,14 @@ function Stamp() {
   );
 }
 
-function Row({ chat, activeId, pinned, flash = false, nested = false, sub, campaigns, onOpen, onRename, onMove, onArchive, onDelete, onPin, hold }: RowProps & {
+function Row({ chat, activeId, pinned, flash = false, nested = false, lead = false, sub, campaigns, onOpen, onRename, onMove, onArchive, onDelete, onPin, hold }: RowProps & {
   chat: RailChat;
   pinned: boolean;
   flash?: boolean;
   /** Under a pinned campaign: one step smaller, and its tooltip does not repeat the campaign. */
   nested?: boolean;
+  /** In Recents, beside campaigns: a chat bubble before the title, so a chat and a campaign line up and read apart. */
+  lead?: boolean;
   /** A second line under the title (in search results, which campaign the chat is in). */
   sub: string;
 }) {
@@ -514,8 +614,9 @@ function Row({ chat, activeId, pinned, flash = false, nested = false, sub, campa
     );
   }
   return (
-    <div className={`hx-row${active ? " is-on" : ""}${menu ? " has-menu" : ""}${flash ? " is-flash" : ""}${leaving ? " is-leaving" : ""}${nested ? " is-nested" : ""}${theirs ? " is-theirs" : ""}${chat.daily ? " is-daily" : ""}`}>
+    <div className={`hx-row${active ? " is-on" : ""}${menu ? " has-menu" : ""}${flash ? " is-flash" : ""}${leaving ? " is-leaving" : ""}${nested ? " is-nested" : ""}${theirs ? " is-theirs" : ""}${chat.daily ? " is-daily" : ""}${lead ? " has-lead" : ""}`}>
       <button type="button" className="hx-row-t" onClick={() => onOpen(chat)} title={theirs ? `${chat.title} · started by ${theirs}` : chat.campaignName && !nested ? `${chat.title} · ${chat.campaignName}` : chat.title} aria-current={active ? "true" : undefined}>
+        {lead && <ChatCircle size={17} aria-hidden="true" className="hx-row-ico" />}
         <span className="hx-row-title">{chat.daily && <PushPin size={14} weight="fill" aria-hidden="true" className="hx-row-pin" />}{chat.title}{under && <span className="hx-row-camp">{` · ${under}`}</span>}</span>
         {sub && <span className="hx-row-sub">{sub}</span>}
       </button>

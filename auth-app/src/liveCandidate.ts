@@ -160,6 +160,7 @@ export function candidateFromMatch(
     ...(result ? { checks: criteria.map((c) => checkOf(c.id)), result } : {}),
     ...(opts.campaignId ? { resultCampaignId: opts.campaignId } : {}),
     ...(m.openToWork ? { openToWork: true } : {}),
+    ...(m.listedAsFound ? { listedAsFound: true } : {}),
     totalYears: Math.round(years),
     avgTenure: jobs.length && years ? Math.round(years / jobs.length) : 0,
     about: pr?.summary ?? "",

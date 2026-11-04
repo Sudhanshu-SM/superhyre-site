@@ -66,6 +66,7 @@ import { SheetDialog } from "./SheetDialog";
 import { ChatHeader } from "./ChatHeader";
 import { CampaignsPicker, type PickerCampaign } from "./CampaignsPicker";
 import { RailContext, type WeekStat } from "./RailContext";
+import { RailDaily } from "./RailDaily";
 import { metaParts } from "./campaignMeta";
 import { railSlots } from "./railConfig";
 import { type RailChat, railChatOf } from "./chatGroups";
@@ -75,7 +76,7 @@ import { mergeSet } from "./liveSourcing";
 import { CHAT_LIMIT, chatLength, chatNow, chatOver, newChat, onChatFocus, openChat, openChatFor, resumeChat, sendAction, sendMessage, sendMessages, useLiveChat } from "./liveChat";
 import { DOUBTS_ASK, DOUBTS_LABEL, DOUBTS_SHOW } from "./memoryView";
 import { campaignFromHash, campaignLink, showFromHash, withoutShow } from "./nav";
-import { undoNote } from "./verdictUndo";
+import { takenBackNote, undoNote } from "./verdictUndo";
 import { chatTitle, titleFromMessage, UNTITLED } from "./chatTitle";
 import { tidySeed } from "./seedText";
 import { useToast } from "./Contacts";
@@ -95,12 +96,13 @@ import { useRailConfig } from "./useRailConfig";
 import { loadPins } from "./chatPins";
 import { useCan } from "./can";
 import { SharedChat, type SharedView } from "./SharedChat";
-import { SourcesChip, SourcesList } from "./SourcesChip";
+import { SourcesChip } from "./SourcesChip";
 import { DEFAULT_SOURCE_MODE, SOURCES, sourceModeOf, type SourceMode } from "./sources";
 import { setSources as saveSources } from "./api/campaigns";
 import { RailDialogs } from "./RailDialogs";
 import "./agentHero.css";
 import "./chat.css";
+import "./composerTray.css";
 
 /**
  * Agent — brief the agent, and everything it has run.
@@ -370,10 +372,10 @@ export function Agent({
       .catch(() => { if (current) setSharedList({ campaignId: sharedFor, chats: [] }); });
     return () => { current = false; };
   }, [sharedFor, chatsAsk, live.conversationId, settledCount]);
-  /* ── THE WEEK, FOR THE TOP OF THE CHAT LIST ──
-     Found, replies and interviews over the last 7 days, with what each grew by on the week before (a dip is not news). With a
-     campaign in the chat they are that campaign's; with none, the whole workspace's. Numbers read for one scope are never
-     shown under another: until the new ones arrive the figures are a skeleton. */
+  /* ── TODAY, FOR THE TOP OF THE CHAT LIST ──
+     Found, contacted and interviews today, with what each grew by on yesterday (a dip is not news). With a campaign
+     in the chat they are that campaign's; with none, the whole workspace's. Numbers read for one scope are never shown under
+     another: until the new ones arrive the figures are a skeleton. */
   const weekKey = chatCampaign && UUID.test(chatCampaign.id) ? chatCampaign.id : "all";
   const [weekRead, setWeekRead] = useState<{ key: string; stats: readonly WeekStat[] } | null>(null);
   const [weekFailed, setWeekFailed] = useState(false);
@@ -381,7 +383,7 @@ export function Agent({
   useEffect(() => {
     if (!LIVE) return;
     let current = true;
-    homeOverview(7, weekKey === "all" ? undefined : weekKey)
+    homeOverview(1, weekKey === "all" ? undefined : weekKey)
       .then((h) => {
         if (!current) return;
         const gain = (p: { current: number; previous: number }) => Math.max(0, p.current - p.previous);
@@ -389,7 +391,8 @@ export function Agent({
           key: weekKey,
           stats: [
             { id: "found", label: "Found", value: h.found.current, gain: gain(h.found) },
-            { id: "replies", label: "Replies", value: h.replies.current, gain: gain(h.replies) },
+            // (a server older than this page sends no contacted: the figure is left out rather than shown as none)
+            ...(h.contacted ? [{ id: "contacted", label: "Contacted", value: h.contacted.current, gain: gain(h.contacted) }] : []),
             { id: "interviews", label: "Interviews", value: h.interviews.current, gain: gain(h.interviews) },
           ],
         });
@@ -422,7 +425,32 @@ export function Agent({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [live.conversationId, openChatRow?.campaignId]);
   const activeCampaigns = useMemo(() => campaignRows.filter((r) => r.status !== "closed" && UUID.test(r.id)).map((r) => ({ id: r.id, name: r.name })), [campaignRows]);
+  /* Which side of the page the chat list is on: the left, right after the console's side bar, until someone moves it (that choice is kept). Moving it is a slide away and back: the list closes on the side it is on (the same 280ms the
+     hide button takes), is put on the other while it is closed (a step with the page's own transitions off: the two orders of its columns
+     cannot ease into each other, and the browser would flip them halfway, leaving the conversation no room for a moment), and opens
+     there, so nothing jumps and the conversation's width eases the whole way. */
+  const [railSide, setRailSide] = useState<"left" | "right">(() => { try { return window.localStorage.getItem("superhyre.chatrail.side") === "right" ? "right" : "left"; } catch { return "left"; } });
+  const [railPhase, setRailPhase] = useState<"idle" | "closing" | "swapping">("idle");
+  const railTimers = useRef<number[]>([]);
+  useEffect(() => () => railTimers.current.forEach((t) => window.clearTimeout(t)), []);
   const [railHidden, setRailHidden] = useState(() => { try { return window.localStorage.getItem("superhyre.chatrail.hidden") === "1"; } catch { return false; } });
+  const railHiddenNow = useRef(railHidden);
+  railHiddenNow.current = railHidden;
+  const moveRail = (to: "left" | "right") => {
+    if (to === railSide || railPhase !== "idle") return;
+    const apply = () => { setRailSide(to); try { window.localStorage.setItem("superhyre.chatrail.side", to); } catch { /* not worth failing over */ } };
+    const later = (f: () => void, ms: number) => railTimers.current.push(window.setTimeout(f, ms));
+    // Hidden, or for someone who has asked for less motion, there is nothing to slide: it is put on the other side at once.
+    if (railHiddenNow.current || (typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches)) {
+      setRailPhase("swapping");
+      apply();
+      later(() => setRailPhase("idle"), 60);
+      return;
+    }
+    setRailPhase("closing");
+    later(() => { setRailPhase("swapping"); apply(); }, 300);
+    later(() => setRailPhase("idle"), 360);
+  };
   const setRail = (hidden: boolean) => { setRailHidden(hidden); try { window.localStorage.setItem("superhyre.chatrail.hidden", hidden ? "1" : "0"); } catch { /* not worth failing over */ } };
   /* "Campaigns" in the chat list: the page shows every running campaign, to start a chat in one, in place of the conversation. */
   const [picking, setPicking] = useState(false);
@@ -681,7 +709,17 @@ export function Agent({
       setVerdict(id, v);
       agentApi.shortlist(cid, [id]).catch(() => setVerdict(id, null));
     } else if (v === "rejected") setPassing(id);
-    // Taking a shortlist or a pass back is not offered by the server: the press says so, and where to go.
+    // Taking a shortlist back: off the list at once, then the server; someone already contacted stays, and the toast says so.
+    else if (verdictsNow.current[id] === "shortlisted") {
+      setVerdict(id, null);
+      const first = candidateById(id)?.name.split(" ")[0] || "This person";
+      agentApi.unshortlist(cid, [id]).then((r) => {
+        const note = takenBackNote(first, r);
+        if (!note.done) setVerdict(id, "shortlisted");
+        toast(note.text, note.done ? "done" : "error");
+      }).catch(() => { setVerdict(id, "shortlisted"); toast("Couldn't take them off the shortlist. Try again.", "error"); });
+    }
+    // Taking a pass back is not offered by the server: the press says so, and where to go.
     else {
       const note = undoNote(verdictsNow.current[id]);
       toast(note.text, "error", note.toPipeline ? { label: "Open the pipeline", onClick: () => { window.location.hash = campaignLink(cid, "pipeline"); } } : undefined);
@@ -953,7 +991,7 @@ export function Agent({
            travel from under the text to beside it; the send button slides up
            the field's right edge as the field collapses around it. */
         const kids = new Map<Element, { x: number; y: number }>();
-        root.querySelectorAll(".orc-mode, .orc-pin, .orc-slots .orc-gslot, .orc-send").forEach((kid) => {
+        root.querySelectorAll(".orc-tray-btn, .orc-send").forEach((kid) => {
           const r = kid.getBoundingClientRect();
           kids.set(kid, { x: r.left - box.left, y: r.top - box.top });
         });
@@ -1723,7 +1761,7 @@ export function Agent({
         so the column changed width and the composer changed position each
         time a turn of another kind followed it. */}
     <div
-      className={`${orcClass(started)}${LIVE ? " orc--lx" : ""}${LIVE && railHidden ? " is-rail-hidden" : ""}${LIVE && picking ? " is-picking" : ""}${LIVE && viewing ? " is-shared" : ""}`}
+      className={`${orcClass(started)}${LIVE ? " orc--lx" : ""}${LIVE && railHidden ? " is-rail-hidden" : ""}${LIVE && railSide === "left" ? " is-rail-left" : ""}${LIVE && railPhase !== "idle" ? " is-rail-moving" : ""}${LIVE && railPhase === "swapping" ? " is-rail-swapping" : ""}${LIVE && picking ? " is-picking" : ""}${LIVE && viewing ? " is-shared" : ""}`}
       ref={rootRef}
       style={configTop !== null ? { ["--config-top" as string]: `${configTop}px` } : undefined}
     >
@@ -1746,6 +1784,7 @@ export function Agent({
               week={week}
               onRetryWeek={() => { setWeekFailed(false); setWeekAsk((n) => n + 1); }}
               slots={configSlots}
+              daily={<RailDaily campaign={chatCampaign ? { id: chatCampaign.id, name: chatCampaign.name } : null} chats={railList} refresh={weekAsk + live.turns.length} onOpenChat={openRailChat} />}
             />
           }
           hidden={railHidden}
@@ -1753,10 +1792,13 @@ export function Agent({
           campaignsOpen={picking}
           onCampaigns={() => setPicking((p) => !p)}
           findAsk={findAsk}
+          side={railSide}
+          onSide={moveRail}
           /* A new chat is about no campaign; one started from a campaign is about that one, and the page follows: the agent is told which. */
           onNew={() => startIn(null)}
           onNewIn={startIn}
           onOpenCampaign={(id) => onOpenCampaign?.(id)}
+          onPickCampaign={(c) => (c.latest ? openRailChat(c.latest) : startIn({ id: c.id, name: c.name }))}
           onOpen={openRailChat}
           onRename={(id, title) => patchChat(id, { title })}
           onMove={async (id, campaignId) => {
@@ -1807,8 +1849,6 @@ export function Agent({
           className={`orc-stream${started ? " is-live" : ""}${exiting ? " is-morphing" : ""}`}
           ref={streamRef}
         >
-          {/* The mark, faint, behind the heading and the composer. It takes no room and goes when a message does. */}
-          <span className="orc-wm" aria-hidden="true"><Mark /></span>
           {/* The transcript owns the scroll, not the column: the composer has
               to stay put while the messages move under it. */}
           <div className="orc-log" ref={logRef}>
@@ -1891,6 +1931,16 @@ export function Agent({
                 </h1>
               </div>
             )}
+            {/* The ideas, at rest: under the heading, at the foot of the space above the composer, so the box is the
+                last thing on the way down. They go the moment a message does. */}
+            {LIVE && !started && !exiting && (
+              <IdeaList
+                focusName={focused ? campaign.name : null}
+                onPick={seedTyped}
+                onAsk={(p) => sendText(p)}
+                onPreview={setPreview}
+              />
+            )}
           </div>
 
           <Composer
@@ -1923,22 +1973,8 @@ export function Agent({
             sending={flight !== null}
             preview={preview}
             below={
-              /* The ideas and the search of past chats, under the field: part of the composer's own block, so
-                 it docks with it. Connected they are three full sentences, one under the other; they step
-                 aside while a brief is written (the composer shows what it says instead) and in a long chat. */
-              LIVE
-                ? !started
-                  ? (
-                    <IdeaList
-                      focusName={focused ? campaign.name : null}
-                      onPick={seedTyped}
-                      onAsk={(p) => sendText(p)}
-                      onPreview={setPreview}
-                      onFind={openFind}
-                    />
-                  )
-                  : null
-                : <IdeaChips mode={mode} visit={visit} onPick={seedTyped} onPreview={setPreview} onFind={openFind} />
+              /* Connected the ideas sit above the box (in the log, under the heading); the prototype keeps its chips here. */
+              LIVE ? null : <IdeaChips mode={mode} visit={visit} onPick={seedTyped} onPreview={setPreview} onFind={openFind} />
             }
           />
 
@@ -2659,7 +2695,7 @@ function Composer({
      `rows={1}` left the field one line tall at rest, which made the composer
      read as a search box rather than as somewhere you write a brief, so the
      resting size should say so. The floor is REST_LINES lines of the field's
-     own leading (24.75px at 16.5px type and 1.5), in whole pixels.
+     own leading (22.5px at 15px type and 1.5), in whole pixels.
 
      That leading is READ from the field, below, and not kept as a number here:
      it was kept, as 22, and when the type grew the field rested at 44px of a
@@ -2726,7 +2762,6 @@ function Composer({
   /* What the brief says so far, from the words and from the files, shown instead of the ideas while there is any. */
   const sayingSomething = draft.trim().length > 0 || items.some((a) => a.status === "ready");
   /* Which of the job description and filters chips this chat shows: see `composerChips`. */
-  const forNext = !LIVE || !campaignName;
   const chips = composerChips({ live: LIVE, inCampaign: !!campaignName });
   const showJd = chips.jd;
   const showFilters = chips.filters;
@@ -2830,122 +2865,9 @@ function Composer({
         />
         </div>
 
+        {/* The box holds the words and Send, nothing else: what changes a search (the paperclip, the job description,
+            the filters, where to look) is in the tray attached under it. */}
         <div className="orc-composer-row">
-          {/* The paperclip: it asks what is being added ("What are you adding?") and the answer goes with the file. It stays
-              there at the limit, and the menu says why its rows can not be chosen. */}
-          {LIVE && (
-            <button
-              ref={pin}
-              type="button"
-              className="orc-pin"
-              title={modern ? "Add candidates, job descriptions or a file to read" : "Attach a file"}
-              aria-label="Add something"
-              aria-haspopup={modern ? "menu" : undefined}
-              aria-expanded={modern ? menuOpen : undefined}
-              onClick={() => (modern ? setMenuOpen((o) => !o) : openPicker())}
-            >
-              <PaperclipHorizontal size={18} aria-hidden="true" />
-            </button>
-          )}
-          {LIVE && modern && (
-            <AddMenu
-              anchor={pin}
-              open={menuOpen}
-              onClose={() => setMenuOpen(false)}
-              rows={menuFor({ ...here, canStart: adding?.canStart ?? false, count: items.length })}
-              onPick={(row) => { setMenuOpen(false); openPicker(row); }}
-              footer={adding?.onConnectSheet ? { label: "Connect a Google Sheet", onPick: () => { setMenuOpen(false); adding.onConnectSheet?.(); } } : undefined}
-            />
-          )}
-          {/* The job description by name and the filters by count: the same controls the prototype's
-              composer has, connected. The description goes to the campaign in focus (or starts the next
-              one) and the filters are the campaign's own, read by its next search. There is no mode
-              connected: the agent is briefed in words. */}
-          {!LIVE && <div className="orc-modes" role="radiogroup" aria-label="Mode">
-            {MODES.map((m) => (
-              <button
-                key={m.id}
-                type="button"
-                role="radio"
-                aria-checked={mode === m.id}
-                className={`orc-mode${mode === m.id ? " is-on" : ""}`}
-                onClick={() => onMode(m.id)}
-              >
-                <m.Icon size={14} weight={mode === m.id ? "fill" : "regular"} aria-hidden="true" />
-                <span className="orc-chip-l">{m.label}</span>
-              </button>
-            ))}
-          </div>}
-
-          {/* Sourcing-only. The slots are not decoration — they are the two
-              things that change what a sourcing run returns, so they sit on the
-              composer rather than in a settings page nobody opens mid-brief. */}
-          {/* Sourcing-only: the two things that change what a run returns.
-              Each opens its own dialog and, once set, says so in place: the
-              JD by name, the filters by count. Docked, they shrink to their
-              icons with the count as a badge. */}
-          {(LIVE || context.length > 0) && (
-            <div className="orc-slots">
-              {showJd && <button
-                type="button"
-                className={`orc-gslot orc-ctx${jd ? " is-on" : ""}`}
-                data-tour="jd-slot"
-                title={jd ? `Job description: ${jd.name}` : "Attach a job description"}
-                onClick={onOpenJd}
-              >
-                <span className="orc-ctx-ico" aria-hidden="true">
-                  {jd ? <Check size={12} weight="bold" /> : <FileText size={14} weight="bold" />}
-                </span>
-                <span className="orc-chip-l orc-chip-name">{jd ? (LIVE ? jd.name : "JD attached") : "Job description"}</span>
-              </button>}
-              {showFilters && <button
-                type="button"
-                className={`orc-gslot orc-ctx${filterCount ? " is-on" : ""}`}
-                data-tour="filters-slot"
-                title={filterCount ? `${filterCount} filters set` : "Set filters"}
-                onClick={() => onOpenFilters(draft)}
-              >
-                <span className="orc-ctx-ico" aria-hidden="true">{LIVE ? <SlidersHorizontal size={14} weight="bold" /> : <FunnelSimple size={14} weight="bold" />}</span>
-                <span className="orc-chip-l">{filterCount ? "Filters" : LIVE ? "Filters" : "Set filters"}</span>
-                {filterCount > 0 && <b className="orc-ctx-n" key={filterCount}>{filterCount}</b>}
-              </button>}
-              {LIVE && sources && <SourcesChip value={sources.value} onChange={sources.onChange} />}
-              {LIVE && following && <span className="orc-follow">{following}</span>}
-            </div>
-          )}
-
-          {/* Docked, the modes and the two context buttons fold into one
-              control, so the bar reads as field → tune → send. */}
-          {started && (showJd || sources) && (
-            <TuneMenu
-              mode={mode}
-              onMode={onMode}
-              withBrief={showJd}
-              withFilters={forNext}
-              {...(LIVE && sources ? { sources } : {})}
-              jd={jd}
-              filterCount={filterCount}
-              onOpenJd={onOpenJd}
-              onOpenFilters={() => onOpenFilters(draft)}
-            />
-          )}
-
-          {/* The picker is the menu's, and the note on a pasted path's; what it takes is set for the kind chosen (see `openPicker`).
-              Files can also be dropped on the page or pasted. After the dialog, focus goes back to the words. */}
-          {LIVE && (
-            <input
-              ref={picker}
-              type="file"
-              hidden
-              onChange={(e) => {
-                addFiles(Array.from(e.target.files ?? []), chosen.current ?? undefined);
-                e.target.value = "";
-                chosen.current = null;
-                areaRef.current?.focus();
-              }}
-            />
-          )}
-
           {near && (
             <span
               className={`orc-count t-caption${over ? " is-over" : ""}`}
@@ -2969,6 +2891,100 @@ function Composer({
             <ArrowUp size={16} weight="bold" aria-hidden="true" />
           </button>
         </div>
+      </div>
+
+      {/* ── THE TRAY ──
+          Attached under the box, tucked behind its lower edge: the paperclip, then the job description by name, the
+          filters by count and where to search. The same tray at rest and docked, so a control is in one place in every
+          state. Quiet buttons on a recessed strip; what is set takes the accent. */}
+      <div className="orc-tray" data-tour="composer-tray">
+        {/* The paperclip: it asks what is being added ("What are you adding?") and the answer goes with the file. It stays
+            there at the limit, and the menu says why its rows can not be chosen. */}
+        {LIVE && (
+          <button
+            ref={pin}
+            type="button"
+            className="orc-tray-btn orc-tray-pin"
+            title={modern ? "Add candidates, job descriptions or a file to read" : "Attach a file"}
+            aria-label="Add something"
+            aria-haspopup={modern ? "menu" : undefined}
+            aria-expanded={modern ? menuOpen : undefined}
+            onClick={() => (modern ? setMenuOpen((o) => !o) : openPicker())}
+          >
+            <PaperclipHorizontal size={17} aria-hidden="true" />
+          </button>
+        )}
+        {LIVE && modern && (
+          <AddMenu
+            anchor={pin}
+            open={menuOpen}
+            onClose={() => setMenuOpen(false)}
+            rows={menuFor({ ...here, canStart: adding?.canStart ?? false, count: items.length })}
+            onPick={(row) => { setMenuOpen(false); openPicker(row); }}
+            footer={adding?.onConnectSheet ? { label: "Connect a Google Sheet", onPick: () => { setMenuOpen(false); adding.onConnectSheet?.(); } } : undefined}
+          />
+        )}
+        {!LIVE && <div className="orc-modes" role="radiogroup" aria-label="Mode">
+          {MODES.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              role="radio"
+              aria-checked={mode === m.id}
+              className={`orc-tray-btn${mode === m.id ? " is-on" : ""}`}
+              onClick={() => onMode(m.id)}
+            >
+              <m.Icon size={15} weight={mode === m.id ? "fill" : "regular"} aria-hidden="true" />
+              <span className="orc-tray-l">{m.label}</span>
+            </button>
+          ))}
+        </div>}
+
+        {/* The job description by name and the filters by count; each opens its own dialog. The description goes to
+            the campaign in focus (or starts the next one) and the filters are read by its next search. */}
+        {(LIVE || context.length > 0) && (
+          <div className="orc-slots">
+            {showJd && <button
+              type="button"
+              className={`orc-tray-btn${jd ? " is-on" : ""}`}
+              data-tour="jd-slot"
+              title={jd ? `Job description: ${jd.name}` : "Attach a job description"}
+              onClick={onOpenJd}
+            >
+              {jd ? <Check size={14} weight="bold" aria-hidden="true" /> : <FileText size={15} aria-hidden="true" />}
+              <span className="orc-tray-l orc-tray-name">{jd ? (LIVE ? jd.name : "JD attached") : "Job description"}</span>
+            </button>}
+            {showFilters && <button
+              type="button"
+              className={`orc-tray-btn${filterCount ? " is-on" : ""}`}
+              data-tour="filters-slot"
+              title={filterCount ? `${filterCount} filters set` : "Set filters"}
+              onClick={() => onOpenFilters(draft)}
+            >
+              {LIVE ? <SlidersHorizontal size={15} aria-hidden="true" /> : <FunnelSimple size={15} aria-hidden="true" />}
+              <span className="orc-tray-l">Filters</span>
+              {filterCount > 0 && <b className="orc-tray-n" key={filterCount}>{filterCount}</b>}
+            </button>}
+            {LIVE && sources && <SourcesChip value={sources.value} onChange={sources.onChange} />}
+            {LIVE && following && <span className="orc-follow">{following}</span>}
+          </div>
+        )}
+
+        {/* The picker is the menu's, and the note on a pasted path's; what it takes is set for the kind chosen (see `openPicker`).
+            Files can also be dropped on the page or pasted. After the dialog, focus goes back to the words. */}
+        {LIVE && (
+          <input
+            ref={picker}
+            type="file"
+            hidden
+            onChange={(e) => {
+              addFiles(Array.from(e.target.files ?? []), chosen.current ?? undefined);
+              e.target.value = "";
+              chosen.current = null;
+              areaRef.current?.focus();
+            }}
+          />
+        )}
       </div>
 
       {/* Under the input, in a block of its own: the page's grid gives it its own row, so what is here (a note,
@@ -3059,80 +3075,4 @@ function Composer({
   );
 }
 
-/* ── the docked bar's one control ────────────────────────────────────────── */
-
-function TuneMenu({
-  mode, onMode, withBrief, withFilters, jd, filterCount, onOpenJd, onOpenFilters, sources,
-}: {
-  sources?: { value: SourceMode; onChange: (m: SourceMode) => void };
-  mode: ModeId;
-  onMode: (m: ModeId) => void;
-  /** Whether the job description and the filters are offered (a chat about no campaign); else it holds only where to search. */
-  withBrief: boolean;
-  withFilters: boolean;
-  jd: Jd | null;
-  filterCount: number;
-  onOpenJd: () => void;
-  onOpenFilters: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const wrap = useRef<HTMLDivElement>(null);
-  const set = (withBrief && jd ? 1 : 0) + (withFilters ? filterCount : 0);
-
-  useEffect(() => {
-    if (!open) return;
-    const away = (e: MouseEvent) => { if (!wrap.current?.contains(e.target as Node)) setOpen(false); };
-    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
-    document.addEventListener("mousedown", away);
-    document.addEventListener("keydown", esc);
-    return () => { document.removeEventListener("mousedown", away); document.removeEventListener("keydown", esc); };
-  }, [open]);
-
-  const Current = LIVE ? null : MODES.find((m) => m.id === mode)!.Icon;
-
-  return (
-    <div className="orc-tune-wrap" ref={wrap}>
-      <button
-        type="button"
-        className={`orc-tune${open ? " is-open" : ""}${set ? " is-set" : ""}`}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        title={!withBrief ? "Where to search" : LIVE ? "Job description, filters and where to search" : "Mode, job description and filters"}
-        onClick={() => setOpen((o) => !o)}
-      >
-        {!LIVE && Current && <Current size={14} weight="bold" aria-hidden="true" />}
-        <SlidersHorizontal size={14} weight="bold" aria-hidden="true" />
-        {set > 0 && <b className="orc-tune-n" key={set}>{set}</b>}
-      </button>
-      {open && (
-        <div className="orc-tune-pop" role="menu">
-          {!LIVE && (
-            <div className="orc-tune-modes" role="radiogroup" aria-label="Mode">
-              {MODES.map((m) => (
-                <button key={m.id} type="button" role="radio" aria-checked={mode === m.id} className={`orc-tune-mode${mode === m.id ? " is-on" : ""}`} onClick={() => onMode(m.id)}>
-                  <m.Icon size={14} weight={mode === m.id ? "fill" : "regular"} aria-hidden="true" />{m.label}
-                </button>
-              ))}
-            </div>
-          )}
-          {withBrief && <button type="button" role="menuitem" className="orc-tune-item" onClick={() => { setOpen(false); onOpenJd(); }}>
-            <span className="orc-ctx-ico" aria-hidden="true">{jd ? <Check size={12} weight="bold" /> : <FileText size={14} weight="bold" />}</span>
-            <span className="orc-tune-l"><b>Job description</b><small>{jd ? jd.name : "Rank against the role as written"}</small></span>
-          </button>}
-          {withFilters && <button type="button" role="menuitem" className="orc-tune-item" onClick={() => { setOpen(false); onOpenFilters(); }}>
-            <span className="orc-ctx-ico" aria-hidden="true"><FunnelSimple size={14} weight="bold" /></span>
-            <span className="orc-tune-l"><b>Filters</b><small>{filterCount ? `${filterCount} set` : "Location, seniority, company…"}</small></span>
-            {filterCount > 0 && <b className="orc-ctx-n">{filterCount}</b>}
-          </button>}
-          {sources && (
-            <div className="orc-tune-group">
-              <p className="orc-tune-cap">Search in</p>
-              <SourcesList value={sources.value} onPick={(m) => { setOpen(false); if (m !== sources.value) sources.onChange(m); }} />
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
 

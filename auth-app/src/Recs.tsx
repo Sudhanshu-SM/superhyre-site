@@ -1,5 +1,5 @@
 import { MagnifyingGlass } from "@phosphor-icons/react";
-import { useLayoutEffect, useRef, useState } from "react";
+import { type CSSProperties, useLayoutEffect, useRef, useState } from "react";
 import type { ModeId } from "./orchestrator";
 import { LIVE } from "./api/client";
 import { useCampaignRows, useCampaignsReady } from "./campaignStore";
@@ -122,15 +122,15 @@ export function IdeaChips({
 }
 
 /**
- * IdeaList: three suggestions under the composer, one under the other, each a full sentence with a small
- * icon; and a fourth line that opens the search of past chats. Pressing a complete question sends it; an
- * open one (find people for a role) is put in the composer to be finished. Hovering shows the sentence as
- * ghost text in an empty composer. The page hides it while a brief is being written and in a long chat.
+ * IdeaList: the three suggestions above the composer, one under the other, each a full sentence with a small icon on a
+ * quiet rounded row sized to its words. Pressing a complete question sends it; an open one (find people for a role) is put
+ * in the composer to be finished. Hovering shows the sentence as ghost text in an empty composer. Searching past chats is
+ * the rail's (and "/"), not a fourth row here.
  *
  * With a campaign in focus the sentences are about it and say its name.
  */
 export function IdeaList({
-  focusName, onPick, onAsk, onPreview, onFind,
+  focusName, onPick, onAsk, onPreview,
 }: {
   focusName?: string | null;
   /** Puts the prompt in the composer. */
@@ -138,8 +138,6 @@ export function IdeaList({
   /** Sends the prompt as the message. */
   onAsk: (prompt: string) => void;
   onPreview: (prompt: string | null) => void;
-  /** Opens the search of past chats. */
-  onFind: () => void;
 }) {
   const rows = useCampaignRows();
   const ready = useCampaignsReady();
@@ -147,16 +145,8 @@ export function IdeaList({
   const canAddClient = useCan("client.manage");
   const session = useSession();
   const focus = focusName ? rows.find((r) => r.name === focusName) : undefined;
-  if (!ready && LIVE) {
-    return (
-      <div className="orc-ideas" role="group" aria-label="Ideas to start from" data-tour="ideas">
-        <button type="button" className="orc-idea orc-idea-find" onClick={onFind} aria-keyshortcuts="/">
-          <MagnifyingGlass size={15} weight="bold" aria-hidden="true" />
-          <span>Search past chats</span>
-        </button>
-      </div>
-    );
-  }
+  /* Until the campaigns are read the right three are not known: nothing, rather than three that change under the pointer. */
+  if (!ready && LIVE) return null;
   const list = ideaRows({
     focusName: focusName ?? null,
     canCreate,
@@ -166,25 +156,22 @@ export function IdeaList({
   });
   return (
     <div className="orc-ideas" role="group" aria-label="Ideas to start from" data-tour="ideas">
-      {list.map((r) => (
+      {list.map((r, i) => (
         <button
           key={r.id}
           type="button"
           className="orc-idea"
+          style={{ "--i": i } as CSSProperties}
           onClick={() => { onPreview(null); (r.send ? onAsk : onPick)(r.prompt); }}
           onMouseEnter={() => onPreview(r.prompt)}
           onMouseLeave={() => onPreview(null)}
           onFocus={() => onPreview(r.prompt)}
           onBlur={() => onPreview(null)}
         >
-          <r.Icon size={15} aria-hidden="true" />
+          <r.Icon size={16} aria-hidden="true" />
           <span>{r.label}</span>
         </button>
       ))}
-      <button type="button" className="orc-idea orc-idea-find" onClick={onFind} aria-keyshortcuts="/" title="Search chats (/)">
-        <MagnifyingGlass size={15} aria-hidden="true" />
-        <span>Search past chats</span>
-      </button>
     </div>
   );
 }

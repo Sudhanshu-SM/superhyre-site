@@ -82,8 +82,19 @@ export function PeopleList({ setKey, campaignId, people, actions, fields }: { se
                 {p.strengths[0] && (!fields || fields.includes("fit")) && <span className="lt-person-why">{p.strengths[0]}</span>}
               </div>
               {canAct && p.personId &&
-                (verdict ? (
-                  <span className="lt-person-done">{verdict === "shortlisted" ? "Shortlisted" : "Rejected"}</span>
+                (verdict === "rejected" ? (
+                  <span className="lt-person-done">Rejected</span>
+                ) : verdict === "shortlisted" ? (
+                  /* A shortlist is not final: it can be taken back, or the person turned down outright. */
+                  <span className="lt-person-acts">
+                    <span className="lt-person-done">Shortlisted</span>
+                    <button type="button" className="rep-opt" onClick={() => ctx?.onVerdict(p.personId as string, null)}>
+                      Remove
+                    </button>
+                    <button type="button" className="rep-act" onClick={() => ctx?.onVerdict(p.personId as string, "rejected")}>
+                      Reject
+                    </button>
+                  </span>
                 ) : (
                   <span className="lt-person-acts">
                     <button type="button" className="rep-opt" onClick={() => ctx?.onVerdict(p.personId as string, "shortlisted")}>

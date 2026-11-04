@@ -1,10 +1,10 @@
 /**
  * The chat history as a person scans it: the campaign they have selected with its chats (unless it is pinned, where it
- * already is), what they pinned (chats, and campaigns with their own chats under them), then every chat, most recent
- * first. Recents is the whole history, so a chat that sits under a campaign is in Recents too: a campaign folded shut
- * must not make its chats hard to find. Only a chat pinned on its own is not repeated there. A campaign's daily search
- * chat is the first of the campaign's chats, whatever the times, and it does not count when the campaigns are ordered
- * (the agent writes in it every morning; that is not the person's attention).
+ * already is), what they pinned (chats, and campaigns with their own chats under them), then one list of Recents: a chat
+ * about a campaign is shown as that campaign (once, as recent as its latest chat; opening it shows its chats where the
+ * selected one is) and a chat about none is shown as itself, all by time, newest first. Every chat is found by Search. A
+ * campaign's daily search chat is the first of the campaign's chats, whatever the times, and it does not count when the
+ * campaigns are ordered (the agent writes in it every morning; that is not the person's attention).
  */
 
 import type { Conversation } from "./api/agent";
@@ -52,11 +52,29 @@ export type PinnedCampaign = { kind: "campaign"; id: string; name: string; chats
 export type PinnedChat = { kind: "chat"; chat: RailChat };
 export type PinnedItem = PinnedCampaign | PinnedChat;
 
+/** A campaign in Recents: as recent as its latest chat. */
+export type RecentCampaign = {
+  id: string;
+  name: string;
+  /** Epoch ms of its latest chat, not counting the daily search's; 0 for a campaign nobody has chatted in. */
+  at: number;
+  chats: number;
+  /** The person's own latest chat in it (the daily search's is not one): what picking the campaign opens. None: picking starts one. */
+  latest: RailChat | null;
+};
+
+/** One row of Recents: a campaign (a person's chats in it, as one) or a chat about no campaign, with when it was last written in. */
+export type RecentItem = ({ kind: "campaign" } & RecentCampaign) | { kind: "chat"; chat: RailChat; at: number };
+
 export type Arranged = {
   /** The selected campaign and its chats, when it is not one of the pinned. */
   selected: PinnedCampaign | null;
   pinned: readonly PinnedItem[];
-  recents: readonly RailChat[];
+  /**
+   * Every running campaign with a chat that is not shown above, and every chat about no running campaign (none, or one since closed),
+   * newest first. A campaign nobody has chatted in is not here (the Campaigns page lists them all); a chat pinned on its own is in Pinned.
+   */
+  recents: readonly RecentItem[];
 };
 
 /** How many Recents show at first, and how many more each "View more" brings. */
@@ -66,7 +84,8 @@ export const NESTED_SHOWN = 4;
 
 /**
  * What is pinned is ordered by how alive it is: the pinned chat or campaign written to most recently is first (a campaign is
- * as recent as its latest chat, in or out of Pinned), and ones with nothing to go on keep the order they were pinned in.
+ * as recent as its latest chat, in or out of Pinned), and ones with nothing to go on keep the order they were pinned in. The
+ * campaigns after it are ordered the same way.
  */
 export function arrangeRail(
   chats: readonly RailChat[],
@@ -105,7 +124,25 @@ export function arrangeRail(
           chats: dailyFirst(sorted.filter((c) => c.campaignId === selectedCampaign.id && !pinnedChats.has(c.id))),
         }
       : null;
-  return { selected, pinned: found.map((f) => f.item), recents: sorted.filter((c) => !placed.has(c.id)) };
+  const shown = new Set<string>([...pinnedIds, ...(selectedCampaign ? [selectedCampaign.id] : [])]);
+  const running = new Set(campaigns.map((c) => c.id));
+  const listed = campaigns.filter((c) => !shown.has(c.id));
+  const own = (id: string) => sorted.find((c) => c.campaignId === id && !c.daily && !c.ownerName) ?? null;
+  const recent: RecentCampaign[] = listed.map((c) => ({
+    id: c.id,
+    name: c.name,
+    at: latest.get(c.id) ?? 0,
+    chats: sorted.filter((x) => x.campaignId === c.id).length,
+    latest: own(c.id),
+  }));
+  const lone = sorted.filter((c) => !placed.has(c.id) && !c.daily && (!c.campaignId || !running.has(c.campaignId)));
+  const recents: RecentItem[] = [
+    ...recent.filter((c) => c.at > 0).map((c): RecentItem => ({ kind: "campaign", ...c })),
+    ...lone.map((chat): RecentItem => ({ kind: "chat", chat, at: chat.at })),
+  ];
+  // Newest first (the sort is stable: a campaign and a chat written at the same moment keep this order).
+  recents.sort((a, b) => b.at - a.at);
+  return { selected, pinned: found.map((f) => f.item), recents };
 }
 
 /** The chats matching a search, in any group, by title or by what was last said. */

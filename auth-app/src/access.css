@@ -3720,7 +3720,7 @@ html .con-main .orc-main:has(.sh-bento.is-home) > :is(.orc-page, .orc-stream) {
 .con-lede {
   margin: 0 0 26px;
   max-width: 52ch;
-  font: 400 16.5px/1.5 var(--ui);
+  font: 400 14.5px/1.5 var(--ui);
   color: var(--ink);
 }
 
@@ -4390,7 +4390,7 @@ html .con-main .orc-main:has(.sh-bento.is-home) > :is(.orc-page, .orc-stream) {
   border-radius: 9px;
   background: transparent;
   color: var(--ink);
-  font: 500 13px/1 var(--ui);
+  font: 500 12px/1 var(--ui);
   font-variant-numeric: tabular-nums;
   cursor: pointer;
   transition: background var(--t), color var(--t), border-color var(--t);
@@ -4423,7 +4423,7 @@ html .con-main .orc-main:has(.sh-bento.is-home) > :is(.orc-page, .orc-stream) {
   border-radius: 9px;
   background: #fff;
   color: var(--ink);
-  font: 500 13px/1 var(--ui);
+  font: 500 12px/1 var(--ui);
   font-variant-numeric: tabular-nums;
   text-align: center;
   -moz-appearance: textfield;
@@ -4438,7 +4438,7 @@ html .con-main .orc-main:has(.sh-bento.is-home) > :is(.orc-page, .orc-stream) {
   border-radius: 9px;
   background: #fff;
   color: var(--ink);
-  font: 500 13px/1 var(--ui);
+  font: 500 12px/1 var(--ui);
   cursor: pointer;
 }
 .pager-go:hover:not(:disabled) { background: var(--nav-hover); }
@@ -5247,7 +5247,7 @@ html .con-main .orc-main:has(.sh-bento.is-home) > :is(.orc-page, .orc-stream) {
   align-items: center;
   gap: 7px;
   margin: 0;
-  font: 400 14.5px/1.4 var(--ui);
+  font: 400 13.5px/1.4 var(--ui);
   color: var(--ink-2);
 }
 
@@ -5926,7 +5926,7 @@ html .con-main .orc-main:has(.sh-bento.is-home) > :is(.orc-page, .orc-stream) {
   border: none;
   padding: 0;
   margin: 0;
-  font: 400 16.5px/1.5 var(--ui);
+  font: 400 15px/1.5 var(--ui);
   letter-spacing: -0.008em;
   white-space: pre-wrap;
   overflow-wrap: break-word;
@@ -8749,7 +8749,7 @@ html .con-main .orc-main:has(.sh-bento.is-home) > :is(.orc-page, .orc-stream) {
   padding: 2px 6px 2px 5px;
   border: 1px solid;
   border-radius: var(--r-pill);
-  font: 600 10.5px/1 var(--ui);
+  font: 600 9.5px/1 var(--ui);
   letter-spacing: -0.006em;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -8916,7 +8916,7 @@ html .con-main .orc-main:has(.sh-bento.is-home) > :is(.orc-page, .orc-stream) {
   flex: none;
   border: 1px solid;
   border-radius: var(--r-pill);
-  font: 600 10.5px/1 var(--ui);
+  font: 600 9.5px/1 var(--ui);
   /* Overlap, so the group reads as one object. The ring is the card colour, not
      a hairline, so the faces cut into each other cleanly. */
   box-shadow: 0 0 0 2px var(--nav-surface);
@@ -10585,7 +10585,7 @@ button.rail-config-act {
 .rep-prompt {
   margin: 0 0 10px;
   max-width: 62ch;
-  font: 500 16px/1.5 var(--ui);
+  font: 500 15px/1.5 var(--ui);
   letter-spacing: -0.011em;
   color: var(--ink);
 }
@@ -10786,7 +10786,7 @@ button.rail-config-act {
   align-items: center;
   gap: 5px;
   margin: 0;
-  font: 400 12.5px/1 var(--ui);
+  font: 400 11.5px/1 var(--ui);
   letter-spacing: -0.011em;
   font-variant-numeric: tabular-nums;
   color: var(--ink-2);
@@ -10863,7 +10863,7 @@ button.rail-config-act {
 .rep-free {
   margin: 0;
   max-width: 62ch;
-  font: 400 12.5px/1.6 var(--ui);
+  font: 400 11.5px/1.6 var(--ui);
   letter-spacing: -0.011em;
   color: var(--ink-2);
 }
@@ -10878,7 +10878,7 @@ button.rail-config-act {
    letter-spacing: normal because the -0.011em above is Inter's optical
    correction and it would otherwise inherit into a face never cut for it. */
 .rep-trace-note code {
-  font: 400 11.5px/1 ui-monospace, monospace;
+  font: 400 10.5px/1 ui-monospace, monospace;
   letter-spacing: normal;
   color: var(--ink-2);
 }
@@ -10951,7 +10951,7 @@ button.rail-config-act {
    still quieter than the reply it explains. */
 .rep-step-label {
   display: block;
-  font: 500 13.5px/1.35 var(--ui);
+  font: 500 12.5px/1.35 var(--ui);
   letter-spacing: -0.011em;
   color: var(--ink);
 }
@@ -11029,7 +11029,7 @@ button.rail-config-act {
 .rep-para {
   margin: 0;
   max-width: 62ch;
-  font: 400 16px/1.65 var(--ui);
+  font: 400 15px/1.65 var(--ui);
   letter-spacing: -0.011em;
   color: var(--ink);
 }
@@ -11045,7 +11045,7 @@ button.rail-config-act {
 .rep-ask {
   margin: 0;
   max-width: 62ch;
-  font: 500 16px/1.5 var(--ui);
+  font: 500 15px/1.5 var(--ui);
   letter-spacing: -0.011em;
   color: var(--ink);
 }
@@ -11103,7 +11103,7 @@ button.rail-config-act {
   border: 1px solid var(--hairline);
   border-radius: var(--r-pill);
   background: var(--nav-surface);
-  font: 400 13.5px/1.2 var(--ui);
+  font: 400 12.5px/1.2 var(--ui);
   letter-spacing: -0.011em;
   color: var(--ink);
   cursor: pointer;
@@ -11192,7 +11192,7 @@ button.rail-config-act {
 .rep-app-name {
   flex: 1 1 auto;
   min-width: 0;
-  font: 600 13.5px/1.3 var(--ui);
+  font: 600 12.5px/1.3 var(--ui);
   letter-spacing: -0.011em;
   color: var(--ink);
 }
@@ -11219,7 +11219,7 @@ button.rail-config-act {
      carry the unavailability instead. */
   background: var(--btn-fill);
   color: var(--btn-ink);
-  font: 600 13.5px/1 var(--ui);
+  font: 600 12.5px/1 var(--ui);
   letter-spacing: -0.011em;
   cursor: not-allowed;
 }
@@ -11235,7 +11235,7 @@ button.rail-config-act {
    this size sets far too tight without it, which is why every micro-label on
    this surface opens up instead of closing in. Same call, same reason. */
 .rep-commit-mark {
-  font: 600 10.5px/1 var(--ui);
+  font: 600 9.5px/1 var(--ui);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-2);
@@ -11252,7 +11252,7 @@ button.rail-config-act {
 .rep-lead {
   margin: 0;
   max-width: 62ch;
-  font: 400 14.5px/1.55 var(--ui);
+  font: 400 13.5px/1.55 var(--ui);
   letter-spacing: -0.011em;
   color: var(--ink);
 }
@@ -11277,7 +11277,7 @@ button.rail-config-act {
 .rep-field + .rep-field { margin-top: -7px; }
 
 .rep-field-label {
-  font: 600 11.5px/1.6 var(--ui);
+  font: 600 10.5px/1.6 var(--ui);
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--ink-2);
@@ -11326,7 +11326,7 @@ button.rail-config-act {
 .rep-sec-title {
   flex: 1 1 auto;
   min-width: 0;
-  font: 600 13.5px/1.35 var(--ui);
+  font: 600 12.5px/1.35 var(--ui);
   letter-spacing: -0.011em;
 }
 
@@ -11373,7 +11373,7 @@ button.rail-config-act {
 }
 
 .rep-sec-items li {
-  font: 400 14px/1.5 var(--ui);
+  font: 400 13px/1.5 var(--ui);
   letter-spacing: -0.011em;
   color: var(--ink);
 }
@@ -11397,7 +11397,7 @@ button.rail-config-act {
   padding: 8px 10px;
   border-radius: var(--r-field);
   background: var(--sub);
-  font: 400 12.5px/1.6 var(--ui);
+  font: 400 11.5px/1.6 var(--ui);
   letter-spacing: -0.011em;
   color: var(--ink-2);
 }
@@ -11430,7 +11430,7 @@ button.rail-config-act {
   border: 1px solid var(--nav-rule);
   border-radius: var(--r-field);
   background: var(--nav-surface);
-  font: 400 12px/1 ui-monospace, monospace;
+  font: 400 11px/1 ui-monospace, monospace;
   letter-spacing: normal;
   color: var(--ink-2);
 }
@@ -11463,7 +11463,7 @@ button.rail-config-act {
   border: 1px solid var(--nav-edge-panel);
   border-radius: var(--r-pill);
   background: var(--nav-surface);
-  font: 500 13px/1 var(--ui);
+  font: 500 12px/1 var(--ui);
   letter-spacing: -0.011em;
   color: var(--ink-2);
   cursor: not-allowed;
@@ -11477,7 +11477,7 @@ button.rail-config-act {
   align-items: center;
   gap: 4px;
   margin-left: 2px;
-  font: 600 10.5px/1 var(--ui);
+  font: 600 9.5px/1 var(--ui);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-2);

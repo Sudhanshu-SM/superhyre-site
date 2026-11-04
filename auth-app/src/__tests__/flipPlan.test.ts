@@ -76,12 +76,13 @@ describe("the chat list's rows", () => {
 
   it("are followed by the layout alone: the signature counts the rows and their order, not how many Recents fit", () => {
     const rail = source("ChatRail.tsx");
-    expect(rail).toContain("arranged.recents.map((c) => c.id).join(\",\")}~${more}");
-    expect(rail).not.toContain("recents.map((c) => c.id).join(\",\")}`;");
+    expect(rail).toContain("arranged.recents.map((r) => (r.kind === \"campaign\" ? `campaign:${r.id}` : r.chat.id)).join(\",\")}~${more}");
+    expect(rail).not.toContain("recents.map((r) => (r.kind === \"campaign\" ? `campaign:${r.id}` : r.chat.id)).join(\",\")}`;");
   });
 
-  it("give a chat that sits under a campaign and in Recents a key for each place", () => {
+  it("give a chat that sits under a campaign, and a campaign in the list, a key for each place", () => {
     const rail = source("ChatRail.tsx");
     expect(rail).toContain("data-flip={`${item.id}:${c.id}`}");
+    expect(rail).toContain("data-flip={`campaign:${r.id}`}");
   });
 });

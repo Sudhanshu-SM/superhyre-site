@@ -4,7 +4,7 @@
    column of figures and set-up is gone; the set-up is one press away in the header's "What the agent knows". */
 
 .orc.orc--lx {
-  --hx-w: 288px;
+  --hx-w: 320px;
   /* One shared top inset: the header's chip, the list's first line and the hide button all start on it. */
   --page-top: 20px;
   grid-template-columns: minmax(0, 1fr) var(--hx-w);
@@ -15,8 +15,15 @@
   /* The list slides away and back: the track it sits in eases between its width and nothing. */
   transition: grid-template-columns 280ms var(--ease-out);
 }
-.orc.orc--lx.is-rail-hidden { grid-template-columns: minmax(0, 1fr) 0px; }
+.orc.orc--lx.is-rail-hidden, .orc.orc--lx.is-rail-moving { grid-template-columns: minmax(0, 1fr) 0px; }
 .orc.orc--lx > .hx-rail { grid-column: 2; grid-row: 1 / -1; }
+/* On the left the list starts where the page does, right after the console's own side bar: the same two tracks the other way round. */
+.orc.orc--lx.is-rail-left { grid-template-columns: var(--hx-w) minmax(0, 1fr); }
+.orc.orc--lx.is-rail-left.is-rail-hidden, .orc.orc--lx.is-rail-left.is-rail-moving { grid-template-columns: 0px minmax(0, 1fr); }
+.orc.orc--lx.is-rail-left > .hx-rail { grid-column: 1; }
+.orc.orc--lx.is-rail-left > .orc-main, .orc.orc--lx.is-rail-left.is-rail-hidden > .orc-main { grid-column: 2; }
+/* The step where the list is put on the other side, while it is closed: the columns change order at once (they cannot ease into each other). */
+.orc.orc--lx.is-rail-swapping { transition: none; }
 /* The conversation takes the room the page has: wide enough for a long answer or a table to read, not so wide a line is hard to follow
    (a paragraph keeps its own measure). It is 1300px at most, up from 1240 (it was 1480 for a while, which read too wide), with smaller insets and a
    slimmer list beside it: on a window of 1300px that is about 70px more for the transcript, on a large one about 60px. */
@@ -31,7 +38,8 @@
    (a flat edge across the mark): it is only given a ground once there is a conversation to keep out from under it. */
 .orc.orc--lx:not(.is-chat) .hx-head { background: transparent; }
 /* With the list hidden its button floats in the top right corner, where the chip would otherwise run under it on a narrow window. */
-.orc.orc--lx.is-rail-hidden .hx-head { padding-right: 68px; }
+.orc.orc--lx.is-rail-hidden:not(.is-rail-left) .hx-head { padding-right: 68px; }
+.orc.orc--lx.is-rail-left.is-rail-hidden .hx-head { padding-left: 68px; }
 /* One column: the second track the page used to keep beside the conversation is not needed without a side panel. */
 .orc.orc--lx .orc-main { grid-template-columns: minmax(0, 1fr); }
 /* The campaigns list stands in for the conversation while it is open; the conversation is kept, draft and all. */
@@ -50,20 +58,26 @@
   height: 100dvh;
   min-width: 0;
   overflow: clip;
+  display: flex;
+  justify-content: flex-start;
   /* A sticky box is a layer of its own, and the composer's layers (up to 20) were painted over the list when it floated
      open over the page. Above the conversation, below menus and dialogs (--z-pop 60). */
   z-index: 30;
 }
+.hx-rail.is-left { justify-content: flex-end; }
 .hx-panel {
+  flex: none;
   width: var(--hx-w);
   height: 100%;
   box-sizing: border-box;
+  position: relative;
   display: flex;
   flex-direction: column;
-  padding: var(--page-top, 24px) 12px 0;
+  padding: var(--page-top, 24px) 14px 0;
   border-left: 1px solid var(--hairline, rgba(127, 127, 127, 0.18));
   transition: visibility 0s;
 }
+.hx-rail.is-left .hx-panel { border-left: 0; border-right: 1px solid var(--hairline, rgba(127, 127, 127, 0.18)); }
 /* Gone, once it has slid out: nothing in it is reachable by keyboard or screen reader. */
 .hx-rail.is-hidden:not(.is-peek) .hx-panel { visibility: hidden; transition: visibility 0s linear 280ms; }
 .hx-rail.is-hidden.is-peek .hx-panel {
@@ -80,13 +94,21 @@
   box-shadow: var(--shadow-pop);
   animation: hx-peek 220ms var(--ease-out) both;
 }
+.hx-rail.is-left.is-hidden.is-peek .hx-panel { left: calc(var(--peek-x, 0px) + 10px); right: auto; border-right: 1px solid var(--hairline, rgba(127, 127, 127, 0.28)); animation-name: hx-peek-left; }
 @keyframes hx-peek { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: none; } }
+@keyframes hx-peek-left { from { opacity: 0; transform: translateX(-18px); } to { opacity: 1; transform: none; } }
 
-/* The button that shows and hides it: in the same corner either way, so it never moves under the pointer. */
+/* The button that shows and hides it: in the same corner either way (the list's outer top corner, on whichever side it is), so it never moves
+   under the pointer. It is an item of the page's grid that sticks to the top, so on the left it follows the console's side bar, which a fixed
+   box would not. It fades while the list changes sides. */
 .hx-toggle {
-  position: fixed;
+  grid-column: 2;
+  grid-row: 1 / -1;
+  justify-self: end;
+  align-self: start;
+  position: sticky;
   top: var(--page-top, 16px);
-  right: 14px;
+  margin: var(--page-top, 16px) 14px 0 0;
   z-index: 31;
   display: grid;
   place-items: center;
@@ -97,13 +119,16 @@
   background: transparent;
   color: var(--ink-2);
   cursor: pointer;
-  transition: background var(--t-dim), color var(--t), transform 140ms var(--ease-out);
+  transition: background var(--t-dim), color var(--t), transform 140ms var(--ease-out), opacity 160ms var(--ease-out);
 }
+.hx-toggle.is-left { grid-column: 1; justify-self: start; margin: var(--page-top, 16px) 0 0 14px; }
+.is-rail-moving .hx-toggle { opacity: 0; pointer-events: none; }
 .hx-toggle:hover, .hx-toggle.is-peek { background: color-mix(in srgb, var(--ink) 8%, transparent); color: var(--ink); }
 .hx-toggle:active { transform: scale(0.9); }
 .hx-toggle:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 .hx-toggle svg { transition: transform 300ms var(--ease-out); }
 .hx-toggle.is-hidden:hover svg { transform: translateX(-2px); }
+.hx-toggle.is-left.is-hidden:hover svg { transform: translateX(2px); }
 .hx-tip {
   position: absolute;
   right: calc(100% + 8px);
@@ -115,7 +140,7 @@
   border-radius: 9px;
   background: var(--ink);
   color: var(--page);
-  font: 500 13.5px/1 var(--ui);
+  font: 500 12.5px/1 var(--ui);
   white-space: nowrap;
   box-shadow: var(--shadow-pop);
   opacity: 0;
@@ -123,40 +148,67 @@
   pointer-events: none;
   transition: opacity 120ms var(--ease-out), transform 160ms var(--ease-out);
 }
-.hx-tip kbd { font: 500 12.5px/1 var(--ui); opacity: 0.62; }
+.hx-tip kbd { font: 500 11.5px/1 var(--ui); opacity: 0.62; }
+.hx-toggle.is-left .hx-tip { right: auto; left: calc(100% + 8px); transform: translate(-5px, -50%); }
 .hx-toggle:hover .hx-tip, .hx-toggle:focus-visible .hx-tip { opacity: 1; transform: translate(0, -50%); transition-delay: 380ms; }
 
-/* The week and who is on it: the top of the list, kept small. Its left and right edges are the nav rows' (11px in), and the
-   title row is as tall as the toggle beside it so the two sit on one line. */
-.hx-top { flex: none; display: flex; flex-direction: column; gap: 10px; margin: 0 -2px 8px; padding: 0 2px 14px; border-bottom: 1px solid var(--hairline, rgba(127, 127, 127, 0.18)); }
-.hx-wk { padding: 0 11px; }
-.hx-wk-t { display: flex; align-items: center; min-height: 38px; margin: 0 0 4px; padding-right: 48px; color: var(--accent-text, var(--ink-2)); font: 500 13px/1 var(--ui); }
-.hx-wk-grid { display: grid; grid-template-columns: repeat(3, auto); justify-content: space-between; gap: 8px; margin: 0; }
-.hx-wk-cell { display: flex; flex-direction: column-reverse; gap: 3px; min-width: 0; margin: 0; }
-.hx-wk-cell > * { margin: 0; }
-.hx-wk-fig { display: flex; align-items: baseline; gap: 5px; min-width: 0; }
-.hx-wk-n { font: var(--type-num-md); letter-spacing: var(--track-num-md); font-variant-numeric: tabular-nums; color: var(--ink); }
-.hx-wk-up { color: var(--accent-text, var(--ink-2)); font: 500 12.5px/1 var(--ui); font-variant-numeric: tabular-nums; }
-.hx-wk-l { color: var(--ink-2); font: 400 13px/1.2 var(--ui); white-space: nowrap; }
+/* The side switch: two arrows, beside the hide button in the title row, quiet until the pointer is on the list or it has focus. */
+.hx-side { position: absolute; top: calc(var(--page-top, 20px) + 4px); right: 56px; z-index: 2; display: grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 8px; background: transparent; color: var(--ink-2); cursor: pointer; opacity: 0.55; transition: opacity 140ms var(--ease-out), background var(--t), color var(--t), transform 140ms var(--ease-out); }
+.hx-rail.is-left .hx-side { right: auto; left: 56px; }
+.hx-panel:hover .hx-side, .hx-side:focus-visible { opacity: 1; }
+.hx-side:hover { background: color-mix(in srgb, var(--ink) 8%, transparent); color: var(--ink); }
+.hx-side:active { transform: scale(0.9); }
+.hx-side:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.hx-rail.is-hidden.is-peek .hx-side { right: 46px; top: 14px; }
+.hx-rail.is-left.is-hidden.is-peek .hx-side { right: auto; left: 46px; }
+/* On the left the title row keeps its room on the left, for the two buttons, and not on the right. */
+.hx-rail.is-left .hx-wk-t { padding-right: 0; padding-left: 80px; }
 
-.hx-cfg { list-style: none; margin: 0; padding: 0; }
-.hx-empty { margin: 4px 11px 8px; color: var(--ink-2); font: 400 14.5px/1.5 var(--ui); }
+/* The top of the list, in three quiet parts: what the campaign did today (a title row, then four figures), then a short list of
+   rows that read alike (the daily search, who owns the campaign, who else is on it). Its left and right edges are the nav rows' (11px in).
+   The title row is as tall as the buttons beside it (the side switch and the hide button) so they sit on one line. */
+.hx-top { flex: none; display: flex; flex-direction: column; gap: 0; margin: 0 -2px 10px; padding: 0 2px 14px; border-bottom: 1px solid var(--hairline, rgba(127, 127, 127, 0.18)); }
+.hx-wk { padding: 0 11px 14px; }
+.hx-wk-t { display: flex; align-items: center; gap: 8px; min-height: 36px; margin: 0 0 10px; padding-right: 80px; color: var(--ink); font: 500 13px/1 var(--ui); }
+.hx-wk-t > span:first-child { flex: none; }
+/* The campaign the figures are for, after "Today". */
+.hx-wk-c { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); font-weight: 400; }
+.hx-wk-grid { display: grid; grid-auto-flow: column; grid-auto-columns: auto; justify-content: space-between; gap: 6px; margin: 0; }
+.hx-wk-cell { display: flex; flex-direction: column-reverse; gap: 5px; min-width: 0; margin: 0; }
+.hx-wk-cell > * { margin: 0; }
+.hx-wk-fig { display: flex; align-items: baseline; gap: 4px; min-width: 0; }
+.hx-wk-n { font: 500 18px/22px var(--word); letter-spacing: -0.01em; font-variant-numeric: tabular-nums; color: var(--ink); }
+.hx-wk-up { color: var(--accent-text, var(--ink-2)); font: 500 11.5px/1 var(--ui); font-variant-numeric: tabular-nums; }
+.hx-wk-l { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); font: 400 12px/1.2 var(--ui); }
+
+/* The rows under the figures: a label on the left, its value on the right, one size and one height (the daily search is the first of them). */
+.hx-cfg { list-style: none; margin: 0; padding: 10px 0 0; border-top: 1px solid color-mix(in srgb, var(--hairline, rgba(127, 127, 127, 0.18)) 70%, transparent); }
+.hx-day { display: flex; align-items: center; justify-content: space-between; gap: 12px; box-sizing: border-box; width: 100%; padding: 8px 11px; border: 0; border-radius: 8px; background: transparent; color: var(--ink); font: 400 13px/1.3 var(--ui); text-align: left; cursor: pointer; transition: background var(--t-dim); }
+.hx-day:hover { background: var(--hx-wash); }
+.hx-day:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.hx-day-t { flex: none; color: var(--ink-2); }
+.hx-day-v { display: inline-flex; align-items: center; gap: 4px; min-width: 0; color: var(--ink); text-align: right; }
+.hx-day-x { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hx-day-v.is-off .hx-day-x, .hx-day-v.is-paused .hx-day-x, .hx-day-v.is-resting .hx-day-x { color: var(--ink-2); }
+.hx-day-c { flex: none; color: var(--ink-2); transition: transform 200ms var(--ease-out), color var(--t); }
+.hx-day:hover .hx-day-c { transform: translateX(2px); color: var(--accent-text, var(--ink)); }
+.hx-empty { margin: 4px 11px 8px; color: var(--ink-2); font: 400 13.5px/1.5 var(--ui); }
 
 /* New chat, Search, Campaigns */
-.hx-navs { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; margin-bottom: 8px; }
+.hx-navs { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; margin-bottom: 6px; }
 .hx-nav {
   display: flex;
   box-sizing: border-box;
   min-width: 0;
   align-items: center;
-  gap: 13px;
-  height: 42px;
+  gap: 12px;
+  height: 38px;
   padding: 0 11px;
   border: 0;
   border-radius: 11px;
   background: transparent;
   color: var(--ink);
-  font: 400 16px/1 var(--ui);
+  font: 400 14px/1 var(--ui);
   text-align: left;
   cursor: pointer;
   transition: background var(--t-dim), transform 140ms var(--ease-out);
@@ -178,7 +230,7 @@
   border: 1px solid var(--hairline, rgba(127, 127, 127, 0.28));
   border-radius: 6px;
   color: var(--ink-2);
-  font: 500 12.5px/1 var(--ui);
+  font: 500 11.5px/1 var(--ui);
   opacity: 0;
   transition: opacity var(--t);
 }
@@ -186,22 +238,22 @@
 /* Search turns into the field where it stands. */
 .hx-nav--search.is-open { background: var(--hx-wash); cursor: text; box-shadow: inset 0 0 0 1.5px var(--focus); animation: hx-field 200ms var(--ease-out); }
 @keyframes hx-field { from { box-shadow: inset 0 0 0 1.5px transparent; } }
-.hx-nav--search.is-open input { flex: 1; width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font: 400 16px/1 var(--ui); }
+.hx-nav--search.is-open input { flex: 1; width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font: 400 14px/1 var(--ui); }
 .hx-nav--search.is-open input::placeholder { color: var(--ink-2); }
 .hx-clear { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border: 0; border-radius: 7px; background: transparent; color: var(--ink-2); cursor: pointer; transition: background var(--t), color var(--t); }
 .hx-clear:hover { background: var(--hx-wash-2); color: var(--ink); }
 
 /* The list itself */
 .hx-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin: 0 -8px; padding: 0 8px 12px; scrollbar-width: thin; }
-.hx-note { margin: 12px 11px; color: var(--ink-2); font: 400 14.5px/1.45 var(--ui); }
-.hx-link { border: 0; background: transparent; padding: 0; color: var(--accent-text, var(--ink)); font: 500 14.5px/1.2 var(--ui); cursor: pointer; }
+.hx-note { margin: 10px 11px; color: var(--ink-2); font: 400 13.5px/1.45 var(--ui); }
+.hx-link { border: 0; background: transparent; padding: 0; color: var(--accent-text, var(--ink)); font: 500 13.5px/1.2 var(--ui); cursor: pointer; }
 .hx-link:hover { text-decoration: underline; }
 .hx-skel { display: grid; gap: 14px; padding: 14px 11px; }
 .hx-skel span { display: block; height: 14px; border-radius: 7px; background: var(--hx-wash-2); animation: hx-pulse 1.3s ease-in-out infinite; }
 @keyframes hx-pulse { 50% { opacity: 0.45; } }
 
-.hx-sec { margin-top: 14px; }
-.hx-sec-h { display: inline-flex; align-items: center; gap: 7px; padding: 6px 11px; border: 0; border-radius: 8px; background: transparent; color: var(--accent-text, var(--ink-2)); font: 500 14px/1 var(--ui); cursor: pointer; transition: color var(--t); }
+.hx-sec { margin-top: 22px; }
+.hx-sec-h { display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; border: 0; border-radius: 8px; background: transparent; color: var(--accent-text, var(--ink-2)); font: 500 12.5px/1 var(--ui); cursor: pointer; transition: color var(--t); }
 .hx-sec-h:hover { color: var(--accent-deep, var(--ink)); }
 .hx-sec-c { transition: transform 240ms var(--ease-out); }
 .hx-sec-h[aria-expanded="false"] .hx-sec-c { transform: rotate(-90deg); }
@@ -210,7 +262,7 @@
 .hx-fold-in { min-height: 0; overflow: hidden; }
 .hx-fold:not(.is-open) .hx-fold-in { visibility: hidden; transition: visibility 0s linear 260ms; }
 
-.hx-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+.hx-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 .hx-row { position: relative; display: flex; align-items: center; border-radius: 10px; transition: background var(--t-dim), opacity 160ms var(--ease-out), transform 220ms var(--ease-out); }
 .hx-row:hover, .hx-row.has-menu { background: var(--hx-wash); }
 .hx-row.is-on { background: var(--nav-active, var(--hx-wash-2)); }
@@ -221,7 +273,7 @@
   flex-direction: column;
   justify-content: center;
   gap: 3px;
-  min-height: 40px;
+  min-height: 38px;
   padding: 6px 11px;
   border: 0;
   border-radius: 10px;
@@ -229,11 +281,11 @@
   color: var(--ink);
   text-align: left;
   cursor: pointer;
-  font: 400 15.5px/1.3 var(--ui);
+  font: 400 14px/1.3 var(--ui);
 }
 .hx-row.is-on .hx-row-t { font-weight: 500; }
 .hx-row-title, .hx-row-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.hx-row-sub { color: var(--ink-2); font-size: 13.5px; }
+.hx-row-sub { color: var(--ink-2); font-size: 12.5px; }
 /* A campaign's daily search chat: first among that campaign's chats, in a faint wash of the brand's orange with its title in the orange text and
    a pin before it, so it reads as kept there. The wash stays low so the open chat's own peach does not read the same, and the pointer and the
    open chat deepen it a step rather than swap it for the grey. On the dark theme it is made of the lighter orange the text uses: the accent
@@ -247,7 +299,7 @@
 .hx-row.is-daily .hx-row-title { color: var(--accent-text, var(--ink)); }
 .hx-row-pin { display: inline-block; margin-right: 6px; vertical-align: -2px; }
 .hx-row-camp { font-weight: 400; color: var(--ink-2); }
-.hx-row-when { flex: none; padding-right: 11px; white-space: nowrap; color: var(--ink-2); font: 400 13.5px/1 var(--ui); }
+.hx-row-when { flex: none; padding-right: 11px; white-space: nowrap; color: var(--ink-2); font: 400 12px/1 var(--ui); }
 .hx-icon { flex: none; display: inline-grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 8px; background: transparent; color: var(--ink-2); cursor: pointer; transition: background var(--t), color var(--t), transform 140ms var(--ease-out); }
 .hx-icon:hover { background: var(--hx-wash-2); color: var(--ink); }
 .hx-icon:active { transform: scale(0.9); }
@@ -259,24 +311,26 @@
 .hx-row.is-leaving { opacity: 0; transform: translateX(12px); pointer-events: none; }
 
 /* A campaign in Pinned: its chats hang under it. */
-.hx-camp-row .hx-row-t { flex-direction: row; align-items: center; justify-content: flex-start; gap: 11px; min-height: 36px; font-weight: 500; }
+.hx-camp-row .hx-row-t, .hx-row.has-lead .hx-row-t { flex-direction: row; align-items: center; justify-content: flex-start; gap: 11px; min-height: 38px; }
+.hx-camp-row .hx-row-t { font-weight: 500; }
 /* The chats under a pinned campaign read a step smaller than the campaign they hang from. */
-.hx-row.is-nested .hx-row-t { min-height: 36px; font-size: 14.5px; }
-.hx-row.is-nested .hx-row-when { font-size: 12.5px; }
-.hx-camp-fold { flex: none; display: inline-flex; align-items: center; gap: 5px; height: 30px; margin-right: 4px; padding: 0 8px 0 7px; border: 0; border-radius: 8px; background: transparent; color: var(--ink-2); font: 400 13px/1 var(--ui); cursor: pointer; transition: background var(--t), color var(--t); }
+.hx-row.is-nested .hx-row-t { min-height: 36px; font-size: 13.5px; }
+.hx-row.is-nested .hx-row-when { font-size: 11.5px; }
+.hx-camp-fold { flex: none; display: inline-flex; align-items: center; gap: 5px; height: 30px; margin-right: 4px; padding: 0 8px 0 7px; border: 0; border-radius: 8px; background: transparent; color: var(--ink-2); font: 400 12px/1 var(--ui); cursor: pointer; transition: background var(--t), color var(--t); }
 .hx-camp-row.is-current .hx-row-title { color: var(--accent-text, var(--ink)); }
 .hx-camp-row.is-current .hx-row-ico { color: var(--accent-text, var(--ink-2)); }
-.hx-camp-none { margin: 0 0 4px; padding: 4px 11px 6px 41px; color: var(--ink-2); font: 400 13.5px/1.4 var(--ui); }
+.hx-camp-none { margin: 0 0 6px; padding: 4px 11px 6px 38px; color: var(--ink-2); font: 400 12.5px/1.4 var(--ui); }
 .hx-camp-fold:hover { background: var(--hx-wash-2); color: var(--ink); }
 .hx-camp-fold:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 .hx-camp-fold:not(.is-open) .hx-sec-c { transform: rotate(-90deg); }
 .hx-camp-n { font-variant-numeric: tabular-nums; }
 .hx-row-ico { flex: none; color: var(--ink-2); transition: color var(--t); }
+.hx-row.has-lead:hover .hx-row-ico { color: var(--accent-text, var(--ink)); }
 .hx-camp-row:hover .hx-row-ico { color: var(--accent-text, var(--ink)); }
-.hx-nest { margin: 1px 0 4px 20px; padding-left: 8px; border-left: 1px solid var(--hairline, rgba(127, 127, 127, 0.22)); }
-.hx-more { display: block; margin: 5px 0 0; padding: 9px 11px; border: 0; border-radius: 9px; background: transparent; color: var(--ink-2); font: 500 14.5px/1 var(--ui); text-align: left; cursor: pointer; transition: background var(--t), color var(--t); }
+.hx-nest { margin: 2px 0 6px 20px; padding-left: 8px; border-left: 1px solid var(--hairline, rgba(127, 127, 127, 0.22)); }
+.hx-more { display: block; margin: 6px 0 0; padding: 8px 11px; border: 0; border-radius: 8px; background: transparent; color: var(--ink-2); font: 500 13px/1 var(--ui); text-align: left; cursor: pointer; transition: background var(--t), color var(--t); }
 .hx-more:hover { color: var(--ink); background: var(--hx-wash); }
-.hx-more--nest { margin-left: 28px; padding-block: 7px; font-size: 14px; }
+.hx-more--nest { margin-left: 28px; padding-block: 6px; font-size: 12.5px; }
 
 /* A row that has just been pinned: it lands with a wash and a pin that stamps down. */
 .hx-row.is-flash { animation: hx-flash 1500ms linear both; }
@@ -290,7 +344,7 @@
 }
 
 .hx-edit { padding: 3px 0; }
-.hx-edit input { width: 100%; box-sizing: border-box; height: 38px; padding: 0 11px; border: 1.5px solid var(--focus); border-radius: 10px; background: transparent; color: var(--ink); font: 400 15.5px/1 var(--ui); outline: 0; }
+.hx-edit input { width: 100%; box-sizing: border-box; height: 34px; padding: 0 11px; border: 1.5px solid var(--focus); border-radius: 9px; background: transparent; color: var(--ink); font: 400 14px/1 var(--ui); outline: 0; }
 
 /* The row menu, on the page (not in the list) so the list's scroll cannot cut it. */
 .hx-fly {
@@ -318,7 +372,7 @@
   border-radius: 9px;
   background: transparent;
   color: var(--ink);
-  font: 400 15px/1 var(--ui);
+  font: 400 14px/1 var(--ui);
   text-align: left;
   cursor: pointer;
   transition: background 90ms var(--ease-out);
@@ -326,7 +380,7 @@
 .hx-mi:hover:not(:disabled), .hx-mi:focus-visible, .hx-mi[aria-expanded="true"] { background: var(--hx-wash, color-mix(in srgb, var(--ink) 6%, transparent)); outline: none; }
 .hx-mi > svg { flex: none; color: var(--ink-2); }
 .hx-mi-t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.hx-mi-k { margin-left: auto; color: var(--ink-2); font: 500 13px/1 var(--ui); }
+.hx-mi-k { margin-left: auto; color: var(--ink-2); font: 500 12px/1 var(--ui); }
 .hx-mi-c { margin-left: auto; transform: rotate(-90deg); }
 .hx-mi:disabled { cursor: default; }
 .hx-mi:disabled .hx-mi-t { color: var(--ink-2); }
@@ -340,10 +394,10 @@
 .hx-mi--danger:hover:not(:disabled), .hx-mi--danger:focus-visible { background: var(--c-rose-tint, var(--hx-wash)); }
 /* The second question, in the menu's own place. */
 .hx-ask { display: grid; gap: 8px; width: 288px; max-width: calc(100vw - 32px); padding: 16px 16px 14px; animation: hx-sub 160ms var(--ease-out) both; }
-.hx-ask-h { margin: 0; color: var(--ink); font: 600 15.5px/1.25 var(--ui); }
-.hx-ask-p { margin: 0; color: var(--ink-2); font: 400 14px/1.45 var(--ui); overflow-wrap: anywhere; }
+.hx-ask-h { margin: 0; color: var(--ink); font: 600 14.5px/1.25 var(--ui); }
+.hx-ask-p { margin: 0; color: var(--ink-2); font: 400 13px/1.45 var(--ui); overflow-wrap: anywhere; }
 .hx-ask-b { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
-.hx-ask-keep, .hx-ask-del { height: 36px; padding: 0 16px; border-radius: 10px; font: 500 14.5px/1 var(--ui); cursor: pointer; transition: background 100ms var(--ease-out), transform 120ms var(--ease-out); }
+.hx-ask-keep, .hx-ask-del { height: 34px; padding: 0 14px; border-radius: 9px; font: 500 13.5px/1 var(--ui); cursor: pointer; transition: background 100ms var(--ease-out), transform 120ms var(--ease-out); }
 .hx-ask-keep { border: 1px solid var(--hairline, rgba(127, 127, 127, 0.3)); background: transparent; color: var(--ink); }
 .hx-ask-keep:hover { background: var(--hx-wash); }
 .hx-ask-del { border: 0; background: var(--c-rose-fill, #c64c60); color: #fff; }
@@ -365,36 +419,36 @@
 }
 @keyframes hx-sub { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: none; } }
 .hx-sub-q { display: flex; align-items: center; gap: 9px; height: 44px; margin: 0 -6px 6px; padding: 0 14px; border-bottom: 1px solid var(--hairline, rgba(127, 127, 127, 0.22)); color: var(--ink-2); }
-.hx-sub-q input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font: 400 15px/1 var(--ui); }
+.hx-sub-q input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font: 400 14px/1 var(--ui); }
 .hx-sub-q input::placeholder { color: var(--ink-2); }
 .hx-sub-list { max-height: 264px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
-.hx-sub-none { margin: 10px 11px; color: var(--ink-2); font: 400 14px/1.4 var(--ui); }
+.hx-sub-none { margin: 10px 11px; color: var(--ink-2); font: 400 13px/1.4 var(--ui); }
 
 /* ── the slim header ── */
 
 .hx-head { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: calc(var(--page-top, 16px) - 4px) 24px 4px 46px; position: relative; z-index: 5; }
 /* Before a chat starts the pill sits on the line of the "Superhyre Agent" heading: that heading starts at the page-top plus 40px
    (the stream's padding) and is about 35px tall, so the pill's top is page-top + 40 + 17.5 - half its own height (22). */
-.orc.orc--lx:not(.is-chat) .hx-head { padding-top: calc(var(--page-top, 20px) + 35px + var(--head-drop, 0px)); }
-.hx-title { flex: 1; min-width: 0; margin: 0; font: 600 17px/1.2 var(--ui); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.orc.orc--lx:not(.is-chat) .hx-head { padding-top: calc(var(--page-top, 20px) + 37px + var(--head-drop, 0px)); }
+.hx-title { flex: 1; min-width: 0; margin: 0; font: 600 16px/1.2 var(--ui); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hx-ctx { position: relative; flex: none; }
 .hx-chip {
   display: inline-flex;
   align-items: center;
   gap: 9px;
   max-width: 440px;
-  height: 44px;
+  height: 40px;
   padding: 0 16px 0 20px;
   border: 1px solid var(--hairline, rgba(127, 127, 127, 0.28));
   border-radius: 999px;
   background: transparent;
   color: var(--ink);
-  font: 500 17px/1 var(--ui);
+  font: 500 15px/1 var(--ui);
   cursor: pointer;
 }
 .hx-chip:hover { background: var(--nav-hover, rgba(127, 127, 127, 0.1)); }
 .hx-chip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.hx-chip-sub { color: var(--ink-2); font-weight: 400; font-size: 15px; white-space: nowrap; }
+.hx-chip-sub { color: var(--ink-2); font-weight: 400; font-size: 13.5px; white-space: nowrap; }
 .hx-chip.is-general .hx-chip-name { color: var(--ink-2); }
 
 .hx-pop {
@@ -427,9 +481,9 @@
 
 /* A narrow window: the list folds away and the column takes the width. */
 @media (max-width: 1099px) {
-  .orc.orc--lx { grid-template-columns: minmax(0, 1fr); }
+  .orc.orc--lx, .orc.orc--lx.is-rail-left { grid-template-columns: minmax(0, 1fr); }
   .orc.orc--lx > .hx-rail, .hx-toggle { display: none; }
-  .orc.orc--lx > .orc-main { grid-column: 1; }
+  .orc.orc--lx > .orc-main, .orc.orc--lx.is-rail-left > .orc-main { grid-column: 1; }
 }
 
 /* The set-up rows inside the popover (the rail's own rows were styled for the side panel they are no longer in). */
@@ -556,11 +610,11 @@
 @keyframes hxp-stamp { 0% { transform: scale(0.4) rotate(-40deg); } 55% { transform: scale(1.3) rotate(6deg); } 100% { transform: none; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .orc.orc--lx, .hx-rail *, .hx-toggle, .hx-toggle *, .hx-fly, .hx-fly *, .hxp, .hxp * { animation: none !important; transition: none !important; }
+  .orc.orc--lx, .hx-rail *, .hx-toggle, .hx-toggle *, .hx-side, .hx-fly, .hx-fly *, .hxp, .hxp * { animation: none !important; transition: none !important; }
 }
 
 /* In the list the rows are read at the list's size. */
-.hx-cfg .rail-row { font-size: 13.5px; padding: 6px 11px; }
+.hx-cfg .rail-row { font-size: 13.5px; padding: 8px 11px; }
 .hx-cfg .rail-config-text.is-empty, .hx-cfg .rail-config-note { color: var(--ink-2); font-size: 13px; }
 .hx-cfg li + li .rail-row { box-shadow: none; }
 
@@ -575,4 +629,4 @@
 @media (prefers-reduced-motion: reduce) { .orc-slots .orc-gslot.is-new { animation: none; } }
 
 /* Where the filters and "where to look" would be, for someone who only follows the campaign: why they are not there. */
-.orc-follow { align-self: center; max-width: 520px; padding: 0 6px; color: var(--ink-2); font: 400 14.5px/1.4 var(--ui); }
+.orc-follow { align-self: center; max-width: 520px; padding: 0 6px; color: var(--ink-2); font: 400 13px/1.4 var(--ui); }

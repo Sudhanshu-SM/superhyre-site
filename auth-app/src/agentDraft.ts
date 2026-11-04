@@ -36,12 +36,12 @@ export const REST_LINES = 2;
 export const MAX_LINES = 6;
 
 /**
- * One line of the field's text, in px: `.orc-input`'s 16.5px type at 1.5 (access.css). Only the fallback for a browser that
+ * One line of the field's text, in px: `.orc-input`'s 15px type at 1.5 (access.css). Only the fallback for a browser that
  * gives no number (`line-height: normal`): the box reads its leading from the field, so a change of type cannot leave it
- * behind. It was written down as 22 (14.5px at 1.5) and when the type grew the box rested at 44px of a real 49.5, jumped
- * 6px as the second line wrapped, and capped a line early.
+ * behind (once the type grew the box rested at 44px of a real 49.5, jumped 6px as the second line wrapped, and capped a line
+ * early; and the same the other way when it came down).
  */
-export const FIELD_LINE_H = 24.75;
+export const FIELD_LINE_H = 22.5;
 
 /** One line in px from a computed `line-height` ("24.75px"); `FIELD_LINE_H` when there is no number in it ("normal"). */
 export function lineHeightPx(computed: string): number {
@@ -53,7 +53,7 @@ export function lineHeightPx(computed: string): number {
  * The text box's height in px, given one line of its leading (`lineH`) and the height its words need (`scrollH`):
  * `max` of the floor and `min` of the cap, so the clamp reads in the order it applies. The floor is REST_LINES lines
  * at rest and one once a brief has been sent; the cap is MAX_LINES, then the box scrolls. Both are whole pixels, so the
- * field rests at a whole height (130px at 24.75) and the second line wrapping does not move it by half of one.
+ * field rests at a whole height (135px at 22.5) and the second line wrapping does not move it by half of one.
  */
 export function fieldHeight(lineH: number, scrollH: number, started: boolean): number {
   const floor = Math.round((started ? 1 : REST_LINES) * lineH);

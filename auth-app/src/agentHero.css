@@ -1,36 +1,4 @@
-/* The agent's landing: the SuperHyre mark, faint, in the background of the hero (Agent.tsx).
-   It sits behind the heading and the composer, never in front of words, and takes no room: it is out of flow, so
-   nothing moves when it fades out as the first message goes. The brand's accent as a tint in the light theme; in the
-   dark one, a neutral light (orange on near-black reads as brown). */
-
-.orc-stream { isolation: isolate; }
-
-.orc-wm {
-  position: absolute;
-  z-index: -1;
-  top: -8px;
-  left: 50%;
-  width: clamp(230px, 32vw, 380px);
-  aspect-ratio: 34 / 35;
-  transform: translateX(-50%);
-  color: var(--wm-color, var(--accent));
-  opacity: var(--wm-opacity, 0.07);
-  pointer-events: none;
-  /* The mark's arms dissolve toward the edges of its box, so none of them ends in a hard line: its right arm is
-     cut flat, which at this size read as a shape clipped by something. It sits in the middle of the column, behind
-     the heading and the cards, like a watermark and not like a stray piece of artwork. */
-  -webkit-mask-image: radial-gradient(closest-side, #000 52%, transparent 100%);
-  mask-image: radial-gradient(closest-side, #000 52%, transparent 100%);
-  transition: opacity 420ms var(--ease-out);
-}
-.orc-wm svg { display: block; width: 100%; height: 100%; }
-
-.orc-stream.is-live .orc-wm,
-.orc-stream.is-morphing .orc-wm { opacity: 0; }
-
-@media (max-width: 760px) {
-  .orc-wm { width: min(260px, 66vw); top: -4px; }
-}
+/* The agent's landing. (The faint SuperHyre mark that sat behind the heading is gone: the ideas stand in that space now.) */
 
 /* ── WHERE THE COMPOSER RESTS ──────────────────────────────────────────────
    The middle of the field sits at about 40% of the window's height (34% on a
@@ -50,15 +18,16 @@
      field top = stream padding (--page-top) + log + the stream's gap (--orc-rhythm)
 
    `--land-y` is what sits above the stream (the phone's top bar), `--land-h`
-   the field's resting height: its border and padding (2 + 32), two lines of
-   text (REST_LINES, 2 x 24.75 in whole pixels = 50, agentDraft.ts), the row's
-   margin and its 38px controls (8 + 38) = 130. The field grows DOWN from this
+   the resting group's height: the box's border and padding (2 + 32) and two
+   lines of text (REST_LINES at FIELD_LINE_H, 45, agentDraft.ts) with Send
+   beside them, and the 43px of tray under it (composerTray.css) = 122. The
+   field grows DOWN from this
    line as it takes text, so what you are typing never moves up the page under
    your eyes. */
 .orc {
   --land-at: min(40dvh, 440px);
   --land-y: 0px;
-  --land-h: 130px;
+  --land-h: 122px;
 }
 @media (max-width: 1023px) {
   .orc { --land-y: 62px; }

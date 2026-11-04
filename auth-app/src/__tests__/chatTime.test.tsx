@@ -149,34 +149,31 @@ describe("how it looks", () => {
   });
 });
 
-describe("one size up, and wider", () => {
+describe("the console's own sizes, and wider", () => {
   const chat = src("chat.css");
   const page = src("agentChat.css");
   const access = src("access.css");
   const rule = (css: string, needle: string) => css.slice(css.indexOf(needle), css.indexOf("}", css.indexOf(needle)) + 1);
 
-  it("reads the message and the answer at 16px, the thought line at 12.5px, and the people cards a px up", () => {
-    expect(rule(chat, ".orc-turn .rep-prompt {")).toMatch(/font: 400 16px\/1\.65/);
-    expect(rule(access, ".rep-para {")).toMatch(/font: 400 16px\/1\.65/);
-    expect(rule(access, ".rep-thought {")).toMatch(/font: 400 12\.5px\/1/);
-    expect(rule(src("sourcing.css"), ".src-card-name {")).toMatch(/font: 600 15\.5px\/1\.3/);
-    expect(rule(src("sourcing.css"), ".src-card-line {")).toMatch(/font: 400 14\.5px\/1\.4/);
-    expect(rule(src("clarify.css"), ".qa-ask {")).toMatch(/font: 600 16\.5px\/1\.35/);
-    expect(rule(src("agentCards/cta.css"), ".cta {")).toMatch(/font: 500 14px\/1/);
+  it("reads the message and the answer at 15px, the thought line at 11.5px, and the people cards and questions a step under that", () => {
+    expect(rule(chat, ".orc-turn .rep-prompt {")).toMatch(/font: 400 15px\/1\.65/);
+    expect(rule(access, ".rep-para {")).toMatch(/font: 400 15px\/1\.65/);
+    expect(rule(access, ".rep-thought {")).toMatch(/font: 400 11\.5px\/1/);
+    expect(rule(src("sourcing.css"), ".src-card-name {")).toMatch(/font: 600 14\.5px\/1\.3/);
+    expect(rule(src("sourcing.css"), ".src-card-line {")).toMatch(/font: 400 13\.5px\/1\.4/);
+    expect(rule(src("clarify.css"), ".qa-ask {")).toMatch(/font: 600 15\.5px\/1\.35/);
+    expect(rule(src("agentCards/cta.css"), ".cta {")).toMatch(/font: 500 13px\/1/);
   });
 
-  it("shifts the type tokens one px up for everything in the log, and for nothing outside it", () => {
-    const block = rule(chat, ".orc.is-agent .orc-log {\n  --type-caption");
-    for (const token of ["caption", "label", "body-sm", "body", "body-strong", "body-lg", "title-sm", "num-sm"]) expect(block).toContain(`--type-${token}:`);
-    expect(block).toContain("--type-body:        400 .9375rem/1.3125rem var(--ui);");
-    expect(block).toContain("--type-body-sm:     400 .875rem/1.3125rem var(--ui);");
-    // The scale itself, on :root, is the console's and is not touched.
+  it("reads the type tokens from the console's own scale in the log as everywhere (nothing raises them inside it)", () => {
+    expect(chat).not.toContain(".orc.is-agent .orc-log {\n  --type-caption");
     expect(access).toContain("--type-body:        400 var(--fs-14)/var(--lh-20) var(--ui);");
+    expect(access).toContain("--type-body-sm:     400 var(--fs-13)/var(--lh-20) var(--ui);");
   });
 
   it("gives the transcript more room: a wider cap, smaller insets, a slimmer list, a wider bubble", () => {
     expect(page).toMatch(/\.orc\.orc--lx > \.orc-main \{[^}]*max-width: 1300px/);
-    expect(page).toContain("--hx-w: 288px;");
+    expect(page).toContain("--hx-w: 320px;");
     expect(page).toContain("--orc-inset-l: clamp(16px, 2vw, 36px);");
     expect(page).toContain("--orc-inset-r: clamp(16px, 2vw, 36px);");
     expect(rule(chat, ".orc-turn .rep-prompt {")).toContain("max-width: min(72%, 760px)");

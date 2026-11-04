@@ -157,6 +157,8 @@ export type Candidate = {
   meets: readonly boolean[];
   /** False when the ranking has not judged this person yet: their marks are unknown, not misses. */
   scored?: boolean;
+  /** Put on the list as the source returned them, in the order they were found: not read, and not ordered by any ranking of ours. */
+  listedAsFound?: boolean;
   /** Per ranking criterion, what the judge found: a mark can say "can't tell yet", which a miss does not. */
   checks?: ReadonlyArray<"met" | "partial" | "not_met" | "unknown">;
   /** What the server says about this person's fit (score, coverage, status, verdicts with quotes, override); absent for the demo. */

@@ -91,6 +91,8 @@ export function RankedMatches({
   const src = sourceOf(set);
   const CANDS = src.candidates;
   const unscoredN = CANDS.filter((c) => c.scored === false).length;
+  /* People listed as the source returned them are not ordered by anything of ours: said so, and not that they were ordered by keywords. */
+  const asFoundN = CANDS.filter((c) => c.scored === false && c.listedAsFound).length;
   /* What the server says was decided, and what was decided in this session on top: people already
      shortlisted or rejected stay in the list (and in its counts) instead of dropping out of it. */
   const decided = set?.decisions;
@@ -278,7 +280,9 @@ export function RankedMatches({
               <p className="rm-catchup-l">
                 {scoring
                   ? <><b>{unscoredN}</b> of {CANDS.length} still to read. People move into place as each group is scored.</>
-                  : <><b>{unscoredN}</b> of {CANDS.length} haven't been read closely yet, so they're ordered by keywords, years and place only.</>}
+                  : asFoundN === unscoredN
+                    ? <><b>{unscoredN}</b> of {CANDS.length} are listed in the order they were found, and haven't been scored.</>
+                    : <><b>{unscoredN}</b> of {CANDS.length} haven't been read closely yet, so they're ordered by keywords, years and place only.</>}
               </p>
               {!scoring && onScoreRest && <button type="button" className="rep-opt" onClick={onScoreRest}>Score the rest</button>}
             </div>

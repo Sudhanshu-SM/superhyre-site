@@ -23,7 +23,7 @@ export function putSet(set: CandidateSet): void {
   // Registering what is already registered changes nothing and wakes nothing (a list that re-registers
   // itself on every draw must not be able to keep the whole console redrawing).
   const prev = sets.get(set.key);
-  if (prev && prev.campaignId === set.campaignId && prev.total === set.total && JSON.stringify(prev.candidates) === JSON.stringify(set.candidates) && JSON.stringify(prev.criteria) === JSON.stringify(set.criteria) && JSON.stringify(prev.reasons) === JSON.stringify(set.reasons)) return;
+  if (prev && prev.campaignId === set.campaignId && prev.total === set.total && JSON.stringify(prev.candidates) === JSON.stringify(set.candidates) && JSON.stringify(prev.criteria) === JSON.stringify(set.criteria) && JSON.stringify(prev.reasons) === JSON.stringify(set.reasons) && JSON.stringify(prev.decisions) === JSON.stringify(set.decisions)) return;
   sets.set(set.key, set);
   emit();
 }
