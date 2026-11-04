@@ -157,7 +157,9 @@ button.orc-file-open { cursor: pointer; }
 .orc.is-agent { --dock: 120px; --dock-under: 40px; }
 @media (min-width: 1101px) {
   .orc.is-agent.is-chat { grid-template-rows: minmax(0, 1fr) var(--dock); }
-  .orc.is-agent:not(.is-chat) { grid-template-rows: var(--config-top, 36dvh) auto minmax(0, 1fr) var(--dock); }
+  /* At rest the first row is at least the line the composer rests on, and as tall as the heading and the ideas when they
+     need more (a short window): a fixed row let the ideas run under the composer. */
+  .orc.is-agent:not(.is-chat) { grid-template-rows: minmax(var(--config-top, 36dvh), auto) auto minmax(0, 1fr) var(--dock); }
 
   .orc.is-agent > .orc-main {
     grid-row: 1 / -1;

@@ -18,6 +18,13 @@ describe("arranging the chat list: pinned, then one list of recents", () => {
   /** A row as "campaign:A" or the chat's id. */
   const keys = (list: ReadonlyArray<{ kind: string; id?: string; chat?: { id: string } }>) => list.map((r) => (r.kind === "campaign" ? `campaign:${r.id}` : r.chat?.id));
 
+  it("puts the chat open now first in Recents when it is about no campaign, and leaves the order alone otherwise", () => {
+    expect(keys(arrangeRail(chats, [], campaigns).recents)).toEqual(["campaign:B", "g1", "campaign:A", "g2"]);
+    expect(keys(arrangeRail(chats, [], campaigns, null, "g2").recents)).toEqual(["g2", "campaign:B", "g1", "campaign:A"]);
+    // A chat about a campaign goes up with its campaign (the selected one), not as a row of its own.
+    expect(keys(arrangeRail(chats, [], campaigns, null, "a2").recents)).toEqual(["campaign:B", "g1", "campaign:A", "g2"]);
+  });
+
   it("shows a chat about a campaign as the campaign, once, and a chat about none as itself, all newest first", () => {
     const { pinned, recents } = arrangeRail(chats, [], campaigns);
     expect(pinned).toEqual([]);

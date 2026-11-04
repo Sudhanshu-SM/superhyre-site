@@ -39,3 +39,15 @@ export function chatTitle(raw: string | null | undefined): string {
 export function titleFromMessage(text: string): string {
   return cutAtWord(text) || UNTITLED;
 }
+
+/**
+ * Whether a chat's name is only its first message, cut (the name it is given when nobody renamed it). The chat's own header
+ * does not repeat that line above the message itself; a name somebody chose is shown.
+ */
+export function isFirstMessageTitle(title: string, firstMessage: string | null | undefined): boolean {
+  const norm = (t: string) => t.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  const t = norm(title);
+  const f = norm(firstMessage ?? "");
+  if (!t || !f) return false;
+  return f.startsWith(t) || t.startsWith(f);
+}

@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.5.7 (2026-11-04)
+
+### Changed
+- **The chat list is shorter at the top.** Under today's figures comes a search field ("/" still opens it), then New chat and Campaigns, then Recents. The campaign you are on is always the first of Recents, open with its chats (the separate "Selected" section is gone), and a chat about no campaign that you open moves to the top of Recents too. Owner and Collaborators are no longer in the list: they are on the campaign's header and Overview. The daily sourcing row stays under the figures, and nothing is drawn there while the daily search is off.
+- **The chat's header no longer repeats its first message.** A chat is named from its first message by default; the header now shows a name only when somebody chose one.
+
+### Fixed
+- **On a short window the suggestions ran under the message box.** The space above the box was a fixed share of the window; it now grows to hold the heading and the suggestions, and the box moves down instead.
+
 ## 1.5.6 (2026-11-01)
 
 ### Changed

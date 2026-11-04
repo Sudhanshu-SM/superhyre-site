@@ -77,7 +77,7 @@ import { CHAT_LIMIT, chatLength, chatNow, chatOver, newChat, onChatFocus, openCh
 import { DOUBTS_ASK, DOUBTS_LABEL, DOUBTS_SHOW } from "./memoryView";
 import { campaignFromHash, campaignLink, showFromHash, withoutShow } from "./nav";
 import { takenBackNote, undoNote } from "./verdictUndo";
-import { chatTitle, titleFromMessage, UNTITLED } from "./chatTitle";
+import { chatTitle, isFirstMessageTitle, titleFromMessage, UNTITLED } from "./chatTitle";
 import { tidySeed } from "./seedText";
 import { useToast } from "./Contacts";
 import { LiveTurnBody } from "./LiveTurn";
@@ -1783,7 +1783,6 @@ export function Agent({
               campaign={chatCampaign ? { id: chatCampaign.id, name: chatCampaign.name } : null}
               week={week}
               onRetryWeek={() => { setWeekFailed(false); setWeekAsk((n) => n + 1); }}
-              slots={configSlots}
               daily={<RailDaily campaign={chatCampaign ? { id: chatCampaign.id, name: chatCampaign.name } : null} chats={railList} refresh={weekAsk + live.turns.length} onOpenChat={openRailChat} />}
             />
           }
@@ -1825,7 +1824,8 @@ export function Agent({
         )}
         {LIVE && (
           <ChatHeader
-            title={openChatRow && openChatRow.title !== UNTITLED ? openChatRow.title : ""}
+            /* A name somebody chose; not the first message repeated above itself (the name a chat gets by default). */
+            title={openChatRow && openChatRow.title !== UNTITLED && live.turns.length > 0 && !isFirstMessageTitle(openChatRow.title, live.turns[0]?.said) ? openChatRow.title : ""}
             campaign={chatCampaign}
             counts={(() => {
               const r = chatCampaign ? campaignRows.find((x) => x.id === chatCampaign.id) : null;

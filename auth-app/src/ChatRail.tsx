@@ -7,10 +7,11 @@ import { Fold } from "./Fold";
 import { useFlip } from "./useFlip";
 
 /**
- * The chat history, laid out like the chat apps people already know: New chat, Search and Campaigns at the top, what
- * they pinned (chats, and campaigns with their own chats under them), then Recents, newest first, a few at a time: a chat
- * about a campaign is the campaign (picking it opens its latest chat and it moves up to Selected, with its chats) and a
- * chat about none is itself.
+ * The chat history, laid out like the chat apps people already know: a search field, New chat and Campaigns at the top,
+ * what they pinned (chats, and campaigns with their own chats under them), then Recents, newest
+ * first, a few at a time. The campaign the person is on is always the first of Recents, open with its chats; after it a chat
+ * about a campaign is the campaign (picking it opens its latest chat and it becomes that first item) and a chat about none
+ * is itself.
  * Hiding it leaves one button in the corner; resting on that button lets the whole list drift in over the page, and
  * pressing it docks the list again. Every row of the person's own has the same small menu: pin, rename, put in a campaign, archive,
  * delete (asked twice, and for good); a campaign's daily search chat has no pin and no campaign to be put in (`menuOffers`).
@@ -121,13 +122,12 @@ export function ChatRail({
     return () => window.clearTimeout(t);
   }, [flash]);
 
-  const arranged = useMemo(() => arrangeRail(chats ?? [], pins, campaigns, selected), [chats, pins, campaigns, selected?.id, selected?.name]);
+  const arranged = useMemo(() => arrangeRail(chats ?? [], pins, campaigns, selected, activeId), [chats, pins, campaigns, selected?.id, selected?.name, activeId]);
   const found = useMemo(() => searchChats(chats ?? [], q), [chats, q]);
   const searchMode = q.trim().length > 0;
   const count = fit + more;
   const listed = arranged.recents.slice(0, count);
   const pinnedOpen = open.pinned ?? true;
-  const selectedOpen = open.selected ?? true;
   const recentsOpen = open.recents ?? true;
   const fold = (key: "pinned" | "recents" | "selected") => {
     const next = { ...open, [key]: !(open[key] ?? true) };
@@ -161,7 +161,7 @@ export function ChatRail({
       if (el) watch.observe(el);
     }
     return () => watch.disconnect();
-  }, [arranged.pinned.length, arranged.selected?.id, searchMode, pinnedOpen, selectedOpen]);
+  }, [arranged.pinned.length, arranged.selected?.id, searchMode, pinnedOpen]);
 
   const pin = (kind: "chat" | "campaign", id: string) => {
     const was = pins.includes(pinKey(kind, id));
@@ -223,11 +223,9 @@ export function ChatRail({
             </button>
           )}
           {top}
+          {/* Search first, as a quiet field under the figures; pressed (or "/"), it takes text and the list below becomes the
+              chats that match. New chat and Campaigns come after it. */}
           <div className="hx-navs">
-            <button type="button" className="hx-nav hx-nav--new" onClick={onNew}>
-              <Plus size={18} aria-hidden="true" />
-              <span className="hx-nav-l">New chat</span>
-            </button>
             {searching ? (
               <label className="hx-nav hx-nav--search is-open">
                 <MagnifyingGlass size={18} aria-hidden="true" />
@@ -243,16 +241,22 @@ export function ChatRail({
                 <button type="button" className="hx-clear" onMouseDown={(e) => e.preventDefault()} onClick={closeSearch} aria-label="Close search"><X size={13} weight="bold" /></button>
               </label>
             ) : (
-              <button type="button" className="hx-nav hx-nav--search" onClick={() => setSearching(true)}>
-                <MagnifyingGlass size={18} aria-hidden="true" />
-                <span className="hx-nav-l">Search</span>
-                <kbd className="hx-nav-k">/</kbd>
-              </button>
+              <>
+                <button type="button" className="hx-nav hx-nav--search hx-find" onClick={() => setSearching(true)} aria-label="Search chats" title="Search chats (/)">
+                  <MagnifyingGlass size={16} aria-hidden="true" />
+                  <span className="hx-nav-l">Search chats</span>
+                  <kbd className="hx-nav-k">/</kbd>
+                </button>
+                <button type="button" className="hx-nav hx-nav--new" onClick={onNew}>
+                  <Plus size={18} aria-hidden="true" />
+                  <span className="hx-nav-l">New chat</span>
+                </button>
+                <button type="button" className={`hx-nav hx-nav--campaigns${campaignsOpen ? " is-on" : ""}`} onClick={onCampaigns} aria-pressed={campaignsOpen}>
+                  <Folders size={18} aria-hidden="true" />
+                  <span className="hx-nav-l">Campaigns</span>
+                </button>
+              </>
             )}
-            <button type="button" className={`hx-nav hx-nav--campaigns${campaignsOpen ? " is-on" : ""}`} onClick={onCampaigns} aria-pressed={campaignsOpen}>
-              <Folders size={18} aria-hidden="true" />
-              <span className="hx-nav-l">Campaigns</span>
-            </button>
           </div>
 
           <div className="hx-body" ref={body}>
@@ -276,29 +280,6 @@ export function ChatRail({
               ) : <p className="hx-note">No chats match “{q.trim()}”.</p>
             ) : (
               <>
-                {arranged.selected && (
-                  <section className="hx-sec" data-flip="sec:selected">
-                    <SectionHead label="Selected" open={selectedOpen} onToggle={() => fold("selected")} />
-                    <Fold open={selectedOpen}>
-                      <ul className="hx-list">
-                        <li key={arranged.selected.id} data-flip={`selected:${arranged.selected.id}`}>
-                          <CampaignBlock
-                            item={arranged.selected}
-                            current
-                            pinned={false}
-                            flash={flash === pinKey("campaign", arranged.selected.id)}
-                            rowProps={rowProps}
-                            onNewIn={onNewIn}
-                            onOpenCampaign={onOpenCampaign}
-                            onTogglePin={() => pin("campaign", arranged.selected!.id)}
-                            hold={hold}
-                          />
-                        </li>
-                      </ul>
-                    </Fold>
-                  </section>
-                )}
-
                 {arranged.pinned.length > 0 && (
                   <section className="hx-sec" data-flip="sec:pinned">
                     <SectionHead label="Pinned" open={pinnedOpen} onToggle={() => fold("pinned")} />
@@ -330,11 +311,27 @@ export function ChatRail({
                   </section>
                 )}
 
-                {arranged.recents.length > 0 && (
+                {(arranged.recents.length > 0 || arranged.selected) && (
                   <section className="hx-sec" data-flip="sec:recents">
                     <SectionHead label="Recents" open={recentsOpen} onToggle={() => fold("recents")} />
                     <Fold open={recentsOpen}>
                       <ul className="hx-list">
+                        {/* The campaign the person is on is always the first of Recents, open, with its chats. */}
+                        {arranged.selected && (
+                          <li key={`selected:${arranged.selected.id}`} data-flip={`selected:${arranged.selected.id}`}>
+                            <CampaignBlock
+                              item={arranged.selected}
+                              current
+                              pinned={false}
+                              flash={flash === pinKey("campaign", arranged.selected.id)}
+                              rowProps={rowProps}
+                              onNewIn={onNewIn}
+                              onOpenCampaign={onOpenCampaign}
+                              onTogglePin={() => pin("campaign", arranged.selected!.id)}
+                              hold={hold}
+                            />
+                          </li>
+                        )}
                         {listed.map((r) =>
                           r.kind === "campaign" ? (
                             <li key={`campaign:${r.id}`} data-flip={`campaign:${r.id}`}>
@@ -342,7 +339,7 @@ export function ChatRail({
                                 item={r}
                                 flash={flash === pinKey("campaign", r.id)}
                                 onPick={(c) => {
-                                  /* The campaign moves up to Selected: the list goes back to the top so it is in front of them. */
+                                  /* The campaign becomes the first of Recents: the list goes back to the top so it is in front of them. */
                                   body.current?.scrollTo?.({ top: 0, behavior: "smooth" });
                                   onPickCampaign(c);
                                 }}

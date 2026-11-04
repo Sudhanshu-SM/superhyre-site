@@ -29,7 +29,7 @@ describe("where the rail is", () => {
   it("is one place in every state: above a dock of fixed height, at the end of the rows over it", () => {
     // both states end in the same fixed row, so the rail (which ends on it) cannot move between them
     expect(wide).toMatch(/\.orc\.is-agent\.is-chat \{ grid-template-rows: minmax\(0, 1fr\) var\(--dock\); \}/);
-    expect(wide).toMatch(/\.orc\.is-agent:not\(\.is-chat\) \{ grid-template-rows: var\(--config-top, 36dvh\) auto minmax\(0, 1fr\) var\(--dock\); \}/);
+    expect(wide).toMatch(/\.orc\.is-agent:not\(\.is-chat\) \{ grid-template-rows: minmax\(var\(--config-top, 36dvh\), auto\) auto minmax\(0, 1fr\) var\(--dock\); \}/);
     const rail = wide.slice(wide.indexOf(".orc.is-agent > .orc-rail {"));
     expect(rail).toMatch(/grid-row: 1 \/ -2;\s*grid-column: 2;\s*align-self: end;/);
     // 24px of clearance at the top; taller than that it scrolls inside itself

@@ -163,6 +163,15 @@
 .hx-rail.is-left.is-hidden.is-peek .hx-side { right: auto; left: 46px; }
 /* On the left the title row keeps its room on the left, for the two buttons, and not on the right. */
 .hx-rail.is-left .hx-wk-t { padding-right: 0; padding-left: 80px; }
+/* Search, a quiet field at the top of the rows: a faint plane and a hairline, so it reads as a place to type, not a row. */
+.hx-nav.hx-find { margin-bottom: 4px; background: color-mix(in srgb, var(--ink) 4%, transparent); box-shadow: inset 0 0 0 1px var(--hairline, rgba(127, 127, 127, 0.18)); color: var(--ink-2); }
+.hx-nav.hx-find .hx-nav-l { color: var(--ink-2); }
+.hx-nav.hx-find .hx-nav-k { opacity: 1; }
+.hx-nav.hx-find:hover { background: color-mix(in srgb, var(--ink) 7%, transparent); }
+.hx-nav--search.is-open { margin-bottom: 4px; }
+/* The daily sourcing list draws nothing while the daily search is off: no list, and no line over an empty band. */
+.hx-cfg:not(:has(li > *)) { display: none; }
+.hx-top:not(:has(.hx-cfg li > *)) .hx-wk { padding-bottom: 2px; }
 
 /* The top of the list, in three quiet parts: what the campaign did today (a title row, then four figures), then a short list of
    rows that read alike (the daily search, who owns the campaign, who else is on it). Its left and right edges are the nav rows' (11px in).

@@ -1,15 +1,13 @@
 import type { ReactNode } from "react";
 import { Shimmer, ShimmerRegion } from "./components/Shimmer";
-import { ConfigSlot } from "./Rail";
-import type { RailSlot } from "./railConfig";
 import { LoadFailed } from "./ui";
 import { Counter } from "./viz";
 
 /**
  * The top of the chat list, kept small: how today went (found, contacted, interviews, with the gain on yesterday beside
- * each), the daily sourcing line under it, and who the campaign belongs to (the owner and the collaborators, or the owner and the
- * team for the whole workspace). With a campaign in the chat the figures are that campaign's and it is named beside "Today";
- * otherwise they are everyone's. The rest of the set-up is in the header's "What the agent knows" and on the campaign itself.
+ * each) and the daily sourcing line under it. With a campaign in the chat the figures are that campaign's and it is named
+ * beside "Today"; otherwise they are everyone's. Who owns the campaign and who else is on it is on the campaign itself (its
+ * header and Overview), not repeated here.
  */
 
 export type WeekStat = { id: string; label: string; value: number; /** What it grew by on the week before; never negative. */ gain: number };
@@ -19,19 +17,13 @@ type Props = {
   campaign: { id: string; name: string } | null;
   week: { state: "loading" | "failed" | "ready"; stats: readonly WeekStat[] };
   onRetryWeek: () => void;
-  slots: readonly RailSlot[];
   /** The daily sourcing row, drawn by the page: the first of the rows under the figures. */
   daily?: ReactNode;
 };
 
-/** The two rows the list keeps: who owns it and who else is on it. */
-const PEOPLE = new Set(["Owner", "Collaborators", "Team"]);
-
-export function RailContext({ campaign, week, onRetryWeek, slots, daily }: Props) {
-  const people = slots.filter((s) => PEOPLE.has(s.key));
-
+export function RailContext({ campaign, week, onRetryWeek, daily }: Props) {
   return (
-    <section className="hx-top" aria-label={campaign ? `${campaign.name}: today and who is on it` : "Today and who is on it, all campaigns"}>
+    <section className="hx-top" aria-label={campaign ? `${campaign.name}: today` : "Today, all campaigns"}>
       <div className="hx-wk">
         <p className="hx-wk-t"><span>Today</span><span className="hx-wk-c" title={campaign ? campaign.name : "All campaigns"}>{campaign ? campaign.name : "All campaigns"}</span></p>
         {week.state === "loading" ? (
@@ -62,10 +54,9 @@ export function RailContext({ campaign, week, onRetryWeek, slots, daily }: Props
         )}
       </div>
 
-      {(daily || people.length > 0) && (
+      {daily && (
         <ul className="hx-cfg">
-          {daily && <li>{daily}</li>}
-          {people.map((slot) => <li key={slot.key}><ConfigSlot slot={slot} /></li>)}
+          <li>{daily}</li>
         </ul>
       )}
     </section>

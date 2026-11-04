@@ -92,6 +92,8 @@ export function arrangeRail(
   pins: Pins,
   campaigns: ReadonlyArray<{ id: string; name: string }>,
   selectedCampaign: { id: string; name: string } | null = null,
+  /** The chat open now: one about no campaign comes first in Recents, as the selected campaign does above it. */
+  activeChatId: string | null = null,
 ): Arranged {
   const sorted = [...chats].sort((a, b) => b.at - a.at);
   const pinnedChats = new Set(pins.filter((k) => k.startsWith("chat:")).map((k) => k.slice(5)));
@@ -135,13 +137,14 @@ export function arrangeRail(
     chats: sorted.filter((x) => x.campaignId === c.id).length,
     latest: own(c.id),
   }));
+  const isOpen = (r: RecentItem) => r.kind === "chat" && r.chat.id === activeChatId;
   const lone = sorted.filter((c) => !placed.has(c.id) && !c.daily && (!c.campaignId || !running.has(c.campaignId)));
   const recents: RecentItem[] = [
     ...recent.filter((c) => c.at > 0).map((c): RecentItem => ({ kind: "campaign", ...c })),
     ...lone.map((chat): RecentItem => ({ kind: "chat", chat, at: chat.at })),
   ];
-  // Newest first (the sort is stable: a campaign and a chat written at the same moment keep this order).
-  recents.sort((a, b) => b.at - a.at);
+  // Newest first (the sort is stable: a campaign and a chat written at the same moment keep this order), with the open chat first.
+  recents.sort((a, b) => Number(isOpen(b)) - Number(isOpen(a)) || b.at - a.at);
   return { selected, pinned: found.map((f) => f.item), recents };
 }
 

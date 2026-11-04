@@ -5,7 +5,6 @@ import { describe, expect, it } from "vitest";
 import { ChatMenu, ChatRail, DeleteAsk, menuOffers } from "../ChatRail";
 import { RailContext } from "../RailContext";
 import { ChatHeader } from "../ChatHeader";
-import type { RailSlot } from "../railConfig";
 import { CampaignsPicker } from "../CampaignsPicker";
 import { NESTED_SHOWN, RECENTS_BATCH, type RailChat } from "../chatGroups";
 
@@ -39,13 +38,18 @@ const render = (over: Partial<Parameters<typeof ChatRail>[0]> = {}) =>
   );
 
 describe("the chat list", () => {
-  it("opens with New chat, Search and Campaigns, in that order, then Recents", () => {
+  it("opens with a search field, New chat and Campaigns, then Recents", () => {
     const html = render();
     const at = (s: string) => html.indexOf(s);
     expect(at("New chat")).toBeGreaterThan(-1);
-    expect(at("New chat")).toBeLessThan(at(">Search<"));
-    expect(at(">Search<")).toBeLessThan(at(">Campaigns<"));
+    expect(at("New chat")).toBeLessThan(at(">Campaigns<"));
     expect(at(">Campaigns<")).toBeLessThan(at(">Recents<"));
+    // Search is a quiet field first, above New chat, with its "/" key.
+    expect(html).toContain('class="hx-nav hx-nav--search hx-find" aria-label="Search chats" title="Search chats (/)"');
+    expect(at('hx-find"')).toBeLessThan(at("New chat"));
+    expect(css).toMatch(/\.hx-nav\.hx-find \{[^}]*box-shadow: inset 0 0 0 1px/);
+    // The daily sourcing list is not drawn empty (a rule over nothing) while the daily search is off.
+    expect(css).toContain(".hx-cfg:not(:has(li > *)) { display: none; }");
     // One section of recents, not one for campaigns and another for chats.
     expect(html.match(/>Recents</g)).toHaveLength(1);
     expect(html).not.toContain("Recent campaigns");
@@ -73,7 +77,8 @@ describe("the chat list", () => {
       chat("2", { title: "Reminders", at: now - 2 * 60_000 }),
       chat("3", { campaignId: "C2", campaignName: "Campaign 2", at: now - 3 * 60_000 }),
     ];
-    const html = render({ campaigns: many(2), chats });
+    // No chat open: the list is in time order. (The open chat about no campaign goes first: the next test.)
+    const html = render({ campaigns: many(2), chats, activeId: null });
     const at = (s: string) => html.indexOf(s);
     expect(at(">Campaign 1<")).toBeLessThan(at(">Reminders<"));
     expect(at(">Reminders<")).toBeLessThan(at(">Campaign 2<"));
@@ -82,6 +87,16 @@ describe("the chat list", () => {
     expect((html.match(/class="hx-row hx-camp-row/g) ?? []).length).toBe(2);
     // Every row has its icon (two folders, one bubble), so the titles start on one line.
     expect((html.match(/class="hx-row-ico"/g) ?? []).length).toBe(3);
+  });
+
+  it("brings the chat open now to the top of Recents, as a selected campaign is", () => {
+    const now = Date.now();
+    const chats = [
+      chat("1", { campaignId: "C1", campaignName: "Campaign 1", at: now - 1 * 60_000 }),
+      chat("2", { title: "Reminders", at: now - 2 * 60_000 }),
+    ];
+    const html = render({ campaigns: many(1), chats, activeId: "2" });
+    expect(html.indexOf(">Reminders<")).toBeLessThan(html.indexOf(">Campaign 1<"));
   });
 
   it("leaves out a campaign nobody has chatted in: the Campaigns page lists them all", () => {
@@ -186,11 +201,7 @@ describe("the campaigns page", () => {
   });
 });
 
-describe("the top of the list: today and who is on it", () => {
-  const slot = (key: string, over: Partial<RailSlot> = {}): RailSlot => ({
-    key, label: key, value: "Set", empty: false, loading: false, twoLine: false, go: { href: "#/x" }, name: key, ...over,
-  });
-  const slots = [slot("Owner"), slot("Collaborators", { value: "Add collaborators", empty: true }), slot("Visibility"), slot("Filters"), slot("Channels"), slot("Intake")];
+describe("the top of the list: today", () => {
   const stats = [
     { id: "found", label: "Found", value: 79, gain: 12 },
     { id: "contacted", label: "Contacted", value: 30, gain: 0 },
@@ -198,7 +209,7 @@ describe("the top of the list: today and who is on it", () => {
   ];
   const draw = (over: Partial<Parameters<typeof RailContext>[0]> = {}) =>
     renderToStaticMarkup(
-      <RailContext campaign={{ id: "A", name: "Data Analyst" }} week={{ state: "ready", stats }} onRetryWeek={noop} slots={slots} {...over} />,
+      <RailContext campaign={{ id: "A", name: "Data Analyst" }} week={{ state: "ready", stats }} onRetryWeek={noop} {...over} />,
     );
 
   it("says it is today's, names the campaign they are for beside it, and says all campaigns when they are everyone's", () => {
@@ -225,29 +236,22 @@ describe("the top of the list: today and who is on it", () => {
     expect(draw({ week: { state: "failed", stats: [] } })).toContain("ui-failed");
   });
 
-  it("draws the daily sourcing line it is given under the figures and above who is on the campaign", () => {
+  it("draws the daily sourcing line it is given under the figures", () => {
     const html = draw({ daily: <button type="button">Daily sourcing line</button> });
     expect(html.indexOf(">Found<")).toBeLessThan(html.indexOf("Daily sourcing line"));
-    expect(html.indexOf("Daily sourcing line")).toBeLessThan(html.indexOf('aria-label="Owner"'));
     expect(draw()).not.toContain("Daily sourcing");
+    expect(draw()).not.toContain('class="hx-cfg"');
   });
 
   it("lays the figures out in as many columns as there are, so three (an older server) or four both fill the row", () => {
     expect(css).toMatch(/\.hx-wk-grid \{[^}]*grid-auto-flow: column/);
   });
 
-  it("keeps only the owner and the collaborators of the set-up", () => {
-    const html = draw();
-    expect(html).toContain('aria-label="Owner"');
-    expect(html).toContain('aria-label="Collaborators"');
-    for (const k of ["Visibility", "Filters", "Channels", "Intake"]) expect(html).not.toContain(`aria-label="${k}"`);
+  it("does not repeat who owns the campaign or who is on it: that is on the campaign itself", () => {
+    const html = draw({ daily: <button type="button">Daily sourcing line</button> });
+    for (const k of ["Owner", "Collaborators", "Team", "Visibility", "Filters", "Channels", "Intake"]) expect(html).not.toContain(`aria-label="${k}"`);
     expect(html).not.toContain("Configuration");
-  });
-
-  it("keeps the owner and the team for the whole workspace", () => {
-    const html = draw({ campaign: null, slots: [slot("Owner"), slot("Team"), slot("Campaigns")] });
-    expect(html).toContain('aria-label="Team"');
-    expect(html).not.toContain('aria-label="Campaigns"');
+    expect(readFileSync(join(__dirname, "..", "Agent.tsx"), "utf8")).not.toMatch(/<RailContext[^>]*slots=/);
   });
 });
 
@@ -397,10 +401,12 @@ describe("the selected campaign in the list", () => {
 
   const twoCampaigns = [{ id: "A", name: "Data Analyst" }, { id: "B", name: "Other One" }];
 
-  it("shows a Selected section above Pinned and the campaigns, with the campaign's chats, when one is selected and not pinned", () => {
+  it("puts the selected campaign first in Recents, open with its chats, when one is selected and not pinned", () => {
     const html = render({ chats: [...withChats(3), chat("9", { campaignId: "B", campaignName: "Other One" })], campaigns: twoCampaigns, selected: { id: "A", name: "Data Analyst" } });
-    expect(html).toContain(">Selected<");
-    expect(html.indexOf(">Selected<")).toBeLessThan(html.indexOf(">Recents<"));
+    expect(html).not.toContain(">Selected<");
+    const recents = html.slice(html.indexOf('data-flip="sec:recents"'));
+    expect(recents.indexOf('data-flip="selected:A"')).toBeGreaterThan(-1);
+    expect(recents.indexOf('data-flip="selected:A"')).toBeLessThan(recents.indexOf('data-flip="campaign:B"'));
     expect(html).toContain("Data Analyst");
     // Its chats are under it, once; it is not listed a second time below, where the other campaign is.
     expect((html.match(/Chat 1</g) ?? []).length).toBe(1);
@@ -442,7 +448,13 @@ describe("a campaign's daily search chat in the rail", () => {
   const daily = (id: string, over: Partial<RailChat> = {}) => chat(id, { ...A, title: "Daily search", daily: true, ...over });
   const withDaily = [chat("1", { ...A, at: Date.now() }), daily("9", { at: Date.now() - 3 * 86_400_000 }), chat("3")];
   const campaigns = [{ id: "A", name: "Data Analyst" }, { id: "B", name: "Other One" }];
-  const selectedSection = (html: string) => html.slice(html.indexOf('data-flip="sec:selected"'), html.indexOf('data-flip="sec:recents"'));
+  /* The selected campaign's block, the first of Recents: up to the next row of the list (another campaign, or chat 3). */
+  const selectedSection = (html: string) => {
+    const after = html.slice(html.indexOf('data-flip="selected:'));
+    const end = after.search(/data-flip="(campaign:[^"]+|3)"/);
+    return end > 0 ? after.slice(0, end) : after;
+  };
+  const afterSelected = (html: string) => html.slice(html.indexOf('data-flip="selected:') + selectedSection(html).length);
   /* A row from its opening tag to the next one; the one with this title in its title span is the one asked for. */
   const rowsOf = (html: string) => html.split(/(?=<div class="hx-row[ "])/).filter((r) => r.startsWith('<div class="hx-row'));
   const rowOf = (html: string, title: string) => rowsOf(html).find((r) => new RegExp(`class="hx-row-title">(?:<svg[^>]*>.*?</svg>)?${title}(?:<span|</span>)`).test(r)) ?? "";
@@ -462,7 +474,7 @@ describe("a campaign's daily search chat in the rail", () => {
 
   it("is not a row of its own in the list below (its campaign is), and its campaign comes after its name where it is shown outside its campaign's chats", () => {
     const html = render({ chats: withDaily, campaigns, selected: { id: "A", name: "Data Analyst" } });
-    expect(html.slice(html.indexOf('data-flip="sec:recents"'))).not.toContain("Daily search");
+    expect(afterSelected(html)).not.toContain("Daily search");
     // Under its own campaign it is not told apart by the campaign; elsewhere (pinned on its own, a search result) every daily chat would read the same.
     expect(rowOf(selectedSection(html), "Daily search")).not.toContain("hx-row-camp");
     const rail = readFileSync(join(__dirname, "..", "ChatRail.tsx"), "utf8");
@@ -665,10 +677,10 @@ describe("the top of the list, in three quiet parts", () => {
     expect(css).toMatch(/\.hx-wk-grid \{[^}]*grid-auto-columns: auto; justify-content: space-between/);
   });
 
-  it("draws the daily row inside the rows' list, first, so it lines up with them", () => {
+  it("draws the daily row inside the rows' list, so it lines up with the rows, and no list without it", () => {
     const rc = readFileSync(join(__dirname, "..", "RailContext.tsx"), "utf8");
-    expect(rc).toContain("{daily && <li>{daily}</li>}");
-    expect(rc.indexOf("{daily && <li>{daily}</li>}")).toBeLessThan(rc.indexOf("people.map("));
+    expect(rc).toContain("{daily && (\n        <ul className=\"hx-cfg\">\n          <li>{daily}</li>");
+    expect(rc).not.toContain("people.map(");
   });
 });
 
