@@ -337,7 +337,7 @@
     var out = orgs.filter(function (o) { return !o.personal && Number(o.credits) <= 0; }).length;
     var people = data.options.users.length;
     $("tiles").innerHTML = [
-      tile("Numbers found", num(t.numbers), delta(t.numbers, t.numbers_before) || "1 credit each", COLORS.numbers),
+      tile("Numbers found", num(t.numbers), delta(t.numbers, t.numbers_before) || "10 credits each", COLORS.numbers),
       tile("Emails opened", num(t.emails), delta(t.emails, t.emails_before) || "free", COLORS.emails),
       tile("Hit rate", pct(t.numbers, finished), plural(t.misses, "search", "searches") + " found no number"),
       tile("Added to sheet", num(t.sheet_adds), delta(t.sheet_adds, t.sheet_adds_before), COLORS.sheet),
@@ -572,7 +572,14 @@
   }
 
   function sourceTable() {
-    var rows = data.sources.map(function (s) { return Object.assign({ found: s.purpose === "profile_enrichment" ? s.profiles : s.phones }, s); });
+    // "Asked" counts only the times the source was really called: rows for a source the lookup never got to (an
+    // earlier one already had the number, it was asked about this person before, no key, a daily cap) are left out.
+    var rows = data.sources.map(function (s) {
+      return Object.assign({}, s, {
+        found: s.purpose === "profile_enrichment" ? s.profiles : s.phones,
+        calls: Math.max(0, (Number(s.calls) || 0) - (Number(s.skipped) || 0))
+      });
+    }).filter(function (r) { return r.calls > 0; });
     table("sourceTable", "src", [
       { k: "name", label: "Source", html: function (r) {
           return "<b>" + esc(r.name) + '</b><span class="sub">' + (r.purpose === "profile_enrichment" ? "profile details" : "contact lookup") + "</span>"; } },
@@ -583,7 +590,6 @@
       { k: "pending", label: "Answering later", num: true, html: function (r) { return num(r.pending); } },
       { k: "errors", label: "Errors", num: true, html: function (r) {
           return Number(r.errors) ? '<span class="pill bad">' + num(r.errors) + "</span>" : "0"; } },
-      { k: "skipped", label: "Skipped", num: true, html: function (r) { return num(r.skipped); } },
       { k: "hit", label: "Hit rate", num: true, v: function (r) { return r.found / Math.max(1, r.found + r.email_only + r.misses + r.errors); },
         html: function (r) { return pct(r.found, r.found + r.email_only + r.misses + r.errors); } },
       { k: "avg_ms", label: "Avg time", num: true, html: function (r) { return r.avg_ms == null ? "—" : (r.avg_ms / 1000).toFixed(1) + "s"; } }
@@ -650,12 +656,12 @@
     var v = $(id).value.trim();
     if (v === "") return null;
     var n = Number(v);
-    return Number.isInteger(n) && n >= 0 && n <= 100000 ? n : NaN;
+    return Number.isInteger(n) && n >= 0 && n <= 1000000 ? n : NaN;
   }
   function preview() {
     if (!cr) return;
     var l = amount("crLookup"), a = amount("crLate"), lines = [];
-    if (isNaN(l) || isNaN(a)) { $("crPreview").textContent = "Use whole numbers from 0 to 100,000."; $("crSave").disabled = true; return; }
+    if (isNaN(l) || isNaN(a)) { $("crPreview").textContent = "Use whole numbers from 0 to 1,000,000."; $("crSave").disabled = true; return; }
     var nl = l == null ? null : crMode === "add" ? Number(cr.lookup || 0) + l : l;
     var na = a == null ? null : crMode === "add" ? Number(cr.late || 0) + a : a;
     if (nl != null) lines.push(change(Number(cr.lookup || 0), nl, "Lookup credits"));
