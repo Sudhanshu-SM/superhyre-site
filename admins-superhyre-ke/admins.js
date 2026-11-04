@@ -337,7 +337,7 @@
     var out = orgs.filter(function (o) { return !o.personal && Number(o.credits) <= 0; }).length;
     var people = data.options.users.length;
     $("tiles").innerHTML = [
-      tile("Numbers found", num(t.numbers), delta(t.numbers, t.numbers_before) || "1 credit each", COLORS.numbers),
+      tile("Numbers found", num(t.numbers), delta(t.numbers, t.numbers_before) || "10 credits each", COLORS.numbers),
       tile("Emails opened", num(t.emails), delta(t.emails, t.emails_before) || "free", COLORS.emails),
       tile("Hit rate", pct(t.numbers, finished), plural(t.misses, "search", "searches") + " found no number"),
       tile("Added to sheet", num(t.sheet_adds), delta(t.sheet_adds, t.sheet_adds_before), COLORS.sheet),
@@ -656,12 +656,12 @@
     var v = $(id).value.trim();
     if (v === "") return null;
     var n = Number(v);
-    return Number.isInteger(n) && n >= 0 && n <= 100000 ? n : NaN;
+    return Number.isInteger(n) && n >= 0 && n <= 1000000 ? n : NaN;
   }
   function preview() {
     if (!cr) return;
     var l = amount("crLookup"), a = amount("crLate"), lines = [];
-    if (isNaN(l) || isNaN(a)) { $("crPreview").textContent = "Use whole numbers from 0 to 100,000."; $("crSave").disabled = true; return; }
+    if (isNaN(l) || isNaN(a)) { $("crPreview").textContent = "Use whole numbers from 0 to 1,000,000."; $("crSave").disabled = true; return; }
     var nl = l == null ? null : crMode === "add" ? Number(cr.lookup || 0) + l : l;
     var na = a == null ? null : crMode === "add" ? Number(cr.late || 0) + a : a;
     if (nl != null) lines.push(change(Number(cr.lookup || 0), nl, "Lookup credits"));

@@ -159,22 +159,23 @@
           <div>
             <p class="chain-t">Access phone number: one after another, stops at the first number</p>
             <ol>
-              <li><b>Our database.</b> Your team already has the number: free. Another team paid for it: served from here, 1 credit. No source is asked.</li>
+              <li><b>Our database.</b> Your team already has the number: free. Another team paid for it: served from here, 10 credits. No source is asked.</li>
               <li><b>LeadOcean</b></li>
               <li><b>SalesQL</b>, only if LeadOcean found no number</li>
               <li><b>Apollo</b>, only if neither found one. Its number arrives a few minutes later.</li>
             </ol>
           </div>
           <div>
-            <p class="chain-t">Access email: same order, stops at the first email</p>
+            <p class="chain-t">Access email: one after another, stops at the first email</p>
             <ol>
               <li><b>Our database</b></li>
               <li><b>LeadOcean</b></li>
-              <li><b>SalesQL</b></li>
+              <li><b>SalesQL</b>, only if LeadOcean found no email</li>
+              <li><b>Apollo</b>, the email only (no phone reveal), only if neither found one</li>
             </ol>
-            <p class="note">Apollo is never asked for an email.</p>
           </div>
         </div>
+        <p class="note"><b>Credits:</b> a phone number found costs 10, an email found 2, whoever finds it; nothing found costs nothing. New accounts start with 100. Apollo's own allowance (40 for a new account) loses 10 only when Apollo finds a phone number, so 40 is 4 Apollo numbers; an email never uses it.</p>
         <p class="note">A source that already answered about a person in the last 90 days is not asked again: its answer is in our database. Profile details (experience, education) come from Apify separately, when a person is first saved.</p>
       </div>
     </section>
@@ -288,8 +289,8 @@
       <button type="button" data-m="set">Set balance to</button>
     </div>
     <div class="fields">
-      <label>Lookup credits <input type="number" id="crLookup" min="0" max="100000" step="1" inputmode="numeric"></label>
-      <label>Apollo credits <input type="number" id="crLate" min="0" max="100000" step="1" inputmode="numeric">
+      <label>Lookup credits <input type="number" id="crLookup" min="0" max="1000000" step="1" inputmode="numeric"></label>
+      <label>Apollo credits <input type="number" id="crLate" min="0" max="1000000" step="1" inputmode="numeric">
         <small>Used only when Apollo finds a number.</small></label>
     </div>
     <div class="chips" id="crQuick"></div>
