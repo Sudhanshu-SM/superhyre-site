@@ -39,7 +39,7 @@ a{color:inherit;}
 }
 /* Home page runs frameless: no side rules, no rule under the top bar. */
 .page--home{border-left:none;border-right:none;}
-.page--home .topbar{border-bottom:none;}
+.page--home .topbar{border-bottom:none;height:76px;}
 /* Home background matches the agent landing page. */
 .home{background:#F7F0E4;}
 /* Home copy, CTAs and the contact popup are set in Figtree; the wordmark keeps its own face. */
@@ -65,22 +65,27 @@ a{color:inherit;}
 .get-started:hover{filter:brightness(1.07);}
 
 /* ---------------- Hero (index) ---------------- */
-.hero{position:relative;padding:12px 22px 96px;}
+.hero{position:relative;padding:4px 22px 64px;}
 .hero-stage{container-type:inline-size;width:100%;max-width:1231px;margin:0 auto;}
 
-.hero-text{display:flex;flex-direction:column;gap:20px;max-width:640px;margin:0 auto;padding-top:4cqw;}
-.lede{font-size:clamp(26px,2.5cqw,32px);font-weight:400;line-height:1.3;text-align:center;text-wrap:balance;margin-bottom:14px;}
-.hero-body{font-size:20px;line-height:1.6;color:#1a1a1a;font-variant-numeric:lining-nums;}
+.hero-text{display:flex;flex-direction:column;gap:14px;max-width:720px;margin:0 auto;padding-top:clamp(12px,3vh,36px);}
+.lede{font-size:clamp(24px,2.2vw,30px);font-weight:400;line-height:1.3;text-align:center;text-wrap:balance;margin-bottom:6px;}
+.hero-body{font-size:18px;line-height:1.55;color:#1a1a1a;font-variant-numeric:lining-nums;}
 
 /* Hands + wordmark: a full-bleed row, each hand pinned to its edge of the
    viewport and pointing at the wordmark between them. Each hand is a crop of
    hero-hands.svg (1231x755): left hand x 0-515, right hand x 681-1231, both
-   y 161-588, fingertips ~216px below the crop top. --u is one artwork pixel,
-   sized so the two hands, the gaps and the wordmark fill the viewport width. */
+   y 161-588, fingertips ~216px below the crop top.
+   --u is one artwork pixel: normally sized so the hands, gaps and a 40vw
+   wordmark fill the viewport width, but capped by the viewport height so the
+   copy and CTAs below still fit on the first screen (500px is their budget).
+   Width the hands give up goes to the wordmark (up to --title-max), then to
+   the gaps around it. */
 .hero-art{
-  --title-w:40vw;--gap:1.2vw;
-  --u:calc((100vw - var(--title-w) - 2 * var(--gap)) / 1065);
-  display:flex;align-items:flex-start;gap:var(--gap);
+  --title-w:40vw;--title-max:48vw;--gap:1.2vw;
+  --u:min((100vw - var(--title-w) - 2 * var(--gap)) / 1065, max(160px, 100vh - 500px) / 427);
+  --t:min(var(--title-max), 100vw - 1065 * var(--u) - 2 * var(--gap));
+  display:flex;align-items:flex-start;justify-content:space-between;gap:var(--gap);
   width:100vw;margin-left:calc(50% - 50vw);
 }
 /* The artwork has a baked-in white background; multiply lets the cream show through. */
@@ -92,9 +97,9 @@ a{color:inherit;}
 .hand--left{width:calc(515 * var(--u));background-position:0 calc(-161 * var(--u));}
 .hand--right{width:calc(550 * var(--u));background-position:calc(-681 * var(--u)) calc(-161 * var(--u));}
 /* Glyphs sit at 44% of the SVG's height (184/1180 of its width); centre them on the fingertip line. */
-.wordmark{flex:none;display:block;width:var(--title-w);height:auto;margin-top:calc(216 * var(--u) - var(--title-w) * .0686);}
+.wordmark{flex:none;display:block;width:var(--t);height:auto;margin-top:max(0px, 216 * var(--u) - var(--t) * .0686);}
 /* Home: small underlined text CTAs under the hero copy. */
-.hero-ctas{display:flex;justify-content:center;flex-wrap:wrap;gap:12px 32px;margin-top:22px;}
+.hero-ctas{display:flex;justify-content:center;flex-wrap:wrap;gap:12px 32px;margin-top:12px;}
 .text-cta{
   display:inline-flex;align-items:center;gap:8px;padding-bottom:3px;
   font-family:var(--pixel);font-size:20px;letter-spacing:.3px;color:var(--accent);
@@ -197,7 +202,7 @@ body.modal-open{overflow:hidden;}
 @media(max-width:600px){
   .topbar{height:74px;}.get-started{font-size:19px;width:120px;}
   .text-cta{font-size:17px;}
-  .hero-art{--title-w:52vw;--gap:2vw;}
+  .hero-art{--title-w:52vw;--title-max:52vw;--gap:2vw;}
   .article{padding:46px 20px 60px;}
   .quotes{padding:50px 46px;}
   .q-prev{left:6px;}.q-next{right:6px;}.q-btn{font-size:30px;}
