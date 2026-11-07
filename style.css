@@ -82,7 +82,7 @@ a{color:inherit;}
    Width the hands give up goes to the wordmark (up to --title-max), then to
    the gaps around it. */
 .hero-art{
-  --title-w:40vw;--title-max:48vw;--gap:1.2vw;
+  --title-w:40vw;--title-max:48vw;--gap:1.2vw;--title-gap:clamp(40px, 8vh, 88px);
   --u:min((100vw - var(--title-w) - 2 * var(--gap)) / 1065, max(160px, 100vh - 500px) / 427);
   --t:min(var(--title-max), 100vw - 1065 * var(--u) - 2 * var(--gap));
   display:flex;align-items:flex-start;justify-content:space-between;gap:var(--gap);
@@ -90,7 +90,7 @@ a{color:inherit;}
   /* The row ends just under the wordmark's glyphs (baseline at 79% of the SVG's
      height, i.e. .1237 of its width), so the copy sits close to the title; the
      hands hang below into the margins on either side of the copy. */
-  height:calc(max(0px, 216 * var(--u) - var(--t) * .0686) + var(--t) * .1237 + clamp(24px, 4vh, 44px));
+  height:calc(max(0px, 216 * var(--u) - var(--t) * .0686) + var(--t) * .1237 + var(--title-gap));
 }
 /* The artwork has a baked-in white background; multiply lets the cream show through. */
 .hand{
@@ -206,7 +206,7 @@ body.modal-open{overflow:hidden;}
 @media(max-width:600px){
   .topbar{height:74px;}.get-started{font-size:19px;width:120px;}
   .text-cta{font-size:17px;}
-  .hero-art{--title-w:52vw;--title-max:52vw;--gap:2vw;}
+  .hero-art{--title-w:52vw;--title-max:52vw;--gap:2vw;--title-gap:48px;}
   .article{padding:46px 20px 60px;}
   .quotes{padding:50px 46px;}
   .q-prev{left:6px;}.q-next{right:6px;}.q-btn{font-size:30px;}
