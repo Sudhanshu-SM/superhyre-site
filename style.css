@@ -206,7 +206,19 @@ body.modal-open{overflow:hidden;}
 @media(max-width:600px){
   .topbar{height:74px;}.get-started{font-size:19px;width:120px;}
   .text-cta{font-size:17px;}
-  .hero-art{--title-w:52vw;--title-max:52vw;--gap:2vw;--title-gap:48px;}
+  /* Phones: no hands, a bigger wordmark, everything on one 24px left edge,
+     and the CTAs in a bar pinned to the bottom while the copy scrolls. */
+  .logo{padding-left:24px;}
+  .hero{padding:0 24px calc(96px + env(safe-area-inset-bottom));}
+  .hand{display:none;}
+  .hero-art{display:block;width:auto;height:auto;margin:6px 0 32px;}
+  .wordmark{width:80%;margin-top:0;}
+  .lede{text-align:left;}
+  .hero-ctas{
+    position:fixed;left:0;right:0;bottom:0;z-index:50;margin:0;justify-content:space-between;
+    padding:16px 24px calc(16px + env(safe-area-inset-bottom));
+    background:#F7F0E4;border-top:1px solid rgba(29,20,16,.1);
+  }
   .article{padding:46px 20px 60px;}
   .quotes{padding:50px 46px;}
   .q-prev{left:6px;}.q-next{right:6px;}.q-btn{font-size:30px;}
