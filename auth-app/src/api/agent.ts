@@ -567,8 +567,9 @@ export const agentApi = {
   /** "Score the rest": the people found and not yet read closely are scored on the approved spec, as a run of its own. */
   score: (campaignId: string, actionId?: string) =>
     api<{ runId: string; people: number; already: boolean }>("POST", `/v1/campaigns/${campaignId}/sourcing/score`, actionId ? { actionId } : {}),
-  findMore: (campaignId: string, from?: { conversationId: string; parentRunId: string }, actionId?: string) =>
-    api<{ runId: string; size: number }>("POST", `/v1/campaigns/${campaignId}/sourcing`, { ...(from ?? {}), ...(actionId ? { actionId } : {}) }),
+  /** `want`: how many, as the button said ("Find 5 more"); left out, the usual next batch. */
+  findMore: (campaignId: string, from?: { conversationId: string; parentRunId: string }, actionId?: string, want?: number) =>
+    api<{ runId: string; size: number }>("POST", `/v1/campaigns/${campaignId}/sourcing`, { ...(from ?? {}), ...(actionId ? { actionId } : {}), ...(want ? { want } : {}) }),
   matchProfile: (campaignId: string, personId: string) =>
     api<MatchProfile>("GET", `/v1/campaigns/${campaignId}/matches/${personId}`),
   decisions: (campaignId: string) =>

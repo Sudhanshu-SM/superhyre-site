@@ -50,14 +50,14 @@ describe("the person card in the chat", () => {
     expect(html).toContain("6 yrs experience");
     expect(html).toContain("Android Engineer @ Acko");
     expect(html).toContain("Open to work");
-    expect(html).toContain("Experience");
-    expect(html).toContain("SDE 1");
-    expect(html).toContain("Swiggy");
-    expect(html).toContain("Education");
-    expect(html).toContain("IIT Bombay");
-    expect(html).toContain("B.Tech, Computer Science");
-    expect(html).toContain("+13");
+    // One line of where they were before and where they studied, not a section each.
+    expect(html).toContain("Before");
+    expect(html).toContain("SDE 1 · Swiggy");
+    expect(html).toContain("IIT Bombay, B.Tech, Computer Science");
+    expect(html).not.toContain("src-card-skills");
     expect(html).toContain("on LinkedIn");
+    // The decisions sit on the first line, before the AI's read.
+    expect(html.indexOf(">Shortlist<")).toBeLessThan(html.indexOf(">Fit<"));
     // right: Fit, Why, Requirements, Watch out, in that order, then the decisions in words
     const at = (t: string) => html.indexOf(t);
     expect(at(">Fit<")).toBeLessThan(at(">Why<"));
@@ -75,7 +75,7 @@ describe("the person card in the chat", () => {
   it("leaves out what the profile does not have, instead of drawing empty rows", () => {
     const c = candidateFromMatch(match(1, { glance: { jobs: [], schools: [], skills: [], skillCount: 0 }, linkedinUrl: null, concerns: [] }), {});
     const html = renderToStaticMarkup(<CandidateCard c={c} onVerdict={noop} onOpen={noop} reason="" criteria={[]} short={[]} />);
-    expect(html).not.toContain("Education");
+    expect(html).not.toContain("src-card-past");
     expect(html).not.toContain("src-card-skills");
     expect(html).not.toContain("on LinkedIn");
     expect(html).not.toContain("Watch out");

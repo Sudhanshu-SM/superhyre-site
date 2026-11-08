@@ -1435,11 +1435,11 @@ export function watchesChanged() {
 }
 
 /** "Find N more" on a search's results: a new search in the same turn, followed live. */
-export async function findMore(key: string, campaignId: string): Promise<void> {
+export async function findMore(key: string, campaignId: string, want?: number): Promise<void> {
   const turn = state.turns.find((t) => t.key === key);
   const from = state.conversationId && turn?.runId ? { conversationId: state.conversationId, parentRunId: turn.runId } : undefined;
   try {
-    const { runId, size } = await agentApi.findMore(campaignId, from, pressId());
+    const { runId, size } = await agentApi.findMore(campaignId, from, pressId(), want);
     startedHere.add(runId);
     set(claim(state, runId, key, { campaignId, size }));
     // Part of the chat, its events arrive on the chat's own stream; otherwise follow the run.

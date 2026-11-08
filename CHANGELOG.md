@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.5.10 (2026-11-08)
+
+Needs platform 1.5.9 for "Find N more" to bring exactly N (an older server brings its usual batch).
+
+### Changed
+- **Each search in the chat keeps its own people.** A list shows the people that search found (five, then the next five as a list of their own), not everyone the campaign has; "View all N in the campaign" opens everyone.
+- **"Find N more" under a list is your message.** It says "Find 5 more" in the chat, sized to the list it is under, and its people come as a new list under it.
+- **Compact person rows.** About 100px each: face, name, years and the two decisions on the first line; title @ company; place; one line of the job before and the school. The AI's read sits on a faint tint beside it: fit, a two-line why, the requirement marks on one line, one watch-out. The list has a framed, tinted header.
+- A turn that made a campaign no longer shows the list of every campaign the agent read on the way.
+
 ## 1.5.9 (2026-11-08)
 
 Needs platform 1.5.8 for the campaign-only attention card (older servers send none; the card then reads as before).

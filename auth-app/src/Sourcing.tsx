@@ -696,9 +696,6 @@ export function requirementLabel(text: string): string {
   return words.slice(0, 3).join(" ");
 }
 
-/** Skill chips on a card before the rest are counted. */
-const CARD_SKILLS = 4;
-
 /**
  * One person, in two columns that end level.
  *
@@ -734,8 +731,9 @@ export function CandidateCard({
   const text = reason ?? REASON[c.id];
   const fit = criteria ?? CRITERIA;
   const name = plainText(c.name);
-  const skills = g.skills.slice(0, CARD_SKILLS);
-  const moreSkills = g.skillCount - skills.length;
+  /* Where they were before the job above, and where they studied: one line under who they are. */
+  const before = g.jobs[1] ?? null;
+  const school = g.schools[0] ?? null;
   const concern = c.result?.concerns?.[0] ?? null;
   const met = fit.filter((_, i) => c.meets[i]).length;
   return (
@@ -744,7 +742,7 @@ export function CandidateCard({
 
       <div className="src-card-who">
         <div className="src-card-top">
-          <Face c={c} size={44} />
+          <Face c={c} size={40} />
           <div className="src-card-id">
             <p className="src-card-name">
               <span className="src-card-name-t">{name}</span>
@@ -758,7 +756,7 @@ export function CandidateCard({
                   title="LinkedIn profile"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <LinkedinLogo size={15} weight="fill" aria-hidden="true" />
+                  <LinkedinLogo size={14} weight="fill" aria-hidden="true" />
                 </a>
               )}
               {c.totalYears > 0 && <span className="src-card-tag">{c.totalYears} {c.totalYears === 1 ? "yr" : "yrs"} experience</span>}
@@ -771,48 +769,26 @@ export function CandidateCard({
                 {c.recentlyChangedJob && <span className="src-card-tag">Changed jobs recently</span>}
               </p>
             )}
-          </div>
-        </div>
-        {(g.jobs.length > 0 || g.schools.length > 0) && (
-          <div className="src-card-facts">
-            {g.jobs.length > 0 && (
-              <div className="src-card-fact">
-                <span className="src-card-k"><Briefcase size={15} aria-hidden="true" />Experience</span>
-                <ul className="src-card-v">
-                  {g.jobs.map((j, i) => (
-                    <li key={`${j.title}${j.company}${i}`}>
-                      {j.title && <span className="is-main">{j.title}</span>}
-                      {j.title && j.company && <span className="is-sep" aria-hidden="true">|</span>}
-                      {j.company && <span className="is-org">{j.company}</span>}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {g.schools.length > 0 && (
-              <div className="src-card-fact">
-                <span className="src-card-k"><GraduationCap size={15} aria-hidden="true" />Education</span>
-                <ul className="src-card-v">
-                  {g.schools.map((s, i) => (
-                    <li key={`${s.school}${i}`}>
-                      <span className="is-main">{s.school}</span>
-                      {s.degree && <span className="is-sep" aria-hidden="true">|</span>}
-                      {s.degree && <span className="is-sub">{s.degree}</span>}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+            {/* One line of where they were and where they studied: the full history is in the profile. */}
+            {(before || school) && (
+              <p className="src-card-past">
+                {before && (
+                  <span className="src-card-pi">
+                    <Briefcase size={13} aria-hidden="true" />
+                    <span className="is-k">Before</span>
+                    <span className="is-v">{[before.title, before.company].filter(Boolean).join(" · ")}</span>
+                  </span>
+                )}
+                {school && (
+                  <span className="src-card-pi">
+                    <GraduationCap size={13} aria-hidden="true" />
+                    <span className="is-v">{[school.school, school.degree].filter(Boolean).join(", ")}</span>
+                  </span>
+                )}
+              </p>
             )}
           </div>
-        )}
-        {/* The last line of the profile: a few skills, and the two decisions where the eye ends. */}
-        <div className="src-card-foot">
-          {skills.length > 0 ? (
-            <ul className="src-card-skills" aria-label="Skills">
-              {skills.map((k) => <li key={k}>{k}</li>)}
-              {moreSkills > 0 && <li className="is-more">+{moreSkills}</li>}
-            </ul>
-          ) : <span />}
+          {/* The two decisions, on the first line where the eye starts: quiet until one is made. */}
           <div className="src-card-acts">
             <Verdicts verdict={verdict} onVerdict={onVerdict} name={c.name} />
           </div>
@@ -824,19 +800,16 @@ export function CandidateCard({
           <span className="src-card-sk"><Sparkle size={12} weight="fill" aria-hidden="true" />Fit</span>
           {c.result ? <FitState r={c.result} /> : <span className="src-card-none">{c.listedAsFound ? "Listed as found" : "Not scored yet"}</span>}
         </div>
-        <div className="src-card-sec">
-          <span className="src-card-sk">Why</span>
-          {pending ? (
-            <div className="src-card-reason is-pending" aria-hidden="true">
-              <Shimmer className="src-shim" w="92%" h={10} r={5} />
-              <Shimmer className="src-shim is-short" w="56%" h={10} r={5} />
-            </div>
-          ) : (
-            <p className="src-card-reason">{text || "Not read closely yet."}</p>
-          )}
-        </div>
+        {pending ? (
+          <div className="src-card-reason is-pending" aria-hidden="true">
+            <Shimmer className="src-shim" w="92%" h={10} r={5} />
+            <Shimmer className="src-shim is-short" w="56%" h={10} r={5} />
+          </div>
+        ) : (
+          <p className="src-card-reason"><span className="src-card-sk is-inline">Why</span>{text || "Not read closely yet."}</p>
+        )}
         {!pending && fit.length > 0 && (
-          <div className="src-card-sec">
+          <div className="src-card-reqs">
             <span className="src-card-sk">Requirements <span className="src-card-n">{met} of {fit.length}</span></span>
             <ul className="src-card-checks">
               {fit.map((label, i) => (
@@ -849,10 +822,7 @@ export function CandidateCard({
           </div>
         )}
         {concern && (
-          <div className="src-card-sec">
-            <span className="src-card-sk">Watch out</span>
-            <p className="src-card-concern" title={concern}>{concern}</p>
-          </div>
+          <p className="src-card-concern" title={concern}><span className="src-card-sk is-inline">Watch out</span>{concern}</p>
         )}
       </aside>
     </article>

@@ -335,8 +335,9 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 20px;
-  border-bottom: 1px solid var(--nav-rule);
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--hairline);
+  background: color-mix(in srgb, var(--ink) 3%, var(--card, #fff));
 }
 .src-results-head h3 { margin: 0; font: 600 14px/1.3 var(--ui); letter-spacing: -0.01em; color: var(--ink); }
 .src-results-head span { font: 400 13px/1 var(--ui); font-variant-numeric: tabular-nums; color: var(--ink-2); }
@@ -345,7 +346,7 @@
 
 .src-cards { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; margin: 0; padding: 0; list-style: none; }
 .src-cards > li { animation: src-in 320ms var(--ease-out) both; }
-.src-cards > li + li { border-top: 1px solid var(--nav-rule); }
+.src-cards > li + li { border-top: 1px solid var(--hairline); }
 .src-scroll-end { animation: none !important; border-top: 1px solid var(--nav-rule); padding: 10px 20px; font: 400 12.5px/1 var(--ui); color: var(--ink-2); }
 .src-scroll-end:empty { display: none; }
 
@@ -377,20 +378,21 @@
 .src-people-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 
 /* ── A PERSON ──────────────────────────────────────────────────────────────────
-   Two columns that end level. Left: the profile (a 44px face, name, link and years; "Title @ Company"; place and signals;
-   then labelled rows for experience and education, and a few skills). Right, behind a hairline: the AI's read in the same
-   sections every time (Fit, Why, Requirements, Watch out) with the two decisions at its foot. The whole card opens the
-   profile; the decisions and the profile link sit above it. */
+   One compact row (about 120px), two columns that end level. Left: a 40px face, name, profile link and years, with the two
+   decisions on that same first line; "Title @ Company"; place and signals; one line of where they were before and where
+   they studied. Right, on a faint tint so the two reads never blur: Fit, the one-line why, the requirement marks on one
+   wrapped line, and a worry when there is one. Nothing stands empty: both columns are as tall as what they hold. The whole
+   row opens the profile; the decisions and the link sit above it. A selected row takes a faint brand tint. */
 .src-card {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
   align-items: stretch;
   background: transparent;
   transition: background-color 150ms ease, opacity 150ms ease;
 }
-.src-card:hover { background: color-mix(in srgb, var(--ink) 2.5%, transparent); }
-.src-card.is-selected { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.src-card:hover { background: color-mix(in srgb, var(--ink) 2%, transparent); }
+.src-card.is-selected { background: color-mix(in srgb, var(--accent) 7%, transparent); }
 .src-card.is-rejected { opacity: 0.55; }
 .src-card.is-rejected:hover { opacity: 0.85; }
 
@@ -399,83 +401,69 @@
 .src-card > :not(.src-card-hit) { position: relative; z-index: 1; pointer-events: none; }
 .src-card .cb-verdicts, .src-card .cb-verdicts *, .src-card .src-card-link { pointer-events: auto; }
 
-/* left: the profile */
+/* left: who they are */
 .src-card-who { display: flex; flex-direction: column; min-width: 0; }
-.src-card-top { display: flex; align-items: flex-start; gap: 12px; min-width: 0; padding: 16px 20px 14px; }
-.src-face { flex: none; display: block; width: 44px; height: 44px; border-radius: 50%; object-fit: cover; background: var(--nav-rule); }
-.src-card-id { min-width: 0; flex: 1 1 auto; display: grid; gap: 3px; }
+.src-card-top { display: flex; align-items: flex-start; gap: 12px; min-width: 0; padding: 14px 16px; }
+.src-face { flex: none; display: block; width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: var(--nav-rule); }
+.src-card-id { min-width: 0; flex: 1 1 auto; display: grid; gap: 2px; }
 .src-card-name {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   margin: 0;
   font: 600 14.5px/1.3 var(--ui);
   letter-spacing: -0.014em;
   color: var(--ink);
 }
 .src-card-name-t { min-width: 0; overflow-wrap: anywhere; }
-.src-card-link { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; color: var(--ink-2); transition: color 150ms ease, background-color 150ms ease; }
+.src-card-link { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 5px; color: var(--ink-2); transition: color 150ms ease, background-color 150ms ease; }
 .src-card-link:hover { color: #0a66c2; background: var(--nav-rule); }
 .src-card-link:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 /* A plain fact beside the name or the place: a soft fill, no border, one colour only for "Open to work". */
-.src-card-tag { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 6px; background: var(--nav-rule); font: 500 12px/1 var(--ui); letter-spacing: 0; color: var(--ink-2); white-space: nowrap; }
+.src-card-tag { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 5px; background: var(--nav-rule); font: 500 11.5px/1 var(--ui); letter-spacing: 0; color: var(--ink-2); white-space: nowrap; }
 .src-card-tag.is-open { background: var(--c-sage-tint); color: var(--c-sage-text); }
-.src-card-line {
-  margin: 0;
-  font: 400 13.5px/1.4 var(--ui);
-  color: var(--ink-2);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.src-card-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0; font: 400 13px/22px var(--ui); color: var(--ink-2); }
+.src-card-line { margin: 0; font: 400 13.5px/1.4 var(--ui); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.src-card-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 0; font: 400 12.5px/20px var(--ui); color: var(--ink-2); }
+.src-card-past { display: flex; flex-wrap: wrap; gap: 2px 14px; margin: 2px 0 0; font: 400 12.5px/20px var(--ui); color: var(--ink-2); min-width: 0; }
+.src-card-pi { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; }
+.src-card-pi svg { flex: none; color: var(--ink-3, var(--ink-2)); }
+.src-card-pi .is-k { color: var(--ink-3, var(--ink-2)); }
+.src-card-pi .is-v { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.src-card-facts { display: grid; gap: 8px; padding: 12px 20px 4px; border-top: 1px solid var(--nav-rule); }
-.src-card-foot { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 20px 16px; }
-.src-card-fact { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 12px; align-items: start; }
-.src-card-k { display: inline-flex; align-items: center; gap: 8px; font: 400 13px/22px var(--ui); color: var(--ink-2); }
-.src-card-k svg { flex: none; color: var(--ink-3, var(--ink-2)); }
-.src-card-v { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; min-width: 0; }
-.src-card-v li { display: flex; align-items: baseline; gap: 8px; min-width: 0; font: 400 13.5px/22px var(--ui); white-space: nowrap; overflow: hidden; }
-.src-card-v .is-main { font-weight: 500; color: var(--ink); overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; min-width: 0; }
-.src-card-v .is-sep { color: var(--rule); flex: none; }
-.src-card-v .is-org { color: var(--c-sage-text); overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; min-width: 0; }
-.src-card-v .is-sub { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; min-width: 0; }
-.src-card-skills { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; min-width: 0; }
-.src-card-skills li { font: 400 12.5px/1 var(--ui); padding: 6px 10px; border-radius: 6px; background: var(--nav-rule); color: var(--ink); white-space: nowrap; }
-.src-card-skills li.is-more { background: transparent; color: var(--ink-2); padding-inline: 4px; }
-
-/* right: the AI's read, in the same sections every time */
+/* right: the AI's read, on a faint tint, in the same order every time */
 .src-card-ai {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 6px;
   min-width: 0;
-  padding: 16px 20px;
+  padding: 14px 16px;
+  background: color-mix(in srgb, var(--ink) 2.5%, transparent);
   border-left: 1px solid var(--nav-rule);
 }
 .src-card-sec { display: grid; gap: 4px; min-width: 0; }
 .src-card-sec.is-fit { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.src-card-sk { display: inline-flex; align-items: center; gap: 6px; font: 500 12px/1.3 var(--ui); color: var(--ink-2); }
+.src-card-sk { display: inline-flex; align-items: center; gap: 6px; font: 500 12px/18px var(--ui); color: var(--ink-2); }
 .src-card-sk svg { color: var(--accent); }
+.src-card-sk.is-inline { margin-right: 6px; }
 .src-card-n { font-weight: 400; font-variant-numeric: tabular-nums; }
-.src-card-sec.is-fit .cb-state { font: 600 13px/1.3 var(--ui); }
-.src-card-none { font: 400 12.5px/1.3 var(--ui); color: var(--ink-2); }
-.src-card-reason { margin: 0; font: 400 13px/1.45 var(--ui); color: var(--ink); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.src-card-sec.is-fit .cb-state { font: 600 13px/18px var(--ui); }
+.src-card-none { font: 400 12.5px/18px var(--ui); color: var(--ink-2); }
+.src-card-reason { margin: 0; font: 400 13px/19px var(--ui); color: var(--ink); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 /* A score that has not arrived: shimmer where the line on why will be, so the card does not jump when it comes. */
 .src-card-reason.is-pending { display: grid; gap: 6px; padding-top: 2px; }
-.src-card-checks { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0; padding: 0; list-style: none; }
-.src-card-checks li { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; font: 400 13px/1.35 var(--ui); color: var(--ink); }
+.src-card-reqs { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; min-width: 0; }
+.src-card-checks { display: contents; margin: 0; padding: 0; list-style: none; }
+.src-card-checks li { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; font: 400 12.5px/18px var(--ui); color: var(--ink); }
 .src-card-checks li > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.src-card-checks .cb-fit { width: 16px; height: 16px; }
-.src-card-concern { margin: 0; font: 400 13px/1.45 var(--ui); color: var(--ink); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.src-card-checks .cb-fit { width: 15px; height: 15px; }
+.src-card-concern { margin: 0; font: 400 12.5px/18px var(--ui); color: var(--ink); display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
 
-/* The two decisions at the foot of the read: quiet text buttons, the brand colour only once someone is shortlisted. */
-.src-card-acts { flex: none; }
-.src-card .cb-verdicts { gap: 8px; }
-.src-card .cb-v { height: 32px; padding: 0 12px; border: 1px solid var(--hairline); border-radius: 8px; background: transparent; color: var(--ink); font: 500 13px/1 var(--ui); }
-.src-card .cb-v:hover:not(:disabled) { background: var(--nav-rule); }
+/* The two decisions on the first line: small and quiet, the brand colour only once someone is shortlisted. */
+.src-card-acts { flex: none; margin-left: auto; }
+.src-card .cb-verdicts { gap: 6px; }
+.src-card .cb-v { height: 28px; padding: 0 10px; border: 1px solid var(--hairline); border-radius: 7px; background: transparent; color: var(--ink-2); font: 500 12.5px/1 var(--ui); }
+.src-card .cb-v:hover:not(:disabled) { background: var(--nav-rule); color: var(--ink); }
 .src-card .cb-v.is-short:not(.is-on) { background: transparent; border-color: var(--accent-line); color: var(--accent-text, var(--accent)); }
 .src-card .cb-v.is-short:not(.is-on):hover { background: var(--accent-tint); }
 .src-card .cb-v.is-short.is-on { background: var(--accent-tint); border-color: var(--accent-line); color: var(--accent-text); }

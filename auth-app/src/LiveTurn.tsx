@@ -269,7 +269,9 @@ export function LiveTurnBody({
   /* An email card carries Gmail's Connect itself: a separate connect card above or beside it would say it twice, in a
      different place each time. */
   const gmailInCard = turn.approvals.some((a) => carriesGmailConnect(a.action));
-  const cards = turn.cards.filter((c) => !(gmailInCard && c.kind === "connect" && c.provider === "google"));
+  /* A turn that made a campaign says so on its own card: the list of every campaign the agent read on the way is not the answer. */
+  const made = turn.cards.some((c) => c.kind === "outcome" && c.capability === "campaign.create");
+  const cards = turn.cards.filter((c) => !(gmailInCard && c.kind === "connect" && c.provider === "google") && !(made && c.kind === "campaigns"));
   const { before, told: toldCards, quiet } = splitByTelling(cards.filter((c) => c.kind !== "view" && c.kind !== "role_spec"), told);
   /* Said once the answer is whole, for one that was thought about (the same turns that carry a "Thought for" line) and for a line the
      agent said on its own: a chat of mornings' findings is only readable if each says when it came. */

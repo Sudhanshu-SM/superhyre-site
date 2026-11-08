@@ -11,7 +11,7 @@ import { vendorWords } from "../displayText";
 import { setFromMatches } from "../liveCandidate";
 import { getSet, putSet } from "../liveCandidates";
 import { onInvalidate } from "../invalidate";
-import { findMore, runStartedHere } from "../liveChat";
+import { runStartedHere, sendMessage } from "../liveChat";
 import type { Search } from "../liveChat";
 import { bucketsLine, bucketsOfRows } from "../agentCards/specView";
 import type { Candidate } from "../sourcing";
@@ -64,7 +64,7 @@ const CATCH_UP_TRIES = 15;
 const isMatched = (c: Candidate): boolean =>
   c.result ? c.result.status !== "knocked_out" && c.result.tier !== null : c.scored === true;
 
-export function SearchRun({ turnKey, search, latest, onAsk, onFindMore }: {
+export function SearchRun({ turnKey: _turnKey, search, latest, onAsk, onFindMore }: {
   turnKey: string;
   search: Search;
   latest: boolean;
@@ -128,8 +128,19 @@ export function SearchRun({ turnKey, search, latest, onAsk, onFindMore }: {
     };
   }, [catchingUp, search.campaignId]);
 
-  const items: readonly Match[] = whole && !running ? whole.rows : (search.items ?? NO_MATCHES);
-  const decided = whole && !running ? (whole.decided ?? NO_MATCHES) : NO_MATCHES;
+  /* This search's own people only: each search in the chat keeps the ones it found (five, then the next five), as the
+     server has them now (a score or a verdict that came after the run is in it). "View all" opens the campaign's whole list. */
+  const items: readonly Match[] = useMemo(() => {
+    const own = search.items ?? NO_MATCHES;
+    if (!whole || running) return own;
+    const now = new Map(whole.rows.map((m) => [m.personId, m]));
+    return own.map((m) => now.get(m.personId) ?? m);
+  }, [search.items, whole, running]);
+  const decided = useMemo(() => {
+    if (!whole || running) return NO_MATCHES;
+    const mine = new Set((search.items ?? NO_MATCHES).map((m) => m.personId));
+    return (whole.decided ?? NO_MATCHES).filter((m) => mine.has(m.personId));
+  }, [search.items, whole, running]);
   const set = useMemo(
     () => (items.length ? setFromMatches(search.campaignId, items, spec, new Date(), decided) : null),
     [search.campaignId, items, spec, decided],
@@ -210,17 +221,26 @@ export function SearchRun({ turnKey, search, latest, onAsk, onFindMore }: {
      and "View all" opens the whole list. */
   const pool = running || matched.length === 0 ? undecided : [...matched, ...undecided.filter((c) => !isMatched(c))];
   const copy = resultsCopy({
-    shown: best.length, total: set?.total ?? 0, unscored: running ? 0 : unscoredIn(items, PREVIEW_COUNT), found: shown.length,
+    // "View all" is the campaign's whole list (everyone every search found), not this search's few.
+    shown: best.length, total: Math.max(whole?.rows.length ?? 0, set?.total ?? 0), unscored: running ? 0 : unscoredIn(items, PREVIEW_COUNT), found: shown.length,
   });
   /* Nobody is scored yet: these are first in the list by skills, years and place, not "the best fits". */
   /* One header over the list: how many were found while scoring goes on, "Top matches" once they are scored. */
   const title = running || scored === 0 ? `${shown.length.toLocaleString("en-IN")} found` : "Top matches";
   const count = pool.length > 0 ? `${pool.length} to review` : "";
   const subline = running || arriving ? "Scoring now. People move into place as each group is read." : copy.sub;
-  const more = !running && may && next && latest && !next.exhausted && next.size > 0
-    ? { label: `Find ${next.size} more`, busy: finding, onClick: () => {
+  /* Another search the size of this one ("Find 5 more" under five), and it brings exactly that many: the person's own number, not the
+     product's batch plan. It lands as a list of its own under this one. */
+  const again = Math.min(shown.length || (next?.size ?? 0), 50);
+  const more = !running && may && next && latest && !next.exhausted && next.size > 0 && again > 0
+    ? { label: `Find ${again} more`, busy: finding, onClick: () => {
         setFinding(true);
-        void (onFindMore ? onFindMore() : findMore(turnKey, search.campaignId)).finally(() => setFinding(false));
+        // In the chat it is the person's own message ("Find 5 more"): it shows as theirs, and its people come as a list of their own.
+        if (onFindMore) void onFindMore().finally(() => setFinding(false));
+        else {
+          sendMessage(`Find ${again} more`, search.campaignId);
+          setFinding(false);
+        }
       } }
     : null;
 
