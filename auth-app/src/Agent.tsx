@@ -1850,6 +1850,29 @@ export function Agent({
             view={viewing}
             onStartOwn={() => startIn(viewing.campaignId ? { id: viewing.campaignId, name: viewing.campaignName } : null)}
             onClose={() => setViewing(null)}
+            readCtx={{
+              said: "",
+              verdicts: {},
+              onVerdict: () => {},
+              openProfile: (cid: string, ids?: readonly string[]) => {
+                setProfileModal(true);
+                setProfile({ id: cid, ids: ids ?? idsOfSetWith(cid) });
+              },
+              profileId: profile?.id ?? null,
+              openList: (cid?: string) => {
+                setProfile(null);
+                setListCampaign(cid ?? viewing.campaignId ?? null);
+                setMatchesOpen(true);
+              },
+              deploy: () => null,
+              undeploy: () => {},
+              seed: () => {},
+              onGrow: () => {},
+              onBusy: () => {},
+              prefs,
+              setPref,
+              readOnly: true,
+            }}
           />
         )}
         {LIVE && (

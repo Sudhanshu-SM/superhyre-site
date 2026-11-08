@@ -1,5 +1,5 @@
 /* Somebody else's chat, read only (SharedChat.tsx): a quiet transcript in the conversation's own column. */
-.shc { grid-column: 1; grid-row: 1 / -1; display: flex; flex-direction: column; height: 100dvh; min-height: 0; width: 100%; max-width: 860px; margin-inline: auto; padding: var(--page-top, 20px) clamp(20px, 3vw, 40px) 0; box-sizing: border-box; }
+.shc { grid-column: 1; grid-row: 1 / -1; display: flex; flex-direction: column; height: 100dvh; min-height: 0; width: 100%; max-width: 1300px; margin-inline: auto; padding: var(--page-top, 20px) var(--orc-inset-r, clamp(16px, 2vw, 36px)) 0 var(--orc-inset-l, clamp(16px, 2vw, 36px)); box-sizing: border-box; }
 .shc-head { display: flex; align-items: flex-start; gap: 12px; padding: 4px 0 16px; border-bottom: 1px solid var(--hairline, rgba(127, 127, 127, 0.18)); }
 .shc-back { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: 10px; background: transparent; color: var(--ink-2); cursor: pointer; transition: background var(--t-dim), color var(--t); }
 .shc-back:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); color: var(--accent-text, var(--ink)); }
@@ -25,4 +25,7 @@
 /* An admin reading somebody's chat sees its cards as they were drawn. They are for reading: nothing in them takes a press. */
 .shc-turn { display: grid; gap: 14px; }
 .shc-cards { min-width: 0; }
-.shc-cards [inert], .shc-cards { pointer-events: none; user-select: text; }
+/* Only the ways in to a person read here: the card itself (opens the profile), their profile link, and the campaign's list. */
+.shc-cards, .shc-cards * { pointer-events: none; user-select: text; }
+.shc-cards .src-card-hit, .shc-cards .src-card-link, .shc-cards .src-people-btn.is-all { pointer-events: auto; }
+.shc-cards .src-card .cb-verdicts { display: none; }

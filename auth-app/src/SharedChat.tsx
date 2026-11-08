@@ -5,6 +5,8 @@ import type { RunEvent } from "./api/events";
 import { applyEvent, fromDetail, type LiveTurn } from "./liveChat";
 import { ChatTime } from "./ChatTime";
 import { LiveTurnBody } from "./LiveTurn";
+import { LiveMomentProvider } from "./liveViews/LiveMoment";
+import type { MomentCtx } from "./moments";
 import { Prose } from "./ReplyProse";
 import "./shared-chat.css";
 
@@ -35,7 +37,13 @@ export function SharedMessage({ message: m, who }: { message: ChatMessage; who: 
   return <p className="shc-card">The agent answered with a card. {who.split(" ")[0]} can show it to you in the campaign.</p>;
 }
 
-export function SharedChat({ view, onStartOwn, onClose }: { view: SharedView; onStartOwn: () => void; onClose: () => void }) {
+export function SharedChat({ view, onStartOwn, onClose, readCtx }: {
+  view: SharedView;
+  onStartOwn: () => void;
+  onClose: () => void;
+  /** What the cards may do here: open a person's profile or the campaign's list, and nothing that decides or searches. */
+  readCtx?: MomentCtx | undefined;
+}) {
   const [state, setState] = useState<State>({ status: "loading" });
   useEffect(() => {
     let current = true;
@@ -68,9 +76,15 @@ export function SharedChat({ view, onStartOwn, onClose }: { view: SharedView; on
           <div key={t.key} className="shc-turn">
             {t.said && <p className="shc-said">{t.said}</p>}
             {t.said && <ChatTime at={t.startedAt} className="shc-time" />}
-            {/* Drawn as the person saw it, for reading only: nothing in it can be pressed or answered here. */}
-            <div className="shc-cards" {...({ inert: "" } as object)}>
-              <LiveTurnBody turn={t} onAnswer={() => {}} later={state.turns.slice(i + 1)} readOnly />
+            {/* Drawn as the person saw it, for reading: a person's profile opens, nothing can be decided, answered or searched. */}
+            <div className="shc-cards">
+              {readCtx ? (
+                <LiveMomentProvider value={readCtx}>
+                  <LiveTurnBody turn={t} onAnswer={() => {}} later={state.turns.slice(i + 1)} readOnly />
+                </LiveMomentProvider>
+              ) : (
+                <LiveTurnBody turn={t} onAnswer={() => {}} later={state.turns.slice(i + 1)} readOnly />
+              )}
             </div>
           </div>
         ))}

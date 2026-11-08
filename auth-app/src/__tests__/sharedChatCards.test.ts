@@ -29,10 +29,16 @@ describe("somebody else's chat, read by an admin", () => {
     expect(turns[0]?.status).toBe("done");
   });
 
-  it("draws the cards with the console's own turn body, and for reading only", () => {
+  it("draws the cards with the console's own turn body, for reading: only a person's profile and the campaign's list open", () => {
     const src = read("SharedChat.tsx");
+    const css = read("shared-chat.css");
     expect(src).toContain("<LiveTurnBody");
-    expect(src).toContain('inert: ""');
-    expect(read("shared-chat.css")).toMatch(/\.shc-cards[^{]*\{[^}]*pointer-events: none/);
+    expect(src).toContain("<LiveMomentProvider value={readCtx}>");
+    expect(css).toMatch(/\.shc-cards, \.shc-cards \* \{ pointer-events: none/);
+    expect(css).toContain(".shc-cards .src-card-hit, .shc-cards .src-card-link, .shc-cards .src-people-btn.is-all { pointer-events: auto; }");
+    expect(css).toContain(".shc-cards .src-card .cb-verdicts { display: none; }");
+    // The decisions and another search are not offered in somebody else's chat.
+    expect(read("liveViews/SearchRun.tsx")).toContain("!ctx?.readOnly && !running");
+    expect(read("Agent.tsx")).toContain("readOnly: true,");
   });
 });

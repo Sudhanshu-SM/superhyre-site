@@ -395,6 +395,8 @@ export type MomentCtx = {
   onVerdict: (id: string, v: Verdict | null) => void;
   /** Opens a profile. `auto` is the page offering the first person on its own: it sits beside the chat and does not dim it. */
   openProfile: (id: string, ids?: readonly string[], opts?: { auto?: boolean }) => void;
+  /** Somebody else's chat, read by an admin: people can be opened, nothing can be decided or searched. */
+  readOnly?: boolean;
   /** Whose profile is open now, so the card of that person shows as selected. */
   profileId?: string | null;
   /** Opens the ranked list (for a campaign, when several are in the chat). */

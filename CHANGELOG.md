@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.12 (2026-11-08)
+
+### Fixed
+- **An admin reading somebody's chat sees it at the chat's own width**, not a narrow column that squeezed the people cards.
+- **Profiles open from somebody else's chat.** A person's card opens their profile beside it, and "View all" opens the campaign's list; deciding (Reject / Shortlist) and searching again stay out of a read-only chat.
+
 ## 1.5.11 (2026-11-08)
 
 ### Changed

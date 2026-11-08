@@ -232,7 +232,7 @@ export function SearchRun({ turnKey: _turnKey, search, latest, onAsk, onFindMore
   /* Another search the size of this one ("Find 5 more" under five), and it brings exactly that many: the person's own number, not the
      product's batch plan. It lands as a list of its own under this one. */
   const again = Math.min(shown.length || (next?.size ?? 0), 50);
-  const more = !running && may && next && latest && !next.exhausted && next.size > 0 && again > 0
+  const more = !ctx?.readOnly && !running && may && next && latest && !next.exhausted && next.size > 0 && again > 0
     ? { label: `Find ${again} more`, busy: finding, onClick: () => {
         setFinding(true);
         // In the chat it is the person's own message ("Find 5 more"): it shows as theirs, and its people come as a list of their own.
