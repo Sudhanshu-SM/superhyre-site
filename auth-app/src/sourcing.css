@@ -379,8 +379,8 @@
 
 /* ── A PERSON ──────────────────────────────────────────────────────────────────
    One compact row (about 120px), two columns that end level. Left: a 40px face, name, profile link and years, with the two
-   decisions on that same first line; "Title @ Company"; place and signals; one line of where they were before and where
-   they studied. Right, on a faint tint so the two reads never blur: Fit, the one-line why, the requirement marks on one
+   decisions on that same first line; "Title @ Company"; place and signals; then Experience (the job now and the latest
+   one before it) and Education rows. Right, on a faint tint so the two reads never blur: Fit, the one-line why, the requirement marks on one
    wrapped line, and a worry when there is one. Nothing stands empty: both columns are as tall as what they hold. The whole
    row opens the profile; the decisions and the link sit above it. A selected row takes a faint brand tint. */
 .src-card {
@@ -425,11 +425,17 @@
 .src-card-tag.is-open { background: var(--c-sage-tint); color: var(--c-sage-text); }
 .src-card-line { margin: 0; font: 400 13.5px/1.4 var(--ui); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .src-card-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 0; font: 400 12.5px/20px var(--ui); color: var(--ink-2); }
-.src-card-past { display: flex; flex-wrap: wrap; gap: 2px 14px; margin: 2px 0 0; font: 400 12.5px/20px var(--ui); color: var(--ink-2); min-width: 0; }
-.src-card-pi { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; }
-.src-card-pi svg { flex: none; color: var(--ink-3, var(--ink-2)); }
-.src-card-pi .is-k { color: var(--ink-3, var(--ink-2)); }
-.src-card-pi .is-v { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Experience and Education: a quiet label column and the rows beside it, as a profile reads. */
+.src-card-facts { display: grid; gap: 2px; margin-top: 6px; min-width: 0; }
+.src-card-fact { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 10px; align-items: start; min-width: 0; }
+.src-card-k { display: inline-flex; align-items: center; gap: 6px; font: 400 12.5px/20px var(--ui); color: var(--ink-2); }
+.src-card-k svg { flex: none; color: var(--ink-3, var(--ink-2)); }
+.src-card-v { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; min-width: 0; }
+.src-card-v li { display: flex; align-items: baseline; gap: 8px; min-width: 0; font: 400 12.5px/20px var(--ui); white-space: nowrap; overflow: hidden; }
+.src-card-v .is-main { font-weight: 500; color: var(--ink); overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; min-width: 0; }
+.src-card-v .is-sep { color: var(--rule); flex: none; }
+.src-card-v .is-org { color: var(--c-sage-text); overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; min-width: 0; }
+.src-card-v .is-sub { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; min-width: 0; }
 
 /* right: the AI's read, on a faint tint, in the same order every time */
 .src-card-ai {

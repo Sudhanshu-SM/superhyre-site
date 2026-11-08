@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.11 (2026-11-08)
+
+### Changed
+- **A person's card reads like a profile again.** Under who they are: an Experience row with the job now and the latest one before it (title | company), then an Education row when they have one. The one-line "Before" is gone. Same compact spacing.
+
 ## 1.5.10 (2026-11-08)
 
 Needs platform 1.5.9 for "Find N more" to bring exactly N (an older server brings its usual batch).

@@ -731,8 +731,8 @@ export function CandidateCard({
   const text = reason ?? REASON[c.id];
   const fit = criteria ?? CRITERIA;
   const name = plainText(c.name);
-  /* Where they were before the job above, and where they studied: one line under who they are. */
-  const before = g.jobs[1] ?? null;
+  /* The job now and the latest one before it, and where they studied. */
+  const jobs = g.jobs.slice(0, 2);
   const school = g.schools[0] ?? null;
   const concern = c.result?.concerns?.[0] ?? null;
   const met = fit.filter((_, i) => c.meets[i]).length;
@@ -769,23 +769,37 @@ export function CandidateCard({
                 {c.recentlyChangedJob && <span className="src-card-tag">Changed jobs recently</span>}
               </p>
             )}
-            {/* One line of where they were and where they studied: the full history is in the profile. */}
-            {(before || school) && (
-              <p className="src-card-past">
-                {before && (
-                  <span className="src-card-pi">
-                    <Briefcase size={13} aria-hidden="true" />
-                    <span className="is-k">Before</span>
-                    <span className="is-v">{[before.title, before.company].filter(Boolean).join(" · ")}</span>
-                  </span>
+            {/* Labelled rows, as a profile reads: the job now and the latest one before it, then where they studied. The full
+                history is in the profile. */}
+            {(jobs.length > 0 || school) && (
+              <div className="src-card-facts">
+                {jobs.length > 0 && (
+                  <div className="src-card-fact">
+                    <span className="src-card-k"><Briefcase size={13} aria-hidden="true" />Experience</span>
+                    <ul className="src-card-v">
+                      {jobs.map((j, i) => (
+                        <li key={`${j.title}${j.company}${i}`}>
+                          {j.title && <span className="is-main">{j.title}</span>}
+                          {j.title && j.company && <span className="is-sep" aria-hidden="true">|</span>}
+                          {j.company && <span className="is-org">{j.company}</span>}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
                 {school && (
-                  <span className="src-card-pi">
-                    <GraduationCap size={13} aria-hidden="true" />
-                    <span className="is-v">{[school.school, school.degree].filter(Boolean).join(", ")}</span>
-                  </span>
+                  <div className="src-card-fact">
+                    <span className="src-card-k"><GraduationCap size={13} aria-hidden="true" />Education</span>
+                    <ul className="src-card-v">
+                      <li>
+                        <span className="is-main">{school.school}</span>
+                        {school.degree && <span className="is-sep" aria-hidden="true">|</span>}
+                        {school.degree && <span className="is-sub">{school.degree}</span>}
+                      </li>
+                    </ul>
+                  </div>
                 )}
-              </p>
+              </div>
             )}
           </div>
           {/* The two decisions, on the first line where the eye starts: quiet until one is made. */}
