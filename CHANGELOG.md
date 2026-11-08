@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.5.9 (2026-11-08)
+
+Needs platform 1.5.8 for the campaign-only attention card (older servers send none; the card then reads as before).
+
+### Added
+- **Delete campaign on an open campaign too.** The Campaigns page's row menu offers it to whoever may close the campaign; an open one is closed first (sourcing and outreach stop), then deleted, behind the same type-the-name confirm.
+- **Delete all chats** in a campaign's menu in the chat list, asked again first. The campaign, its people and its requirements stay; admins remove colleagues' chats in it too.
+
+### Fixed
+- A question answered by typing ("Test Client" under "Which client is this for?") shows the typed answer, not "skipped".
+- "What needs my attention" asked in a campaign's chat is headed with that campaign and leaves its name off each row.
+- A campaign deleted while selected is no longer kept as the selected one in the side menu.
+
 ## 1.5.8 (2026-11-08)
 
 Needs platform 1.5.7 (older servers send no `glance`; the card then shows less).

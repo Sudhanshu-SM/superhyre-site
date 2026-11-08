@@ -482,10 +482,16 @@ export function archiveCampaign(id: string, archived: boolean): Promise<boolean>
   });
 }
 
+/** Campaigns deleted in this session: a page that still has one selected lets go of it. */
+const deletedIds = new Set<string>();
+export const wasDeleted = (id: string): boolean => deletedIds.has(resolveCampaignId(id));
+
 /** Deletes a closed campaign for good. Resolves true once the server has done it, false when it refused (and said why). */
 export function deleteCampaign(id: string): Promise<boolean> {
   const real = resolveCampaignId(id);
+  const gone = () => deletedIds.add(real);
   if (!LIVE) {
+    gone();
     rows = rows.filter((r) => r.id !== real);
     archivedRows = archivedRows.filter((r) => r.id !== real);
     emit();
@@ -493,6 +499,7 @@ export function deleteCampaign(id: string): Promise<boolean> {
   }
   const name = [...apiCampaigns, ...archivedList].find((c) => c.id === real)?.name ?? "The campaign";
   return campaignsApi.deleteCampaign(real).then(() => {
+    gone();
     apiCampaigns = apiCampaigns.filter((x) => x.id !== real);
     archivedList = archivedList.filter((x) => x.id !== real);
     rebuild();

@@ -34,6 +34,7 @@ import {
   useCampaignRows,
   useCampaignsFailed,
   useCampaignsReady,
+  wasDeleted,
 } from "./campaignStore";
 import { NotOnCampaign } from "./RoleBits";
 import { canOpenCampaign, useSession } from "./roleStore";
@@ -418,6 +419,13 @@ export function Console({ bootstrap, live, onSignOut, signingOut }: Props) {
   }, [campaignChosen, campaign.id, session.userId]);
   const campaignsReady = useCampaignsReady();
   const campaignsFailed = useCampaignsFailed();
+  /* A campaign deleted while it was the one selected stops being selected: the nav falls back to the default instead of keeping a
+     name that opens nothing. */
+  useEffect(() => {
+    if (!LIVE || !campaign.id || campaignRow || !wasDeleted(campaign.id)) return;
+    setCampaign(CURRENT_CAMPAIGN);
+    setCampaignChosen(false);
+  }, [campaign.id, campaignRow]);
   /* Live, a campaign page needs a real campaign: none yet (a new organisation, a
      recruiter on no campaigns) or one that's gone gets a plain way forward, never
      a page asking the server about an empty id. */

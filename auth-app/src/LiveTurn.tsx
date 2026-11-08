@@ -123,7 +123,18 @@ export function leaveOutAsked(reply: string, questions: ReadonlyArray<Pick<Quest
 function answeredBy(q: Question, later: readonly Turn[]): Question {
   if (q.answer) return q;
   const by = later.find((t) => t.quiet?.answer?.runId === q.runId && t.quiet.answer.seq === q.seq);
-  return by?.quiet?.answer ? { ...q, answer: { ids: by.quiet.answer.ids, line: by.quiet.label } } : q;
+  if (by?.quiet?.answer) return { ...q, answer: { ids: by.quiet.answer.ids, line: by.quiet.label } };
+  // Typed instead of picked ("Test Client" under "Which client is this for?"): the next message is the answer, not a skip.
+  const next = later[0];
+  const typed = next && !next.quiet ? next.said.trim() : "";
+  return typedAnswer(typed) ? { ...q, answer: { ids: [], line: `${q.text.replace(/[?\s]+$/, "")}: ${typed}` } } : q;
+}
+
+/** A short reply that names something ("Test Client"), not a new question or request ("What campaigns do I have?"). */
+export function typedAnswer(text: string): boolean {
+  const t = text.trim();
+  if (!t || t.length > 60 || t.includes("?") || t.split(/\s+/).length > 5) return false;
+  return !/^(?:what|who|how|why|when|where|which|show|find|list|create|make|open|tell|can|could|please|start|search|get|send|add)\b/i.test(t);
 }
 
 function FailedTurn({ turn, onEdit }: { turn: Turn; onEdit: (text: string) => void }): JSX.Element {

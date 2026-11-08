@@ -197,6 +197,12 @@ describe("a question in a turn the chat has gone past", () => {
     expect(html).not.toContain("<button");
   });
 
+  it("reads the typed reply as the answer when one was typed instead of picked", () => {
+    const html = renderToStaticMarkup(<LiveTurnBody turn={turn} onAnswer={() => {}} later={[newTurn("b", "Test Client")]} />);
+    expect(html).toContain("Which client is this for: Test Client");
+    expect(html).not.toContain("skipped");
+  });
+
   it("reads as skipped when the chat went on with something else", () => {
     const html = renderToStaticMarkup(<LiveTurnBody turn={turn} onAnswer={() => {}} later={[newTurn("b", "What campaigns do I have?")]} />);
     expect(html).toContain("Which client is this for: skipped");

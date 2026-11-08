@@ -317,12 +317,16 @@ export function CampaignsPage({ onOpen }: { onOpen: (c: CampaignRow) => void }) 
       <DeleteCampaignDialog
         open={!!deleteRow}
         name={deleteRow ? plainText(deleteRow.name) : ""}
+        active={deleteRow?.status === "active"}
         onClose={() => setDeleting(null)}
         onConfirm={() => {
           if (!deleteRow) return;
           const was = plainText(deleteRow.name);
+          const row = deleteRow;
           setDeleting(null);
-          void deleteCampaign(deleteRow.id).then((ok) => { if (ok) toast(`${was} deleted`); });
+          // An open campaign is closed first (sourcing and outreach stop), then deleted: one confirm, the server's rule kept.
+          const closed = row.status === "closed" ? Promise.resolve(true) : setCampaignStatus(row.id, "closed");
+          void closed.then((ok) => ok && deleteCampaign(row.id)).then((ok) => { if (ok) toast(`${was} deleted`); });
         }}
       />
       <ReopenDialog
@@ -568,8 +572,8 @@ function RowMenu({ status, archived, admin, mayClose, mayAssign, onOpen, onAssig
           {mayClose && status === "closed" && !archived && item("Archive", onArchive)}
           {assigns && mayAssign && !archived && item("Assign recruiters", onAssign)}
           {admin && mayAssign && item("Duplicate", onDuplicate)}
-          {/* Only a closed campaign, only by whoever may close it: the server holds the same rule. */}
-          {mayClose && status === "closed" && item("Delete campaign", onDelete, "danger")}
+          {/* Whoever may close it, open or closed: an open one is closed first, in the same confirm (the server deletes closed ones only). */}
+          {mayClose && item("Delete campaign", onDelete, "danger")}
         </div>
       </Popover>
     </>

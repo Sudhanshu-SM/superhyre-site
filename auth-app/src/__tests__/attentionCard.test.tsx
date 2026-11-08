@@ -18,6 +18,26 @@ const ITEMS = [
 const TASKS = { open: 4, overdue: 1, today: 0, later: 3 };
 
 describe("the plate card", () => {
+  it("keeps the campaign a scoped card is about, from the server's event, and names it in the heading", () => {
+    const state: ChatState = {
+      conversationId: "c", turns: [{ ...newTurn("t", "what needs my attention on Senior Backend", 0), runId: "r1", status: "working" }],
+      owners: { r1: "t" }, orphans: {}, applied: {}, loading: false, error: null,
+    };
+    const event = { id: 1, runId: "r1", seq: 1, type: "artifact", at: "2026-11-08T10:00:00.000Z", kind: "attention", key: "attention", tasks: TASKS, items: ITEMS.slice(0, 2), more: 0, campaignId: "c1", campaignName: "Senior Backend" } as RunEvent;
+    const cards = applyEvent(state, event).turns[0]?.cards ?? [];
+    expect(cards[0]).toMatchObject({ kind: "attention", campaignId: "c1", campaignName: "Senior Backend" });
+    expect(renderToStaticMarkup(<Cards cards={cards} />)).toContain("Senior Backend: what needs you");
+  });
+
+  it("asked in one campaign's chat, names the campaign once in its heading instead of on every row", () => {
+    const rows = ITEMS.filter((i) => i.campaignId === "c1");
+    const html = renderToStaticMarkup(<AttentionCard items={rows} tasks={TASKS} campaignName="Senior Backend" />);
+    expect(html).toContain("Senior Backend: what needs you");
+    expect(html).not.toContain("Your plate");
+    expect(html).not.toContain('class="at-campaign"');
+    expect(renderToStaticMarkup(<AttentionCard items={[]} campaignName="Senior Backend" />)).toContain("Nothing on Senior Backend needs you right now.");
+  });
+
   it("states Home's task figures plainly, then a row per item grouped by when, each with a quiet button", () => {
     const html = renderToStaticMarkup(<AttentionCard items={ITEMS} tasks={TASKS} />);
     expect(html).toContain("Your plate");

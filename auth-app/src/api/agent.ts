@@ -344,6 +344,9 @@ export type ChatCard =
       tasks: { open: number; overdue: number; today: number; later: number } | null;
       items: Array<{ campaignId: string | null; campaign: string; group?: "overdue" | "today" | "waiting" | "soon"; line: string; cta: Suggestion }>;
       more: number;
+      /** The one campaign the card is about, when the question was asked in its chat or named it. */
+      campaignId?: string;
+      campaignName?: string;
     }
   | {
       /** How many people are at each stage on each campaign: one compact table with a totals row. */

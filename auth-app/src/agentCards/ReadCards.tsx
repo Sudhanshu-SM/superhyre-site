@@ -234,7 +234,7 @@ export function Cards({ cards, turnSaid = null, charted, approvalOpen = false, q
           case "outcome": return <OutcomeCard key={c.key} summary={c.summary} counts={c.counts} next={c.next} undo={c.undo} campaignId={c.campaignId} quiet={quiet?.has(c.key) ?? false} />;
           case "role_spec": return <RoleSpecCard key={c.key} card={c} />;
           case "link": return <p key={c.key} className="at-link"><Cta href={c.href}>{c.label}</Cta></p>;
-          case "attention": return <AttentionCard key={c.key} items={c.items} more={c.more} tasks={c.tasks} />;
+          case "attention": return <AttentionCard key={c.key} items={c.items} more={c.more} tasks={c.tasks} campaignName={c.campaignName} />;
           case "export": return <ExportCard key={c.key} campaignId={c.campaignId} campaignName={c.campaignName} list={c.list} format={c.format} />;
           case "file": return <FileCard key={c.key} card={c} />;
           case "connect": return <ConnectCard key={c.key} provider={c.provider} url={c.url} mode={c.mode} field={c.field} reason={c.reason} retryText={c.retryText} turnSaid={turnSaid} waiting={c.waiting !== false} approvalOpen={approvalOpen} products={c.products ?? []} label={c.label ?? null} />;

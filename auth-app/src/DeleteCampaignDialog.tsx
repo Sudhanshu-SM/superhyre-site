@@ -5,9 +5,11 @@ import { Dialog } from "./ui";
  * Deleting a campaign cannot be undone, so it asks for the campaign's name: a click on the wrong row's menu is not
  * enough. What goes and what stays is said plainly above the box.
  */
-export function DeleteCampaignDialog({ open, name, onClose, onConfirm }: {
+export function DeleteCampaignDialog({ open, name, active = false, onClose, onConfirm }: {
   open: boolean;
   name: string;
+  /** Still open: it is closed first, so its searches and outreach stop, then deleted. */
+  active?: boolean;
   onClose: () => void;
   onConfirm: () => void;
 }): JSX.Element {
@@ -20,7 +22,7 @@ export function DeleteCampaignDialog({ open, name, onClose, onConfirm }: {
         <header className="rl-dlg-h">
           <h2 className="t-title">Delete this campaign?</h2>
           <div className="t-body rl-dlg-b">
-            <b>{name}</b> is deleted for good: its pipeline, forms, requirements, outreach and history. The people stay in
+            {active && <>It is still open: sourcing and outreach stop first. </>}<b>{name}</b> is deleted for good: its pipeline, forms, requirements, outreach and history. The people stay in
             your candidates. This cannot be undone. To keep it but put it away, archive it instead.
           </div>
         </header>

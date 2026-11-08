@@ -23,15 +23,15 @@ export function tasksLine(t: TaskFigures): string {
   return `${t.open} open ${t.open === 1 ? "task" : "tasks"}${parts.length ? `: ${parts.join(", ")}` : ""}`;
 }
 
-export function AttentionCard({ items, more = 0, tasks = null }: { items: readonly AttentionItem[]; more?: number; tasks?: TaskFigures | null }): JSX.Element {
+export function AttentionCard({ items, more = 0, tasks = null, campaignName }: { items: readonly AttentionItem[]; more?: number; tasks?: TaskFigures | null; /** The one campaign the card is about: named once in the heading, not on every row. */ campaignName?: string | undefined }): JSX.Element {
   /* A press acts once. */
   const [sent, setSent] = useState<ReadonlySet<string>>(() => new Set());
   const facts = tasks ? tasksLine(tasks) : "";
-  if (!items.length && !facts) return <p className="at-none" role="status">Nothing is on your plate right now.</p>;
+  if (!items.length && !facts) return <p className="at-none" role="status">{campaignName ? `Nothing on ${campaignName} needs you right now.` : "Nothing is on your plate right now."}</p>;
   let lastGroup: AttentionGroup | undefined;
   return (
-    <section className="at" aria-label="Your plate">
-      <h3 className="at-h">Your plate</h3>
+    <section className="at" aria-label={campaignName ? `${campaignName}: what needs you` : "Your plate"}>
+      <h3 className="at-h">{campaignName ? `${campaignName}: what needs you` : "Your plate"}</h3>
       {facts && <p className="at-facts">{facts}</p>}
       <ul className="at-rows">
         {items.map((it, i) => {
@@ -43,7 +43,7 @@ export function AttentionCard({ items, more = 0, tasks = null }: { items: readon
               {caption && <p className="at-group">{caption}</p>}
               <div className="at-row">
                 <div className="at-what">
-                  <p className="at-campaign">{it.campaign}</p>
+                  {!campaignName && <p className="at-campaign">{it.campaign}</p>}
                   <p className="at-line">{it.line}</p>
                 </div>
                 {it.cta.href ? (

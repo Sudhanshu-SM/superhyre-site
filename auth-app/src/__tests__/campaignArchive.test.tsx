@@ -71,10 +71,11 @@ describe("the store, in the demo", () => {
 
 describe("the row menu", () => {
   const page = src("CampaignsPage.tsx");
-  it("offers Archive and Delete only on a closed campaign, and Bring back on an archived one, to whoever may close it", () => {
+  it("offers Archive only on a closed campaign, Delete on any (an open one is closed first), and Bring back on an archived one, to whoever may close it", () => {
     expect(page).toContain('{mayClose && status === "closed" && !archived && item("Archive", onArchive)}');
     expect(page).toContain('{mayClose && archived && item("Bring back", onUnarchive)}');
-    expect(page).toContain('{mayClose && status === "closed" && item("Delete campaign", onDelete, "danger")}');
+    expect(page).toContain('{mayClose && item("Delete campaign", onDelete, "danger")}');
+    expect(page).toContain('row.status === "closed" ? Promise.resolve(true) : setCampaignStatus(row.id, "closed")');
   });
 
   it("asks for the campaign's name before deleting, and Undo is offered after archiving", () => {

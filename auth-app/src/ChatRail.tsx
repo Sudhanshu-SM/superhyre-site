@@ -441,6 +441,16 @@ function CampaignBlock({ item, current, pinned, flash, rowProps, onNewIn, onOpen
   };
   const nested = all ? item.chats : item.chats.slice(0, NESTED_SHOWN);
   const chats = item.chats.length;
+  /* The chats the person may delete: their own, and everyone's for an admin. */
+  const deletable = item.chats.filter((c) => rowProps.deletesAny || !c.ownerName);
+  const [askingAll, setAskingAll] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const deleteAll = async () => {
+    setAskingAll(false);
+    setClearing(true);
+    for (const c of deletable) await rowProps.onDelete(c.id).catch(() => undefined);
+    setClearing(false);
+  };
   return (
     <div className="hx-camp">
       <div className={`hx-row hx-camp-row${menu ? " has-menu" : ""}${flash ? " is-flash" : ""}${current ? " is-current" : ""}`}>
@@ -459,9 +469,11 @@ function CampaignBlock({ item, current, pinned, flash, rowProps, onNewIn, onOpen
           </button>
         )}
         {menu && (
-          <CampaignMenu anchor={more} campaign={campaign} pinned={pinned} onClose={() => setMenu(false)} onNewIn={onNewIn} onOpenCampaign={onOpenCampaign} onTogglePin={onTogglePin} />
+          <CampaignMenu anchor={more} campaign={campaign} pinned={pinned} onClose={() => setMenu(false)} onNewIn={onNewIn} onOpenCampaign={onOpenCampaign} onTogglePin={onTogglePin} onDeleteAll={deletable.length && !clearing ? () => setAskingAll(true) : undefined} />
         )}
       </div>
+      {askingAll && <DeleteAllAsk name={item.name} count={deletable.length} others={deletable.some((c) => c.ownerName)} onKeep={() => setAskingAll(false)} onDelete={() => void deleteAll()} />}
+      {clearing && <p className="hx-camp-none" role="status">Deleting {deletable.length === 1 ? "the chat" : `${deletable.length} chats`}…</p>}
       {chats === 0 && current && <p className="hx-camp-none">No chats yet. New chat starts one.</p>}
       {chats > 0 && (
         <Fold open={open}>
@@ -484,7 +496,7 @@ function CampaignBlock({ item, current, pinned, flash, rowProps, onNewIn, onOpen
 }
 
 /** What a campaign's menu offers, in the list or under Pinned: a new chat in it, the campaign itself, and pinning it. */
-function CampaignMenu({ anchor, campaign, pinned, onClose, onNewIn, onOpenCampaign, onTogglePin }: {
+function CampaignMenu({ anchor, campaign, pinned, onClose, onNewIn, onOpenCampaign, onTogglePin, onDeleteAll }: {
   anchor: RefObject<HTMLElement>;
   campaign: Campaign;
   pinned: boolean;
@@ -492,6 +504,8 @@ function CampaignMenu({ anchor, campaign, pinned, onClose, onNewIn, onOpenCampai
   onNewIn: Props["onNewIn"];
   onOpenCampaign: Props["onOpenCampaign"];
   onTogglePin: () => void;
+  /** Its chats the person may delete, all at once (asked again first); absent when there are none. */
+  onDeleteAll?: (() => void) | undefined;
 }) {
   return (
     <Pop anchor={anchor} onClose={onClose}>
@@ -505,6 +519,7 @@ function CampaignMenu({ anchor, campaign, pinned, onClose, onNewIn, onOpenCampai
         <Item icon={<Plus size={17} />} label="New chat" kbd="N" onSelect={() => { onClose(); onNewIn(campaign); }} />
         <Item icon={<FolderOpen size={17} />} label="Open campaign" onSelect={() => { onClose(); onOpenCampaign(campaign.id); }} />
         <Item icon={pinned ? <PushPinSlash size={17} /> : <PushPin size={17} />} label={pinned ? "Unpin" : "Pin"} kbd="P" onSelect={() => { onClose(); onTogglePin(); }} />
+        {onDeleteAll && <Item icon={<Trash size={17} />} label="Delete all chats" danger onSelect={() => { onClose(); onDeleteAll(); }} />}
       </MenuList>
     </Pop>
   );
@@ -701,6 +716,25 @@ export function ChatMenu({ chat, pinned, campaigns, onPin, onRename, onArchive, 
       <Item icon={<Archive size={17} />} label="Archive" kbd="A" onSelect={onArchive} onEnter={() => setSub(false)} />
       <Item icon={<Trash size={17} />} label="Delete" kbd="D" danger onSelect={onDelete} onEnter={() => setSub(false)} />
     </MenuList>
+  );
+}
+
+/** Every chat in a campaign at once: asked again, opening on "Keep them", so Enter or a stray press never deletes. */
+export function DeleteAllAsk({ name, count, others, onKeep, onDelete }: { name: string; count: number; others: boolean; onKeep: () => void; onDelete: () => void }) {
+  const keep = useRef<HTMLButtonElement>(null);
+  useEffect(() => { keep.current?.focus({ preventScroll: true }); }, []);
+  const what = count === 1 ? "its chat and its messages are" : `all ${count} of its chats and their messages are`;
+  return (
+    <div className="hx-ask" role="alertdialog" aria-labelledby="hx-askall-h" aria-describedby="hx-askall-p">
+      <p className="hx-ask-h" id="hx-askall-h">Delete {count === 1 ? "this chat" : `${count} chats`}?</p>
+      <p className="hx-ask-p" id="hx-askall-p">
+        {name}: {what} removed for good{others ? ", colleagues' chats too" : ""}. The campaign, its people and its requirements stay.
+      </p>
+      <div className="hx-ask-b">
+        <button ref={keep} type="button" className="hx-ask-keep" onClick={onKeep}>Keep them</button>
+        <button type="button" className="hx-ask-del" onClick={onDelete}>Delete {count === 1 ? "it" : `all ${count}`}</button>
+      </div>
+    </div>
   );
 }
 

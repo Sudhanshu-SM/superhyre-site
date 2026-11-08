@@ -489,7 +489,12 @@ function cardOf(e: RunEvent): ChatCard | null {
     });
     const t = e.tasks && typeof e.tasks === "object" ? (e.tasks as Record<string, unknown>) : null;
     const tasks = t && num(t.open) !== null ? { open: num(t.open) ?? 0, overdue: num(t.overdue) ?? 0, today: num(t.today) ?? 0, later: num(t.later) ?? 0 } : null;
-    return { kind: "attention", key, tasks, items, more: num(e.more) ?? 0 };
+    const campaignName = typeof e.campaignName === "string" && e.campaignName.trim() ? e.campaignName.trim() : null;
+    const campaignId = typeof e.campaignId === "string" ? e.campaignId : null;
+    return {
+      kind: "attention", key, tasks, items, more: num(e.more) ?? 0,
+      ...(campaignId && campaignName ? { campaignId, campaignName } : {}),
+    };
   }
   if (e.kind === "outcome") {
     return {
