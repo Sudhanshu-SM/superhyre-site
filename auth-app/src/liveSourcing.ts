@@ -654,8 +654,8 @@ export function resultsCopy(i: { shown: number; total: number; unscored: number;
       ? "Some of these aren't scored yet, so they're in the order of keyword match."
       : "Shortlist the ones worth reaching out to. A rejection takes a short reason.",
     all: wider
-      ? `See all ${total} ranked in the campaign`
-      : `See all ${total} ranked ${i.total === 1 ? "profile" : "profiles"}`,
+      ? `View all ${total} in the campaign`
+      : `View all ${total} ${i.total === 1 ? "profile" : "profiles"}`,
   };
 }
 

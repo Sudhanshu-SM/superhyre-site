@@ -916,15 +916,54 @@
 .mr-k { margin: 0; font: var(--type-label); color: var(--ink); }
 .mr-body { margin: 0; font: var(--type-body-sm); color: var(--ink); }
 .mr-list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; font: var(--type-body-sm); color: var(--ink); }
-.mr-reqs { display: grid; margin: 0; padding: 0; list-style: none; }
-.mr-req { display: grid; gap: 3px; padding: 10px 0; border-top: 1px solid var(--hairline); }
-.mr-req:first-child { border-top: 0; padding-top: 4px; }
-.mr-req-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
-.mr-req-t { font: var(--type-body-strong); color: var(--ink); }
-.mr-req-v { flex: none; font: var(--type-label); }
+.mr-k-n { margin-left: 6px; font: var(--type-caption); color: var(--ink-2); }
+.mr-reqs { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.mr-req { display: grid; gap: 2px; }
+.mr-req-top {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto auto 12px;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 6px 8px 6px 4px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.mr-req-top:disabled { cursor: default; }
+.mr-req-top:not(:disabled):hover { background: var(--nav-rule); }
+.mr-req-top:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.mr-req-i { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; }
+.mr-req.is-met .mr-req-i { background: var(--c-sage-tint); color: var(--c-sage-text); }
+.mr-req.is-partial .mr-req-i { background: color-mix(in srgb, #d9a441 18%, transparent); color: #9a6b12; }
+.mr-req.is-not_met .mr-req-i { background: color-mix(in srgb, #d0453a 14%, transparent); color: #b23a30; }
+.mr-req.is-unknown .mr-req-i { background: var(--nav-rule); color: var(--ink-2); }
+.mr-req-t { font: var(--type-body-sm); color: var(--ink); overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.mr-req.is-met .mr-req-t, .mr-req.is-not_met .mr-req-t { font-weight: 500; }
+.mr-req-must { font: 500 10.5px/1 var(--ui); padding: 3px 6px; border-radius: 5px; background: var(--nav-rule); color: var(--ink-2); white-space: nowrap; }
+.mr-req-v { flex: none; font: var(--type-label); white-space: nowrap; }
+.mr-req-c { color: var(--ink-2); transition: transform var(--t-dim); }
+.mr-req-top[aria-expanded="true"] .mr-req-c { transform: rotate(180deg); }
+.mr-req-m { padding-left: 30px; margin-top: -4px; }
+.mr-req-d { display: grid; gap: 3px; margin: 0 0 6px 30px; padding: 6px 10px; border-radius: 8px; background: var(--nav-rule); }
+.mr-req-d[hidden] { display: none; }
 .mr-quote { margin: 0; font: var(--type-body-sm); color: var(--ink); }
 .mr-quote q { quotes: "\201C" "\201D"; }
-.mr-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px 20px; }
+.mr-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.mr-chips li { font: 500 12px/1.3 var(--ui); padding: 5px 9px; border-radius: 7px; background: color-mix(in srgb, #d9a441 15%, transparent); color: #8a5d0c; }
+.mr-points { display: grid; gap: 5px; margin: 0; padding: 0; list-style: none; }
+.mr-points li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 8px; align-items: start; font: var(--type-body-sm); color: var(--ink); }
+.mr-points li svg { box-sizing: content-box; padding: 3px; border-radius: 50%; margin-top: 1px; }
+.mr-points .is-good svg { background: var(--c-sage-tint); color: var(--c-sage-text); }
+.mr-points .is-risk svg { background: color-mix(in srgb, #d9a441 18%, transparent); color: #9a6b12; }
+.mr-points .is-gap svg { background: var(--nav-rule); color: var(--ink-2); }
+.mr-more { justify-self: start; padding: 0; border: 0; background: none; font: 500 12.5px/1.4 var(--ui); color: var(--accent-text, var(--accent)); cursor: pointer; }
+.mr-more:hover { text-decoration: underline; }
 .mr-prov { padding-top: 2px; }
 .mr-acts { display: flex; flex-wrap: wrap; gap: 8px; }
 .mr-history { display: grid; gap: 10px; margin: 0; padding: 10px 0 0; list-style: none; border-top: 1px solid var(--hairline); }

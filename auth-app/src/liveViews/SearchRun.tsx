@@ -206,13 +206,16 @@ export function SearchRun({ turnKey, search, latest, onAsk, onFindMore }: {
   const undecided = set?.candidates.filter((c) => !set.decisions?.[c.id]) ?? [];
   const matched = undecided.filter(isMatched);
   const best = (running || matched.length === 0 ? undecided : matched).slice(0, PREVIEW_COUNT);
+  /* Everyone still waiting for a call, the best fits first: the chat shows five in a box that loads more as it is scrolled,
+     and "View all" opens the whole list. */
+  const pool = running || matched.length === 0 ? undecided : [...matched, ...undecided.filter((c) => !isMatched(c))];
   const copy = resultsCopy({
     shown: best.length, total: set?.total ?? 0, unscored: running ? 0 : unscoredIn(items, PREVIEW_COUNT), found: shown.length,
   });
   /* Nobody is scored yet: these are first in the list by skills, years and place, not "the best fits". */
   /* One header over the list: how many were found while scoring goes on, "Top matches" once they are scored. */
   const title = running || scored === 0 ? `${shown.length.toLocaleString("en-IN")} found` : "Top matches";
-  const count = best.length < shown.length ? `${best.length} shown` : "";
+  const count = pool.length > 0 ? `${pool.length} to review` : "";
   const subline = running || arriving ? "Scoring now. People move into place as each group is read." : copy.sub;
   const more = !running && may && next && latest && !next.exhausted && next.size > 0
     ? { label: `Find ${next.size} more`, busy: finding, onClick: () => {
@@ -286,6 +289,7 @@ export function SearchRun({ turnKey, search, latest, onAsk, onFindMore }: {
             sub: subline,
             scoring: arriving,
             more,
+            pool,
           }}
         />
       )}

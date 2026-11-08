@@ -1,3 +1,4 @@
+import { CaretDown, Check, CircleHalf, Minus, Question, WarningCircle, X } from "@phosphor-icons/react";
 import { useMayChangeCampaign } from "./campaignRights";
 import { useEffect, useState } from "react";
 import { agentApi } from "./api/agent";
@@ -32,6 +33,50 @@ const RULES: Readonly<Record<string, string>> = {
 const sortReq = (a: RequirementResult, b: RequirementResult) =>
   (a.importance === "must" ? 0 : 1) - (b.importance === "must" ? 0 : 1) || b.weight - a.weight;
 
+/** Strengths, concerns and gaps shown of each before the rest are folded away. */
+const POINTS = 2;
+
+/** "3 of 5 met": how the requirements went, counted from the verdicts shown. */
+function metLine(qs: readonly RequirementResult[]): string {
+  const met = qs.filter((q) => q.verdict === "met").length;
+  return `${met} of ${qs.length} met`;
+}
+
+const VERDICT_ICON: Readonly<Record<RequirementResult["verdict"], JSX.Element>> = {
+  met: <Check size={12} weight="bold" aria-hidden="true" />,
+  partial: <CircleHalf size={12} weight="fill" aria-hidden="true" />,
+  not_met: <X size={12} weight="bold" aria-hidden="true" />,
+  unknown: <Question size={12} weight="bold" aria-hidden="true" />,
+};
+
+/**
+ * One requirement on one line: a mark, what the role asks, and the verdict. The quote from the profile and the
+ * judge's reasoning are a press away, so the list reads at a glance and the evidence is still there to check.
+ */
+function Requirement({ q }: { q: RequirementResult }) {
+  const [open, setOpen] = useState(false);
+  const detail = Boolean(q.evidence || q.rationale);
+  const where = q.verdict === "unknown" ? "not checked yet" : "";
+  return (
+    <li className={`mr-req is-${q.verdict}`}>
+      <button type="button" className="mr-req-top" aria-expanded={detail ? open : undefined} disabled={!detail} onClick={() => setOpen((v) => !v)}>
+        <span className="mr-req-i">{VERDICT_ICON[q.verdict]}</span>
+        <span className="mr-req-t">{q.text}</span>
+        {q.importance !== "nice" && <span className="mr-req-must">{IMPORTANCE_WORD[q.importance]}</span>}
+        <span className="mr-req-v"><span {...toneProps(VERDICT_TONE[q.verdict])}>{VERDICT_WORD[q.verdict]}</span></span>
+        {detail && <CaretDown size={11} weight="bold" className="mr-req-c" aria-hidden="true" />}
+      </button>
+      {where && !open && <p className="mr-meta mr-req-m">{where}</p>}
+      {detail && (
+        <div className="mr-req-d" hidden={!open}>
+          {q.evidence && <p className="mr-quote"><q>{q.evidence}</q></p>}
+          {q.rationale && <p className="mr-meta">{q.rationale}</p>}
+        </div>
+      )}
+    </li>
+  );
+}
+
 export function MatchResult({ c }: { c: Candidate }) {
   const r = c.result;
   const campaignId = c.resultCampaignId;
@@ -41,6 +86,7 @@ export function MatchResult({ c }: { c: Candidate }) {
   const [history, setHistory] = useState<MatchAuditEntry[] | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [asked, setAsked] = useState<"idle" | "busy" | "queued" | "held" | "failed">("idle");
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     if (!showHistory || !campaignId) return;
@@ -57,6 +103,8 @@ export function MatchResult({ c }: { c: Candidate }) {
   const requirements = r.requirements.filter((q) => !r.toVerify.some((t) => t.requirementId === q.id)).sort(sortReq);
   /* What was checked is said once, in the header; under it one sentence at most, the server's own when it has one. */
   const why = r.status === "insufficient_evidence" && r.note ? r.note : null;
+  /* The few points that matter most are shown; the rest wait behind one press. */
+  const hiddenPoints = [r.strengths, r.concerns, r.missing].reduce((n, xs) => n + Math.max(0, xs.length - POINTS), 0);
   /* Changing a result is for the people on the campaign; anyone else who can see it reads it. */
   const may = useMayChangeCampaign(campaignId ?? null);
   const canAct = Boolean(campaignId) && may;
@@ -78,7 +126,7 @@ export function MatchResult({ c }: { c: Candidate }) {
         <p className="mr-state"><FitState r={r} /></p>
         {covered && <p className="mr-cover">{covered}</p>}
       </div>
-      {why ? <p className="mr-note">{why}</p> : r.display?.note ? <p className="mr-meta">{r.display.note}</p> : partly && <p className="mr-note">{PARTLY_CHECKED}</p>}
+      {why ? <p className="mr-note">{why}</p> : r.display?.note ? <p className="mr-meta">{r.display.note}</p> : partly && <p className="mr-meta">{PARTLY_CHECKED}</p>}
 
       {r.override && (
         <p className="mr-note">
@@ -113,9 +161,8 @@ export function MatchResult({ c }: { c: Candidate }) {
 
       {r.toVerify.length > 0 && (
         <div className="mr-block">
-          <p className="mr-k">Still to check</p>
-          <p className="mr-meta">Must-haves the profile doesn't settle. Ask them, or look for more on their profile.</p>
-          <ul className="mr-list">
+          <p className="mr-k">Still to check <span className="mr-k-n">ask them, or look for more</span></p>
+          <ul className="mr-chips">
             {r.toVerify.map((t) => <li key={t.requirementId}>{t.text}</li>)}
           </ul>
         </div>
@@ -123,45 +170,31 @@ export function MatchResult({ c }: { c: Candidate }) {
 
       {requirements.length > 0 && (
         <div className="mr-block">
-          <p className="mr-k">Against the role</p>
+          <p className="mr-k">Against the role <span className="mr-k-n">{metLine(requirements)}</span></p>
           <ul className="mr-reqs">
-            {requirements.map((q) => (
-              <li key={q.id} className="mr-req">
-                <div className="mr-req-top">
-                  <span className="mr-req-t">{q.text}</span>
-                  <span className="mr-req-v"><span {...toneProps(VERDICT_TONE[q.verdict])}>{VERDICT_WORD[q.verdict]}</span></span>
-                </div>
-                <p className="mr-meta">
-                  {IMPORTANCE_WORD[q.importance]}
-                  {q.verdict === "unknown" ? " · not checked yet" : q.by === "code" ? " · from their profile" : ""}
-                </p>
-                {q.evidence && <p className="mr-quote"><q>{q.evidence}</q></p>}
-                {q.rationale && <p className="mr-meta">{q.rationale}</p>}
-              </li>
-            ))}
+            {requirements.map((q) => <Requirement key={q.id} q={q} />)}
           </ul>
         </div>
       )}
 
       {(r.strengths.length > 0 || r.concerns.length > 0 || r.missing.length > 0) && (
-        <div className="mr-cols">
-          {r.strengths.length > 0 && (
-            <div>
-              <p className="mr-k">Strengths</p>
-              <ul className="mr-list">{r.strengths.map((s) => <li key={s}>{s}</li>)}</ul>
-            </div>
-          )}
-          {r.concerns.length > 0 && (
-            <div>
-              <p className="mr-k">Concerns</p>
-              <ul className="mr-list">{r.concerns.map((s) => <li key={s}>{s}</li>)}</ul>
-            </div>
-          )}
-          {r.missing.length > 0 && (
-            <div>
-              <p className="mr-k">Not on the profile</p>
-              <ul className="mr-list">{r.missing.map((s) => <li key={s}>{s}</li>)}</ul>
-            </div>
+        <div className="mr-block">
+          <p className="mr-k">Key points</p>
+          <ul className="mr-points">
+            {r.strengths.slice(0, showAll ? undefined : POINTS).map((s) => (
+              <li key={`s${s}`} className="is-good"><Check size={12} weight="bold" aria-label="Strength" />{s}</li>
+            ))}
+            {r.concerns.slice(0, showAll ? undefined : POINTS).map((s) => (
+              <li key={`c${s}`} className="is-risk"><WarningCircle size={12} weight="bold" aria-label="Concern" />{s}</li>
+            ))}
+            {r.missing.slice(0, showAll ? undefined : POINTS).map((s) => (
+              <li key={`m${s}`} className="is-gap"><Minus size={12} weight="bold" aria-label="Not on the profile" />{s}</li>
+            ))}
+          </ul>
+          {hiddenPoints > 0 && (
+            <button type="button" className="mr-more" aria-expanded={showAll} onClick={() => setShowAll((v) => !v)}>
+              {showAll ? "Show fewer" : `${hiddenPoints} more`}
+            </button>
           )}
         </div>
       )}

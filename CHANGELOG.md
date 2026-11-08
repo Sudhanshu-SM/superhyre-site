@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.5.8 (2026-11-08)
+
+Needs platform 1.5.7 (older servers send no `glance`; the card then shows less).
+
+### Changed
+- **The chat's person cards read like a profile.** Two columns: on the left the face, name, LinkedIn, years, title at company, place and open to work, two jobs, two schools, a few skills and Reject / Shortlist in words; on the right the AI's read in fixed sections: Fit, Why, Requirements (a mark and a few words each, n of N met) and one Watch out. Five show first, in a bordered list that loads five more as it is scrolled, with "View all N profiles". The wheel in the space either side of the chat scrolls the chat.
+- **The Sourced page uses the same cards**, with tabs for All, To review, Shortlisted and Rejected, twenty at a time.
+- **The AI's match read is short**: one line per requirement with its verdict and the quote a press away, two strengths and two concerns with "N more". A comparison leads with one sentence and puts the rest as short points.
+- Owners and admins see a bin on anyone's chat in the list.
+
+### Fixed
+- The set-up form takes the role, city, years and "no JD yet" from a "Find N <role> in <city>" message instead of asking again, never reads "find 5" as five openings, and stops a campaign's name at "and find…". Choosing "later" for the JD drafts from what was said instead of asking again.
+
 ## 1.5.7 (2026-11-04)
 
 ### Changed

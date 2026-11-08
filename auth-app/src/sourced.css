@@ -20,3 +20,17 @@
 .cn-nudge-l li { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
 .cn-nudge-l span { color: var(--ink-2); }
 .cn-nudge-l em { margin-left: auto; font-style: normal; color: var(--ink-2); font-size: 12.5px; }
+
+/* ── the people, as the chat's cards ── */
+.spc { display: grid; gap: 12px; }
+.spc-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+.spc-tabs { display: flex; flex-wrap: wrap; gap: 4px; }
+.spc-tab { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 1px solid var(--hairline); border-radius: 8px; background: transparent; font: 500 13px/1 var(--ui); color: var(--ink-2); cursor: pointer; }
+.spc-tab:hover { color: var(--ink); border-color: var(--rule); }
+.spc-tab.is-on { color: var(--ink); border-color: var(--ink); }
+.spc-tab-n { font-variant-numeric: tabular-nums; color: var(--ink-2); font-weight: 400; }
+.spc-note { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0; font: 400 13px/1.4 var(--ui); color: var(--ink-2); }
+.spc-list { grid-template-rows: auto; max-width: 980px; }
+
+.spc-empty { margin: 24px 0; color: var(--ink-2); font: 400 14px/1.5 var(--ui); }
+.spc-end { min-height: 24px; padding: 8px 0 24px; text-align: center; font: 400 12.5px/1 var(--ui); color: var(--ink-2); }

@@ -27,6 +27,18 @@ import "./liveCompareEtc.css";
 
 export type Verdict = { lead: Candidate; line: string };
 
+/** A verdict as a headline and short points: its first sentence leads, each clause after it is one point. */
+export function verdictParts(line: string): { head: string; points: string[] } {
+  const parts = line.split(/(?<=\.)\s+(?=[A-Z])/).map((x) => x.trim()).filter(Boolean);
+  const head = parts[0] ?? "";
+  const points = parts.slice(1).flatMap((x) => x.split(/;\s+/)).map((x) => x.replace(/\.$/, "").trim()).filter(Boolean);
+  return { head, points };
+}
+
+/** Roles and skills a cell lists before the rest are counted. */
+const MAX_ROLES = 4;
+const MAX_SKILLS = 10;
+
 /**
  * The pick for a connected workspace's people, from what the judge found and their years. A set
  * nobody judged names no pick (`lead` is null), so the dialog never marks one it can't stand behind.
@@ -52,6 +64,10 @@ export function verdictFor(people: readonly Candidate[], camp: CampaignKey): Ver
     line: `${first(lead)} meets ${met(lead)} of ${criteria.length} ${campaignName(camp)} criteria with ${lead.totalYears} years. ${misses.join("; ")}.`,
   };
 }
+
+const CHECK_WORD: Readonly<Record<"met" | "partial" | "not_met" | "unknown", string>> = {
+  met: "Met", partial: "Partly", not_met: "Not found", unknown: "Can't tell yet",
+};
 
 type Row = { key: string; label: string; cells: ReactNode[]; same: boolean; best?: number };
 
@@ -109,12 +125,20 @@ export function CompareDialog({
           label: cr,
           same: vals.every((x) => x === vals[0]),
           best: argmax(vals.map(Number)),
-          cells: people.map((p) => (fit(p) ? (
-            <span className="cd-fit">
-              <FitMark met={!!fit(p)?.[i]} label={cr} state={p.checks?.[i]} />
-              <span>{evidence[p.id]?.[i] ?? (fit(p)?.[i] ? "Yes" : "Not found")}</span>
-            </span>
-          ) : <span className="cd-none">Not judged</span>)),
+          cells: people.map((p) => {
+            if (!fit(p)) return <span className="cd-none">Not judged</span>;
+            const met = !!fit(p)?.[i];
+            const said = evidence[p.id]?.[i];
+            return (
+              <span className="cd-fit">
+                <FitMark met={met} label={cr} state={p.checks?.[i]} />
+                <span className="cd-fit-t">
+                  <b className={met ? "is-met" : undefined}>{CHECK_WORD[p.checks?.[i] ?? (met ? "met" : "not_met")]}</b>
+                  {said && <span className="cd-ev" title={said}>{said}</span>}
+                </span>
+              </span>
+            );
+          }),
         };
       }),
       ],
@@ -137,15 +161,18 @@ export function CompareDialog({
           key: "roles", label: "Roles", same: false,
           cells: people.map((p) => (
             <ol className="cd-roles">
-              {p.jobs.flatMap((j) => j.roles.map((r) => (
-                <li key={`${j.org.name}${r.start}`}>
+              {p.jobs.flatMap((j) => j.roles.map((r) => ({ j, r }))).slice(0, MAX_ROLES).map(({ j, r }) => (
+                <li key={`${j.org.name}${r.start}${r.title}`}>
                   <Logo name={j.org.name} hue={j.org.hue} size={18} />
                   <span>
                     <b>{r.title}</b>
                     <span>{r.start ? `${j.org.name} · ${r.start.split(" ")[1]}–${r.end === "Present" ? "now" : r.end.split(" ")[1]}` : j.org.name}</span>
                   </span>
                 </li>
-              )))}
+              ))}
+              {p.jobs.flatMap((j) => j.roles).length > MAX_ROLES && (
+                <li className="cd-more">+{p.jobs.flatMap((j) => j.roles).length - MAX_ROLES} earlier</li>
+              )}
             </ol>
           )),
         },
@@ -193,9 +220,10 @@ export function CompareDialog({
           key: "skills", label: `${shared.size} in common`, same: false,
           cells: people.map((p) => (
             <ul className="cd-skills">
-              {[...skillsOf(p)].sort((a, b) => Number(shared.has(b)) - Number(shared.has(a))).map((s) => (
+              {[...skillsOf(p)].sort((a, b) => Number(shared.has(b)) - Number(shared.has(a))).slice(0, MAX_SKILLS).map((s) => (
                 <li key={s} className={shared.has(s) ? "is-shared" : undefined}>{s}</li>
               ))}
+              {skillsOf(p).length > MAX_SKILLS && <li className="cd-more">+{skillsOf(p).length - MAX_SKILLS}</li>}
             </ul>
           )),
         },
@@ -251,7 +279,14 @@ export function CompareDialog({
 
             <div className="cd-verdict">
               <Sparkle size={14} weight="fill" aria-hidden="true" />
-              <p>{v.line}</p>
+              <div>
+                <p className="cd-verdict-h">{verdictParts(v.line).head}</p>
+                {verdictParts(v.line).points.length > 0 && (
+                  <ul className="cd-verdict-l">
+                    {verdictParts(v.line).points.map((x) => <li key={x}>{x}</li>)}
+                  </ul>
+                )}
+              </div>
             </div>
 
             {rows.map((sec) => {

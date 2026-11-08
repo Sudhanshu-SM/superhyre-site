@@ -1,15 +1,16 @@
 import {
-  ArrowRight, ArrowsClockwise, CaretDown, CaretRight, Check, CheckCircle,
-  FunnelSimple, Sparkle, X,
+  ArrowRight, ArrowsClockwise, Briefcase, CaretDown, CaretRight, Check, CheckCircle,
+  FunnelSimple, GraduationCap, LinkedinLogo, Sparkle, X,
 } from "@phosphor-icons/react";
 import { useEffect, useId, useRef, useState } from "react";
 import type { StageView } from "./Stages";
 import { Stages } from "./Stages";
-import type { Candidate, Filter, Phase, Verdict } from "./sourcing";
+import type { Candidate, Filter, Glance, Phase, Verdict } from "./sourcing";
+import { plainText } from "./displayText";
 import {
   CANDIDATES, CRITERIA, FILTERS, PLAN_PHASES, PREVIEW_COUNT, REASON, RUN_PHASES, TOTAL_MATCHES,
 } from "./sourcing";
-import { Avatar, Career, FitRow, Verdicts } from "./CandidateBits";
+import { Avatar, FitMark, FitState, Verdicts } from "./CandidateBits";
 import { Loader } from "./components/Loader";
 import { Shimmer } from "./components/Shimmer";
 import "./sourcing.css";
@@ -533,7 +534,12 @@ export type ResultsData = {
   all: string;
   /** Another search, when there is one to run. */
   more?: { label: string; busy?: boolean; onClick: () => void } | null;
+  /** Everyone the chat may scroll through: the first five are `candidates`, the rest load as the list is scrolled. */
+  pool?: readonly Candidate[];
 };
+
+/** How many more cards reaching the end of the list adds. */
+const SCROLL_STEP = 5;
 
 export function Results({
   matches, verdicts, onVerdict, onOpenProfile, onOpenList, data, activeId = null,
@@ -547,67 +553,165 @@ export function Results({
   onOpenList: () => void;
   data?: ResultsData;
 }) {
-  const shown = data ? data.candidates : CANDIDATES.slice(0, PREVIEW_COUNT);
+  /* Five cards in the chat. When the search found more, the list scrolls inside itself and adds five more each time
+     its end comes into view, so the chat never becomes a wall of people. */
+  const pool = data ? (data.pool && data.pool.length >= data.candidates.length ? data.pool : data.candidates) : CANDIDATES.slice(0, PREVIEW_COUNT);
+  const [limit, setLimit] = useState(PREVIEW_COUNT);
+  /* Always a box of its own: the people scroll inside it (five first, more as it is scrolled), the chat around it stays put. */
+  const scrolls = pool.length > 0;
+  const shown = pool.slice(0, Math.max(limit, PREVIEW_COUNT));
+  const left = pool.length - shown.length;
+  const boxRef = useRef<HTMLDivElement>(null);
+  const endRef = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    if (!scrolls || left <= 0) return;
+    const box = boxRef.current;
+    const end = endRef.current;
+    if (!box || !end || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(
+      (seen) => { if (seen.some((e) => e.isIntersecting)) setLimit((n) => n + SCROLL_STEP); },
+      { root: box, rootMargin: "0px 0px 320px 0px" },
+    );
+    io.observe(end);
+    return () => io.disconnect();
+  }, [scrolls, left, shown.length]);
+
   const sub = data ? data.sub : "Take a look and tell me what resonates — and whether seniority should factor in.";
+  /* The list's own last row: another search on the left, the whole list on the right. */
   const foot = (
-    <>
-      <button
-        type="button"
-        className="src-more"
-        onClick={onOpenList}
-        style={{ animationDelay: `${120 + shown.length * 70 + 60}ms` }}
-      >
-        {data ? data.all : `See all ${CANDIDATES.length} ranked profiles`}
-        <ArrowRight size={14} weight="bold" aria-hidden="true" />
-      </button>
-      {data?.more && (
-        <button type="button" className="src-btn is-quiet" onClick={data.more.onClick} disabled={data.more.busy}>
+    <div className="src-people-foot">
+      {data?.more ? (
+        <button type="button" className="src-people-btn" onClick={data.more.onClick} disabled={data.more.busy}>
           {data.more.label}
         </button>
+      ) : <span />}
+      <button type="button" className="src-people-btn is-all" onClick={onOpenList}>
+        {data ? data.all : `See all ${CANDIDATES.length} ranked profiles`}
+        <ArrowRight size={13} weight="bold" aria-hidden="true" />
+      </button>
+    </div>
+  );
+  const cards = (
+    <ul className="src-cards">
+      {shown.map((c, i) => (
+        <li key={c.id} style={{ animationDelay: `${(i % SCROLL_STEP) * 40}ms` }}>
+          <CandidateCard
+            c={c}
+            verdict={verdicts[c.id]}
+            onVerdict={(v) => onVerdict(c.id, v)}
+            onOpen={() => onOpenProfile(c.id)}
+            selected={c.id === activeId}
+            {...(data
+              ? data.unscored?.has(c.id)
+                ? {
+                    reason: "",
+                    criteria: [] as readonly string[],
+                    short: [] as readonly string[],
+                    ...(data.scoring ? { pending: { fits: Math.min(data.criteria.length, MAX_PENDING_FITS) } } : {}),
+                  }
+                : { reason: data.reasons[c.id] ?? "", criteria: data.criteria, short: data.short }
+              : {})}
+          />
+        </li>
+      ))}
+      {scrolls && (
+        <li ref={endRef} className="src-scroll-end" aria-live="polite">
+          {left > 0 ? `${left} more below` : pool.length > PREVIEW_COUNT ? `All ${pool.length} shown` : ""}
+        </li>
       )}
-    </>
+    </ul>
   );
   return (
     <section className="src-results" aria-label={data ? data.title : "Profiles for your feedback"}>
-      <div className="src-results-head">
-        <h3>{data ? data.title : "Profiles for your feedback"}</h3>
-        <span>{data ? data.count : `${shown.length} shown · ${(matches ?? 0).toLocaleString("en-IN")} total matches`}</span>
-      </div>
       {sub && <p className="src-results-sub">{sub}</p>}
-      <ul className="src-cards">
-        {shown.map((c, i) => (
-          <li key={c.id} style={{ animationDelay: `${120 + i * 70}ms` }}>
-            <CandidateCard
-              c={c}
-              verdict={verdicts[c.id]}
-              onVerdict={(v) => onVerdict(c.id, v)}
-              onOpen={() => onOpenProfile(c.id)}
-              selected={c.id === activeId}
-              {...(data
-                ? data.unscored?.has(c.id)
-                  ? {
-                      reason: "",
-                      criteria: [] as readonly string[],
-                      short: [] as readonly string[],
-                      ...(data.scoring ? { pending: { fits: Math.min(data.criteria.length, MAX_PENDING_FITS) } } : {}),
-                    }
-                  : { reason: data.reasons[c.id] ?? "", criteria: data.criteria, short: data.short }
-                : {})}
-            />
-          </li>
-        ))}
-      </ul>
-      {data ? <div className="src-results-foot">{foot}</div> : foot}
+      {/* One surface: a head with what this is and how many, the people (five, more as it scrolls), and a foot. */}
+      <div className="src-people">
+        <div className="src-results-head">
+          <h3>{data ? data.title : "Profiles for your feedback"}</h3>
+          <span>{data ? data.count : `${shown.length} shown · ${(matches ?? 0).toLocaleString("en-IN")} total matches`}</span>
+        </div>
+        {scrolls ? <div ref={boxRef} className="src-scroll" tabIndex={0} aria-label={`${pool.length} people`}>{cards}</div> : cards}
+        {foot}
+      </div>
     </section>
   );
 }
 
+/** What a card shows of a career: the search's short read, or the loaded profile's own history when there is one. */
+function glanceFor(c: Candidate): Glance {
+  if (c.jobs.length === 0 && c.glance) return c.glance;
+  const skills = Object.values(c.skills).flat();
+  return {
+    jobs: c.jobs.slice(0, 2).map((j) => ({ title: j.roles[0]?.title ?? "", company: j.org.name, current: j.roles[0]?.end === "Present" })),
+    schools: c.schools.slice(0, 2).map((s) => ({ school: s.org.name, degree: s.degree })),
+    skills,
+    skillCount: skills.length,
+  };
+}
+
+/** Their photo when the source has one that loads; their initials otherwise. */
+function Face({ c, size }: { c: Candidate; size: number }) {
+  const [broken, setBroken] = useState(false);
+  if (!c.photo || broken) return <Avatar name={c.name} hue={c.hue} size={size} />;
+  return (
+    <img
+      className="src-face"
+      src={c.photo}
+      alt=""
+      width={size}
+      height={size}
+      loading="lazy"
+      referrerPolicy="no-referrer"
+      onError={() => setBroken(true)}
+    />
+  );
+}
+
 /**
- * One profile in the transcript. The whole card opens the profile; the two
- * verdict buttons are the only things inside it that do something else.
+ * A requirement as a few words a card can show whole ("Based in or willing to relocate to Bengaluru" -> "Bengaluru",
+ * "4+ years of hands-on DevOps, SRE" -> "4+ yrs DevOps", "Strong working knowledge of AWS" -> "AWS"). The full sentence
+ * stays in the tooltip and the profile.
+ */
+export function requirementLabel(text: string): string {
+  const t = text.replace(/\s+/g, " ").trim();
+  if (!t) return "";
+  if (/\b(based in|relocat|located|location|living in|work from)\b/i.test(t)) {
+    const places = t.match(/\b[A-Z][a-zA-Z]+(?:[ -][A-Z][a-zA-Z]+)*/g)?.filter((w) => !/^(Based|Willing|Must|Should|Open|Located)$/.test(w));
+    if (places?.length) return places[places.length - 1] as string;
+  }
+  const range = t.match(/(\d+)\s*(?:to|-|–)\s*(\d+)\s*\+?\s*(?:years?|yrs?)/i);
+  const atLeast = t.match(/(\d+)\s*(\+)?\s*(?:years?|yrs?)/i);
+  const terms = (t.match(/\b(?:[A-Z][A-Za-z0-9+#./-]*|[a-z]+[A-Z][A-Za-z0-9]*)\b/g) ?? []).filter(
+    (w) => !/^(Strong|Proven|Good|Deep|Solid|Hands|Experience|Knowledge|Working|Ability|Excellent|Familiarity|Must|Should|Based|In|At|Of|With|The|A|An|And|Or|Years?)$/i.test(w),
+  );
+  if (range || atLeast) {
+    const span = range ? `${range[1]}–${range[2]} yrs` : `${atLeast?.[1]}${atLeast?.[2] ? "+" : ""} yrs`;
+    const after = t.slice((range ?? atLeast)!.index! + (range ?? atLeast)![0].length);
+    const what = (after.match(/\b(?:[A-Z][A-Za-z0-9+#./-]*|[a-z]+[A-Z][A-Za-z0-9]*)\b/) ?? [])[0]
+      ?? after.replace(/^[^a-z]*(?:of|in|as|at|with)?\s*(?:hands-on|professional|relevant|total)?\s*/i, "").split(/[\s,;]+/)[0];
+    return [span, what && !/^(experience|exp)$/i.test(what) ? what : ""].filter(Boolean).join(" ");
+  }
+  if (terms.length) return terms.slice(0, 2).join(" / ");
+  const words = t.split(" ").filter((w) => !/^(strong|proven|good|deep|solid|experience|knowledge|working|of|in|with|the|a|an)$/i.test(w));
+  return words.slice(0, 3).join(" ");
+}
+
+/** Skill chips on a card before the rest are counted. */
+const CARD_SKILLS = 4;
+
+/**
+ * One person, in two columns that end level.
+ *
+ *   left   who they are, laid out like a profile: face, name, profile link and years; "Title @ Company"; place and
+ *          signals; then labelled rows for experience and education, and a few skills
+ *   right  the AI's read, always in the same sections and order so it is read the same way on every card:
+ *          Fit (the result), Why (one line), Requirements (a mark and a few words each), Watch out (the one worry,
+ *          when there is one), and the two decisions at the foot
+ *
+ * Everything else (every strength and worry, evidence, the full history) is in the profile, which the card opens.
  */
 export function CandidateCard({
-  c, verdict, onVerdict, onOpen, reason, criteria, short, pending, selected = false,
+  c, verdict, onVerdict, onOpen, reason, criteria, short: _short, pending, selected = false,
 }: {
   c: Candidate;
   /** Their profile is open beside the list. */
@@ -615,69 +719,142 @@ export function CandidateCard({
   verdict?: Verdict;
   onVerdict: (v: Verdict | null) => void;
   onOpen: () => void;
-  /** A connected campaign's own one-line read, its criteria and their column heads; the demo's are the defaults. */
+  /** A connected campaign's own one-line read and its criteria; the demo's are the defaults. */
   reason?: string;
   criteria?: readonly string[];
   short?: readonly string[];
-  /** The score is on its way: soft bars stand where the line on why and `fits` marks will be. */
+  /** The score is on its way: soft bars stand where the read will be. */
   pending?: { fits: number };
 }) {
-  /* A sourced person known only from a search result has no work history yet:
-     the card then reads the headline the search gave, and drops the career strip. */
+  const g = glanceFor(c);
   const now = c.jobs[0];
-  const role = now?.roles[0]?.title;
-  const line = now && role ? `${role} · ${now.org.name}` : c.headline;
+  const title = now?.roles[0]?.title ?? g.jobs[0]?.title ?? "";
+  const org = now?.org.name ?? (g.jobs[0]?.company || c.current.name);
+  const role = title && org ? `${title} @ ${org}` : title || org || c.headline;
   const text = reason ?? REASON[c.id];
   const fit = criteria ?? CRITERIA;
+  const name = plainText(c.name);
+  const skills = g.skills.slice(0, CARD_SKILLS);
+  const moreSkills = g.skillCount - skills.length;
+  const concern = c.result?.concerns?.[0] ?? null;
+  const met = fit.filter((_, i) => c.meets[i]).length;
   return (
     <article className={`src-card${verdict ? ` is-${verdict}` : ""}${selected ? " is-selected" : ""}`} aria-current={selected ? "true" : undefined}>
-      <button type="button" className="src-card-hit" onClick={onOpen} aria-label={`Open ${c.name}'s profile`} />
-      <div className="src-card-top">
-        <Avatar name={c.name} hue={c.hue} size={38} />
-        <div className="src-card-id">
-          <p className="src-card-name">{c.name}{c.openToWork && <span className="src-otw">Open to work</span>}</p>
-          <p className="src-card-line">{line}</p>
-          {c.location && <p className="src-card-meta">{c.location}</p>}
+      <button type="button" className="src-card-hit" onClick={onOpen} aria-label={`Open ${name}'s profile`} />
+
+      <div className="src-card-who">
+        <div className="src-card-top">
+          <Face c={c} size={44} />
+          <div className="src-card-id">
+            <p className="src-card-name">
+              <span className="src-card-name-t">{name}</span>
+              {c.linkedinUrl && (
+                <a
+                  className="src-card-link"
+                  href={c.linkedinUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  aria-label={`${name} on LinkedIn`}
+                  title="LinkedIn profile"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <LinkedinLogo size={15} weight="fill" aria-hidden="true" />
+                </a>
+              )}
+              {c.totalYears > 0 && <span className="src-card-tag">{c.totalYears} {c.totalYears === 1 ? "yr" : "yrs"} experience</span>}
+            </p>
+            {role && <p className="src-card-line">{role}</p>}
+            {(c.location || c.openToWork || c.recentlyChangedJob) && (
+              <p className="src-card-meta">
+                {c.location && <span>{c.location}</span>}
+                {c.openToWork && <span className="src-card-tag is-open">Open to work</span>}
+                {c.recentlyChangedJob && <span className="src-card-tag">Changed jobs recently</span>}
+              </p>
+            )}
+          </div>
         </div>
-      </div>
-      {/* A sibling of the identity rather than inside it, so the grid can
-          put it top-right when the card is wide and at the foot when it is
-          narrow, instead of squeezing the name. */}
-      <div className="src-card-acts">
-        <Verdicts verdict={verdict} onVerdict={onVerdict} name={c.name} icons />
-      </div>
-      {/* One sentence of why, instead of a highlighted paragraph: the rest is
-          in the profile, one click away. */}
-      {pending ? (
-        <div className="src-card-reason is-pending" aria-hidden="true">
-          <Shimmer className="src-shim" w="min(78%, 420px)" h={10} r={5} />
-          <Shimmer className="src-shim is-short" w="min(44%, 240px)" h={10} r={5} />
-        </div>
-      ) : text && (
-        <p className="src-card-reason">
-          <Sparkle size={13} weight="fill" aria-hidden="true" />
-          {text}
-        </p>
-      )}
-      <div className="src-card-foot">
-        {(c.jobs.length > 0 || c.totalYears > 0) && (
-          <div className="src-card-career">
-            {c.totalYears > 0 && <span className="src-card-k">{c.totalYears} yrs</span>}
-            {c.jobs.length > 0 && <Career c={c} />}
+        {(g.jobs.length > 0 || g.schools.length > 0) && (
+          <div className="src-card-facts">
+            {g.jobs.length > 0 && (
+              <div className="src-card-fact">
+                <span className="src-card-k"><Briefcase size={15} aria-hidden="true" />Experience</span>
+                <ul className="src-card-v">
+                  {g.jobs.map((j, i) => (
+                    <li key={`${j.title}${j.company}${i}`}>
+                      {j.title && <span className="is-main">{j.title}</span>}
+                      {j.title && j.company && <span className="is-sep" aria-hidden="true">|</span>}
+                      {j.company && <span className="is-org">{j.company}</span>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {g.schools.length > 0 && (
+              <div className="src-card-fact">
+                <span className="src-card-k"><GraduationCap size={15} aria-hidden="true" />Education</span>
+                <ul className="src-card-v">
+                  {g.schools.map((s, i) => (
+                    <li key={`${s.school}${i}`}>
+                      <span className="is-main">{s.school}</span>
+                      {s.degree && <span className="is-sep" aria-hidden="true">|</span>}
+                      {s.degree && <span className="is-sub">{s.degree}</span>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         )}
-        {pending && pending.fits > 0 && (
-          <ul className="cb-fitrow is-pending" aria-hidden="true">
-            {Array.from({ length: pending.fits }, (_, i) => (
-              <li key={i}>
-                <Shimmer className="src-shim is-dot" circle w={16} h={16} />
-                <Shimmer className="src-shim is-word" w={[44, 58, 36][i % 3]!} h={8} r={4} />
-              </li>
-            ))}
-          </ul>
-        )}
-        {fit.length > 0 && <FitRow meets={c.meets} {...(criteria ? { criteria, short: short ?? [] } : {})} />}
+        {/* The last line of the profile: a few skills, and the two decisions where the eye ends. */}
+        <div className="src-card-foot">
+          {skills.length > 0 ? (
+            <ul className="src-card-skills" aria-label="Skills">
+              {skills.map((k) => <li key={k}>{k}</li>)}
+              {moreSkills > 0 && <li className="is-more">+{moreSkills}</li>}
+            </ul>
+          ) : <span />}
+          <div className="src-card-acts">
+            <Verdicts verdict={verdict} onVerdict={onVerdict} name={c.name} />
+          </div>
+        </div>
       </div>
+
+      <aside className="src-card-ai" aria-label="AI read">
+        <div className="src-card-sec is-fit">
+          <span className="src-card-sk"><Sparkle size={12} weight="fill" aria-hidden="true" />Fit</span>
+          {c.result ? <FitState r={c.result} /> : <span className="src-card-none">{c.listedAsFound ? "Listed as found" : "Not scored yet"}</span>}
+        </div>
+        <div className="src-card-sec">
+          <span className="src-card-sk">Why</span>
+          {pending ? (
+            <div className="src-card-reason is-pending" aria-hidden="true">
+              <Shimmer className="src-shim" w="92%" h={10} r={5} />
+              <Shimmer className="src-shim is-short" w="56%" h={10} r={5} />
+            </div>
+          ) : (
+            <p className="src-card-reason">{text || "Not read closely yet."}</p>
+          )}
+        </div>
+        {!pending && fit.length > 0 && (
+          <div className="src-card-sec">
+            <span className="src-card-sk">Requirements <span className="src-card-n">{met} of {fit.length}</span></span>
+            <ul className="src-card-checks">
+              {fit.map((label, i) => (
+                <li key={`${label}${i}`} title={label}>
+                  <FitMark met={!!c.meets[i]} label={label} state={c.checks?.[i]} />
+                  <span>{requirementLabel(label)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {concern && (
+          <div className="src-card-sec">
+            <span className="src-card-sk">Watch out</span>
+            <p className="src-card-concern" title={concern}>{concern}</p>
+          </div>
+        )}
+      </aside>
     </article>
   );
 }

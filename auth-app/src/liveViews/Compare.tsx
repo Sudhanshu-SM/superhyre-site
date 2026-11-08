@@ -2,7 +2,7 @@ import { ArrowsOutSimple, Sparkle } from "@phosphor-icons/react";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { messageOf } from "../api/client";
 import { Avatar, FitMark } from "../CandidateBits";
-import { CompareDialog, verdictForSource } from "../CompareDialog";
+import { CompareDialog, verdictForSource, verdictParts } from "../CompareDialog";
 import type { Ask } from "../Clarify";
 import { Clarified } from "../Clarify";
 import type { Question } from "../clarify";
@@ -234,7 +234,7 @@ function Summary({ ctx, cardKey, people, source }: { ctx: MomentCtx; cardKey: st
           </div>
         )}
         <div className="cs2-foot">
-          <span><Sparkle size={12} weight="fill" className="mo-spark" aria-hidden="true" />{v.line}</span>
+          <span className="cs2-line" title={v.line}><Sparkle size={12} weight="fill" className="mo-spark" aria-hidden="true" /><b>{verdictParts(v.line).head}</b></span>
           <button type="button" className="src-btn is-primary mo-small" onClick={() => setOpen(true)}>
             <ArrowsOutSimple size={13} weight="bold" aria-hidden="true" />Full comparison
           </button>

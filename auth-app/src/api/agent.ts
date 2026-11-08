@@ -166,6 +166,15 @@ export type Match = {
   recentlyChangedJob?: boolean;
   /** What was decided about them (on the board, or passed); null or absent while they wait for a call. */
   decision?: "shortlisted" | "passed" | null;
+  /** A short read of the profile for a card: the latest two jobs, two schools, the first skills. Absent from older servers. */
+  glance?: MatchGlance;
+};
+
+export type MatchGlance = {
+  jobs: { title: string | null; company: string | null; current: boolean }[];
+  schools: { school: string; degree: string | null; field: string | null }[];
+  skills: string[];
+  skillCount: number;
 };
 
 /**
@@ -299,6 +308,8 @@ export type ChatCard =
       candidateIds: string[];
       personIds: string[];
       query: string | null;
+      /** The message the view is about when it is not this turn's own words (the brief before "Create a new campaign"). */
+      said?: string;
     }
   | {
       kind: "campaigns";

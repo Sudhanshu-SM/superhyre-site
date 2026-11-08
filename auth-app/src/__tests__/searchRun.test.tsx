@@ -173,10 +173,12 @@ describe("the search in the chat is the sourcing component, not a bare list", ()
     // The component that was built for this: cards, a heading, the ranked list.
     expect(html).toContain("src-results");
     expect(html).toContain("src-card");
-    expect(html).toContain("See all 12 ranked profiles");
+    expect(html).toContain("View all 12 profiles");
     expect(html).toContain("Shortlist");
-    // Three cards are the preview; the other nine are in the ranked list, not under a "Show more".
-    expect((html.match(/<article class="src-card/g) ?? []).length).toBe(3);
+    // Five cards first; the other seven load as the list scrolls (it scrolls inside itself), not under a "Show more".
+    expect((html.match(/<article class="src-card/g) ?? []).length).toBe(5);
+    expect(html).toContain('class="src-scroll"');
+    expect(html).toContain("7 more below");
     expect(html).not.toContain("lt-people");
     expect(html).not.toMatch(/Show \d+ more/);
     // Nobody is scored yet: said honestly, as the order they are in.
@@ -203,8 +205,8 @@ describe("the search in the chat is the sourcing component, not a bare list", ()
     expect(html).toContain("Top matches");
     expect(html).toContain("Runs Airflow pipelines at scale");
     // A person with no score yet gets no made-up fit: they are not read as met or not met. Said once, and
-    // the same count: three shown of the four this search found.
-    expect(html).toContain("2 shown");
+    // the same count: the best fits first, everyone still to review in the box.
+    expect(html).toContain("4 to review");
     expect(html).toContain("aren&#x27;t scored yet, so they&#x27;re in the order of keyword match");
     expect(html).not.toContain("Score them again to finish");
   });
@@ -308,10 +310,12 @@ describe("the best fits are the people who were matched", () => {
     const items = [withResult(1, "insufficient_evidence", null), withResult(2, "scored", "A"), withResult(3, "scored", "B"), withResult(4, "not_scored_yet", null)];
     const html = draw(search({ items, status: "done" }));
     expect(html).toContain("Top matches");
-    expect(html).toContain("Person 2");
-    expect(html).toContain("Person 3");
-    expect(html).not.toContain("Person 1");
-    expect(html).not.toContain("Person 4");
+    // The matched people lead the box; the others follow them, never ahead.
+    const at = (n: number) => html.indexOf(`Open Person ${n}&#x27;s profile`);
+    expect(at(2)).toBeGreaterThan(-1);
+    expect(at(3)).toBeGreaterThan(at(2));
+    expect(at(1)).toBeGreaterThan(at(3));
+    expect(at(4)).toBeGreaterThan(at(3));
     // The same words as the role spec card: found, matched closely, needs more evidence, not scored yet.
     expect(html).toContain("4 found. 2 matched closely, 1 needs more evidence, 1 not scored yet.");
     expect(html).not.toContain("people found, 4 scored");

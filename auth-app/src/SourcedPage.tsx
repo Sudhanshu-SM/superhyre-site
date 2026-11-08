@@ -12,7 +12,7 @@ import { matchFromProfile } from "./liveViews/compareLogic";
 import { PageLoader } from "./components/PageLoader";
 import { PassReasonDialog } from "./PassReason";
 import { ProfileSidebar } from "./ProfileSidebar";
-import { RankedMatches } from "./RankedMatches";
+import { SourcedCards } from "./SourcedCards";
 import { SearchHistoryButton } from "./SearchHistory";
 import { SourcedEmpty } from "./SourcedEmpty";
 import { SuggestNudge } from "./SuggestNudge";
@@ -221,12 +221,9 @@ export function SourcedPage({ campaignId, campaignName, onAgent }: {
       )}
       {may && <SuggestNudge campaignId={campaignId} campaignName={campaignName} asked={asked} hidden={similar !== null} onAgent={onAgent} />}
       {set && counts.all > 0 && (
-        <RankedMatches
-          inline
+        <SourcedCards
           autoSelect
-          open
           set={set}
-          onClose={() => {}}
           verdicts={verdicts}
           onVerdict={onVerdict}
           activeId={profile?.id ?? null}

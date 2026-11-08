@@ -44,6 +44,8 @@ type Props = {
   selected?: { id: string; name: string } | null;
   /** Removes the chat and its messages for good; the row has asked first. */
   onDelete: (id: string) => Promise<void>;
+  /** The owner and admins may delete anyone's chat (and only that: someone else's chat is still read, never written in). */
+  deletesAny?: boolean;
   /** Above New chat: what the agent is on, its week and its set-up (drawn by the page). */
   top?: ReactNode;
   /** Each time this goes up the search is opened and focused ("/" asks for it). */
@@ -73,7 +75,7 @@ function readOpen(): Record<string, boolean> {
 
 export function ChatRail({
   chats, state, onRetry, activeId, campaigns, hidden, onToggle, campaignsOpen, onCampaigns, onNew, onNewIn, onOpenCampaign,
-  onPickCampaign, onOpen, onRename, onMove, onArchive, onDelete, selected = null, top, findAsk = 0, side = "right", onSide,
+  onPickCampaign, onOpen, onRename, onMove, onArchive, onDelete, deletesAny = false, selected = null, top, findAsk = 0, side = "right", onSide,
 }: Props) {
   const pins = usePins();
   const [q, setQ] = useState("");
@@ -169,7 +171,7 @@ export function ChatRail({
     setFlash(was ? null : pinKey(kind, id));
   };
   const hold = useCallback((on: boolean) => setMenus((n) => Math.max(0, n + (on ? 1 : -1))), []);
-  const rowProps = { activeId, campaigns, onOpen, onRename, onMove, onArchive, onDelete, onPin: (id: string) => pin("chat", id), hold };
+  const rowProps = { activeId, campaigns, onOpen, onRename, onMove, onArchive, onDelete, deletesAny, onPin: (id: string) => pin("chat", id), hold };
 
   const closeSearch = () => { setQ(""); setSearching(false); };
   const toggleEnter = () => {
@@ -390,6 +392,7 @@ type RowProps = {
   onMove: Props["onMove"];
   onArchive: Props["onArchive"];
   onDelete: Props["onDelete"];
+  deletesAny: boolean;
   onPin: (id: string) => void;
   hold: (on: boolean) => void;
 };
@@ -555,7 +558,7 @@ function Stamp() {
   );
 }
 
-function Row({ chat, activeId, pinned, flash = false, nested = false, lead = false, sub, campaigns, onOpen, onRename, onMove, onArchive, onDelete, onPin, hold }: RowProps & {
+function Row({ chat, activeId, pinned, flash = false, nested = false, lead = false, sub, campaigns, onOpen, onRename, onMove, onArchive, onDelete, deletesAny, onPin, hold }: RowProps & {
   chat: RailChat;
   pinned: boolean;
   flash?: boolean;
@@ -622,6 +625,15 @@ function Row({ chat, activeId, pinned, flash = false, nested = false, lead = fal
       {!theirs && <button ref={more} type="button" className="hx-icon hx-row-more" onClick={() => setMenu((m) => !m)} aria-label={`More for ${chat.title}${under ? `, ${under}` : ""}`} aria-haspopup="menu" aria-expanded={menu}>
         <DotsThree size={18} weight="bold" aria-hidden="true" />
       </button>}
+      {/* Someone else's chat: an owner or admin may delete it, and that is all the menu offers (it asks first, saying whose it is). */}
+      {theirs && deletesAny && <button ref={more} type="button" className="hx-icon hx-row-more" onClick={() => { setAsking(true); setMenu((m) => !m); }} aria-label={`Delete ${theirs}'s chat ${chat.title}`} aria-haspopup="dialog" aria-expanded={menu} title="Delete this chat">
+        <Trash size={16} aria-hidden="true" />
+      </button>}
+      {menu && theirs && deletesAny && (
+        <Pop key="ask-theirs" anchor={more} onClose={closeMenu}>
+          <DeleteAsk chat={chat} pinned={false} owner={theirs} onKeep={closeMenu} onDelete={remove} />
+        </Pop>
+      )}
       {menu && !theirs && (
         <Pop key={asking ? "ask" : "menu"} anchor={more} onClose={closeMenu}>
           {asking ? (
@@ -693,15 +705,15 @@ export function ChatMenu({ chat, pinned, campaigns, onPin, onRename, onArchive, 
 }
 
 /** The second question: it opens on "Keep it", so Enter or a stray press never deletes. */
-export function DeleteAsk({ chat, pinned, onKeep, onDelete }: { chat: RailChat; pinned: boolean; onKeep: () => void; onDelete: () => void }) {
+export function DeleteAsk({ chat, pinned, owner = null, onKeep, onDelete }: { chat: RailChat; pinned: boolean; owner?: string | null; onKeep: () => void; onDelete: () => void }) {
   const keep = useRef<HTMLButtonElement>(null);
   useEffect(() => { keep.current?.focus({ preventScroll: true }); }, []);
   return (
     <div className="hx-ask" role="alertdialog" aria-labelledby="hx-ask-h" aria-describedby="hx-ask-p">
       <p className="hx-ask-h" id="hx-ask-h">Delete this chat?</p>
       <p className="hx-ask-p" id="hx-ask-p">
-        “{chat.title}” and its messages are removed for good.{" "}
-        {chat.daily ? "While the daily search is on for this campaign, it starts a new one the next time it has news." : pinned ? "It is pinned, so it would otherwise be kept." : "Chats nobody has written in for 60 days are deleted on their own; pin one to keep it."}
+        “{chat.title}” and its messages are removed for good{owner ? `, for ${owner} too` : ""}.{" "}
+        {owner ? "It is their chat; it goes from their list as well." : chat.daily ? "While the daily search is on for this campaign, it starts a new one the next time it has news." : pinned ? "It is pinned, so it would otherwise be kept." : "Chats nobody has written in for 60 days are deleted on their own; pin one to keep it."}
       </p>
       <div className="hx-ask-b">
         <button ref={keep} type="button" className="hx-ask-keep" onClick={onKeep}>Keep it</button>

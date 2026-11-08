@@ -6,7 +6,8 @@ import { jdQuestion } from "../clarify";
 /**
  * "Draft the role spec" on a campaign's card is an action: with a job description on the campaign the draft starts
  * at once and the role spec card appears in place, reading it; without one the job description is asked for on the
- * card (paste, upload, or later) and the draft starts from what is given. Nothing is sent to the agent.
+ * card (paste, upload, or draft from the set-up) and the draft starts from what is given, or from the campaign's years and
+ * must-haves when nothing is. Nothing is sent to the agent.
  */
 
 describe("Draft the requirements", () => {
@@ -18,16 +19,17 @@ describe("Draft the requirements", () => {
     expect(onDraftPress(true, "going")).toBe("wait");
   });
 
-  it("drafts from what is given on the card, and leaves 'later' alone", () => {
+  it("drafts from what is given on the card, and from the set-up when nothing is: never back to the same card", () => {
     expect(onJdGiven("Own production reliability. Kubernetes, Go, Terraform and Postgres at scale.")).toBe("draft");
-    expect(onJdGiven("")).toBe("later");
-    expect(onJdGiven("   ")).toBe("later");
+    expect(onJdGiven("")).toBe("setup");
+    expect(onJdGiven("   ")).toBe("setup");
   });
 
-  it("asks for the job description inline: paste, upload, or add it later", () => {
+  it("asks for the job description inline: paste, upload, or draft from what was told", () => {
     const html = renderToStaticMarkup(<JdStep name="Senior Backend Engineer" onAnswer={() => {}} />);
     expect(html).toContain("Do you have the job description for Senior Backend Engineer?");
-    for (const tile of ["Paste it", "Upload a file", "I&#x27;ll add it later"]) expect(html).toContain(tile);
+    for (const tile of ["Paste it", "Upload a file", "Draft from what you told me"]) expect(html).toContain(tile);
+    expect(html).not.toContain("I&#x27;ll add it later");
     expect(jdQuestion("x").document).toMatchObject({ min: 40 });
   });
 

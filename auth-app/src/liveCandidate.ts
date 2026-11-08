@@ -2,7 +2,7 @@ import type { Match, MatchProfile, RoleSpec } from "./api/agent";
 import { hueFor } from "./candidateImport";
 import { schoolsOf } from "./chatCards";
 import { reasonLine, resultOf, resultOfProfile } from "./matchResult";
-import type { Candidate, Job } from "./sourcing";
+import type { Candidate, Glance, Job } from "./sourcing";
 
 /**
  * A live match or profile as the console's candidate surfaces know a person (`Candidate`), so
@@ -168,6 +168,25 @@ export function candidateFromMatch(
     schools: schools.map((s) => ({ org: { name: s.name, hue: hueFor(s.name) }, degree: s.degree, years: s.years })),
     skills: pr?.skills.length ? { Skills: pr.skills } : {},
     ...((pr?.linkedinUrl ?? m.linkedinUrl) ? { linkedinUrl: (pr?.linkedinUrl ?? m.linkedinUrl) as string } : {}),
+    ...(m.recentlyChangedJob ? { recentlyChangedJob: true } : {}),
+    ...(m.glance ? { glance: glanceOf(m.glance) } : {}),
+    ...((profile?.profileImageUrl ?? m.profileImageUrl) ? { photo: (profile?.profileImageUrl ?? m.profileImageUrl) as string } : {}),
+  };
+}
+
+/** The server's short read, cleaned for a card: empty names dropped, a degree and its field said once. */
+export function glanceOf(g: NonNullable<Match["glance"]>): Glance {
+  const text = (v: string | null | undefined) => (v ?? "").trim();
+  const skills = g.skills.map(text).filter(Boolean);
+  return {
+    jobs: g.jobs
+      .map((j) => ({ title: text(j.title), company: text(j.company), current: j.current }))
+      .filter((j) => j.title || j.company),
+    schools: g.schools
+      .map((s) => ({ school: text(s.school), degree: [text(s.degree), text(s.field)].filter(Boolean).join(", ") }))
+      .filter((s) => s.school),
+    skills,
+    skillCount: Math.max(g.skillCount, skills.length),
   };
 }
 

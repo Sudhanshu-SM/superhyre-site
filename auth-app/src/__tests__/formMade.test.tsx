@@ -100,7 +100,7 @@ describe("where a connected turn gives its scope", () => {
   it("gives each card its own scope inside the turn's", () => {
     const views = src("liveViews/index.tsx");
     expect(views).toContain("cardScope(turn, card.key)");
-    expect(views).toMatch(/<TurnContext\.Provider value=\{scope\}>[\s\S]*<View card=\{card\} ctx=\{ctx\} \/>/);
+    expect(views).toMatch(/<TurnContext\.Provider value=\{scope\}>[\s\S]*<View card=\{card\} ctx=\{viewCtx\} \/>/);
   });
 });
 

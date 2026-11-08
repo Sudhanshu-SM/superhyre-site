@@ -1731,6 +1731,8 @@ export function Agent({
     }
     void loadPins();
     setChatsAsk((n) => n + 1);
+    // Someone else's chat an admin was reading: it closes with it.
+    if (viewing?.id === id) setViewing(null);
     if (id === live.conversationId) startIn(chatCampaign);
     toast("Chat deleted", "done");
   };
@@ -1753,6 +1755,33 @@ export function Agent({
     // `send` is read through a ref so a new identity does not re-run this.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [handoff, chatFor, onHandoffTaken, seed]);
+
+  /* The empty space either side of the chat scrolls the chat: a wheel or trackpad turned there, over nothing that scrolls of its
+     own, moves the conversation as if it were over it. Navigation, the chat list, dialogs, side panels and anything that scrolls
+     itself keep their own wheel. */
+  useEffect(() => {
+    if (!started) return undefined;
+    const onWheel = (e: WheelEvent) => {
+      const log = logRef.current;
+      const root = rootRef.current;
+      const target = e.target instanceof Element ? e.target : null;
+      if (!log || !root || !target || e.ctrlKey || e.defaultPrevented) return;
+      if (log.contains(target)) return;
+      const area = root.closest("main") ?? root.parentElement ?? root;
+      if (!area.contains(target)) return;
+      if (target.closest("nav, aside, dialog, [role='dialog'], [role='menu'], .orc-rail, .orc-composer, textarea, input, select")) return;
+      for (let el: Element | null = target; el && el !== area.parentElement; el = el.parentElement) {
+        const y = getComputedStyle(el).overflowY;
+        if ((y === "auto" || y === "scroll") && el.scrollHeight > el.clientHeight + 1 && el !== log) return;
+      }
+      if (log.scrollHeight <= log.clientHeight) return;
+      const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * log.clientHeight : e.deltaY;
+      log.scrollTop += dy;
+      e.preventDefault();
+    };
+    window.addEventListener("wheel", onWheel, { passive: false });
+    return () => window.removeEventListener("wheel", onWheel);
+  }, [started]);
 
   return (
     <ConnectorsProvider>
@@ -1809,6 +1838,7 @@ export function Agent({
           }}
           onArchive={archiveChat}
           onDelete={deleteChat}
+          deletesAny={seesAllChats}
         />
       )}
       {/* The two dialogs the owner and collaborators rows in the list open (the campaign's details, and who is on it). */}

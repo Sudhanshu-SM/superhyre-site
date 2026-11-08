@@ -315,116 +315,95 @@
 
 /* ── results ─────────────────────────────────────────────────────────────── */
 
-.src-results { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; margin-top: 6px; }
+.src-results { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin-top: 6px; }
+.src-results-sub { margin: 0; font: 400 14px/1.55 var(--ui); color: var(--ink-2); }
 
+/* ── THE LIST ──────────────────────────────────────────────────────────────────
+   One surface the width of the message: a head (what and how many), the people as rows split by hairlines (no card
+   inside a card), and a foot (another search, the whole list). The rows scroll inside it, five first and more as it is
+   scrolled; at either end the wheel carries on to the chat. */
+.src-people {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  background: var(--card, #fff);
+  overflow: hidden;
+}
 .src-results-head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
-  flex-wrap: wrap;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--nav-rule);
 }
+.src-results-head h3 { margin: 0; font: 600 14px/1.3 var(--ui); letter-spacing: -0.01em; color: var(--ink); }
+.src-results-head span { font: 400 13px/1 var(--ui); font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.src-scroll { max-height: min(64vh, 700px); overflow-y: auto; scrollbar-width: thin; }
+.src-scroll:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 
-.src-results-head h3 {
-  margin: 0;
-  font: 600 15px/1.3 var(--ui);
-  letter-spacing: -0.014em;
-  color: var(--ink);
+.src-cards { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; margin: 0; padding: 0; list-style: none; }
+.src-cards > li { animation: src-in 320ms var(--ease-out) both; }
+.src-cards > li + li { border-top: 1px solid var(--nav-rule); }
+.src-scroll-end { animation: none !important; border-top: 1px solid var(--nav-rule); padding: 10px 20px; font: 400 12.5px/1 var(--ui); color: var(--ink-2); }
+.src-scroll-end:empty { display: none; }
+
+.src-people-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--nav-rule);
 }
-
-.src-results-head span {
-  font: 400 12.5px/1 var(--ui);
-  font-variant-numeric: tabular-nums;
+.src-people-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font: 500 13px/1 var(--ui);
   color: var(--ink-2);
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
 }
+.src-people-btn:hover:not(:disabled) { background: var(--nav-rule); color: var(--ink); }
+.src-people-btn.is-all { color: var(--accent-text, var(--accent)); }
+.src-people-btn:disabled { opacity: 0.5; cursor: default; }
+.src-people-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 
-.src-results-sub { margin: 0 0 8px; font: 400 14px/1.55 var(--ui); color: var(--ink-2); }
-
-.src-cards { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; margin: 0; padding: 0; list-style: none; }
-.src-cards > li { animation: src-in 420ms var(--ease-out) both; }
-
+/* ── A PERSON ──────────────────────────────────────────────────────────────────
+   Two columns that end level. Left: the profile (a 44px face, name, link and years; "Title @ Company"; place and signals;
+   then labelled rows for experience and education, and a few skills). Right, behind a hairline: the AI's read in the same
+   sections every time (Fit, Why, Requirements, Watch out) with the two decisions at its foot. The whole card opens the
+   profile; the decisions and the profile link sit above it. */
 .src-card {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 12px;
-  padding: 14px 16px 14px;
-  border: 1px solid var(--hairline);
-  border-radius: 16px;
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(26, 22, 20, 0.04);
-  transition: border-color var(--t-dim), box-shadow var(--t-dim), opacity var(--t-dim);
-}
-
-.src-card:hover { border-color: var(--rule); box-shadow: 0 2px 8px rgba(26, 22, 20, 0.06); }
-.src-card.is-shortlisted { border-color: var(--accent-line); }
-/* The person whose profile is open beside the list: lit, with one soft ring that settles as the profile slides in. */
-.src-card.is-selected { border-color: var(--accent-line); background: color-mix(in srgb, var(--accent) 5%, #fff); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent), 0 2px 8px rgba(26, 22, 20, 0.06); animation: src-select 520ms var(--ease-out); }
-@keyframes src-select { from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 36%, transparent), 0 1px 2px rgba(26, 22, 20, 0.04); transform: scale(0.992); } to { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent), 0 2px 8px rgba(26, 22, 20, 0.06); transform: none; } }
-@media (prefers-reduced-motion: reduce) { .src-card.is-selected { animation: none; } }
-.src-card.is-rejected { opacity: 0.55; }
-.src-card.is-rejected:hover { opacity: 0.8; }
-
-/* The whole card opens the profile. A stretched button under everything,
-   with the real controls lifted above it, so the card is one target without
-   nesting buttons inside a button. */
-.src-card-hit {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  padding: 0;
-  border: 0;
-  border-radius: inherit;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);
+  align-items: stretch;
   background: transparent;
-  cursor: pointer;
+  transition: background-color 150ms ease, opacity 150ms ease;
 }
+.src-card:hover { background: color-mix(in srgb, var(--ink) 2.5%, transparent); }
+.src-card.is-selected { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.src-card.is-rejected { opacity: 0.55; }
+.src-card.is-rejected:hover { opacity: 0.85; }
 
-.src-card-hit:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-
+.src-card-hit { position: absolute; inset: 0; z-index: 0; padding: 0; border: 0; background: transparent; cursor: pointer; }
+.src-card-hit:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 .src-card > :not(.src-card-hit) { position: relative; z-index: 1; pointer-events: none; }
-.src-card .cb-verdicts, .src-card .cb-verdicts * { pointer-events: auto; }
+.src-card .cb-verdicts, .src-card .cb-verdicts *, .src-card .src-card-link { pointer-events: auto; }
 
-.src-card {
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas: "top acts" "why why" "foot foot";
-}
-
-.src-card-top { grid-area: top; display: flex; align-items: flex-start; gap: 12px; min-width: 0; }
-.src-card-acts { grid-area: acts; }
-.src-card-reason {
-  grid-area: why;
-  display: flex;
-  gap: 8px;
-  margin: 0;
-  font: 400 13.5px/1.5 var(--ui);
-  color: var(--ink);
-}
-
-.src-card-reason svg { flex: none; margin-top: 3px; color: var(--accent); }
-
-/* A score that has not arrived: shimmer tiles (components/Shimmer) where the line on why and the fit marks will
-   be, so the card does not jump when they come. */
-.src-card-reason.is-pending { display: grid; align-content: center; gap: 8px; min-height: 20px; }
-.cb-fitrow.is-pending li { gap: 6px; }
-
-/* Career on the left, fit on the right, separated from the identity by a
-   hairline so the card reads as "who" above "how they compare". */
-.src-card-foot {
-  grid-area: foot;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px 20px;
-  padding-top: 12px;
-  border-top: 1px solid var(--nav-rule);
-}
-
-.src-card-career { display: flex; align-items: center; gap: 10px; flex: 1 1 140px; min-width: 120px; max-width: 220px; }
-.src-card-career .cb-career { flex: 1 1 auto; }
-.src-card-k { flex: none; font: 500 12px/1 var(--ui); font-variant-numeric: tabular-nums; color: var(--ink-2); }
-.src-card-id { min-width: 0; flex: 1 1 auto; }
-
+/* left: the profile */
+.src-card-who { display: flex; flex-direction: column; min-width: 0; }
+.src-card-top { display: flex; align-items: flex-start; gap: 12px; min-width: 0; padding: 16px 20px 14px; }
+.src-face { flex: none; display: block; width: 44px; height: 44px; border-radius: 50%; object-fit: cover; background: var(--nav-rule); }
+.src-card-id { min-width: 0; flex: 1 1 auto; display: grid; gap: 3px; }
 .src-card-name {
   display: flex;
   align-items: center;
@@ -435,26 +414,79 @@
   letter-spacing: -0.014em;
   color: var(--ink);
 }
-
-.src-otw {
-  font: 500 11px/1 var(--ui);
-  padding: 4px 7px;
-  border-radius: var(--r-pill);
-  background: var(--c-sage-tint);
-  color: var(--c-sage-text);
-}
-
+.src-card-name-t { min-width: 0; overflow-wrap: anywhere; }
+.src-card-link { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; color: var(--ink-2); transition: color 150ms ease, background-color 150ms ease; }
+.src-card-link:hover { color: #0a66c2; background: var(--nav-rule); }
+.src-card-link:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+/* A plain fact beside the name or the place: a soft fill, no border, one colour only for "Open to work". */
+.src-card-tag { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 6px; background: var(--nav-rule); font: 500 12px/1 var(--ui); letter-spacing: 0; color: var(--ink-2); white-space: nowrap; }
+.src-card-tag.is-open { background: var(--c-sage-tint); color: var(--c-sage-text); }
 .src-card-line {
-  margin: 2px 0 0;
+  margin: 0;
   font: 400 13.5px/1.4 var(--ui);
-  color: var(--ink);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  color: var(--ink-2);
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+.src-card-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0; font: 400 13px/22px var(--ui); color: var(--ink-2); }
 
-.src-card-meta { margin: 2px 0 0; font: 400 12.5px/1.4 var(--ui); color: var(--ink-2); }
+.src-card-facts { display: grid; gap: 8px; padding: 12px 20px 4px; border-top: 1px solid var(--nav-rule); }
+.src-card-foot { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 20px 16px; }
+.src-card-fact { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 12px; align-items: start; }
+.src-card-k { display: inline-flex; align-items: center; gap: 8px; font: 400 13px/22px var(--ui); color: var(--ink-2); }
+.src-card-k svg { flex: none; color: var(--ink-3, var(--ink-2)); }
+.src-card-v { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; min-width: 0; }
+.src-card-v li { display: flex; align-items: baseline; gap: 8px; min-width: 0; font: 400 13.5px/22px var(--ui); white-space: nowrap; overflow: hidden; }
+.src-card-v .is-main { font-weight: 500; color: var(--ink); overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; min-width: 0; }
+.src-card-v .is-sep { color: var(--rule); flex: none; }
+.src-card-v .is-org { color: var(--c-sage-text); overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; min-width: 0; }
+.src-card-v .is-sub { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; min-width: 0; }
+.src-card-skills { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; min-width: 0; }
+.src-card-skills li { font: 400 12.5px/1 var(--ui); padding: 6px 10px; border-radius: 6px; background: var(--nav-rule); color: var(--ink); white-space: nowrap; }
+.src-card-skills li.is-more { background: transparent; color: var(--ink-2); padding-inline: 4px; }
+
+/* right: the AI's read, in the same sections every time */
+.src-card-ai {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px 20px;
+  border-left: 1px solid var(--nav-rule);
+}
+.src-card-sec { display: grid; gap: 4px; min-width: 0; }
+.src-card-sec.is-fit { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.src-card-sk { display: inline-flex; align-items: center; gap: 6px; font: 500 12px/1.3 var(--ui); color: var(--ink-2); }
+.src-card-sk svg { color: var(--accent); }
+.src-card-n { font-weight: 400; font-variant-numeric: tabular-nums; }
+.src-card-sec.is-fit .cb-state { font: 600 13px/1.3 var(--ui); }
+.src-card-none { font: 400 12.5px/1.3 var(--ui); color: var(--ink-2); }
+.src-card-reason { margin: 0; font: 400 13px/1.45 var(--ui); color: var(--ink); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+/* A score that has not arrived: shimmer where the line on why will be, so the card does not jump when it comes. */
+.src-card-reason.is-pending { display: grid; gap: 6px; padding-top: 2px; }
+.src-card-checks { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0; padding: 0; list-style: none; }
+.src-card-checks li { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; font: 400 13px/1.35 var(--ui); color: var(--ink); }
+.src-card-checks li > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.src-card-checks .cb-fit { width: 16px; height: 16px; }
+.src-card-concern { margin: 0; font: 400 13px/1.45 var(--ui); color: var(--ink); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* The two decisions at the foot of the read: quiet text buttons, the brand colour only once someone is shortlisted. */
+.src-card-acts { flex: none; }
+.src-card .cb-verdicts { gap: 8px; }
+.src-card .cb-v { height: 32px; padding: 0 12px; border: 1px solid var(--hairline); border-radius: 8px; background: transparent; color: var(--ink); font: 500 13px/1 var(--ui); }
+.src-card .cb-v:hover:not(:disabled) { background: var(--nav-rule); }
+.src-card .cb-v.is-short:not(.is-on) { background: transparent; border-color: var(--accent-line); color: var(--accent-text, var(--accent)); }
+.src-card .cb-v.is-short:not(.is-on):hover { background: var(--accent-tint); }
+.src-card .cb-v.is-short.is-on { background: var(--accent-tint); border-color: var(--accent-line); color: var(--accent-text); }
+.src-card .cb-v.is-reject.is-on { background: var(--c-rose-tint); border-color: var(--c-rose-line); color: var(--c-rose-text); }
+
+/* Narrow (a docked profile, a small window): the read goes under the profile, the same sections in the same order. */
+@container (max-width: 640px) {
+  .src-card { grid-template-columns: minmax(0, 1fr); }
+  .src-card-ai { border-left: 0; border-top: 1px solid var(--nav-rule); }
+}
+.src-cards > li { container-type: inline-size; }
 
 /* The run's call to action: solid orange, raised, and it answers the pointer.
    Hover deepens the fill and lifts the shadow while the arrow steps forward;
@@ -558,7 +590,6 @@
    narrow on a wide screen too (rail open, sidebar expanded). Under 380px the
    verdicts move under the identity instead of squeezing the name. */
 @container (max-width: 380px) {
-  .src-card-career { max-width: none; flex-basis: 100%; }
   .src-panel { padding: 12px; }
   .src-panel-head { flex-wrap: wrap; }
   .src-actions { justify-content: stretch; }

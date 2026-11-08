@@ -244,9 +244,9 @@ describe("the numbers of a search are one story", () => {
 
   it("counts this search's people, and says which pool 'ranked' is when it is a different one", () => {
     expect(resultsCopy({ shown: 3, total: 50, unscored: 0, found: 20 }).count).toBe("3 shown of 20 found · 50 ranked in the campaign");
-    expect(resultsCopy({ shown: 3, total: 50, unscored: 0, found: 20 }).all).toBe("See all 50 ranked in the campaign");
+    expect(resultsCopy({ shown: 3, total: 50, unscored: 0, found: 20 }).all).toBe("View all 50 in the campaign");
     expect(resultsCopy({ shown: 3, total: 20, unscored: 0, found: 20 }).count).toBe("3 shown of 20 found");
-    expect(resultsCopy({ shown: 3, total: 20, unscored: 0, found: 20 }).all).toBe("See all 20 ranked profiles");
+    expect(resultsCopy({ shown: 3, total: 20, unscored: 0, found: 20 }).all).toBe("View all 20 profiles");
     // Without a search of its own, the campaign's list is what there is.
     expect(resultsCopy({ shown: 3, total: 21, unscored: 0 }).count).toBe("3 shown · 21 ranked");
   });

@@ -39,12 +39,18 @@ export function LiveView({ card }: { card: ViewCard }): JSX.Element | null {
      is left and come back to shows the card as it was (answered questions replayed, a form made shown done). */
   const turn = useContext(TurnContext);
   const scope = useMemo(() => (turn ? cardScope(turn, card.key) : null), [turn, card.key]);
-  if (!isViewKind(card.view) || !ctx) return null;
+  /* A view about an earlier message (the brief before the person pressed "Create a new campaign") reads that message, so
+     the set-up does not ask again for the role, the city or the years it already gave. */
+  const viewCtx = useMemo(
+    () => (ctx && card.said ? (Object.create(ctx, { said: { value: card.said, enumerable: true } }) as typeof ctx) : ctx),
+    [ctx, card.said],
+  );
+  if (!isViewKind(card.view) || !viewCtx) return null;
   const View = VIEWS[card.view];
   return (
     <TurnContext.Provider value={scope}>
       <Suspense fallback={<p className="orc-stage" aria-live="polite"><Loader size="sm" />Opening</p>}>
-        <View card={card} ctx={ctx} />
+        <View card={card} ctx={viewCtx} />
       </Suspense>
     </TurnContext.Provider>
   );

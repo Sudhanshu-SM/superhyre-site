@@ -373,7 +373,10 @@ function Flow({
   going.current = running;
   const rowsNow = plan.matches?.rows ?? [];
   /* The best of the people still waiting: someone the server already has a decision for is in the list, not here. */
-  const best = set?.candidates.filter((c) => !set.decisions?.[c.id]).slice(0, PREVIEW_COUNT) ?? [];
+  const waitingNow = set?.candidates.filter((c) => !set.decisions?.[c.id]) ?? [];
+  const best = waitingNow.slice(0, PREVIEW_COUNT);
+  /* A search that found more than five: the chat scrolls through as many as it found, five at a time. */
+  const scrollPool = waitingNow;
   /* Whether the campaign already had people when this view first read it: the first leg of the goal is
      settled for them, and the stages say "found so far" rather than "waiting for you to run it". */
   const hadPeople = useRef<boolean | null>(null);
@@ -516,6 +519,7 @@ function Flow({
               ...(run.status === "done" && batchOf(run) > 0 ? { found: batchOf(run) } : {}),
             }),
             more: may && pool && canRun(pool) ? { label: `Find ${pool.nextSize} more`, busy: running, onClick: start } : null,
+            pool: scrollPool,
           }}
         />
       )}

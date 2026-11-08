@@ -491,7 +491,12 @@ export function parseContact(text: string): { name: string; email: string } {
    team, work mode, city, hires, the job description, then pay, skills and
    agents. What the message already says is taken as answered. */
 
-const CAMPAIGN_NAMED = /\bcampaign\s*(?:(?:called|named|for|to\s+(?:hire|recruit|find)|hiring)\s+|[:\-–—]\s*)(?:an?\s+)?["“]?(.+?)["”]?\s*$/i;
+/* The name runs to the end of its sentence, or to the next thing asked of the agent: "a campaign called HR Business
+   Partner for Vahan and find 5 people" is named "HR Business Partner for Vahan". A full stop after "Sr" or "Jr" is not
+   the end of a sentence. */
+const NEXT_ASK = String.raw`(?:find|source|search|start|draft|get|approve|look|send|reach|shortlist)\b`;
+const NAME_ENDS = String.raw`(?=\s*(?:(?<!\b(?:sr|jr|snr|mr|ms|mrs|dr|st|vs|no))[.!?;](?:\s|$)|(?:,|\s(?:and|then))\s*(?:(?:and|then)\s+)?${NEXT_ASK})|\s*$)`;
+const CAMPAIGN_NAMED = new RegExp(String.raw`\bcampaign\s*(?:(?:called|named|for|to\s+(?:hire|recruit|find)|hiring)\s+|[:\-–—]\s*)(?:an?\s+)?["“]?(.+?)["”]?${NAME_ENDS}`, "i");
 
 
 /**
@@ -573,15 +578,18 @@ export function workModeIn(text: string): WorkMode | null {
 
 /** Times a figure is a unit of something else ("5 years", "30 LPA", "3 days"), which is not a number of hires. */
 const NOT_HIRES = String.raw`(?!\s*(?:\+|-|to\b|years?\b|yrs?\b|yoe\b|lpa\b|lakhs?\b|l\b|k\b|%|days?\b|months?\b|weeks?\b|x\b))`;
+/* "5 people", "10 profiles": how many to look at, never how many will be hired. */
+const NOT_PEOPLE = String.raw`(?!\s+(?:more\s+)?(?:people|persons?|candidates?|profiles?|names?|matches|resumes?|cvs?)\b)`;
 const OPENINGS_SAID: readonly RegExp[] = [
-  /* "hire 3 DevOps engineers", "need two", "looking for 4" */
-  new RegExp(String.raw`\b(?:hire|hiring|recruit(?:ing)?|need|needs|want|wants|looking\s+for|find|source)\s+(?:for\s+)?(${NUM})\b${NOT_HIRES}`, "i"),
+  /* "hire 3 DevOps engineers", "need two", "looking for 4". Not "find 5" or "source 10": that is how many to look
+     at, and the hires are said on their own ("1 opening"). */
+  new RegExp(String.raw`\b(?:hire|hiring|recruit(?:ing)?|need|needs|want|wants|looking\s+for)\s+(?:for\s+)?(${NUM})\b${NOT_HIRES}${NOT_PEOPLE}`, "i"),
   /* "5 openings", "2 hires" */
   new RegExp(String.raw`\b(${NUM})\s+${OPENING_UNITS}\b`, "i"),
   /* "openings: 3", "headcount of 4" */
   new RegExp(String.raw`\b(?:openings?|headcount|vacanc(?:y|ies)|positions?)\s*(?:of|:|=|-)?\s*(${NUM})\b${NOT_HIRES}`, "i"),
   /* "campaign for 3 DevOps engineers" */
-  new RegExp(String.raw`\bcampaign\s+(?:called|named|for|to\s+(?:hire|recruit|find)|hiring)\s+(?:for\s+)?(?:hiring\s+)?(${NUM})\s+(?=[A-Za-z])`, "i"),
+  new RegExp(String.raw`\bcampaign\s+(?:called|named|for|to\s+(?:hire|recruit)|hiring)\s+(?:for\s+)?(?:hiring\s+)?(${NUM})${NOT_PEOPLE}\s+(?=[A-Za-z])`, "i"),
 ];
 
 /** The number of hires the request says ("hire 3 DevOps engineers"), 1 to 99; null when it says none. */
@@ -593,12 +601,15 @@ export function openingsIn(text: string): number | null {
   return null;
 }
 
+/** "no JD", "without a job description", "JD to follow": there is none yet, which answers "Do you have the job description?". */
+const JD_LATER = /\b(?:no|without(?:\s+an?|\s+the)?|(?:do\s+not|don['’]?t)\s+have(?:\s+an?|\s+the)?)\s+(?:jd|job\s+description)s?\b|\b(?:jd|job\s+description)\s+(?:later|to\s+follow|will\s+follow|comes?\s+later)\b/i;
+
 /** What the request says besides the role, the client and the city: how they work, how many, the job description. */
-export type CampaignHints = { mode: WorkMode | null; openings: number | null; jd: string };
+export type CampaignHints = { mode: WorkMode | null; openings: number | null; jd: string; jdLater: boolean };
 
 export function campaignHintsIn(said: string): CampaignHints {
   const { head, jd } = briefParts(said);
-  return { mode: workModeIn(head), openings: openingsIn(head), jd };
+  return { mode: workModeIn(head), openings: openingsIn(head), jd, jdLater: !jd && JD_LATER.test(head) };
 }
 
 /**
@@ -617,6 +628,61 @@ export function campaignBriefIn(said: string): { role: string | null; client: st
 function rangeText(text: string | undefined): string | null {
   const ns = (text?.match(/\d+(?:\.\d+)?/g) ?? []).slice(0, 2);
   return ns.length ? ns.join(" to ") : null;
+}
+
+const PLACE = String.raw`[A-Za-z][A-Za-z.'-]*(?:\s+[A-Za-z][A-Za-z.'-]*){0,2}`;
+/** "DevOps Engineer in Pune", "... from Bangalore": the words before, and the place at the end. */
+const PLACE_AT_END = new RegExp(String.raw`^(.*\S)\s+(?:in|at|from|near|based in|based out of|located in)\s+(${PLACE})$`, "i");
+/** "DevOps Engineer, Bangalore": the place after a comma or a dash. */
+const PLACE_AFTER_COMMA = new RegExp(String.raw`^(.*\S)\s*[,\-–—]\s*(${PLACE})$`);
+/** "in Mumbai" anywhere in the words: up to three words after it, the city among them read from the left. */
+const CITY_SAID = new RegExp(String.raw`\b(?:in|from|near|based\s+in|based\s+out\s+of|located\s+in)\s+(${PLACE})`, "gi");
+
+/**
+ * "Find 5 product designers in Mumbai", "source 10 HR business partners with 8+ years", "hire a data engineer": who
+ * to find, up to what is said about them ("with", "who", "at", a comma or the end of the sentence).
+ */
+const FIND_ROLE = new RegExp(
+  String.raw`\b(?:find|get|source|hire|hiring|recruit(?:ing)?|search\s+for|look(?:ing)?\s+for)\s+(?:me\s+|us\s+)?(?:${NUM}\s+)?(?:more\s+|other\s+)?(?:(?:a|an|some|good|great|strong|top|the\s+best|the)\s+)?` +
+    String.raw`(.+?)(?=\s+(?:with|who|whose|that|having|at|from|for|and|but|not|excluding|except|to|by)\b|\s*[,;.!?:()]|$)`,
+  "gi",
+);
+/** What "find 5 ..." can say that is nobody in particular: no role. */
+const NOBODY = /^(?:people|persons?|candidates?|profiles?|names?|matches|someone|somebody|anyone|them|talent|resumes?|cvs?|results?|options?|more|started|going|it|this|that|me|us)$/i;
+/** The word a role ends on ("Engineer", "Partner"): a name that has one is a role, never a company. */
+const ROLE_NOUN = /\b(?:engineers?|developers?|designers?|managers?|analysts?|partners?|leads?|heads?|executives?|scientists?|architects?|consultants?|specialists?|associates?|officers?|directors?|interns?|recruiters?|writers?|marketers?|sres?|sdes?|testers?|administrators?|accountants?|representatives?|coordinators?|strategists?|researchers?|editors?|owners?|programmers?|technicians?|generalists?)\b/i;
+const ROLE_AT_END = new RegExp(`${ROLE_NOUN.source}$`, "i");
+/** Where a role covers, not who it is for: "Sales Manager for APAC". */
+const REGION = /^(?:india|apac|emea|mena|asia|europe|africa|americas?|latam|us|usa|uk|sea|anz|global|international|north|south|east|west|central)$/i;
+/** A field or a team ("Payments", "Data Science"), not a company. */
+const DOMAIN = /\b(?:teams?|department|division|group|squad|desk|org|organi[sz]ation|data|science|payments?|platform|infrastructure|engineering|product|design|sales|marketing|finance|security|growth|operations|support|research|analytics|ai|ml|devops|cloud|mobile|web|backend|frontend|fullstack)\b/i;
+/** One to four capitalised words: the way a company's name is written. */
+const COMPANY_NAME = /^[A-Z0-9][\p{L}0-9&.'-]*(?:\s+[A-Z0-9][\p{L}0-9&.'-]*){0,3}$/u;
+/** Words that end in "s" without being plural: "Sales", "DevOps", "Analytics". */
+const NOT_PLURAL = /^(?:sales|ops|devops|mlops|secops|analytics|logistics|economics|operations|business|news|series)$/i;
+const SMALL_WORD = /^(?:of|and|the|for|in|to|a|an|at|on|&)$/i;
+
+/**
+ * "product designers" → "Product Designer", "HR business partners" → "HR Business Partner", "heads of sales" →
+ * "Head of Sales": one of the people asked for, written as a campaign is named. A word typed with capitals keeps them.
+ */
+export function roleTitle(text: string): string {
+  const words = text.trim().split(/\s+/);
+  const of = words.findIndex((w, i) => i > 0 && /^of$/i.test(w));
+  const head = of > 0 ? of - 1 : words.length - 1;
+  const one = (w: string): string => {
+    if (NOT_PLURAL.test(w)) return w;
+    if (/people$/i.test(w)) return w.replace(/people$/i, (p) => (p[0] === "P" ? "Person" : "person"));
+    if (/[^aeiou]ies$/i.test(w)) return w.replace(/ies$/i, (s) => (s === "IES" ? "Y" : "y"));
+    if (/(?:ss|us|is)$/i.test(w)) return w;
+    return w.replace(/(?<=\w)s$/, "");
+  };
+  return words
+    .map((w, i) => {
+      const s = i === head ? one(w) : w;
+      return s === s.toLowerCase() && (i === 0 || !SMALL_WORD.test(s)) ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+    })
+    .join(" ");
 }
 
 /** Everything a request to start a campaign says besides how they work and how many: the brief, with the figures. */
@@ -666,6 +732,30 @@ export function campaignAskIn(said: string): CampaignAsk {
     skills: lf.skills ?? withSkills.skills,
   };
   const given = { client: asClient(lf.client) ?? asClient(behalf.client), role: lf.role?.trim() || null, city: lf.city ? placeOf(lf.city) ?? canonicalCity(lf.city) : null };
+  /* "Find 5 product designers in Mumbai with 3+ years": the role is who to find, with no "campaign" said. It is the role
+     only when nothing else names one, and "find 5 people" names no one. */
+  const toFind = ((): { role: string; city: string | null } | null => {
+    for (const f of behalf.rest.matchAll(FIND_ROLE)) {
+      let text = tidy(f[1] ?? "");
+      const where = PLACE_AT_END.exec(text);
+      const there = where?.[2] ? placeOf(where[2]) : null;
+      if (where?.[1] && there) text = tidy(where[1]);
+      if (text.length < 2 || text.length > 60 || NOBODY.test(text) || /\bcampaigns?\b/i.test(text)) continue;
+      return { role: roleTitle(text), city: there };
+    }
+    return null;
+  })();
+  /* "in Mumbai" said anywhere in the request, for when the role's own words carry no city. Only a city we know counts. */
+  const cityAnywhere = (): string | null => {
+    for (const p of behalf.rest.matchAll(CITY_SAID)) {
+      const words = (p[1] ?? "").split(/\s+/).map((w) => w.replace(/[.'-]+$/, ""));
+      for (let n = words.length; n > 0; n--) {
+        const c = placeOf(words.slice(0, n).join(" "));
+        if (c) return c;
+      }
+    }
+    return null;
+  };
 
   const m = CAMPAIGN_NAMED.exec(behalf.rest);
   let rest = tidy(m?.[1] ?? "");
@@ -679,7 +769,7 @@ export function campaignAskIn(said: string): CampaignAsk {
     for (const clause of others) {
       const c = clause.trim();
       if (!c) continue;
-      if (MODE_CLAUSE.test(c) || COUNT_CLAUSE.test(c)) continue;
+      if (MODE_CLAUSE.test(c) || COUNT_CLAUSE.test(c) || JD_LATER.test(c)) continue;
       const known = clientNamed(c);
       if (known && !fromClause) { fromClause = known.name; continue; }
       const place = placeOf(c);
@@ -688,23 +778,28 @@ export function campaignAskIn(said: string): CampaignAsk {
     }
     if (first.trim()) rest = tidy([first.trim(), ...kept].join(", "));
   }
+  const saidCity = () => given.city ?? cityClause ?? toFind?.city ?? cityAnywhere();
   if (rest.length < 2) {
-    return { ...none, ...figures, role: given.role, client: given.client, city: given.city };
+    return { ...none, ...figures, role: given.role ?? toFind?.role ?? null, client: given.client, city: saidCity() };
   }
   /* "for Razorpay" names the client, not the role. */
   const whole = clientNamed(rest);
-  if (whole && !given.role) return { ...none, ...figures, role: null, client: whole.name, city: given.city };
+  if (whole && !given.role) return { ...none, ...figures, role: toFind?.role ?? null, client: whole.name, city: saidCity() };
+  /* "Find 5 HR business partners in Pune. New campaign for Vahan": who to find is the role, so the company the campaign
+     is for is the client, one of the workspace's or a new one. */
+  if (toFind && !given.role && /^campaign\s+for\s/i.test(m?.[0] ?? "") && COMPANY_NAME.test(rest) && !DOMAIN.test(rest) && !ROLE_NOUN.test(rest)) {
+    return { ...none, ...figures, role: toFind.role, client: given.client ?? asClient(rest), city: saidCity() };
+  }
 
   let city: string | null = given.city ?? cityClause;
-  const PLACE = String.raw`[A-Za-z][A-Za-z.'-]*(?:\s+[A-Za-z][A-Za-z.'-]*){0,2}`;
-  const where = new RegExp(String.raw`^(.*\S)\s+(?:in|at|from|near|based in|based out of|located in)\s+(${PLACE})$`, "i").exec(rest);
+  const where = PLACE_AT_END.exec(rest);
   const there = where?.[2] ? placeOf(where[2]) : null;
   if (where?.[1] && there) {
     city = city ?? there;
     rest = tidy(where[1]);
   } else {
     /* "DevOps Engineer, Bangalore": the city after a comma or a dash. */
-    const tail = new RegExp(String.raw`^(.*\S)\s*[,\-–—]\s*(${PLACE})$`).exec(rest);
+    const tail = PLACE_AFTER_COMMA.exec(rest);
     const named = tail?.[2] ? placeOf(tail[2]) : null;
     if (tail?.[1] && named) {
       city = city ?? named;
@@ -752,16 +847,18 @@ export function campaignAskIn(said: string): CampaignAsk {
   if (!client) {
     const forCo = /^(.*\S)\s+for\s+([A-Z0-9][\p{L}0-9&.'-]*(?:\s+[A-Z0-9][\p{L}0-9&.'-]*){0,3})$/u.exec(rest);
     const company = forCo?.[2]?.trim() ?? "";
-    /* Two or more capitalised words, none of them a field or a team ("Orbit Labs", not "Payments" or "Data Science"). */
-    const DOMAIN = /\b(?:teams?|department|division|group|squad|desk|org|organi[sz]ation|data|science|payments?|platform|infrastructure|engineering|product|design|sales|marketing|finance|security|growth|operations|support|research|analytics|ai|ml|devops|cloud|mobile|web|backend|frontend|fullstack)\b/i;
-    if (forCo?.[1] && company && company.split(/\s+/).length >= 2 && !DOMAIN.test(company)) {
+    /* Two or more capitalised words, none of them a field or a team ("Orbit Labs", not "Payments" or "Data Science"); or
+       one, after a whole title ("HR Business Partner for Vahan"), that is not a region ("Sales Manager for APAC"). */
+    const words = company.split(/\s+/).length;
+    const afterTitle = words === 1 && ROLE_AT_END.test(forCo?.[1] ?? "") && !REGION.test(company) && !ROLE_NOUN.test(company);
+    if (forCo?.[1] && company && (words >= 2 || afterTitle) && !DOMAIN.test(company)) {
       client = asClient(company);
       if (client) rest = forCo[1].trim();
     }
   }
   /* A title that long is a sentence, not a role: it is asked for. */
-  const role = given.role ?? (rest.length < 2 || rest.length > 120 ? null : rest);
-  return { ...none, ...figures, role, client, city };
+  const role = given.role ?? (rest.length < 2 || rest.length > 120 ? null : rest) ?? toFind?.role ?? null;
+  return { ...none, ...figures, role, client, city: city ?? toFind?.city ?? cityAnywhere() };
 }
 
 export function campaignNameIn(said: string): string | null {
@@ -799,6 +896,8 @@ export function newCampaignAnswers(said: string, answers: Readonly<Record<string
   if (!A.mode && hints.mode) A.mode = hints.mode;
   if (!A.openings && hints.openings) A.openings = String(hints.openings);
   if (A.jd === undefined && hints.jd) A.jd = hints.jd;
+  /* "no JD": the job description is answered as "I'll add it later", and the requirements are drafted from the rest. */
+  if (A.jd === undefined && hints.jdLater) A.jd = "";
   return A;
 }
 

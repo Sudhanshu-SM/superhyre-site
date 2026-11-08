@@ -179,7 +179,7 @@ describe("copy builders", () => {
       title: "The best fits so far",
       count: "3 shown · 21 ranked",
       sub: "Shortlist the ones worth reaching out to. A rejection takes a short reason.",
-      all: "See all 21 ranked profiles",
+      all: "View all 21 profiles",
     });
     expect(resultsCopy({ shown: 1, total: 1, unscored: 1 }).title).toBe("The best fit so far");
     expect(resultsCopy({ shown: 1, total: 1, unscored: 1 }).sub).toContain("aren't scored yet");

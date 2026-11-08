@@ -179,6 +179,19 @@ export type Candidate = {
   linkedinUrl?: string;
   /** True for someone already in the workspace, whose own row (notes, status) the sheet can read. */
   inWorkspace?: boolean;
+  /** The search result's short read of the profile, for a card drawn before the full profile is loaded. */
+  glance?: Glance;
+  recentlyChangedJob?: boolean;
+  /** Their profile photo, when the source has one: the card falls back to initials if it does not load. */
+  photo?: string;
+};
+
+/** What a card shows of a career: two jobs, two schools, a few skills and how many there are in all. */
+export type Glance = {
+  jobs: readonly { title: string; company: string; current: boolean }[];
+  schools: readonly { school: string; degree: string }[];
+  skills: readonly string[];
+  skillCount: number;
 };
 
 export const CANDIDATES: readonly Candidate[] = [
@@ -686,7 +699,7 @@ export const CANDIDATES: readonly Candidate[] = [
 ];
 
 /** How many the transcript shows before "See all". */
-export const PREVIEW_COUNT = 3;
+export const PREVIEW_COUNT = 5;
 
 export type Verdict = "shortlisted" | "rejected";
 
