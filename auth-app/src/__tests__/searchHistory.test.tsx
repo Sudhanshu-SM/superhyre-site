@@ -98,9 +98,9 @@ describe("a change, said in the filters dialog's own words", () => {
 
   it("says where searches look in the words the rest of the console uses, and nothing chosen before as the usual", () => {
     expect(changesOf(line({ lever: "sources", before: null, after: "database" }))).toEqual([
-      { label: "Searches look in", from: "external sources only", to: "our DB only" },
+      { label: "Searches look in", from: "DB-1", to: "our DB only" },
     ]);
-    expect(changesOf(line({ lever: "sources", before: "database", after: "both" }))[0]).toMatchObject({ to: "our DB and external sources" });
+    expect(changesOf(line({ lever: "sources", before: "database", after: "both" }))[0]).toMatchObject({ to: "our DB, then DB-1" });
   });
 
   it("says who and when in plain words, where it was made when that was not the dialog, and that an Undo put something back", () => {

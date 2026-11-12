@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.5.13 (2026-11-12)
+
+Needs platform 1.5.11 for DB-2 (an older server refuses the choice).
+
+### Changed
+- **Where to look** offers DB-1, DB-2, Our DB + DB-1 and Our DB only. DB-1 and DB-2 are separate external sources, never mixed in one search; no provider is named.
+
 ## 1.5.12 (2026-11-08)
 
 ### Fixed

@@ -228,8 +228,8 @@ export const campaignAgents = (id: string) => api<ApiCampaignAgents>("GET", `/v1
 export const setCampaignMembers = (id: string, userIds: string[]) => api<ApiCampaign>("PUT", `/v1/campaigns/${id}/members`, { userIds });
 /** Puts a closed campaign away (closing it first when it is open), or brings it back to the list. */
 /** Where this campaign's searches look for people: our database, external sources, or both. */
-export const setSources = (id: string, sources: "database" | "both" | "external") =>
-  api<{ sources: "database" | "both" | "external" }>("PUT", `/v1/campaigns/${id}/sources`, { sources });
+export const setSources = (id: string, sources: "database" | "both" | "external" | "apollo") =>
+  api<{ sources: "database" | "both" | "external" | "apollo" }>("PUT", `/v1/campaigns/${id}/sources`, { sources });
 /**
  * One line of a campaign's search history: a change to where its searches look or to its filters, with the value before and
  * after as the server kept them (the console says them in words: searchHistory.ts).

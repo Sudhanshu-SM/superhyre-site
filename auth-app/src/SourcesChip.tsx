@@ -8,8 +8,8 @@ import "./sources.css";
 const useBeforePaint = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 /**
- * Where the next search looks for people, on the composer: a chip that says which (DB only, DB + external,
- * External only) and a small menu above it to change it. It is a control, so it always says what it is set to.
+ * Where the next search looks for people, on the composer: a chip that says which (DB-1, DB-2, Our DB + DB-1,
+ * Our DB only) and a small menu above it to change it. It is a control, so it always says what it is set to.
  */
 
 /** The three choices as a list, for the chip's menu and for the docked bar's. */
