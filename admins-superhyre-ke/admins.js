@@ -37,7 +37,7 @@
   };
 
   var state = { view: "extension", p: "30", from: "", to: "", org: "", user: "", plot: "lookups", feed: "", idle: false, q: "" };
-  var sorts = { org: ["numbers", -1], user: ["activity", -1], src: ["calls", -1] };
+  var sorts = { org: ["numbers", -1], user: ["activity", -1], src: ["asked", -1] };
   var data = null, charts = {}, loading = false, seq = 0;
 
   // ---------------------------------------------------------------- helpers
@@ -246,13 +246,21 @@
     $("reload").disabled = true;
     $("updated").innerHTML = '<span class="spin" aria-hidden="true"></span>Loading…';
     try {
-      var d = await rpc("extension_admin_dashboard", { from: r.from, to: r.to, org: state.org, user: state.user });
+      var q = { from: r.from, to: r.to, org: state.org, user: state.user };
+      // The Sources numbers come from their own call (39); if it fails the rest of the page still draws.
+      var both = await Promise.all([
+        rpc("extension_admin_dashboard", q),
+        rpc("extension_admin_sources", q).catch(function (e) { console.error("admin sources:", e); return null; })
+      ]);
+      var d = both[0];
       if (mine !== seq) return;
       if (!d || d.ok === false) {
         if (d && d.reason === "forbidden") { refused(); return; }
         throw new Error((d && d.reason) || "no answer");
       }
       data = d;
+      var st = both[1];
+      data.stats = st && st.ok !== false ? (st.flow ? st : st.source_stats || null) : null;
       banner("");
       ungate();
       showView();
@@ -305,9 +313,10 @@
     var out = [];
     data.orgs.forEach(function (o) {
       if (o.personal) return;
-      if (Number(o.credits) <= 0) {
-        out.push({ k: "bad", t: "<b>" + esc(o.name) + "</b> has no lookup credits left. Their phone lookups are refused until it is topped up.", o: o });
-      } else if (Number(o.credits) <= 10) {
+      if (Number(o.credits) < 10) {
+        out.push({ k: "bad", t: "<b>" + esc(o.name) + "</b> has " + num(o.credits) + " credits: not enough for a phone number (10). " +
+          (Number(o.credits) >= 2 ? "Emails still work (2 each)." : "Emails are refused too.") + " Top it up.", o: o });
+      } else if (Number(o.credits) < 50) {
         out.push({ k: "warn", t: "<b>" + esc(o.name) + "</b> is low on credits: " + num(o.credits) + " left.", o: o });
       }
     });
@@ -334,17 +343,17 @@
     var t = data.totals, orgs = data.orgs;
     var finished = Number(t.numbers) + Number(t.misses);
     var credits = orgs.filter(function (o) { return !o.personal; }).reduce(function (s, o) { return s + Number(o.credits || 0); }, 0);
-    var out = orgs.filter(function (o) { return !o.personal && Number(o.credits) <= 0; }).length;
+    var out = orgs.filter(function (o) { return !o.personal && Number(o.credits) < 10; }).length;
     var people = data.options.users.length;
     $("tiles").innerHTML = [
       tile("Numbers found", num(t.numbers), delta(t.numbers, t.numbers_before) || "10 credits each", COLORS.numbers),
-      tile("Emails opened", num(t.emails), delta(t.emails, t.emails_before) || "free", COLORS.emails),
+      tile("Emails found", num(t.emails), delta(t.emails, t.emails_before) || "2 credits each", COLORS.emails),
       tile("Hit rate", pct(t.numbers, finished), plural(t.misses, "search", "searches") + " found no number"),
       tile("Added to sheet", num(t.sheet_adds), delta(t.sheet_adds, t.sheet_adds_before), COLORS.sheet),
       tile("Added to jobs", num(t.job_adds), plural(t.jobs_created, "job") + " created", COLORS.jobs),
       tile("Active people", num(t.active_users) + (state.user ? "" : " <small>of " + num(people) + "</small>"),
         delta(t.active_users, t.active_users_before)),
-      tile("Team credits left", num(credits), out ? '<span class="dn">' + plural(out, "organisation") + " at zero</span>" : "across organisations"),
+      tile("Team credits left", num(credits), out ? '<span class="dn">' + plural(out, "organisation") + " can't look up a number</span>" : "across organisations"),
       tile("Employee export profiles", num(t.export_profiles), "from " + plural(t.exports, "company run"))
     ].join("");
   }
@@ -388,7 +397,7 @@
       var o = baseOptions();
       o.scales.x.stacked = true; o.scales.y.stacked = true;
       cfg = { type: "bar", data: { labels: labels, datasets: [
-        bar("Numbers found", col("numbers"), COLORS.numbers), bar("Emails opened", col("emails"), COLORS.emails),
+        bar("Numbers found", col("numbers"), COLORS.numbers), bar("Emails found", col("emails"), COLORS.emails),
         bar("No number", col("misses"), COLORS.misses)] }, options: o };
     }
     draw("main", "mainChart", cfg);
@@ -401,7 +410,7 @@
     draw("org", "orgChart", { type: "bar", data: {
       labels: rows.map(function (r) { return r.personal ? "Personal" : r.name; }),
       datasets: [bar("Numbers found", rows.map(function (r) { return r.numbers; }), COLORS.numbers),
-                 bar("Emails opened", rows.map(function (r) { return r.emails; }), COLORS.emails),
+                 bar("Emails found", rows.map(function (r) { return r.emails; }), COLORS.emails),
                  bar("Added to sheet", rows.map(function (r) { return r.sheet_adds; }), COLORS.sheet)] }, options: o });
   }
 
@@ -449,7 +458,7 @@
   function creditPill(n) {
     if (n == null) return "—";
     n = Number(n);
-    var k = n <= 0 ? "bad" : n <= 10 ? "warn" : "ok";
+    var k = n < 10 ? "bad" : n < 50 ? "warn" : "ok";
     return '<span class="pill ' + k + '">' + num(n) + "</span>";
   }
   function activeCell(iso) {
@@ -465,7 +474,7 @@
       { k: "credits", label: "Credits left", num: true, html: function (r) { return r.personal ? '<span class="note">per person</span>' : creditPill(r.credits); } },
       { k: "apollo_credits", label: "Apollo credits", num: true, html: function (r) { return r.personal ? "" : num(r.apollo_credits); } },
       { k: "numbers", label: "Numbers found", num: true, html: function (r) { return num(r.numbers); } },
-      { k: "emails", label: "Emails", num: true, html: function (r) { return num(r.emails); } },
+      { k: "emails", label: "Emails found", num: true, html: function (r) { return num(r.emails); } },
       { k: "misses", label: "No number", num: true, html: function (r) { return num(r.misses); } },
       { k: "hit", label: "Hit rate", num: true, v: function (r) { return r.numbers / Math.max(1, r.numbers + r.misses); },
         html: function (r) { return pct(r.numbers, r.numbers + r.misses); } },
@@ -497,7 +506,7 @@
       { k: "org_name", label: "Organisation", v: function (r) { return r.org_name || "~"; }, html: function (r) {
           return r.org_name ? esc(r.org_name) + (r.role ? '<span class="sub">' + esc(r.role) + "</span>" : "") : '<span class="note">Personal</span>'; } },
       { k: "numbers", label: "Numbers found", num: true, html: function (r) { return num(r.numbers); } },
-      { k: "emails", label: "Emails", num: true, html: function (r) { return num(r.emails); } },
+      { k: "emails", label: "Emails found", num: true, html: function (r) { return num(r.emails); } },
       { k: "misses", label: "No number", num: true, html: function (r) { return num(r.misses); } },
       { k: "sheet_adds", label: "Sheet adds", num: true, html: function (r) { return num(r.sheet_adds); } },
       { k: "job_adds", label: "Job adds", num: true, html: function (r) { return num(r.job_adds); } },
@@ -537,6 +546,8 @@
     }
     el.innerHTML = '<thead><tr><th>When</th><th>Account</th><th>Change</th><th>By</th></tr></thead><tbody>' + rows.map(function (r) {
       var lines = [change(r.lookup_before, r.lookup_after, "Lookup"), change(r.apollo_before, r.apollo_after, "Apollo")].filter(Boolean);
+      // Before 4 Nov 2026 (SQL 38) a credit was worth 10 of today's: those amounts are in the old units.
+      if (lines.length && r.at < SCALED_AT) lines.push('<span class="note">old units: ×10 in today\'s credits</span>');
       return "<tr><td>" + esc(when(r.at)) + "</td><td><b>" + esc(r.target || "—") + "</b>" + (r.personal ? '<span class="sub">personal</span>' : "") +
         "</td><td>" + (lines.join("<br>") || '<span class="note">no change</span>') +
         (r.note ? '<span class="sub">“' + esc(r.note) + "”</span>" : "") + "</td><td>" + esc((r.admin_email || "").split("@")[0]) +
@@ -544,11 +555,13 @@
     }).join("") + "</tbody>";
   }
 
+  var SCALED_AT = "2026-11-04T09:58:12";
+
   var KINDS = {
     "lookup:found": ["found a number", COLORS.numbers, "lookup"],
     "lookup:shared": ["opened a number", COLORS.numbers, "lookup"],
     "lookup:cached": ["reopened a number (free)", COLORS.misses, "lookup"],
-    "lookup:emails": ["opened emails", COLORS.emails, "lookup"],
+    "lookup:emails": ["found an email", COLORS.emails, "lookup"],
     "lookup:not_found": ["searched, no number", COLORS.misses, "lookup"],
     "lookup:requested": ["searched, waiting on a late answer", COLORS.misses, "lookup"],
     "lookup:failed": ["lookup failed", "#b3261e", "lookup"],
@@ -571,29 +584,111 @@
     }).join("") : '<li class="empty">Nothing in this period.</li>';
   }
 
+  // Sources (39): every call is for an email or for a number, and ends found, not found or error, so
+  // Asked = Email calls + Number calls, and each kind of call = its found + not found + errors.
   function sourceTable() {
-    // "Asked" counts only the times the source was really called: rows for a source the lookup never got to (an
-    // earlier one already had the number, it was asked about this person before, no key, a daily cap) are left out.
-    var rows = data.sources.map(function (s) {
-      return Object.assign({}, s, {
-        found: s.purpose === "profile_enrichment" ? s.profiles : s.phones,
-        calls: Math.max(0, (Number(s.calls) || 0) - (Number(s.skipped) || 0))
-      });
-    }).filter(function (r) { return r.calls > 0; });
-    table("sourceTable", "src", [
-      { k: "name", label: "Source", html: function (r) {
-          return "<b>" + esc(r.name) + '</b><span class="sub">' + (r.purpose === "profile_enrichment" ? "profile details" : "contact lookup") + "</span>"; } },
-      { k: "calls", label: "Asked", num: true, html: function (r) { return num(r.calls); } },
-      { k: "found", label: "Number / profile", num: true, html: function (r) { return num(r.found); } },
-      { k: "email_only", label: "Email only", num: true, html: function (r) { return num(r.email_only); } },
-      { k: "misses", label: "No match", num: true, html: function (r) { return num(r.misses); } },
-      { k: "pending", label: "Answering later", num: true, html: function (r) { return num(r.pending); } },
+    var st = data.stats;
+    if (!st) {
+      $("sourceTable").innerHTML = '<tbody><tr><td class="empty">Couldn\'t load the source numbers. Press Refresh data.</td></tr></tbody>';
+      $("flow").innerHTML = "";
+      $("srcExtra").textContent = "";
+      return;
+    }
+    var waiting = st.sources.some(function (r) { return Number(r.number_waiting) > 0; });
+    var cols = [
+      { k: "name", label: "Source", html: function (r) { return "<b>" + esc(r.name) + "</b>"; } },
+      { k: "asked", label: "Asked", num: true, html: function (r) { return "<b>" + num(r.asked) + "</b>"; } },
+      { k: "email_calls", label: "Email calls", num: true, html: function (r) { return num(r.email_calls); } },
+      { k: "number_calls", label: "Number calls", num: true, html: function (r) { return num(r.number_calls); } },
+      { k: "email_found", label: "Emails found", num: true, html: function (r) { return num(r.email_found); } },
+      { k: "number_found", label: "Numbers found", num: true, html: function (r) { return num(r.number_found); } },
+      { k: "email_not_found", label: "Emails not found", num: true, html: function (r) { return num(r.email_not_found); } },
+      { k: "number_not_found", label: "Numbers not found", num: true, html: function (r) { return num(r.number_not_found); } },
+      // Hit rate = found ÷ calls of that kind (errors count as calls that found nothing).
+      { k: "email_hit", label: "Email hit rate", num: true, v: function (r) { return r.email_calls ? r.email_found / r.email_calls : -1; },
+        html: function (r) { return "<b>" + pct(r.email_found, Number(r.email_calls)) + "</b>"; } },
+      { k: "number_hit", label: "Number hit rate", num: true, v: function (r) { return r.number_calls ? r.number_found / r.number_calls : -1; },
+        html: function (r) { return "<b>" + pct(r.number_found, Number(r.number_calls)) + "</b>"; } }
+    ];
+    if (waiting) cols.push({ k: "number_waiting", label: "Number on its way", num: true, html: function (r) { return num(r.number_waiting); } });
+    cols.push(
       { k: "errors", label: "Errors", num: true, html: function (r) {
-          return Number(r.errors) ? '<span class="pill bad">' + num(r.errors) + "</span>" : "0"; } },
-      { k: "hit", label: "Hit rate", num: true, v: function (r) { return r.found / Math.max(1, r.found + r.email_only + r.misses + r.errors); },
-        html: function (r) { return pct(r.found, r.found + r.email_only + r.misses + r.errors); } },
+          if (!Number(r.errors)) return "0";
+          var why = (r.error_reasons || []).map(function (x) { return num(x.n) + " " + x.reason.toLowerCase(); }).join("<br>");
+          return '<span class="pill bad">' + num(r.errors) + '</span><span class="sub why">' + why + "</span>"; } },
       { k: "avg_ms", label: "Avg time", num: true, html: function (r) { return r.avg_ms == null ? "—" : (r.avg_ms / 1000).toFixed(1) + "s"; } }
-    ], rows, "No source was asked in this period.");
+    );
+    table("sourceTable", "src", cols, st.sources, "No source was asked in this period.");
+
+    // Profile details are not a contact lookup: one line under the table.
+    var en = (data.sources || []).filter(function (s) { return s.purpose === "profile_enrichment" && Number(s.calls) > 0; });
+    var notes = en.map(function (s) {
+      return "Profile details (" + s.name + "): asked " + num(s.calls) + ", filled " + num(s.profiles) + ", errors " + num(s.errors) + ".";
+    });
+    // Before 13 Nov 2026 a call did not record its button (39): it was worked out from the lookup's own records,
+    // except when an email and a number search for one person were filed under 2 seconds apart.
+    if (Number(st.estimated)) {
+      notes.unshift(plural(st.estimated, "call") + " in this period (before 13 Nov 2026) ran side by side with the other button's search for the same person, so which of the two was the email search is estimated. Every other call is exact.");
+    }
+    $("srcExtra").textContent = notes.join(" ");
+
+    var flow = st.flow || {};
+    $("flow").innerHTML = (flow.phone || []).map(function (f) { return flowTable("Access phone number", f, "numbers", true); }).join("") +
+                          (flow.email || []).map(function (f) { return flowTable("Access email", f, "emails", false); }).join("") +
+                          reconcile(st);
+  }
+
+  // The chains hold every call once, so per source and button their steps add up to the table's row. Checked here,
+  // so a mismatch would be seen rather than trusted.
+  function reconcile(st) {
+    var sum = {};
+    ["phone", "email"].forEach(function (m) {
+      ((st.flow || {})[m] || []).forEach(function (f) {
+        f.steps.forEach(function (x) {
+          var k = x.provider + ":" + m, t = sum[k] || (sum[k] = { calls: 0, found: 0, not_found: 0, errors: 0, waiting: 0 });
+          t.calls += Number(x.asked) + Number(x.after_answer || 0); t.found += Number(x.found); t.not_found += Number(x.not_found);
+          t.errors += Number(x.errors); t.waiting += Number(x.waiting);
+        });
+      });
+    });
+    var off = [];
+    st.sources.forEach(function (r) {
+      var e = sum[r.provider + ":email"] || { calls: 0, found: 0, not_found: 0, errors: 0 };
+      var n = sum[r.provider + ":phone"] || { calls: 0, found: 0, not_found: 0, errors: 0, waiting: 0 };
+      if (e.calls !== Number(r.email_calls) || e.found !== Number(r.email_found) || e.errors !== Number(r.email_errors) ||
+          n.calls !== Number(r.number_calls) || n.found !== Number(r.number_found) || n.errors !== Number(r.number_errors)) {
+        off.push(r.name);
+      }
+    });
+    return '<p class="note">' + (off.length
+      ? '<span class="dn">Doesn\'t match the table for ' + esc(off.join(", ")) + ".</span> Tell the extension team."
+      : "✓ Added across the chains, every source's calls, finds, not founds and errors equal its row in the table above.") + "</p>";
+  }
+
+  // One button's chain, counted per lookup: every step's Reached is the step before's Passed on.
+  function flowTable(title, f, what, phone) {
+    if (!f || !f.steps) return "";
+    var rows = f.steps.map(function (x) {
+      var why = [];
+      if (Number(x.asked_before)) why.push(num(x.asked_before) + " already asked about them");
+      if (Number(x.not_asked_other)) why.push(num(x.not_asked_other) + (phone && x.provider === "apollo" ? " no Apollo credits / other" : " other"));
+      return "<tr><td>" + x.pos + '</td><td><b>' + esc(x.name) + '</b></td><td class="num">' + num(x.reached) +
+        '</td><td class="num">' + num(x.found) + (Number(x.waiting) ? '<span class="sub">+' + num(x.waiting) + " on its way</span>" : "") +
+        '</td><td class="num"><b>' + pct(Number(x.found), Number(x.asked)) + '</b><span class="sub">of ' + num(x.asked) + ' asked</span>' +
+        '</td><td class="num">' + num(x.not_found) + '</td><td class="num">' + (Number(x.errors) ? '<span class="pill bad">' + num(x.errors) + "</span>" : "0") +
+        '</td><td class="num">' + num(x.not_asked) + (why.length ? '<span class="sub">' + why.join("<br>") + "</span>" : "") +
+        '</td><td class="num"><b>' + num(x.passed_on) + "</b></td></tr>";
+    }).join("");
+    var last = f.steps[f.steps.length - 1];
+    var order = f.steps.map(function (x) { return x.name; }).join(" → ");
+    var span = f.since && f.until ? longDay(String(f.since).slice(0, 10)) + " – " + longDay(String(f.until).slice(0, 10))
+             : f.since ? "since " + longDay(String(f.since).slice(0, 10)) : "until " + longDay(String(f.until).slice(0, 10));
+    return '<div class="flow-one"><p class="chain-t"><b>' + esc(title) + "</b>, " + esc(order) + ": " + num(f.lookups) + " lookups needed a source" +
+      ' <span class="note">(' + esc(span) + ")</span></p>" +
+      '<div class="scroll"><table class="flowt"><thead><tr><th>Step</th><th>Source</th><th class="num">Reached</th><th class="num">Found</th><th class="num">Hit rate</th>' +
+      '<th class="num">Not found</th><th class="num">Error</th><th class="num">Not asked</th><th class="num">Passed on</th></tr></thead><tbody>' +
+      rows + "</tbody></table></div>" +
+      '<p class="note">' + num(last ? last.passed_on : 0) + " ended with no " + what.slice(0, -1) + ".</p></div>";
   }
 
   function company(url) {
@@ -620,7 +715,7 @@
       c("People", num(b.people), "+" + num(b.added) + " in this period"),
       c("With a phone number", num(b.with_phone), pct(b.with_phone, b.people) + " of everyone"),
       c("With an email", num(b.with_email), pct(b.with_email, b.people) + " of everyone"),
-      c("Profile details filled", num(b.enriched), pct(b.enriched, b.people) + " of everyone")
+      c("Profile details looked up", num(b.enriched), pct(b.enriched, b.people) + " of everyone")
     ].join("");
   }
 

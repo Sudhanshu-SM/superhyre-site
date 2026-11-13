@@ -153,6 +153,13 @@
     <section class="card">
       <div class="ch"><h2>Sources</h2><span class="sp"></span><span class="note">Each source asked, in the period. Internal: never shown to customers.</span></div>
       <div class="scroll"><table id="sourceTable"></table></div>
+      <p class="note">Asked = Email calls + Number calls. Every call ends found, not found or error, so Email calls = Emails found + Emails not found + its errors, and the same for numbers. Hit rate = found ÷ calls of that kind (an error counts as a call that found nothing). A source not asked (another found it first, or it already answered about that person in the last 90 days) is not counted.</p>
+      <p class="note" id="srcExtra"></p>
+      <div class="chain">
+        <h3>How lookups moved down the chain</h3>
+        <p class="note">Counted per lookup, in the order the sources were asked at the time (one table per order, newest first). Hit rate = Found ÷ the times the source was asked at that step. <b>Passed on</b> = Not found + Error + Not asked, and it is exactly the next step's <b>Reached</b>.</p>
+        <div class="flow" id="flow"></div>
+      </div>
       <div class="chain">
         <h3>How a lookup runs</h3>
         <div class="chain-cols">
@@ -191,10 +198,12 @@
       </section>
     </div>
 
-    <p class="foot">What the numbers mean: <b>Numbers found</b> is every phone number opened, each one credit.
-      <b>Emails opened</b> are free. <b>No number</b> is a search that found none (free).
-      <b>Hit rate</b> is numbers found out of all finished phone searches. Adds are rows written to a Google Sheet or
-      candidates added to a job from the extension. Adds before 6 Oct 2026 were not recorded.</p>
+    <p class="foot">What the numbers mean: <b>Numbers found</b> is every phone number opened, 10 credits each (1 before
+      4 Nov 2026). <b>Emails found</b> is every Access email that found an email, 2 credits each (0.2 from 31 Oct, free before);
+      one that found none is free and not counted. <b>No number</b> is a phone search that found none (free).
+      <b>Hit rate</b> is numbers found out of all finished phone searches (an Apollo search still waiting is not finished).
+      Credits left: under 10 a team cannot look up a number, under 2 not even an email. Adds are rows written to a Google
+      Sheet or candidates added to a job from the extension. Adds before 6 Oct 2026 were not recorded.</p>
   </main>
 
   <!-- The agent dashboard: the same numbers as /agent/admin-dashboard, read through public.admin_agent_dashboard. -->

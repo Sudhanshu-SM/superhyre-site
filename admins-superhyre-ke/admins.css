@@ -276,3 +276,9 @@ dialog .muted { margin: -6px 0 0; font-size: 13px; }
 .chain li { margin: 2px 0; }
 .chain .note { margin: 4px 0 0; }
 @media (max-width: 760px) { .chain-cols { grid-template-columns: 1fr; } }
+
+/* Sources (39): error reasons under the count, and the chain's per-lookup flow. */
+td .sub.why { white-space: nowrap; }
+.flow { display: grid; grid-template-columns: 1fr; gap: 18px; }
+.flow-one .chain-t { margin-bottom: 8px; }
+.flowt td .sub { white-space: nowrap; }
